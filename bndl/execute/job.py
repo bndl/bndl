@@ -74,7 +74,10 @@ class Stage(Lifecycle):
                 if worker in workers and worker.is_connected and not running[worker]:
                     return worker
 
-        def start_next_task():
+        def start_next_task(done=None):
+            if done:
+                worker, task = done
+                running[worker] = None
             if stop:
                 return
             for idx, task in enumerate(todo[:]):
@@ -84,8 +87,7 @@ class Stage(Lifecycle):
                         running[w] = task
                         del todo[idx]
                         future = task.execute(w)
-                        future.add_done_callback(lambda future: setitem(running, w, None))
-                        future.add_done_callback(lambda future: start_next_task())
+                        future.add_done_callback(lambda future: start_next_task((w, task)))
                         results.put(task)
                         break
         try:
