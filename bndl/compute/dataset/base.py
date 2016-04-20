@@ -190,7 +190,7 @@ class Dataset(metaclass=abc.ABCMeta):
     def join_on(self, other, key):
         a = self.key_by(key)
         b = other.key_by(key)
-        return a.join(b)  # TODO strip off key
+        return a.join(b)
 
 
     def join(self, other):
