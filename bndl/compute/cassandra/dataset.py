@@ -64,6 +64,18 @@ class CassandraScanDataset(Dataset):
     def parts(self):
         with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
             partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
+            while len(partitions) < self.ctx.default_pcount:
+                repartitioned = []
+                for replicas, token_ranges in partitions:
+                    if len(token_ranges) == 1:
+                        continue
+                    mid = len(token_ranges) // 2
+                    repartitioned.append((replicas, token_ranges[:mid]))
+                    repartitioned.append((replicas, token_ranges[mid:]))
+                if len(repartitioned) == len(partitions):
+                    break
+                partitions = repartitioned
+
 
         return [
             CassandraScanPartition(self, i, replicas, token_ranges)
