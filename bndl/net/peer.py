@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import logging
 import os.path
 import socket
@@ -41,9 +40,12 @@ class PeerNode(object):
 
 
     @property
-    @functools.lru_cache()
     def ip_addresses(self):
         return set(filter_ip_addresses(self.addresses))
+
+    @property
+    def islocal(self):
+        return bool(self.ip_addresses & self.local.ip_addresses)
 
 
     @asyncio.coroutine
@@ -233,12 +235,7 @@ class PeerNode(object):
         if parsed.scheme == 'tcp':
             return scheme_match
         elif parsed.scheme == 'unix':
-            return (
-                scheme_match and
-                (bool(self.ip_addresses & self.local.ip_addresses) or
-                 not (self.ip_addresses | self.local.ip_addresses))
-                and os.path.exists(parsed.path)
-            )
+            return scheme_match and (self.islocal or not (self.ip_addresses | self.local.ip_addresses)) and os.path.exists(parsed.path)
 
 
     @asyncio.coroutine
