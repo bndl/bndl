@@ -47,7 +47,7 @@ class DistributedFiles(Dataset):
             for filename in self.filenames:
                 part.append(filename)
                 size += os.path.getsize(filename)
-                if size >= self.psize:
+                if size >= self.psize_bytes:
                     part = []
                     parts.append(part)
                     size = 0

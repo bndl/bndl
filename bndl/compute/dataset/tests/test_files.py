@@ -20,7 +20,7 @@ class FilesTest(DatasetTest):
         for contents, file in zip(cls.contents, cls.files):
             file.file.write(contents)
             file.file.flush()
-        cls.dset = cls.ctx.files(cls.filenames, psize=1023 * 2)
+        cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1023 * 2)
 
     def test_pcount(self):
         self.assertEqual(len(self.dset.parts()), round(((128 * 8 - 1) * 32) / (1024 * 2)))
