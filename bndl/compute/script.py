@@ -9,4 +9,4 @@ __all__ = ['ctx']
 argparser = copy.copy(argparser)
 argparser.prog = 'bndl.compute.script'
 args = argparser.parse_args(split_args())
-ctx = main(args)
+ctx = main(args, daemon=True)

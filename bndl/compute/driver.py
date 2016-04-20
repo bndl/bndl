@@ -92,7 +92,7 @@ def run_bndl(args, conf, started, stopped):
 
 
 
-def main(args=None):
+def main(args=None, daemon=False):
     if isinstance(args, argparse.Namespace):
         args = args
     else:
@@ -107,7 +107,7 @@ def main(args=None):
 
 
     # start the thread to set up the driver etc. and run the aio loop
-    bndl_thread = threading.Thread(target=run_bndl, args=(args, conf, started, stopped))
+    bndl_thread = threading.Thread(target=run_bndl, args=(args, conf, started, stopped), daemon=daemon)
     bndl_thread.start()
     # wait for driver, workers etc. to set up
     started.result()
