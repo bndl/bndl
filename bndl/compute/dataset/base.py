@@ -32,6 +32,8 @@ class Dataset(metaclass=abc.ABCMeta):
         self.src = src
         self.id = dset_id or next(ctx._dataset_ids)
         self._cache = False
+        self._worker_preference = None
+        self._worker_filter = None
 
 
     @abc.abstractmethod
@@ -299,6 +301,19 @@ class Dataset(metaclass=abc.ABCMeta):
         return schedule_job(self)
 
 
+    def prefer_workers(self, fltr):
+        return self._with('_worker_preference', fltr)
+
+    def allow_workers(self, fltr):
+        return self._with('_worker_filter', fltr)
+
+    def allow_local_workers(self):
+        return self.allow_workers(lambda workers: [w.islocal for w in workers])
+
+    def allow_all_workers(self):
+        return self.allow_workers(lambda workers: [w.islocal for w in workers])
+
+
     def cache(self, cached=True):
         assert self.ctx.node.node_type == 'driver'
         self._cache = cached
@@ -307,7 +322,6 @@ class Dataset(metaclass=abc.ABCMeta):
             [task.result() for task in tasks]
 
         return self
-
 
     @property
     def cached(self):
@@ -329,7 +343,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def _with(self, attribute, value):
-        clone = copy.copy(self)
+        clone = type(self).__new__(type(self))
+        clone.__dict__ = dict(self.__dict__)
         setattr(clone, attribute, value)
         return clone
 
@@ -371,13 +386,19 @@ class Partition(metaclass=abc.ABCMeta):
     def _materialize(self, ctx):
         pass
 
+
     def preferred_workers(self, workers):
         if self.src:
             return self.src.preferred_workers(workers)
+        elif self.dset._worker_preference:
+            return self.dset._worker_preference(workers)
 
     def allowed_workers(self, workers):
         if self.src:
             return self.src.allowed_workers(workers)
+        elif self.dset._worker_filter:
+            return self.dset._worker_filter(workers)
+
 
     def __lt__(self, other):
         return other.dset.id < self.dset.id or other.idx > self.idx
