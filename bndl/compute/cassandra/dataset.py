@@ -107,8 +107,6 @@ class CassandraScanPartition(Partition):
 
 
     def _materialize(self, ctx):
-
-
         with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
             session.row_factory = named_tuple_factory
             # session.default_fetch_size = 1000
