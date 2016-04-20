@@ -1,9 +1,14 @@
 import abc
-import concurrent.futures
 import functools
+from itertools import chain
 import logging
+import queue
+
+import concurrent.futures
 
 from bndl.util.lifecycle import Lifecycle
+from threading import Lock
+from operator import setitem
 
 
 logger = logging.getLogger(__name__)
@@ -22,12 +27,14 @@ class Job(Lifecycle):
 
         logger.info('executing job %s with stages %s', self, self.stages)
 
+        workers = self.ctx.workers[:]
+
         for stage in self.stages:
             if not self.running:
                 break
             logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
             stage.add_listener(self._stage_done)
-            yield stage.execute(eager=eager)
+            yield stage.execute(workers, eager)
 
 
     def _stage_done(self, stage):
@@ -51,44 +58,64 @@ class Stage(Lifecycle):
         self.job = job
         self.tasks = []
 
-
-    def execute(self, eager=True):
+    def execute(self, workers, eager=True):
         self._signal_start()
 
-        if eager:
-            # TODO run one task per worker at most?
-            # throttle here? or at the worker? or both?
-            # having a second task in flight keeps throughput up ...
+        todo = self.tasks[:]
+        running = {w:None for w in workers}
+        assignment_lock = Lock()
+        results = queue.Queue()
 
-            # materializing the generator above into a list forces the immediate
-            # (asynchronous) execution of self.tasks
-            executed = [task.execute() for task in self.tasks]
-        else:
-            executed = [None] * len(self.tasks)
+        exc = None
+        stop = False
 
-        # TODO timeout and reschedule
+        def select_worker(task):
+            for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers or workers)):
+                if worker in workers and worker.is_connected and not running[worker]:
+                    return worker
 
+        def start_next_task():
+            if stop:
+                return
+            for idx, task in enumerate(todo[:]):
+                with assignment_lock:
+                    w = select_worker(task)
+                    if w:
+                        running[w] = task
+                        del todo[idx]
+                        future = task.execute(w)
+                        future.add_done_callback(lambda future: setitem(running, w, None))
+                        future.add_done_callback(lambda future: start_next_task())
+                        results.put(task)
+                        break
         try:
-            exc = None
+            if eager:
+                # start a task for each worker if eager
+                for _ in workers:
+                    start_next_task()
+            else:
+                # or just go about it one at a time
+                start_next_task()
 
-            for task, future in zip(self.tasks, executed):
-                if exc:
-                    if future:
-                        future.cancel()
-                else:
-                    if not future:
-                        future = task.execute()
-                    try:
-                        result = future.result()
-                        task._signal_stop()
-                        yield result
-                    except Exception as e:
-                        # TODO reschedule?
-                        # unless CancelledError of course
-                        # cancel job after x retries on different machines?
-                        exc = e
+            # complete len(self.tasks)
+            for _ in range(len(self.tasks)):
+                task = results.get()
+                try:
+                    yield task.result()
+                except Exception as e:
+                    # TODO retry on other worker
+                    stop = True
+                    exc = e
+                    break
+
+            if stop:
+                for task in self.tasks:
+                    task.cancel()
+
+            # raise any error
             if exc:
                 raise exc
+
         except concurrent.futures.CancelledError as e:
             return
         except Exception as e:
@@ -137,19 +164,17 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.kwargs = kwargs
         self.preferred_workers = preferred_workers
         self.allowed_workers = allowed_workers
+        self.future = None
 
-    def execute(self):
-        # TODO reschedule on failure / timeout / ...
+    def execute(self, worker):
         self._signal_start()
-
-        workers = self.preferred_workers + (self.allowed_workers or self.stage.job.ctx.workers)
-        for worker in workers:
-            if worker.is_connected:
-                break
         self.future = worker.run_task(self.method, *self.args, **(self.kwargs or {}))
         self.future.add_done_callback(lambda future: self._signal_stop())
         return self.future
 
+    def result(self):
+        assert self.future, 'task not yet scheduled'
+        return self.future.result()
 
     def cancel(self):
         super().cancel()
