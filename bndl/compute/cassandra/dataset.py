@@ -1,5 +1,4 @@
 import logging
-import os
 
 from bndl.compute.cassandra import partitioner
 from bndl.compute.cassandra.session import cassandra_session
@@ -13,11 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class CassandraScanDataset(Dataset):
-    def __init__(self, ctx, keyspace, table, contact_points=None):
+    def __init__(self, ctx, keyspace, table, concurrency=10, contact_points=None):
         super().__init__(ctx)
         self.keyspace = keyspace
         self.table = table
         self.contact_points = contact_points
+        self.concurrency = concurrency
         self._row_factory = named_tuple_factory
 
         with ctx.cassandra_session(contact_points=self.contact_points) as session:
@@ -62,14 +62,9 @@ class CassandraScanDataset(Dataset):
 
 
     def parts(self):
-        # TODO assign in a node local fashion
-        # combining token ranges into partitions if they fit
-        # spreading across nodes with node locality preferred
         with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
             partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
-            # TODO if len(partitions) < self._ctx.default_part_count:
 
-        # print('creating', len(partitions), 'partitions')
         return [
             CassandraScanPartition(self, i, replicas, token_ranges)
             for i, (replicas, token_ranges) in enumerate(partitions)
@@ -110,7 +105,7 @@ class CassandraScanPartition(Partition):
             query = self.dset.query(session)
             logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=10, results_generator=True)
+            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency, results_generator=True)
             for success, rows in results:
                 assert success  # TODO handle failure
                 for row in rows:
