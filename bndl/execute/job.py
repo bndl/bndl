@@ -55,27 +55,33 @@ class Stage(Lifecycle):
     def execute(self, eager=True):
         self._signal_start()
 
-        # TODO run one task per worker at most?
-        # throttle here? or at the worker? or both?
-        # having a second task in flight keeps throughput up ...
-        executed = (task.execute() for task in self.tasks)
-
-        # materializing the generator above into a list forces the immediate
-        # (asynchronous) execution of self.tasks
         if eager:
-            executed = list(executed)
+            # TODO run one task per worker at most?
+            # throttle here? or at the worker? or both?
+            # having a second task in flight keeps throughput up ...
+
+            # materializing the generator above into a list forces the immediate
+            # (asynchronous) execution of self.tasks
+            executed = [task.execute() for task in self.tasks]
+        else:
+            executed = [None] * len(self.tasks)
 
         # TODO timeout and reschedule
 
         try:
             exc = None
 
-            for future in executed:
+            for task, future in zip(self.tasks, executed):
                 if exc:
-                    future.cancel()
+                    if future:
+                        future.cancel()
                 else:
+                    if not future:
+                        future = task.execute()
                     try:
-                        yield future.result()
+                        result = future.result()
+                        task._signal_stop()
+                        yield result
                     except Exception as e:
                         # TODO reschedule?
                         # unless CancelledError of course

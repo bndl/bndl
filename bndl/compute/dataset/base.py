@@ -288,7 +288,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def execute(self):
-        # TODO check if consumption of the
+        # TODO check if consumption of the generator is required
         for _ in self._execute():
             pass
 

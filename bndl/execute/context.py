@@ -25,7 +25,7 @@ class ExecutionContext(Lifecycle):
             for l in self._listeners:
                 job.add_listener(l)
 
-            for stage, stage_execution in zip(job.stages, job.execute(eager=True)):
+            for stage, stage_execution in zip(job.stages, job.execute(eager=eager)):
                 for result in stage_execution:
                     if stage == job.stages[-1]:
                         yield result
