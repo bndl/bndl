@@ -115,11 +115,12 @@ class CassandraScanPartition(Partition):
             query = self.dset.query(session)
             logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency, results_generator=True)
+            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
             for success, rows in results:
                 assert success  # TODO handle failure
                 for row in rows:
                     yield row
+
 
     def preferred_workers(self, workers):
         return [
