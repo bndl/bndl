@@ -54,7 +54,7 @@ setup(
         # bundle, .net, .run and .util
         "sortedcontainers",
         "cloudpickle",
-        "python-snappy",
+        # "python-snappy",
         "cytoolz",
         "numpy",
         "progressbar2",
@@ -76,7 +76,7 @@ setup(
     entry_points=dict(
         console_scripts=[
             'bndl-shell = bndl.compute.shell:main [shell]',
-            'bndl-supervisor = bundle.util.supervisor:main',
+            'bndl-supervisor = bndl.util.supervisor:main',
         ],
     ),
 
