@@ -6,8 +6,13 @@ import pickle
 import sys
 import types
 
-from bndl.util.marshalable import marshalable  # @UnresolvedImport, cython import
 import cloudpickle
+
+
+try:
+    from bndl.util.marshalable import marshalable
+except ImportError as e:
+    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
 
 
 # TODO investigate performance of snappy in a cluster

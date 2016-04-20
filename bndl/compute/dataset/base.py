@@ -19,8 +19,8 @@ import sortedcontainers.sortedlist
 try:
     from bndl.compute.dataset.stats import partition_size, local_mean, reduce_mean
     from bndl.util.hash import portable_hash
-except ImportError:
-    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution')
+except ImportError as e:
+    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
 
 
 
