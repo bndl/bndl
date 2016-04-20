@@ -1,41 +1,59 @@
 import os.path
 
 from bndl.compute.dataset.base import Dataset, Partition
-from bndl.util.fs import filenames
+from bndl.util.fs import filenames, read_file
+from bndl.util.collection import batch
 
 
 class DistributedFiles(Dataset):
-    def __init__(self, ctx, root, recursive=False, dfilter=None, ffilter=None, psize=None):
+    def __init__(self, ctx, root, recursive=False, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None):
         super().__init__(ctx)
         self.filenames = (
             list(filenames(root, recursive, dfilter, ffilter))
             if isinstance(root, str)
             else list(root)
         )
-        self.psize = psize or 64 * 1024 * 1024
+
+        if psize_bytes is not None and psize_files is not None:
+            raise ValueError("can't set both psize_bytes and psize_files")
+        elif psize_bytes is not None and psize_bytes <= 0:
+            raise ValueError("psize_bytes can't be negative or zero")
+        elif psize_files is not None and psize_files <= 0:
+            raise ValueError("psize_bytes can't be negative or zero")
+        elif psize_bytes is None and psize_files is None:
+            psize_bytes = 64 * 1024 * 1024
+
+        self.psize_bytes = psize_bytes
+        self.psize_files = psize_files
+
 
     def decode(self, encoding='utf-8', errors='strict'):
         return self.map_values(lambda blob: blob.decode(encoding, errors))
 
+
     def lines(self, encoding='utf-8', keepends=False, errors='strict'):
         return self.decode(encoding, errors).values().flatmap(lambda blob: blob.splitlines(keepends))
 
+
     def parts(self):
-        # TODO split within files
-        # for start in range(0, len(file), 64):
-        #     file[start:start+64]
+        if self.psize_bytes:
+            # TODO split within files
+            # for start in range(0, len(file), 64):
+            #     file[start:start+64]
 
-        part = []
-        parts = [part]
-        size = 0
+            part = []
+            parts = [part]
+            size = 0
+            for filename in self.filenames:
+                part.append(filename)
+                size += os.path.getsize(filename)
+                if size >= self.psize:
+                    part = []
+                    parts.append(part)
+                    size = 0
+        else:
+            parts = batch(self.filenames, self.psize_files)
 
-        for filename in self.filenames:
-            part.append(filename)
-            size += os.path.getsize(filename)
-            if size >= self.psize:
-                part = []
-                parts.append(part)
-                size = 0
 
         return [
             FilesPartition(self, idx, filenames)
@@ -64,5 +82,4 @@ class FilesPartition(Partition):
 
     def _read(self):
         for filename in self.filenames:
-            with open(filename, 'rb') as f:
-                yield f.read()
+            yield read_file(filename, 'rb')
