@@ -1,5 +1,3 @@
-import signal
-
 import IPython
 
 
@@ -11,19 +9,13 @@ header = ''' _____ _____ _____ ____  __    _____
 '''
 
 
-def on_interrupt(ctx, sig, frame):
-    assert sig == signal.SIGINT
-#     for job in ctx.jobs:
-#         job.cancel()
-
-
 def main():
+    # import here because the import involves setting up the context
     from bndl.compute.script import ctx
     try:
-        # signal.signal(signal.SIGINT, functools.partial(on_interrupt, ctx))
-        IPython.embed(user_ns=dict(ctx=ctx))
+        IPython.embed(header=header, user_ns=dict(ctx=ctx))
     finally:
-        ctx.stop()  # @UndefinedVariable
+        ctx.stop()
 
 
 if __name__ == '__main__':
