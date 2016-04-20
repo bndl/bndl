@@ -74,9 +74,13 @@ def run_bndl(args, conf, started, stopped):
 
     try:
         # start driver, supervisor and wait for them to connect
-        loop.run_until_complete(driver.start())
-        loop.run_until_complete(supervisor.start())
-        loop.run_until_complete(wait_for_peers())
+        try:
+            loop.run_until_complete(driver.start())
+            loop.run_until_complete(supervisor.start())
+            loop.run_until_complete(wait_for_peers())
+        except:
+            started.set_result(True)
+            return
 
         # signal the set up is done
         started.set_result(True)
