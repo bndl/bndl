@@ -1,3 +1,6 @@
+import logging
+import os
+
 from bndl.compute.cassandra import partitioner
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
@@ -6,14 +9,18 @@ from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
 
+logger = logging.getLogger(__name__)
+
+
 class CassandraScanDataset(Dataset):
-    def __init__(self, ctx, keyspace, table):
+    def __init__(self, ctx, keyspace, table, contact_points=None):
         super().__init__(ctx)
         self.keyspace = keyspace
         self.table = table
+        self.contact_points = contact_points
         self._row_factory = named_tuple_factory
 
-        with ctx.cassandra_session() as session:
+        with ctx.cassandra_session(contact_points=self.contact_points) as session:
             keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
             table_meta = keyspace_meta.tables[self.table]
 
@@ -27,8 +34,8 @@ class CassandraScanDataset(Dataset):
         )
 
 
-    def count(self, push_down=True):
-        if push_down or not self.cached:
+    def count(self, push_down=None):
+        if push_down is True or (not self.cached and push_down is None):
             return self.select('count(*)').as_tuples().map(collection.getter(0)).sum()
         else:
             return super().count()
@@ -58,7 +65,7 @@ class CassandraScanDataset(Dataset):
         # TODO assign in a node local fashion
         # combining token ranges into partitions if they fit
         # spreading across nodes with node locality preferred
-        with cassandra_session(self.ctx) as session:
+        with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
             partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
             # TODO if len(partitions) < self._ctx.default_part_count:
 
@@ -93,16 +100,17 @@ class CassandraScanPartition(Partition):
 
 
     def _materialize(self, ctx):
-        # print('materializing cassandra scan partition', self.idx)
-        # print('scanning', self.token_range, 'in process', os.getpid())
-        with ctx.cassandra_session() as session:
+
+
+        with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
             session.row_factory = named_tuple_factory
             # session.default_fetch_size = 1000
             # session.client_protocol_handler = NumpyProtocolHandler
             session.row_factory = self.dset._row_factory
             query = self.dset.query(session)
+            logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=64, results_generator=True)
+            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=10, results_generator=True)
             for success, rows in results:
                 assert success  # TODO handle failure
                 for row in rows:

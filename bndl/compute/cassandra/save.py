@@ -1,9 +1,13 @@
 from datetime import timedelta, date, datetime
+import functools
+import logging
 
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.util.timestamps import ms_timestamp
 from cassandra.concurrent import execute_concurrent_with_args
-import functools
+
+
+logger = logging.getLogger(__name__)
 
 
 insert_template = (
@@ -13,14 +17,15 @@ insert_template = (
 )
 
 
-def _save_part(insert, concurrency, part, iterable):
-    with cassandra_session(part.dset.ctx) as session:
+def _save_part(insert, concurrency, part, iterable, contact_points=None):
+    logger.info('executing cassandra save on part %s with insert %s', part.idx, insert.replace('\n', ''))
+    with cassandra_session(part.dset.ctx, contact_points=contact_points) as session:
         prepared_insert = session.prepare(insert)
         results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
         return [len(results)]
 
 
-def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=None, timestamp=None, concurrency=10):
+def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=None, timestamp=None, concurrency=10, contact_points=None):
     if ttl or timestamp:
         using = []
         if ttl:
@@ -36,9 +41,9 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=
         using = ''
 
     if not columns:
-        with dataset.ctx.cassandra_session() as session:
+        with dataset.ctx.cassandra_session(contact_points=contact_points) as session:
             table_meta = session.cluster.metadata.keyspaces[keyspace].tables[table]
-            columns = columns or list(table_meta.columns)
+            columns = list(table_meta.columns)
 
     placeholders = (','.join(
         (':' + c for c in columns)
@@ -54,4 +59,4 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=
         using=using,
     )
 
-    return dataset.map_partitions_with_part(functools.partial(_save_part, insert, concurrency))
+    return dataset.map_partitions_with_part(functools.partial(_save_part, insert, concurrency, contact_points=contact_points))
