@@ -12,9 +12,9 @@ class Lifecycle(object):
         self._listeners.remove(listener)
 
     def cancel(self):
-        assert self.started
+        assert self._is_started
         self._cancelled = True
-        self._stopped()
+        self._signal_stop()
 
     def _signal_start(self):
         self._is_started = True
