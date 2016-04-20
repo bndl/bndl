@@ -1,0 +1,5 @@
+.eggs
+dist
+.cache
+build
+*.egg-info
