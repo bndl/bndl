@@ -11,6 +11,7 @@ from bndl.compute.context import ComputeContext
 from bndl.compute.worker import Worker, argparser
 from bndl.net.run import create_node
 from bndl.util.supervisor import Supervisor
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -47,11 +48,14 @@ argparser = copy.copy(argparser)
 argparser.prog = 'bndl.compute.driver'
 argparser.add_argument('--workers', nargs='?', type=int, default=0, dest='worker_count')
 argparser.add_argument('--conf', nargs='*', default=())
-argparser.set_defaults(seeds=['tcp://localhost:5000'])
-
+argparser.set_defaults(seeds=())
 
 
 def run_bndl(args, conf, started, stopped):
+    if not args.seeds and not args.worker_count:
+        args.worker_count = os.cpu_count()
+        args.seeds = args.listen_addresses or ['tcp://localhost:5000']
+
     driver = create_node(Driver, args)
     loop = driver.loop
 
