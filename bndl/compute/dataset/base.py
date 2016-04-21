@@ -290,6 +290,11 @@ class Dataset(metaclass=abc.ABCMeta):
         yield from result
 
 
+    def foreach(self, f):
+        for e in self.icollect():
+            f(e)
+
+
     def execute(self):
         # TODO check if consumption of the generator is required
         for _ in self._execute():
