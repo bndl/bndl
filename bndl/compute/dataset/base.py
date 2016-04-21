@@ -153,10 +153,10 @@ class Dataset(metaclass=abc.ABCMeta):
         return UnionDataset(self, other)
 
 
-    def group_by(self, key):
+    def group_by(self, key, partitioner=None):
         return (self
             .key_by(key)
-            .group_by_key()
+            .group_by_key(partitioner=partitioner)
             .map(lambda group: (
                 group[0],
                 list(pluck(1, group[1]))
@@ -164,7 +164,7 @@ class Dataset(metaclass=abc.ABCMeta):
         )
 
 
-    def group_by_key(self):
+    def group_by_key(self, partitioner=None):
         def sort_and_group(partition):
             partition = sorted(partition)
             if not partition:
@@ -181,19 +181,19 @@ class Dataset(metaclass=abc.ABCMeta):
             yield key, group
 
         return (self
-            .shuffle_by(key=getter(0))
+            .shuffle_by(key=getter(0), partitioner=partitioner)
             .map_partitions(sort_and_group)
         )
 
 
 
-    def join_on(self, other, key):
+    def join_on(self, other, key, partitioner=None):
         a = self.key_by(key)
         b = other.key_by(key)
-        return a.join(b)
+        return a.join(b, partitioner=partitioner)
 
 
-    def join(self, other):
+    def join(self, other, partitioner=None):
         a = self.map_values(lambda v: (1, v))
         b = other.map_values(lambda v: (2, v))
         def local_join(group):
@@ -206,12 +206,12 @@ class Dataset(metaclass=abc.ABCMeta):
                     right.append(v)
             if left and right:
                 return key, list(product(left, right))
-        return a.union(b).group_by_key().map(local_join).filter()
+        return a.union(b).group_by_key(partitioner=partitioner).map(local_join).filter()
 
 
 
-    def distinct(self, pcount=None):
-        return self.reduce(set, pcount, bucket=SetBucket)
+    def distinct(self, pcount=None, partitioner=None):
+        return self.reduce(set, pcount, partitioner=partitioner, bucket=SetBucket)
 
 
 
