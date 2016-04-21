@@ -68,7 +68,8 @@ setup(
     ],
 
     extras_require=dict(
-        shell=['ipython']
+        shell=['ipython'],
+        dev=['pytest', 'pytest-cov'],
     ),
 
     ext_modules=extensions,
