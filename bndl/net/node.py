@@ -1,7 +1,7 @@
 import asyncio
 import errno
-import itertools
 import functools
+import itertools
 import logging
 import os
 import random
@@ -9,6 +9,7 @@ import socket
 
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses
 from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
+from bndl.util.aio import get_loop
 from bndl.util.text import camel_to_snake
 
 
@@ -22,7 +23,7 @@ class Node(object):
     _nodeids = itertools.count()
 
     def __init__(self, loop, name=None, addresses=None, seeds=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_loop()
         self.name = name or '.'.join(map(str, (next(Node._nodeids), os.getpid(), socket.getfqdn())))
         self.node_type = camel_to_snake(self.__class__.__name__)
         # create placeholders for the addresses this node will listen on
