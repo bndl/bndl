@@ -72,25 +72,6 @@ def partition_ranges(session, keyspace, table):
     return partitions
 
 
-# def split_range(start, end, size_estimates):
-#     length = end - start
-#     size_pk = length * size_estimates.token_size_pk
-#     size_b = length * size_estimates.token_size_b
-#     chunks = max(
-#         1, max(
-#             ceil(size_pk / MAX_PARTITIONS_SIZE_PK),
-#             ceil(size_b / MAX_PARTITIONS_SIZE_B)
-#         )
-#     )
-#     chunk_size = ceil(length / chunks)
-#     return [
-#         (
-#             start,
-#             start + chunk_size if start + chunk_size < end else end
-#         ) for start in range(start, end, chunk_size)
-#     ]
-
-
 
 class SizeEstimates(object):
     def __init__(self, size, partitions, fraction):
@@ -114,7 +95,6 @@ class SizeEstimates(object):
         )
 
 
-@functools.lru_cache()
 def estimate_size(session, keyspace, table):
     ranges = list(
         session.execute('''
