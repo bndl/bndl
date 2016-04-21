@@ -17,14 +17,8 @@ class MessageType(type):
 
 class Message(metaclass=MessageType):
     def __init__(self, **kwargs):
-        self.__setstate__(kwargs)
-
-    def __getstate__(self):
-        return {k:getattr(self, k) for k in self.__slots__ if getattr(self, k) is not None}
-
-    def __setstate__(self, state):
         for k in self.__slots__:
-            setattr(self, k, state.get(k))
+            setattr(self, k, kwargs.get(k))
 
     def __str__(self):
         return (self.__class__.__name__ + '(' +
