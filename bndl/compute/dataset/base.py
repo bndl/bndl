@@ -204,8 +204,9 @@ class Dataset(metaclass=abc.ABCMeta):
                     left.append(v)
                 elif i == 2:
                     right.append(v)
-            return key, list(product(left, right))
-        return a.union(b).group_by_key().map(local_join)
+            if left and right:
+                return key, list(product(left, right))
+        return a.union(b).group_by_key().map(local_join).filter()
 
 
 
