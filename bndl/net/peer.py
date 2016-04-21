@@ -288,20 +288,9 @@ class PeerNode(object):
             logger.debug('not connected')
             pass
 
-    @asyncio.coroutine
-    def _dispatch(self, msg):
-        logger.debug('dispatching %s', msg)
-        if isinstance(msg, Disconnect):
-            # TODO schedule reconnect? or stop watch dog?
-            # if the remote node gracefully stopped, there may be no need to keep on connecting ...
-            yield from self.disconnect(reason='received disconnect', send_disconnect=False)
-        elif isinstance(msg, Discovered):
-            yield from self.local._discovered(self, msg)
-        else:
-            logger.warning('message of unsupported type %s %s', type(msg), self)
 
     @asyncio.coroutine
-    def _dispatchx(self, msg):
+    def _dispatch(self, msg):
         logger.debug('dispatching %s', msg)
         if isinstance(msg, Disconnect):
             # TODO schedule reconnect? or stop watch dog?
