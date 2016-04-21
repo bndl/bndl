@@ -9,7 +9,7 @@ from functools import partial
 logger = logging.getLogger(__name__)
 
 
-def schedule_job(dset):
+def schedule_job(dset, workers=None):
     '''
     Schedule a job for a data set
     :param dset:
@@ -18,8 +18,11 @@ def schedule_job(dset):
 
     ctx = dset.ctx
     assert ctx.running, 'context of dataset is not running'
-    ctx._await_workers()
-    workers = ctx.workers[:]
+
+    if not workers:
+        ctx._await_workers()
+        workers = ctx.workers[:]
+
     job = Job(ctx)
 
     stage = Stage(None, job)
@@ -36,16 +39,19 @@ def schedule_job(dset):
         if isinstance(dset.src, collections_abc.Iterable):
             for src in dset.src:
                 branch = schedule_job(src)
+
+                for task in branch.stages[-1].tasks:
+                    task.args[1] = False
+
                 for l in branch._listeners:
                     job.add_listener(l)
 
                 if dset.sync_required:
                     branch_stages = branch.stages
                 elif len(branch.stages) > 1:
-                    # raise Exception('untested code!')
                     branch_stages = branch.stages[:-1]
                 else:
-                    break
+                    continue
 
                 # branch_stages[-1].next_stage = job.stages[-1]
                 for stage in reversed(branch_stages):
