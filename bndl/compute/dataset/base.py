@@ -2,9 +2,9 @@ from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
 
 import abc
 import bisect
-import copy
 from functools import partial, total_ordering
 from itertools import islice, product, chain
+import logging
 import random
 
 from bndl.compute.schedule import schedule_job
@@ -23,7 +23,7 @@ except ImportError as e:
     raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
 
 
-
+logger = logging.getLogger(__name__)
 
 
 class Dataset(metaclass=abc.ABCMeta):
@@ -44,6 +44,11 @@ class Dataset(metaclass=abc.ABCMeta):
     @property
     def sync_required(self):
         return False
+
+
+    @property
+    def cleanup(self):
+        return None
 
 
     def map(self, op):
@@ -166,7 +171,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def group_by_key(self, partitioner=None):
         def sort_and_group(partition):
-            partition = sorted(partition)
+            partition = sorted(partition, key=getter(0))
             if not partition:
                 return ()
             key = partition[0][0]
@@ -529,6 +534,18 @@ class ShuffleWritingDataset(Dataset):
     def sync_required(self):
         return True
 
+    @property
+    def cleanup(self):
+        def _cleanup(job):
+            futures = [worker.clear_bucket(self.id) for worker in job.ctx.workers]
+            for f in futures:
+                try:
+                    f.result()
+                except:
+                    logger.warning('unable to cleanup after job for shuffle writing dataset %s', self.id, exc_info=True)
+
+        return _cleanup
+
 
     def parts(self):
         return [
@@ -593,7 +610,7 @@ class ShuffleReadingDataset(Dataset):
 
 
     def _bucket(self, worker, idx):
-        b = worker.get_bucket(None, self.src.id, idx, local=True)
+        b = worker.get_bucket(None, self.src.id, idx)
         if b:
             yield b
 

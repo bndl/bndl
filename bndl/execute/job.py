@@ -3,12 +3,11 @@ import functools
 from itertools import chain
 import logging
 import queue
+from threading import Lock
 
 import concurrent.futures
 
 from bndl.util.lifecycle import Lifecycle
-from threading import Lock
-from operator import setitem
 
 
 logger = logging.getLogger(__name__)

@@ -3,6 +3,7 @@ import collections
 import logging
 
 from bndl.execute.job import Job, Stage, Task
+from functools import partial
 
 
 logger = logging.getLogger(__name__)
@@ -25,10 +26,18 @@ def schedule_job(dset):
     schedule_stage(stage, workers, dset)
     job.stages.insert(0, stage)
 
+    def _cleaner(dset, job):
+        if job.stopped:
+            dset.cleanup(job)
+
     while dset:
+        if dset.cleanup:
+            job.add_listener(partial(_cleaner, dset))
         if isinstance(dset.src, collections_abc.Iterable):
             for src in dset.src:
                 branch = schedule_job(src)
+                for l in branch._listeners:
+                    job.add_listener(l)
 
                 if dset.sync_required:
                     branch_stages = branch.stages
