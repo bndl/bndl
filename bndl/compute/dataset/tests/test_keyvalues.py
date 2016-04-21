@@ -33,7 +33,7 @@ class RangeTest(DatasetTest):
     def test_collect_as_map(self):
         self.assertEqual(self.dset.key_by(identity).collect_as_map(), {i:i for i in range(10)})
         self.assertEqual(
-            self.dset.group_by(iseven).collect_as_map(), {
+            self.dset.group_by(iseven).map_values(sorted).collect_as_map(), {
                 True: list(filter(iseven, range(0, 10))),
                 False: list(filter(isodd, range(0, 10))),
             }

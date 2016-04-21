@@ -11,7 +11,7 @@ class JoinTest(DatasetTest):
         ]
         a = self.ctx.range(0, 5).key_by(iseven)
         b = self.ctx.range(5, 10).key_by(iseven)
-        self.assertEqual(a.join(b).collect(), expected)
+        self.assertEqual(a.join(b).map_values(sorted).collect(), expected)
 
     def test_join_on(self):
         expected = [
@@ -20,5 +20,5 @@ class JoinTest(DatasetTest):
         ]
         a = self.ctx.range(0, 5)
         b = self.ctx.range(5, 10)
-        self.assertEqual(a.join_on(b, iseven).keys().collect(), [False, True])
-        self.assertEqual(a.join_on(b, iseven).values().collect(), expected)
+        self.assertEqual(a.join_on(b, iseven).keys().collect_as_set(), {False, True})
+        self.assertEqual(a.join_on(b, iseven).values().map(sorted).collect(), expected)
