@@ -57,7 +57,7 @@ setup(
         # "python-snappy",
         "cytoolz",
         "numpy",
-        "progressbar2",
+        # "progressbar2",
 
         # bundle.run.ssh
         # "asyncssh",  # TODO make optional dependency
