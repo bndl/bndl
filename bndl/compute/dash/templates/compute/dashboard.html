@@ -1,0 +1,19 @@
+{% extends "dash/base.html" %}
+{% import "compute/joblist.html" as joblist %}
+
+{% block page_title %}
+Compute dashboard
+{% endblock %}
+
+{% block page_body %}
+<div class="container">
+	<div class="row">
+		<h2>Running</h2>
+		{{ joblist.joblist([]) }}
+	</div>
+	<div class="row">
+		<h2>Completed</h2>
+		{{ joblist.joblist([]) }}
+	</div>
+</div>
+{% endblock %}

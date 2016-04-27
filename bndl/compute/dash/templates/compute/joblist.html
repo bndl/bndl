@@ -1,0 +1,30 @@
+{% macro joblist(jobs) -%}
+<table class="table table-striped table-hover ">
+	<thead>
+		<tr>
+			<th>#</th>
+			<th>Stages</th>
+			<th>Tasks</th>
+			<th colspan=3>Progress</th>
+			<th>Duration</th>
+			<th>Started</th>
+			<th>Finished</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for job in jobs %}
+		<tr>
+			<td>{{ job.id }}</td>
+			<td># stages</td>
+			<td># tasks</td>
+			<td># finished stage / stages</td>
+			<td># finished task / tasks</td>
+			<td>bar</td>
+			<td>duration</td>
+			<td>date and time started</td>
+			<td>date and time finished</td>
+		</tr>
+		{% endfor %}
+	</tbody>
+</table>
+{% endmacro %}
