@@ -55,6 +55,12 @@ class Dataset(metaclass=abc.ABCMeta):
         return ElementTransformingDataset(self.ctx, self, op)
 
 
+    def pluck(self, ind, default=None):
+        return self.map_partitions(lambda p:
+                                   pluck(ind, p, default=default)
+                                   if default else pluck(ind, p))
+
+
     def flatmap(self, op):
         return self.map(op).map_partitions(lambda i: chain.from_iterable(i))
 
@@ -88,11 +94,11 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def keys(self):
-        return self.map(getter(0))
+        return self.pluck(0)
 
 
     def values(self):
-        return self.map(getter(1))
+        return self.pluck(1)
 
 
     def map_keys(self, op):
