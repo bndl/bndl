@@ -4,3 +4,4 @@
 #4	# reschedule failed tasks on other hosts
 #5	heartbeat at net level
 #6	heartbeat at task level to identify failed tasks
+#7	don't propagate CTRL+C to workers in ipython shell
