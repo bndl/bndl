@@ -69,7 +69,12 @@ setup(
 
     extras_require=dict(
         shell=['ipython'],
-        dev=['pytest', 'pytest-cov'],
+        dev=[
+            'pytest',
+            'pytest-cov',
+            'sphinx',
+            'sphinx-autobuild',
+        ],
     ),
 
     ext_modules=extensions,
