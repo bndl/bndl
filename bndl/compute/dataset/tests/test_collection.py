@@ -13,7 +13,9 @@ class CollectionTest(DatasetTest):
 
 
     def test_generator(self):
-        self.assertEqual(self.ctx.collection(c for c in string.ascii_lowercase).count(), 26)
+        g = self.ctx.collection(c for c in string.ascii_lowercase)
+        self.assertEqual(g.count(), 26)
+        self.assertEqual(g.count(), 26)
 
 
     def test_sizing(self):
