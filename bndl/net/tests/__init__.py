@@ -70,7 +70,7 @@ class NetTest(TestCase):
                 # give the nodes a final shot to connect
                 for n in self.nodes:
                     self.loop.run_until_complete(wait_for_discovery(n, self.node_count - 1))
-                self.loop.run_until_complete(sleep(.1))
+                    self.loop.run_until_complete(sleep(.1))
                 # notify started
                 self._started.set_result(True)
                 # wait for stopped notification

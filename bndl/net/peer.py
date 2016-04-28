@@ -76,10 +76,9 @@ class PeerNode(object):
 
         connected = False
         for address in sorted(self.addresses, key=lambda a: urlparse(a).scheme, reverse=True):
-            if self._can_connect(address):
-                connected = (yield from self._connect(address))
-                if connected:
-                    break
+            connected = (yield from self._connect(address))
+            if connected:
+                break
 
 
     @asyncio.coroutine
@@ -113,13 +112,10 @@ class PeerNode(object):
 
             try:
                 address = urlparse(url)
-                if address.scheme == 'tcp':
-                    rw = yield from asyncio.open_connection(address.hostname, address.port)
-                elif address.scheme == 'unix':
-                    rw = yield from asyncio.open_unix_connection(address.path)
-                else:
+                if address.scheme != 'tcp':
                     raise ValueError('unsupported scheme in %s', url)
 
+                rw = yield from asyncio.open_connection(address.hostname, address.port)
                 self.conn = Connection(self.loop, *rw)
                 logger.debug('%s connected', self.conn)
 
@@ -165,9 +161,6 @@ class PeerNode(object):
             self.node_type = rep.node_type
             self.addresses = rep.addresses
 
-            if (yield from self._upgrade_connection()):
-                return True
-
             # notify local node that connection was established and start a server task
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
             self.server = self.loop.create_task(self._serve())
@@ -212,9 +205,6 @@ class PeerNode(object):
             self.node_type = hello.node_type
             self.addresses = hello.addresses
 
-            if (yield from self._upgrade_connection()):
-                return
-
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
             self.server = self.loop.create_task(self._serve())
 
@@ -226,28 +216,6 @@ class PeerNode(object):
             node_type=self.local.node_type,
             addresses=list(self.local.servers.keys()),
         ), drain=True)
-
-
-    @asyncio.coroutine
-    def _upgrade_connection(self):
-        if self.local.name < self.name and self.conn.socket_family() != socket.AF_UNIX:
-            for address in self.addresses:
-                if self._can_connect(address, scheme='unix'):
-                    logger.debug('upgrading connection with %s to a unix socket', self.name)
-                    yield from self.disconnect(reason='reconnecting using unix socket')
-                    self.loop.create_task(self._connect(address))
-                    return True
-        logger.debug('not upgrading connection with %s', self.name)
-        return False
-
-
-    def _can_connect(self, address, scheme=None):
-        parsed = urlparse(address)
-        scheme_match = (not scheme or scheme == parsed.scheme)
-        if parsed.scheme == 'tcp':
-            return scheme_match
-        elif parsed.scheme == 'unix':
-            return scheme_match and (self.islocal or not (self.ip_addresses | self.local.ip_addresses)) and os.path.exists(parsed.path)
 
 
     @asyncio.coroutine

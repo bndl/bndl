@@ -32,10 +32,7 @@ class Node(object):
         # create placeholders for the addresses this node will listen on
         self.servers = {
             address:None for address in
-            (addresses or [
-                'unix:///tmp/bndl-%s.socket' % self.name,
-                'tcp://%s:%s' % (socket.getfqdn(), 5000),
-            ])
+            (addresses or ['tcp://%s:%s' % (socket.getfqdn(), 5000)])
         }
         # TODO ensure that if a seed can't be connected to, it is retried
         self.seeds = seeds or ()
@@ -100,13 +97,10 @@ class Node(object):
         self.peers.clear()
 
         # close the servers
-        for address, server in self.servers.items():
-            if server:
+        for server in self.servers.values():
+            with catch():
                 server.close()
                 yield from server.wait_closed()
-                address = urlparse(address)
-                if address.scheme == 'unix' and os.path.exists(address.path):
-                    os.remove(address.path)
 
         # cancel any pending io work
         for task in self._iotasks[:]:
@@ -121,18 +115,10 @@ class Node(object):
     @asyncio.coroutine
     def _start_server(self, address):
         parsed = urlparse(address)
-        if parsed.scheme == 'tcp':
-            yield from self._start_tcp_server(address, parsed)
-        elif parsed.scheme == 'unix':
-            yield from self._start_unix_server(address, parsed)
-        else:
+        if parsed.scheme != 'tcp':
             raise ValueError('unsupported scheme %s in address %s' % (parsed.scheme, address))
 
-
-    @asyncio.coroutine
-    def _start_tcp_server(self, address, parsed):
         host, port = parsed.hostname, parsed.port or 5000
-
         server = None
 
         for port in range(port, port + 1000):
@@ -153,15 +139,6 @@ class Node(object):
             address = 'tcp://%s:%s' % (host, port)
         logger.info('server socket opened at %s', address)
         self.servers[address] = server
-
-
-    @asyncio.coroutine
-    def _start_unix_server(self, address, parsed):
-        if os.path.exists(parsed.path):
-            os.remove(parsed.path)
-        server = yield from asyncio.start_unix_server(self._serve, parsed.path)
-        self.servers[address] = server
-        logger.info('server socket opened at %s (%s)', address, parsed.path)
 
 
     @asyncio.coroutine

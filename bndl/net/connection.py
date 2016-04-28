@@ -27,10 +27,6 @@ def urlparse(address):
         elif not parsed.hostname:
             raise ValueError("No hostname in tcp address: " + address)
 
-    elif parsed.scheme == 'unix':
-        if not parsed.path:
-            raise ValueError("No path in unix address: " + address)
-
     else:
         raise ValueError("Unsupported scheme in: " + address)
 
@@ -160,15 +156,7 @@ class Connection(object):
         '''
         if not isinstance(other, Connection):
             raise ValueError()
-
-        if self.socket_family() != socket.AF_UNIX and other.socket_family() != socket.AF_UNIX:
-            return min(self.sockname(), self.peername()) < min(other.sockname(), other.peername())
-        if self.socket_family() == socket.AF_UNIX and other.socket_family() == socket.AF_UNIX:
-            return (self.sockname() or self.peername()) < (other.sockname() or other.peername())
-        elif self.socket_family() == socket.AF_UNIX:
-            return True
-        else:
-            return False
+        return min(self.sockname(), self.peername()) < min(other.sockname(), other.peername())
 
 
     def peername(self):
@@ -194,13 +182,5 @@ class Connection(object):
 
 
     def __str__(self):
-        if self.socket_family() == socket.AF_UNIX:
-            local = self.sockname()
-            if local:
-                return 'UDS listening on ' + local
-            remote = self.peername()
-            if remote:
-                return 'UDS connected to ' + remote
-        else:
-            return '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername()
+        return '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername()
 
