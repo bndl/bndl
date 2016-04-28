@@ -56,7 +56,7 @@ def configure_console_logging():
                 'handlers': ["console"],
             },
             'bndl': {
-                'level': "WARNING",
+                'level': "INFO",
                 'handlers': ["console"],
             },
             'bndl.compute': {
