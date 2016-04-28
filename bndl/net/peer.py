@@ -5,7 +5,8 @@ import socket
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
-from bndl.net.messages import Hello, Discovered, Disconnect
+from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong
+from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class PeerNode(object):
 
     @property
     def is_connected(self):
-        return self.conn and self.conn.is_connected
+        return bool(self.conn and self.conn.is_connected)
 
 
     @asyncio.coroutine
@@ -82,21 +83,32 @@ class PeerNode(object):
 
 
     @asyncio.coroutine
-    def disconnect(self, reason='', send_disconnect=True):
-        if send_disconnect and self.is_connected:
-            yield from self.send(Disconnect(reason=reason), drain=True)
-        if self.server:
+    def disconnect(self, reason='', active=True):
+        logger.log(logging.INFO if active and self.is_connected else logging.DEBUG,
+                   '%s (local) disconnected from %s (remote) with reason: %s (%s disconnect)',
+                   self.local.name, self.name,
+                   reason, 'active' if active and self.is_connected else 'passive')
+        # possibly notify the other end
+        if active and self.is_connected:
+            with catch():
+                yield from self.send(Disconnect(reason=reason), drain=True)
+        # close the server task
+        with catch():
             self.server.cancel()
-            self.server = None
-        if self.conn:
-            self.conn.close()
-            self.conn = None
-        logger.debug('%s disconnected from %s with reason: %s', self.local.name, self.name, reason)
+        # close the connection
+        with catch():
+            yield from self.conn.close()
+        # clear the fields
+        self.server = None
+        self.conn = None
 
 
     @asyncio.coroutine
     def _connect(self, url):
         with (yield from self.handshake_lock):
+            if self.is_connected:
+                return
+
             logger.debug('connecting with %s', url)
 
             try:
@@ -120,7 +132,7 @@ class PeerNode(object):
 
                 if isinstance(rep, Disconnect):
                     logger.debug("received Disconnect from %s, disconnecting", url)
-                    yield from self.disconnect(reason="received disconnect", send_disconnect=False)
+                    yield from self.disconnect(reason="received disconnect", active=False)
                 elif not isinstance(rep, Hello):
                     logger.error("didn't receive Hello back from %s, disconnecting", url)
                     yield from self.disconnect(reason="didn't receive hello")
@@ -245,42 +257,44 @@ class PeerNode(object):
 
         yield from self.local._peer_connected(self)
 
-        logger.info('serving connection with %s (local) and %s (remote) over %s', self.local.name, self.name, self.conn)
+        if self.is_connected:
+            logger.info('serving connection for %s (local) with %s (remote) on %s', self.local.name, self.name, self.conn)
 
         while self.is_connected:
             try:
                 # logger.debug('%s is waiting for message from %s', self.local.name, self.name)
                 msg = yield from self.conn.recv()
                 # logger.debug('%s received message from %s: %s', self.local.name, self.name, msg)
-            except asyncio.futures.CancelledError as e:
+            except NotConnected:
+                logger.debug('read EOF on connection with %s', self.name)
+                yield from self.disconnect('received EOF')
+                break
+            except asyncio.futures.CancelledError:
                 logger.debug('connection with %s cancelled', self.name)
                 yield from self.disconnect('connection cancelled')
                 break
-            except ConnectionResetError as e:
+            except ConnectionResetError:
                 logger.warning('connection with %s closed unexpectedly', self.name)
                 yield from self.disconnect('connection reset')
                 break
-            except asyncio.streams.IncompleteReadError as e:
-                if e.partial:
-                    logger.exception('connection with %s closed unexpectedly', self.name)
-                    # TODO reconnect
-                else:
-                    logger.warning('connection with %s closed unexpectedly', self.name)
-                    yield from self.disconnect('received EOF')
+            except asyncio.streams.IncompleteReadError:
+                logger.exception('connection with %s closed unexpectedly', self.name)
+                yield from self.disconnect('connection reset')
                 break
             except Exception as e:
                 logger.exception('An unknown exception occurred in connection %s', self.name)
+                yield from self.disconnect('unexpected error: ' + str(e))
+                break
 
             self.loop.create_task(self._dispatch(msg))
 
         logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
-        # TODO reconnect
 
 
     @asyncio.coroutine
     def _notify_discovery(self, peers):
         if not peers:
-                return
+            return
         try:
             logger.debug('notifying %s of discovery of %s', self.name, peers)
             yield from self.send(Discovered(peers=peers))
@@ -293,13 +307,16 @@ class PeerNode(object):
     def _dispatch(self, msg):
         logger.debug('dispatching %s', msg)
         if isinstance(msg, Disconnect):
-            # TODO schedule reconnect? or stop watch dog?
-            # if the remote node gracefully stopped, there may be no need to keep on connecting ...
-            yield from self.disconnect(reason='received disconnect', send_disconnect=False)
+            yield from self.disconnect(reason='received disconnect', active=False)
         elif isinstance(msg, Discovered):
             yield from self.local._discovered(self, msg)
+        elif isinstance(msg, Ping):
+            yield from self.send(Pong())
+        elif isinstance(msg, Pong):
+            pass
         else:
             logger.warning('message of unsupported type %s %s', type(msg), self)
+
 
 
     def __lt__(self, other):

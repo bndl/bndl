@@ -92,6 +92,8 @@ class Connection(object):
         self.writer = writer
         self.read_lock = asyncio.Lock()
         self.write_lock = asyncio.Lock()
+        self.bytes_received = 0
+        self.bytes_sent = 0
 
 
     @property
@@ -99,6 +101,7 @@ class Connection(object):
         return not self.reader.at_eof() and not self.writer.transport._closing
 
 
+    @asyncio.coroutine
     def close(self):
         with (yield from self.write_lock):
             self.writer.close()
@@ -119,6 +122,7 @@ class Connection(object):
         fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
         with (yield from self.write_lock):
             self.writer.writelines((struct.pack('I', len(serialized)), struct.pack('c', fmt), serialized))
+            self.bytes_sent += len(serialized)
             if drain:
                 yield from self.writer.drain()
         logger.debug('sent %s', msg)
@@ -139,6 +143,7 @@ class Connection(object):
                 l = struct.unpack('I', header[:4])[0]
                 fmt = struct.unpack('c', header[4:])[0]
                 msg = yield from asyncio.wait_for(self.reader.readexactly(l), timeout)
+                self.bytes_received += l
             msg = (yield from self.loop.run_in_executor(None, serialize.loads, fmt, msg))
             msg = Message.load(msg)
             return msg

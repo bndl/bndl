@@ -11,6 +11,9 @@ from bndl.net.connection import urlparse, Connection, filter_ip_addresses
 from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
 from bndl.util.aio import get_loop
 from bndl.util.text import camel_to_snake
+from bndl.net.watchdog import Watchdog
+from bndl.util import aio
+from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,7 @@ class Node(object):
         self.seeds = seeds or ()
         self.peers = PeerTable()
         self._peer_table_lock = asyncio.Lock()
+        self._watchdog = None
         self._iotasks = []
 
 
@@ -61,24 +65,41 @@ class Node(object):
 
     @asyncio.coroutine
     def start(self):
+        if self.running:
+            return
         for address in list(self.servers.keys()):
             yield from self._start_server(address)
-        # TODO ensure that if a seed can't be connected to, it is retried
+        # connect with seeds
+        yield from self._connect_seeds()
+        # start the watchdog
+        self._watchdog = Watchdog(self)
+        self._watchdog.start()
+
+
+    @asyncio.coroutine
+    def _connect_seeds(self):
         for seed in self.seeds:
             if seed not in self.servers:
                 yield from self.PeerNode(self.loop, self, addresses=[seed]).connect()
 
 
     def stop_async(self):
-        self.loop.create_task(self.stop())
+        aio.run_coroutine_threadsafe(self.stop(), self.loop)
 
 
     @asyncio.coroutine
     def stop(self):
+        # stop watching
+        with catch():
+            self._watchdog.stop()
+            self._watchdog = None
+
+        # disconnect from the peers
         for peer in list(self.peers.values()):
-            yield from peer.disconnect()
+            yield from peer.disconnect('stopping node')
         self.peers.clear()
 
+        # close the servers
         for address, server in self.servers.items():
             if server:
                 server.close()
@@ -87,8 +108,14 @@ class Node(object):
                 if address.scheme == 'unix' and os.path.exists(address.path):
                     os.remove(address.path)
 
+        # cancel any pending io work
         for task in self._iotasks[:]:
             task.cancel()
+
+
+    @property
+    def running(self):
+        return any(server and server.sockets for server in self.servers.values())
 
 
     @asyncio.coroutine
@@ -165,24 +192,29 @@ class Node(object):
 
     @asyncio.coroutine
     def _peer_connected(self, peer):
-        with(yield from self._peer_table_lock):
+        with (yield from self._peer_table_lock):
+            if self.name == peer.name:
+                # don't allow connection loops
+                logger.debug('self connect attempt of %s', peer.name)
+                yield from peer.disconnect(reason='self connect')
+                return
             known_peer = self.peers.get(peer.name)
-            if known_peer:
-                assert peer.is_connected
-                if self.name == peer.name:
-                    logger.debug('self connect attempt of %s', peer.name)
-                    yield from peer.disconnect(reason='self connect')
-                    return
-                elif known_peer.is_connected and known_peer < peer:
+            if known_peer and known_peer.is_connected and peer is not known_peer:
+                # perform a 'tie brake' between the two connections with the peer
+                # this is to prevent situations where two nodes 'call each other'
+                # at the same time
+                if known_peer < peer:
+                    # existing connection wins
                     logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
                     yield from peer.disconnect(reason='already connected, old connection wins')
                     return
                 else:
+                    # new connection wins
                     logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
                     yield from known_peer.disconnect(reason='already connected, new connection wins')
-                    del self.peers[peer.name]
             self.peers[peer.name] = peer
 
+        # notify others of the new peer
         task = self.loop.create_task(self._notifiy_peers(peer))
         self._iotasks.append(task)
         task.add_done_callback(self._iotasks.remove)
@@ -220,7 +252,7 @@ class Node(object):
                         timeout=HELLO_TIMEOUT * 3
                     )
                 except:
-                    logger.exception('discovery notification failed')
+                    logger.debug('discovery notification failed', exc_info=True)
 
 
     def __str__(self):

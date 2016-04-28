@@ -54,3 +54,10 @@ class Discovered(Message):
 class Disconnect(Message):
     # str for debug perposes
     reason = Field()
+
+
+class Ping(Message):
+    pass
+
+class Pong(Message):
+    pass

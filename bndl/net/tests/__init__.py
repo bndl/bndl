@@ -67,10 +67,10 @@ class NetTest(TestCase):
                     if self.ease_discovery:
                         self.loop.run_until_complete(wait_for_discovery(n, i))
                         self.loop.run_until_complete(sleep(.01))
-
+                # give the nodes a final shot to connect
                 for n in self.nodes:
                     self.loop.run_until_complete(wait_for_discovery(n, self.node_count - 1))
-                    self.loop.run_until_complete(sleep(.1))
+                self.loop.run_until_complete(sleep(.1))
                 # notify started
                 self._started.set_result(True)
                 # wait for stopped notification
@@ -80,7 +80,7 @@ class NetTest(TestCase):
             finally:
                 for n in self.nodes:
                     self.loop.run_until_complete(n.stop())
-                self.loop.run_until_complete(sleep(.1 * len(self.nodes)))
+                    self.loop.run_until_complete(sleep(.01))
 
                 self.loop.close()
         finally:
