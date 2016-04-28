@@ -38,7 +38,7 @@ class DistributedCollection(Dataset):
         else:
             c = self._c
             if not isinstance(c, Sequence):
-                c = list(c)
+                self._c = c = list(c)
             step = max(1, ceil(len(c) / self.pcount))
             slices = (
                 (idx, c[idx * step: (idx + 1) * step])
