@@ -16,7 +16,7 @@ def get_loop(stop_on=()):
     '''
     try:
         loop = asyncio.get_event_loop()
-    except AssertionError:
+    except (AssertionError, RuntimeError):
         # unfortunately there is no way to tell if there is already an event loop
         # active apart from trying to get it, and catching the assertion error
         # raised if there is no active loop.
