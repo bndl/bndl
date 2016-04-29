@@ -103,7 +103,7 @@ def schedule_stage(stage, workers, dset):
     assignment_count = lambda worker: (len(assignments[worker]), worker.name)
 
     for part in dset.parts():
-        allowed_workers = list(part.preferred_workers(workers) or [])
+        allowed_workers = list(part.allowed_workers(workers) or [])
         preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
 
         # sort the allowed and preferred workers, least assigned first

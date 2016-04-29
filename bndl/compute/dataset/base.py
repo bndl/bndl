@@ -324,11 +324,11 @@ class Dataset(metaclass=abc.ABCMeta):
     def allow_workers(self, fltr):
         return self._with('_worker_filter', fltr)
 
-    def allow_local_workers(self):
-        return self.allow_workers(lambda workers: [w.islocal for w in workers])
+    def require_local_workers(self):
+        return self.allow_workers(lambda workers: [w for w in workers if w.islocal])
 
     def allow_all_workers(self):
-        return self.allow_workers(lambda workers: [w.islocal for w in workers])
+        return self.allow_workers(None)
 
 
     def cache(self, cached=True):
@@ -405,16 +405,16 @@ class Partition(metaclass=abc.ABCMeta):
 
 
     def preferred_workers(self, workers):
-        if self.src:
-            return self.src.preferred_workers(workers)
-        elif self.dset._worker_preference:
+        if self.dset._worker_preference:
             return self.dset._worker_preference(workers)
+        elif self.src:
+            return self.src.preferred_workers(workers)
 
     def allowed_workers(self, workers):
-        if self.src:
-            return self.src.allowed_workers(workers)
-        elif self.dset._worker_filter:
+        if self.dset._worker_filter:
             return self.dset._worker_filter(workers)
+        elif self.src:
+            return self.src.allowed_workers(workers)
 
 
     def __lt__(self, other):
