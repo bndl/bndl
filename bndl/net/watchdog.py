@@ -116,7 +116,7 @@ class Watchdog(object):
 
     @asyncio.coroutine
     def _check(self):
-        peers = self.node.peers.values()
+        peers = list(self.node.peers.values())
 
         # check if a connection with a peer was dropped
         for peer in peers:
@@ -126,8 +126,12 @@ class Watchdog(object):
             now = datetime.now()
             stats.update()
 
-#             if stats.connection_attempts > MAX_CONNECTION_ATTEMPT:
-#                 continue
+            if stats.connection_attempts > MAX_CONNECTION_ATTEMPT:
+                popped = self.node.peers.pop(peer.name)
+                if popped != peer:
+                    self.node.peers[peer.name] = popped
+                peer.disconnect('disconnected by watchdog after %s failed connection attempts', stats.connection_attempts)
+                continue
             if stats.error_since and (now - stats.error_since).total_seconds() > (WATCHDOG_INTERVAL * 2 ** stats.connection_attempts * (random() / 2 + .75)):
                 stats.connection_attempts += 1
                 yield from peer.connect()
