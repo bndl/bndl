@@ -5,5 +5,12 @@ reschedule failed tasks on other hosts
 heartbeat at net level
 heartbeat at task level to identify failed tasks
 don't propagate CTRL+C to workers in ipython shell
-dset.sort().first() is waaaay slower than dset.sort().first()
+dset.sort().first() is waaaay slower than dset.sort().count()
 ctx.cassandra_table should use cassandra on seed node by default (not localhost)
+sort should be lazy
+wait for gossip to settle before starting a node / the shell
+check on cancelling jobs
+check stable ids for nodes
+ - it causes a new node on an old address to be rejected
+the rx tx rates aren't updated on sp-dev
+hide tabs on workers in dashboard
