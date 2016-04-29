@@ -6,6 +6,7 @@ from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import collection
 from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
+from cytoolz import pluck  # @UnresolvedImport
 
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,23 @@ logger = logging.getLogger(__name__)
 
 class CassandraScanDataset(Dataset):
     def __init__(self, ctx, keyspace, table, concurrency=10, contact_points=None):
+        '''
+        Create a scan across keyspace.table.
+        
+        :param ctx:
+            The compute context.
+        :param keyspace: str
+            Keyspace of the table to scan.
+        :param table: str
+            Name of the table to scan.
+        :param concurrency: int > 0
+            Maximum number of concurrent queries per partition.
+            concurrency * ctx.worker_count is the maximum number of concurrent
+            queries in total.
+        :param contact_points: None or [str,str,str,...]
+            None to use the default contact points or a list of contact points
+            or a comma separated string of contact points.
+        '''
         super().__init__(ctx)
         self.keyspace = keyspace
         self.table = table
@@ -116,10 +134,11 @@ class CassandraScanPartition(Partition):
             logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
             results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
-            for success, rows in results:
-                assert success  # TODO handle failure
-                for row in rows:
-                    yield row
+            return pluck(1, results)
+            # for success, rows in results:
+            #     assert success  # TODO handle failure
+            #     for row in rows:
+            #         yield row
 
 
     def preferred_workers(self, workers):
