@@ -1,1 +1,9 @@
-Status!
+<div class="row">
+	<div class="col-xs-2">Running:</div>
+	<div class="col-xs-1">{{ (g.ctx.jobs)|rejectattr('stopped_on')|filtercount('started_on') }}&nbsp;&nbsp;&nbsp;jobs</div>
+</div>
+
+<div class="row">
+	<div class="col-xs-2">Done:</div>
+	<div class="col-xs-1">{{ (g.ctx.jobs)|filtercount('stopped_on') }}&nbsp;&nbsp;&nbsp;jobs</div>
+</div>

@@ -1,44 +1,49 @@
+from datetime import datetime
+
+
 class Lifecycle(object):
-    def __init__(self):
-        self._listeners = set()
-        self._is_started = False
-        self._is_stopped = False
-        self._cancelled = False
+    def __init__(self, name=None, desc=None):
+        self.listeners = set()
+        self.started_on = None
+        self.stopped_on = None
+        self.cancelled = False
+        self.name = name
+        self.desc = desc
 
     def add_listener(self, listener):
-        self._listeners.add(listener)
+        self.listeners.add(listener)
 
     def remove_listener(self, listener):
-        self._listeners.remove(listener)
+        self.listeners.remove(listener)
 
     def cancel(self):
-        self._cancelled = True
-        self._signal_stop()
+        self.cancelled = True
+        self.signal_stop()
 
-    def _signal_start(self):
-        self._is_started = True
-        for l in self._listeners:
+    def signal_start(self):
+        self.started_on = datetime.now()
+        for l in self.listeners:
             l(self)
 
-    def _signal_stop(self):
-        self._is_stopped = True
-        for l in self._listeners:
+    def signal_stop(self):
+        self.stopped_on = datetime.now()
+        for l in self.listeners:
             l(self)
 
     @property
     def running(self):
-        return self._is_started and not self._is_stopped
+        return self.started_on and not self.stopped_on
 
     @property
     def stopped(self):
-        return self._is_stopped
+        return bool(self.stopped_on)
 
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        state.pop('_listeners', None)
+        state.pop('listeners', None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self._listeners = set()
+        self.listeners = set()

@@ -9,6 +9,7 @@ from flask import Flask
 import flask
 from flask.templating import render_template
 from werkzeug.utils import import_string
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -58,9 +59,18 @@ def _status_panels():
 
 @app.route('/')
 def dash_main():
-    print('dash_main', dir(flask.g))
     return render_template('dash/dashboard.html',
                            status_panels=_status_panels())
+
+
+@app.template_filter('filtercount')
+def filtercount(seq, attr):
+    return sum(1 for e in seq if getattr(e, attr, None))
+
+
+@app.template_global('now')
+def now():
+    return datetime.now()
 
 
 def run(node=None, ctx=None):

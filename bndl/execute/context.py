@@ -1,6 +1,7 @@
 import time
 import logging
 from bndl.util.lifecycle import Lifecycle
+from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
@@ -12,8 +13,9 @@ class ExecutionContext(Lifecycle):
         super().__init__()
         self._driver = driver
         self.node = driver
-        self._signal_start()
         self.conf = conf
+        self.jobs = []
+        self.signal_start()
 
 
     def execute(self, job, eager=True):
@@ -22,15 +24,16 @@ class ExecutionContext(Lifecycle):
         self._await_workers()
 
         try:
-            for l in self._listeners:
+            for l in self.listeners:
                 job.add_listener(l)
 
+            self.jobs.append(job)
             for stage, stage_execution in zip(job.stages, job.execute(eager=eager)):
                 for result in stage_execution:
                     if stage == job.stages[-1]:
                         yield result
         finally:
-            for l in self._listeners:
+            for l in self.listeners:
                 job.remove_listener(l)
 
 
@@ -56,11 +59,11 @@ class ExecutionContext(Lifecycle):
 
 
     def stop(self):
-        self._signal_stop()
+        self.signal_stop()
 
 
     def __getstate__(self):
         state = super().__getstate__()
-        for attr in ('_driver', 'node'):
+        for attr in ('_driver', 'node', 'jobs'):
             state.pop(attr, None)
         return state

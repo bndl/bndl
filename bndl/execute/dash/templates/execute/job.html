@@ -1,0 +1,70 @@
+{% extends "dash/base.html" %}
+{% import "execute/joblist.html" as joblist %}
+
+{% block page_title %}
+Execute dashboard
+{% endblock %}
+
+
+{% block page_body %}
+
+<div class="container">
+	<div class="row">
+		<table class="table table-striped table-hover ">
+			<thead>
+				<tr>
+					<th width="5%">
+						<span data-toggle="tooltip" data-original-title="Default tooltip">#</span>
+					</th>
+					<th width="28%" colspan=2>
+						<span data-toggle="tooltip" data-original-title="Name of the job">Job</span>
+					</th>
+					<th width="6%">
+						<span data-toggle="tooltip" data-original-title="Completed, started and total number of stages">Stages</span>
+					</th>
+					<th width="9%">
+						<span data-toggle="tooltip" data-original-title="Completed, started and total number of tasks">Tasks</span>
+					</th>
+					<th width="20%">
+						<span data-toggle="tooltip" data-original-title="Relative progress showing completed and running tasks">Progress</span>
+					</th>
+					<th width="8%">Duration</th>
+					<th width="12%">Started</th>
+					<th width="12%">Finished</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for job in (g.ctx.jobs_completed + g.ctx.jobs_running)|reverse %}
+				
+					<tr class="clickable-row" data-href='/net/job/{{ job.id }}'>
+						<td>{{ job.id }}</td>
+						<td>{{ job.name }}</td>
+						<td>{{ job.desc }}</td>
+						
+						{% set stages_started = job.stages|filtercount('started_on') %}
+						{% set stages_stopped = job.stages|filtercount('stopped_on') %}
+						<td>
+							{{ stages_stopped }} / {{ stages_started }} / {{ job.stages|length }}
+						</td>
+						
+						{% set tasks_started = job.tasks|filtercount('started_on') %}
+						{% set tasks_stopped = job.tasks|filtercount('stopped_on') %}
+						<td>
+							{{ tasks_stopped }} / {{ tasks_started }} / {{ job.tasks|length }}
+						</td>
+						<td>
+							<div class="progress" style="width: 100%; margin: 0;">
+							  <div class="progress-bar progress-bar-success" style="width: {{ tasks_stopped * 100 / job.tasks|length }}%"></div>
+							  <div class="progress-bar progress-bar-default" style="width: {{ (tasks_started - tasks_stopped) * 100 / job.tasks|length }}%"></div>
+							</div>
+						</td>
+						<td>{{ (((job.stopped_on or now()) - job.started_on)|string).split('.')[0] }}</td>
+						<td>{{ job.started_on.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+						<td>{% if job.stopped_on %}{{ job.stopped_on.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

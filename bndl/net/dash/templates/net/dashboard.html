@@ -7,20 +7,18 @@
 {% block page_body %}
 <div class="container">
 	<div class="row">
-		<h2>Listening on:</h2>
-		<table class="table table-striped table-hover ">
-			<tbody>
-				{% for address, server in g.node.servers.items() %}
-				<tr class="{% if server.sockets %}success{% else %}danger{% endif %}">
-					<td>{{ address }}</td>
-				</tr>
-				{% endfor %}
-			</tbody>
-		</table>
-	</div>
-		
-	<div class="row">
 		<div class="col-lg-6">
+			<h2>Listening on:</h2>
+			<table class="table table-striped table-hover ">
+				<tbody>
+					{% for address, server in g.node.servers.items() %}
+					<tr class="{% if server.sockets %}success{% else %}danger{% endif %}">
+						<td>{{ address }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		
 			<h2>Peers:</h2>
 			<table class="table table-striped table-hover ">
 				<thead>
@@ -40,7 +38,7 @@
 			</table>
 		</div>
 		<div class="col-lg-6">
-			<h2>Communication:</h2>
+			<h2>Data transfer:</h2>
 			{% import "net/rates.html" as rates %}
 			<div class="panel panel-default">
   				<div class="panel-body">

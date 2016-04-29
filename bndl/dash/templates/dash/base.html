@@ -2,18 +2,19 @@
 <html lang="en">
 
 <head>
-<meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport"
-	content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="description" content="">
-<meta name="author" content="">
-
-<title>{% block title %}Bundle{% endblock %}</title>
-<link rel="stylesheet"
-	href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/css/bootstrap.min.css">
-<link rel="stylesheet"
-	href="https://bootswatch.com/superhero/bootstrap.min.css">
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	
+	<title>{% block title %}BNDL{% endblock %}</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://bootswatch.com/superhero/bootstrap.min.css">
+	
+	<style type="text/css">
+		.clickable-row {
+			cursor: pointer;
+		}
+	</style>
 </head>
 
 <body>
@@ -23,16 +24,16 @@
 		<div class="container-fluid">
 			<div class="navbar-header">
 				<button type="button" class="navbar-toggle collapsed"
-					data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+					data-toggle="collapse" data-target="#thenavbar">
 					<span class="sr-only">Toggle navigation</span>
 					<span class="icon-bar"></span>
 					<span class="icon-bar"></span>
 					<span class="icon-bar"></span>
 				</button>
-				<a class="navbar-brand" href="/">Bundle</a>
+				<a class="navbar-brand" href="/">BNDL</a>
 			</div>
 
-			<div class="collapse navbar-collapse">
+			<div class="collapse navbar-collapse" id="thenavbar">
 				<ul class="nav navbar-nav">
 					{% for key in g.dashes %}
 					<li class="{% if key == current_dash %}active{% endif %}">
@@ -48,10 +49,8 @@
 	{% block page %}
 		{% block page_header %}
 		<div class="container">
-			<div class="row">
-				<div class="page-header">
-					<h1>{% block page_title %}Bundle dashboard{% endblock %}</h1>
-				</div>
+			<div class="page-header">
+				<h1>{% block page_title %}BNDL dashboard{% endblock %}</h1>
 			</div>
 		</div>
 		{% endblock %}
@@ -63,6 +62,15 @@
 	{% block scripts %}
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
+	<script type="text/javascript">
+		jQuery(document).ready(function($) {
+			$('[data-toggle="tooltip"]').tooltip()
+					
+			$(".clickable-row").click(function() {
+				window.document.location = $(this).data("href");
+			});
+		});
+	</script>
 	{% endblock %}
 </body>
 

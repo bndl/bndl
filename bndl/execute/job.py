@@ -8,6 +8,7 @@ from threading import Lock
 import concurrent.futures
 
 from bndl.util.lifecycle import Lifecycle
+import itertools
 
 
 logger = logging.getLogger(__name__)
@@ -15,14 +16,17 @@ logger = logging.getLogger(__name__)
 
 class Job(Lifecycle):
 
-    def __init__(self, ctx):
-        super().__init__()
+    _jobids = itertools.count(1)
+
+    def __init__(self, ctx, name=None, desc=None):
+        super().__init__(name, desc)
+        self.id = next(self._jobids)
         self.ctx = ctx
         self.stages = []
 
 
     def execute(self, eager=True):
-        self._signal_start()
+        self.signal_start()
 
         logger.info('executing job %s with stages %s', self, self.stages)
 
@@ -38,7 +42,7 @@ class Job(Lifecycle):
 
     def _stage_done(self, stage):
         if stage.stopped and stage == self.stages[-1]:
-            self._signal_stop()
+            self.signal_stop()
 
 
     def cancel(self):
@@ -47,18 +51,23 @@ class Job(Lifecycle):
             stage.cancel()
 
 
+    @property
+    def tasks(self):
+        return list(chain.from_iterable(stage.tasks for stage in self.stages))
+
+
 
 @functools.total_ordering
 class Stage(Lifecycle):
 
-    def __init__(self, stage_id, job):
-        super().__init__()
+    def __init__(self, stage_id, job, name=None, desc=None):
+        super().__init__(name, desc)
         self.id = stage_id
         self.job = job
         self.tasks = []
 
     def execute(self, workers, eager=True):
-        self._signal_start()
+        self.signal_start()
 
         todo = self.tasks[:]
         running = {w:None for w in workers}
@@ -125,7 +134,7 @@ class Stage(Lifecycle):
                 root = root.__cause__
             raise Exception('Unable to execute stage %s: %s' % (self, root)) from e
         finally:
-            self._signal_stop()
+            self.signal_stop()
 
 
     def cancel(self):
@@ -156,8 +165,9 @@ class Stage(Lifecycle):
 class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def __init__(self, task_id, stage, method, args, kwargs,
-                 preferred_workers, allowed_workers=None):
-        super().__init__()
+                 preferred_workers=None, allowed_workers=None,
+                 name=None, desc=None):
+        super().__init__(name, desc)
         self.id = task_id
         self.stage = stage
         self.method = method
@@ -168,9 +178,9 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.future = None
 
     def execute(self, worker):
-        self._signal_start()
+        self.signal_start()
         self.future = worker.run_task(self.method, *self.args, **(self.kwargs or {}))
-        self.future.add_done_callback(lambda future: self._signal_stop())
+        self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
 
     def result(self):

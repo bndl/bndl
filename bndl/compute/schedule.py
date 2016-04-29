@@ -4,6 +4,7 @@ import logging
 
 from bndl.execute.job import Job, Stage, Task
 from functools import partial
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def schedule_job(dset, workers=None):
         ctx._await_workers()
         workers = ctx.workers[:]
 
-    job = Job(ctx)
+    job = Job(ctx, *_job_namedesc())
 
     stage = Stage(None, job)
     schedule_stage(stage, workers, dset)
@@ -43,7 +44,7 @@ def schedule_job(dset, workers=None):
                 for task in branch.stages[-1].tasks:
                     task.args[1] = False
 
-                for l in branch._listeners:
+                for l in branch.listeners:
                     job.add_listener(l)
 
                 if dset.sync_required:
@@ -77,6 +78,18 @@ def schedule_job(dset, workers=None):
         task.args[1] = True
 
     return job
+
+
+def _job_namedesc():
+    name = ''
+    desc = ''
+    for file, lineno, func, text in reversed(traceback.extract_stack()):
+        if 'bndl/' in file and func[0] != '_':
+            name = func
+        desc = text
+        if not 'bndl/' in file:
+            break
+    return name, desc
 
 
 
@@ -125,6 +138,8 @@ def schedule_stage(stage, workers, dset):
     :param dset:
         The data set to schedule
     '''
+    stage.name = dset.__class__.__name__
+
     assignments = get_assignments(dset, workers)
 
     # loop over assignments per worker

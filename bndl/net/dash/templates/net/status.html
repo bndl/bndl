@@ -1,3 +1,22 @@
 <h4>{{ g.node.name }}</h4>
+
+<hr>
+
+<div class="row">
+	<div class="col-xs-4">Server:</div>
+	<div class="col-xs-8"><span class="glyphicon glyphicon-{% if g.node.running %}ok{% else %}flash{% endif %}"></span></div>
+</div>
+	
+<div class="row">
+	<div class="col-xs-4">Connections:</div>
+	<div class="col-xs-8"><span class="glyphicon glyphicon-{% if g.node.running %}ok{% else %}flash{% endif %}"></span></div>
+</div>
+
+<hr>
+
+<div class="row">
+	<div class="col-xs-12">
 {% import "net/rates.html" as rates %}
 {{ rates.rates(g.node) }}
+	</div>
+</div>

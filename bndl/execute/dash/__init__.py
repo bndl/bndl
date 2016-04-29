@@ -24,5 +24,9 @@ class Dash(dash.Dash):
 
 
 @blueprint.route('/')
-def index():
-    return render_template('execute/dashboard.html')
+def jobs():
+    return render_template('execute/jobs.html')
+
+@blueprint.route('/job/<job_id>')
+def job(job_id):
+    return render_template('execute/job.html')

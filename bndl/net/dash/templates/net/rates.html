@@ -1,17 +1,19 @@
 {% macro rates(node) -%}
+{% if node._watchdog %}
 {% set rxtx_stats=node._watchdog.rxtx_stats() %}
-<table class="table table-hover" style="max-width: 20em">
+<table class="table table-hover" style="max-width: 15em">
 	<tbody>
 		<tr>
-			<th>RX</th>
+			<th><span class="glyphicon glyphicon-download"></span></th>
 			<td>{{ rxtx_stats['bytes_received'] | filesizeformat }}</td>
 			<td>{{ rxtx_stats['bytes_received_rate'] | filesizeformat }}/s</td>
 		</tr>
 		<tr>
-			<th>TX</th>
+			<th><span class="glyphicon glyphicon-upload"></span></th>
 			<td>{{ rxtx_stats['bytes_sent'] | filesizeformat }}</td>
 			<td>{{ rxtx_stats['bytes_sent_rate'] | filesizeformat }}/s</td>
 		</tr>
 	</tbody>
 </table>
+{% endif %}
 {% endmacro %}
