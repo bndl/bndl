@@ -72,6 +72,7 @@ def run(node=None, ctx=None):
         flask.g.ctx = ctx
         flask.g.dashes = dashes
 
+    logging.getLogger('werkzeug').setLevel(logging.WARN)
     threading.Thread(target=_run, daemon=True).start()
 
 
