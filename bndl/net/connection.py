@@ -57,6 +57,11 @@ def check_addresses(addresses, exit_on_fail=True,
 
 
 @functools.lru_cache(maxsize=1024)
+def gethostbyname(hostname):
+    return socket.gethostbyname(hostname)
+
+
+@functools.lru_cache(maxsize=1024)
 def filter_ip_addresses(*addresses):
     '''
     Filter out IP addresses from a list of addresses. IP addresses are only
@@ -64,7 +69,7 @@ def filter_ip_addresses(*addresses):
     :param addresses: iterable of URL strings (parsable by urlparse)
     '''
     return set(
-        socket.gethostbyname(a.hostname)
+        gethostbyname(a.hostname)
         for a in map(urlparse, addresses)
         if a.scheme == 'tcp'
     )
