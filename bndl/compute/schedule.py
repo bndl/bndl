@@ -80,25 +80,7 @@ def schedule_job(dset, workers=None):
 
 
 
-def schedule_stage(stage, workers, dset):
-    '''
-    Schedule a stage for a data set.
-    
-    It is assumed that all source data sets (and their parts) are materialized when
-    this data set is materialized. (i.e. parts call materialize on their sources,
-    if any).
-    
-    Also it is assumed that stages are scheduled backwards. Specifically if
-    stage.is_last when this function is called it will remain that way ...
-    
-    :param stage: Stage
-        stage to add tasks to
-    :param workers: iterable
-        Workers to schedule the data set on
-    :param dset:
-        The data set to schedule
-    '''
-
+def get_assignments(dset, workers):
     assignments = collections.defaultdict(lambda: [])
     assignment_count = lambda worker: (len(assignments[worker]), worker.name)
 
@@ -122,8 +104,31 @@ def schedule_stage(stage, workers, dset):
         # and update assignments
         assignments[selected_worker].append((part, (allowed_workers, preferred_workers)))
 
+    return assignments
+
+
+def schedule_stage(stage, workers, dset):
+    '''
+    Schedule a stage for a data set.
+    
+    It is assumed that all source data sets (and their parts) are materialized when
+    this data set is materialized. (i.e. parts call materialize on their sources,
+    if any).
+    
+    Also it is assumed that stages are scheduled backwards. Specifically if
+    stage.is_last when this function is called it will remain that way ...
+    
+    :param stage: Stage
+        stage to add tasks to
+    :param workers: iterable
+        Workers to schedule the data set on
+    :param dset:
+        The data set to schedule
+    '''
+    assignments = get_assignments(dset, workers)
+
     # loop over assignments per worker
-    for _, parts in assignments.items():
+    for parts in assignments.values():
         # and task per assigned part
         for part, (allowed_workers, preferred_workers) in parts:
             stage.tasks.append(Task(

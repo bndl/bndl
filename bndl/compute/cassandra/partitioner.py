@@ -1,4 +1,3 @@
-import functools
 from operator import itemgetter
 
 from bndl.util.collection import sortgroupby
@@ -32,7 +31,8 @@ def partition_ranges(session, keyspace, table):
     # group by replica
     by_replicas = sortgroupby(
         (
-            (token_map.get_replicas(keyspace, token_map.token_class(start)), start, end)
+            (set(replica.address for replica in token_map.get_replicas(keyspace, token_map.token_class(start))),
+             start, end)
             for start, end in raw_ranges
         ), itemgetter(0)
     )

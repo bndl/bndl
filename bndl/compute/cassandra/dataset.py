@@ -144,6 +144,5 @@ class CassandraScanPartition(Partition):
         return [
             worker
             for worker in workers
-            for replica in self.replicas
-            if replica.address in worker.ip_addresses
+            if worker.ip_addresses & self.replicas
         ]
