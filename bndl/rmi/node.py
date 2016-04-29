@@ -67,7 +67,7 @@ class RMIPeerNode(PeerNode):
             logger.warning('unable to deliver response %s on connection %s (cancelled)', response.req_id, self)
         except Exception as e:
             logger.exception('unable to send response')
-            exc = e
+            exc = sys.exc_info()
 
         if exc:
             response.value = None
