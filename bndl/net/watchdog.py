@@ -142,3 +142,16 @@ class Watchdog(object):
         # if no nodes are connected, attempt to connect with the seeds
         if not any(peer.is_connected for peer in peers):
             yield from self.node._connect_seeds()
+
+
+    def rxtx_stats(self):
+        stats = dict(
+            bytes_sent=0,
+            bytes_sent_rate=0,
+            bytes_received=0,
+            bytes_received_rate=0
+        )
+        for peer_stats in self.peer_stats.values():
+            for k in stats.keys():
+                stats[k] += getattr(peer_stats, k, 0)
+        return stats

@@ -1,0 +1,53 @@
+{% extends "dash/base.html" %}
+
+{% block page_title %}
+{{ g.node.name }}
+{% endblock %}
+
+{% block page_body %}
+<div class="container">
+	<div class="row">
+		<h2>Listening on:</h2>
+		<table class="table table-striped table-hover ">
+			<tbody>
+				{% for address, server in g.node.servers.items() %}
+				<tr class="{% if server.sockets %}success{% else %}danger{% endif %}">
+					<td>{{ address }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+		
+	<div class="row">
+		<div class="col-lg-6">
+			<h2>Peers:</h2>
+			<table class="table table-striped table-hover ">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Addresses</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for peer in g.node.peers.values() %}
+					<tr class="{% if peer.is_connected %}success{% else %}danger{% endif %}">
+						<td>{{ peer.name }}</td>
+						<td>{{ peer.addresses|join(', ') }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+		<div class="col-lg-6">
+			<h2>Communication:</h2>
+			{% import "net/rates.html" as rates %}
+			<div class="panel panel-default">
+  				<div class="panel-body">
+					{{ rates.rates(g.node) }}
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

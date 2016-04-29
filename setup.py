@@ -44,7 +44,7 @@ setup(
         find_packages()
     ),
 
-    include_package_data=False,
+    include_package_data=True,
     zip_safe=False,
 
     install_requires=[
@@ -58,6 +58,8 @@ setup(
         "cytoolz",
         "numpy",
         # "progressbar2",
+
+        "flask",
 
         # bundle.run.ssh
         # "asyncssh",  # TODO make optional dependency

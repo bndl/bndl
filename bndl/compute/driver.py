@@ -10,6 +10,7 @@ import threading
 
 import concurrent.futures
 
+from bndl import dash
 from bndl.compute.context import ComputeContext
 from bndl.compute.worker import Worker, argparser
 from bndl.net.run import create_node
@@ -65,6 +66,8 @@ def run_bndl(args, conf, started, stopped):
 
     global ctx
     ctx = ComputeContext(driver, conf)
+
+    dash.run(driver, ctx)
 
     @asyncio.coroutine
     def wait_for_peers():
