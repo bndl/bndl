@@ -143,6 +143,8 @@ class Connection(object):
             msg = (yield from self.loop.run_in_executor(None, serialize.loads, fmt, msg))
             msg = Message.load(msg)
             return msg
+        except BrokenPipeError as e:
+            raise NotConnected() from e
         except asyncio.streams.IncompleteReadError as e:
             if not e.partial:
                 raise NotConnected() from e
