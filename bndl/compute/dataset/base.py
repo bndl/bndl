@@ -129,7 +129,6 @@ class Dataset(metaclass=abc.ABCMeta):
         yield from islice(sliced_parts.icollect(eager=False), num)
 
 
-
     def stat(self, f):
         try:
             return next(self.reduce(lambda seq: (f(seq),), pcount=1).icollect())
@@ -312,10 +311,7 @@ class Dataset(metaclass=abc.ABCMeta):
             pass
 
     def _execute(self, eager=True):
-        yield from self.ctx.execute(self._schedule(), eager=eager)
-
-    def _schedule(self):
-        return schedule_job(self)
+        yield from self.ctx.execute(schedule_job(self), eager=eager)
 
 
     def prefer_workers(self, fltr):
