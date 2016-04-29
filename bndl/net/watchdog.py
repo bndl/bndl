@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 # The time in seconds between checking connections
-WATCHDOG_INTERVAL = .5
+WATCHDOG_INTERVAL = 2
 
 # allow at most 10 connection attempts
 # after that, drop the peer connection from the
@@ -21,11 +21,11 @@ MAX_CONNECTION_ATTEMPT = 10
 
 # The maximum time in seconds with no communication
 # after which a ping is sent
-DT_PING_AFTER = 1
+DT_PING_AFTER = WATCHDOG_INTERVAL * 3
 
 # The maximum time in seconds with no communication
 # after which the connection is considered lost
-DT_MAX_INACTIVE = 3
+DT_MAX_INACTIVE = DT_PING_AFTER * 2
 
 
 class PeerStats(object):
@@ -142,4 +142,3 @@ class Watchdog(object):
         # if no nodes are connected, attempt to connect with the seeds
         if not any(peer.is_connected for peer in peers):
             yield from self.node._connect_seeds()
-
