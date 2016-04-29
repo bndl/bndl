@@ -50,6 +50,8 @@ class PeerStats(object):
 
         if not self.peer.is_connected:
             self.error_since = self.error_since or now
+            self.bytes_sent_rate = 0
+            self.bytes_received_rate = 0
             return
 
         # calculate tx and rx rates
