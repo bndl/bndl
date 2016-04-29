@@ -1,17 +1,19 @@
 import argparse
 import asyncio
 import atexit
-import concurrent.futures
 import copy
 import logging
 import math
+import os
+import socket
 import threading
+
+import concurrent.futures
 
 from bndl.compute.context import ComputeContext
 from bndl.compute.worker import Worker, argparser
 from bndl.net.run import create_node
 from bndl.util.supervisor import Supervisor
-import os
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ argparser.set_defaults(seeds=())
 def run_bndl(args, conf, started, stopped):
     if not args.seeds and not args.worker_count:
         args.worker_count = os.cpu_count()
-        args.seeds = args.listen_addresses or ['tcp://localhost:5000']
+        args.seeds = args.listen_addresses or ['tcp://%s:5000' % socket.getfqdn()]
 
     driver = create_node(Driver, args)
     loop = driver.loop
