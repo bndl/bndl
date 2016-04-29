@@ -1,5 +1,7 @@
 import IPython
 
+from bndl.compute.script import ctx
+
 
 header = ''' _____ _____ _____ ____  __    _____ 
 | __  |  |  |   | |    \|  |  |   __|
@@ -10,9 +12,9 @@ header = ''' _____ _____ _____ ____  __    _____
 
 
 def main():
-    # import here because the import involves setting up the context
-    from bndl.compute.script import ctx
     try:
+        # as ctx is lazy, access an attribute to start the driver
+        ctx.worker_count
         IPython.embed(header=header, user_ns=dict(ctx=ctx))
     finally:
         ctx.stop()
