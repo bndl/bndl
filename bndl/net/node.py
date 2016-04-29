@@ -1,6 +1,5 @@
 import asyncio
 import errno
-import functools
 import itertools
 import logging
 import os
@@ -34,7 +33,6 @@ class Node(object):
             self.name += '.' + str(os.getpid())
             self.name += '.' + str(next(Node._nodeids))
         self.node_type = camel_to_snake(self.__class__.__name__)
-        # create placeholders for the addresses this node will listen on
         self.servers = {
             address:None for address in
             (addresses or ['tcp://%s:%s' % (socket.getfqdn(), 5000)])
