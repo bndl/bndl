@@ -69,7 +69,9 @@ class CassandraScanDataset(Dataset):
 
 
     def limit(self, num):
-        return self._with('_limit', int(num))
+        wlimit = self._with('_limit', int(num))
+        wlimit.concurrency = min(wlimit.concurrency, num)
+        return wlimit
 
     def itake(self, num):
         if not self.cached and not self._limit:
