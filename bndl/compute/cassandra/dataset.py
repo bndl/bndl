@@ -6,7 +6,6 @@ from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import collection
 from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
-from cytoolz import pluck  # @UnresolvedImport
 
 
 logger = logging.getLogger(__name__)
@@ -47,9 +46,9 @@ class CassandraScanDataset(Dataset):
         self._where = '''
             token({partition_key_column_names}) > ? and
             token({partition_key_column_names}) <= ?
-        '''.format(
-            partition_key_column_names=', '.join(c.name for c in table_meta.partition_key)
-        )
+            '''.format(
+                partition_key_column_names=', '.join(c.name for c in table_meta.partition_key)
+            )
 
 
     def count(self, push_down=None):
@@ -134,11 +133,9 @@ class CassandraScanPartition(Partition):
             logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
             results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
-            return pluck(1, results)
-            # for success, rows in results:
-            #     assert success  # TODO handle failure
-            #     for row in rows:
-            #         yield row
+            for success, rows in results:
+                assert success  # TODO handle failure
+                yield from rows
 
 
     def preferred_workers(self, workers):
