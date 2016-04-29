@@ -62,11 +62,7 @@ class Invocation(object):
 
         if response.exception:
             exc_class, exc, tb = response.exception
-            if exc_class:
-                exception = exc_class('%s\n---\n%s' %
-                                      (str(exc), ''.join(traceback.format_list(tb))))
-                raise InvocationException(str(exc)) from exception
-            else:
-                raise InvocationException('unknown exception')
+            source = Exception('%s: %s\n---\n%s' % (exc_class.__name__, str(exc), ''.join(traceback.format_list(tb))))
+            raise InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__)) from source
         else:
             return response.value
