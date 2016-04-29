@@ -7,6 +7,7 @@ import urllib.parse
 
 from bndl.util import serialize
 from bndl.net.messages import Message
+import functools
 
 
 logger = logging.getLogger(__name__)
@@ -55,13 +56,14 @@ def check_addresses(addresses, exit_on_fail=True,
             raise e
 
 
-def filter_ip_addresses(addresses):
+@functools.lru_cache(maxsize=1024)
+def filter_ip_addresses(*addresses):
     '''
     Filter out IP addresses from a list of addresses. IP addresses are only
     selected from addresses with the tcp:// scheme.
     :param addresses: iterable of URL strings (parsable by urlparse)
     '''
-    return (
+    return set(
         socket.gethostbyname(a.hostname)
         for a in map(urlparse, addresses)
         if a.scheme == 'tcp'

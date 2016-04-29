@@ -42,7 +42,7 @@ class PeerNode(object):
 
     @property
     def ip_addresses(self):
-        return set(filter_ip_addresses(self.addresses))
+        return filter_ip_addresses(*self.addresses)
 
     @property
     def islocal(self):

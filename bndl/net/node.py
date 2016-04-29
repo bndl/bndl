@@ -43,15 +43,13 @@ class Node(object):
 
 
     @property
-    @functools.lru_cache()
     def addresses(self):
         return list(self.servers.keys())
 
 
     @property
-    @functools.lru_cache()
     def ip_addresses(self):
-        return set(filter_ip_addresses(self.addresses))
+        return filter_ip_addresses(*self.addresses)
 
 
     def start_async(self):
