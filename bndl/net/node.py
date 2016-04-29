@@ -56,9 +56,7 @@ class Node(object):
 
 
     def start_async(self):
-        task = self.loop.create_task(self.start())
-        self._iotasks.append(task)
-        task.add_done_callback(self._iotasks.remove)
+        return aio.run_coroutine_threadsafe(self.start(), self.loop)
 
 
     @asyncio.coroutine
@@ -82,7 +80,7 @@ class Node(object):
 
 
     def stop_async(self):
-        aio.run_coroutine_threadsafe(self.stop(), self.loop)
+        return aio.run_coroutine_threadsafe(self.stop(), self.loop)
 
 
     @asyncio.coroutine
