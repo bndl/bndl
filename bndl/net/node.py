@@ -27,7 +27,12 @@ class Node(object):
 
     def __init__(self, loop, name=None, addresses=None, seeds=None):
         self.loop = loop or get_loop()
-        self.name = name or '.'.join(map(str, (next(Node._nodeids), os.getpid(), socket.getfqdn())))
+        if name:
+            self.name = name
+        else:
+            self.name = '.'.join(reversed(socket.getfqdn().split('.')))
+            self.name += '.' + str(os.getpid())
+            self.name += '.' + str(next(Node._nodeids))
         self.node_type = camel_to_snake(self.__class__.__name__)
         # create placeholders for the addresses this node will listen on
         self.servers = {
