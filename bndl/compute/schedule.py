@@ -24,7 +24,7 @@ def schedule_job(dset, workers=None):
         ctx._await_workers()
         workers = ctx.workers[:]
 
-    job = Job(ctx, *_job_namedesc())
+    job = Job(ctx, *_job_calling_info())
 
     stage = Stage(None, job)
     schedule_stage(stage, workers, dset)
@@ -80,13 +80,13 @@ def schedule_job(dset, workers=None):
     return job
 
 
-def _job_namedesc():
-    name = ''
-    desc = ''
+def _job_calling_info():
+    name = None
+    desc = None
     for file, lineno, func, text in reversed(traceback.extract_stack()):
         if 'bndl/' in file and func[0] != '_':
             name = func
-        desc = text
+        desc = file, lineno, func, text
         if not 'bndl/' in file:
             break
     return name, desc
