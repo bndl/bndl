@@ -34,7 +34,7 @@ Execute
 		<tbody>
 			{% for job in (g.ctx.jobs)|reverse %}
 			
-				<tr class="clickable-row{{ '' if job.stopped_on else 'active' }}" data-href='/execute/job/{{ job.id }}'>
+				<tr class="clickable-row{{ '' if job.stopped_on else ' active' }}" data-href='/execute/job/{{ job.id }}'>
 					<td>{{ job.id }}</td>
 					<td><span data-toggle="tooltip" data-original-title="{{ job.desc }}">{{ job.name }}</span></td>
 					
@@ -61,6 +61,8 @@ Execute
 					{% set duration = (job.stopped_on or now()) - job.started_on %}
 					{% if tasks_stopped and tasks_remaining %}
 						{% set remaining = duration / tasks_stopped * (job.tasks|length) - duration %}
+					{% else %}
+						{% set remaining = None %}
 					{% endif %}
 					<td>{{ (duration|string).split('.')[0] }}</td>
 					<td>{% if remaining %}{{ (remaining|string).split('.')[0] }}{% endif %}</td>
