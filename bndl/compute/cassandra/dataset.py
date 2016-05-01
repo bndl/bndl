@@ -26,7 +26,7 @@ class CassandraScanDataset(Dataset):
             Maximum number of concurrent queries per partition.
             concurrency * ctx.worker_count is the maximum number of concurrent
             queries in total.
-        :param contact_points: None or [str,str,str,...]
+        :param contact_points: None or str or [str,str,str,...]
             None to use the default contact points or a list of contact points
             or a comma separated string of contact points.
         '''
@@ -37,9 +37,9 @@ class CassandraScanDataset(Dataset):
         self.concurrency = concurrency
         self._row_factory = named_tuple_factory
 
-        with ctx.cassandra_session(contact_points=self.contact_points) as session:
-            keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
-            table_meta = keyspace_meta.tables[self.table]
+        session = ctx.cassandra_session(contact_points=self.contact_points)
+        keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
+        table_meta = keyspace_meta.tables[self.table]
 
         self._select = '*'
         self._limit = None
@@ -81,19 +81,19 @@ class CassandraScanDataset(Dataset):
 
 
     def parts(self):
-        with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
-            partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
-            while len(partitions) < self.ctx.default_pcount:
-                repartitioned = []
-                for replicas, token_ranges in partitions:
-                    if len(token_ranges) == 1:
-                        continue
-                    mid = len(token_ranges) // 2
-                    repartitioned.append((replicas, token_ranges[:mid]))
-                    repartitioned.append((replicas, token_ranges[mid:]))
-                if len(repartitioned) == len(partitions):
-                    break
-                partitions = repartitioned
+        session = cassandra_session(self.ctx, contact_points=self.contact_points)
+        partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
+        while len(partitions) < self.ctx.default_pcount:
+            repartitioned = []
+            for replicas, token_ranges in partitions:
+                if len(token_ranges) == 1:
+                    continue
+                mid = len(token_ranges) // 2
+                repartitioned.append((replicas, token_ranges[:mid]))
+                repartitioned.append((replicas, token_ranges[mid:]))
+            if len(repartitioned) == len(partitions):
+                break
+            partitions = repartitioned
 
 
         return [
@@ -126,18 +126,17 @@ class CassandraScanPartition(Partition):
 
 
     def _materialize(self, ctx):
-        with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
-            session.row_factory = named_tuple_factory
-            # session.default_fetch_size = 1000
-            # session.client_protocol_handler = NumpyProtocolHandler
-            session.row_factory = self.dset._row_factory
-            query = self.dset.query(session)
-            logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
+        session = ctx.cassandra_session(contact_points=self.dset.contact_points)
+        session.row_factory = named_tuple_factory
+        session.default_fetch_size = 1000
+        session.row_factory = self.dset._row_factory
+        query = self.dset.query(session)
+        logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
-            for success, rows in results:
-                assert success  # TODO handle failure
-                yield from rows
+        results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
+        for success, rows in results:
+            assert success  # TODO handle failure
+            yield from rows
 
 
     def preferred_workers(self, workers):

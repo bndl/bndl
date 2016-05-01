@@ -5,7 +5,8 @@ from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy
 from threading import Lock
-from itertools import chain
+from collections import Sequence
+from weakref import WeakValueDictionary
 
 
 _prepare_lock = Lock()
@@ -19,8 +20,13 @@ def prepare(self, query, custom_payload=None):
         return _prepare(self, query, custom_payload)
 
 
+def get_contact_points(ctx, contact_points):
+    if isinstance(contact_points, str):
+        contact_points = (contact_points,)
+    return _get_contact_points(ctx, *(contact_points or ()))
+
 @lru_cache()
-def get_contact_points(ctx, *contact_points):
+def _get_contact_points(ctx, *contact_points):
     if not contact_points:
         contact_points = ctx.conf.get('cassandra.contact_points')
     if not contact_points:
@@ -29,18 +35,17 @@ def get_contact_points(ctx, *contact_points):
             contact_points |= worker.ip_addresses
     if not contact_points:
         contact_points = ctx.node.ip_addresses
-    if isinstance(contact_points, str):
-        contact_points = contact_points.split(',')
+    if isinstance(contact_points, Sequence) and len(contact_points) == 1 and isinstance(contact_points[0], str):
+        contact_points = contact_points[0].split(',')
     return tuple(sorted(contact_points))
 
 
-@contextlib.contextmanager
 def cassandra_session(ctx, keyspace=None, contact_points=None):
     sessions = getattr(cassandra_session, 'sessions', None)
     if sessions is None:
-        cassandra_session.sessions = sessions = {}
+        cassandra_session.sessions = sessions = WeakValueDictionary()
     # determine contact points, either given or ip addresses of the workers
-    contact_points = get_contact_points(ctx, *(contact_points or ()))
+    contact_points = get_contact_points(ctx, contact_points)
     # check if there is a cached session
     session = sessions.get(contact_points)
     # or create one if not or that session is shutdown
@@ -51,4 +56,4 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
         session.prepare = partial(prepare, session)
         sessions[contact_points] = session
 
-    yield session
+    return session
