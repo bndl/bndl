@@ -1,16 +1,814 @@
 Communicate worker list in scheduling task
+ - (pin a job on workers or check that shuffles are ok after workers join)
+
 Detect missing data on shuffle read (building on #1) and fail task
-but with rescheduling the dependency
+ - but with rescheduling the dependency
+
 reschedule failed tasks on other hosts
-heartbeat at net level
-heartbeat at task level to identify failed tasks
+ - heartbeat at task level to identify failed tasks
+
 don't propagate CTRL+C to workers in ipython shell
+
 dset.sort().first() is waaaay slower than dset.sort().count()
-ctx.cassandra_table should use cassandra on seed node by default (not localhost)
+
 sort should be lazy
 wait for gossip to settle before starting a node / the shell
+
 check on cancelling jobs
 check stable ids for nodes
  - it causes a new node on an old address to be rejected
+
 the rx tx rates aren't updated on sp-dev
-hide tabs on workers in dashboard
+only start gui on driver by default
+
+cassandra retry policy
+
+
+Limit resource usage from supervisor with: https://docs.python.org/3.4/library/resource.html
+Enhance dashboard with info from https://pypi.python.org/pypi/psutil
+
+
+Don't skip job ids for branches
+
+
+## ERRORS
+
+16169 : 16169: 2016-04-30 09:57:45,993   bndl.rmi.node         l#80   ERROR     unable to send exception
+16169 : Traceback (most recent call last):
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 31, in dumps
+16169 :     serialized = pickle.dumps(obj, protocol=4)
+16169 : _pickle.PicklingError: Can't pickle <class '_thread.lock'>: attribute lookup lock on _thread failed
+16169 : 
+16169 : During handling of the above exception, another exception occurred:
+16169 : 
+16169 : Traceback (most recent call last):
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 78, in _handle_request
+16169 :     yield from self.send(response)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 64, in send
+16169 :     yield from self.conn.send(msg, drain)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 125, in send
+16169 :     fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+16169 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+16169 :     yield self  # This tells Task to wait for completion.
+16169 :   File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+16169 :     value = future.result()
+16169 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+16169 :     raise self._exception
+16169 :   File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+16169 :     result = self.fn(*self.args, **self.kwargs)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 33, in dumps
+16169 :     serialized = cloudpickle.dumps(obj, protocol=4)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 629, in dumps
+16169 :     cp.dump(obj)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 107, in dump
+16169 :     return Pickler.dump(self, obj)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 410, in dump
+16169 :     self.save(obj)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16169 :     save(args)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 837, in _batch_setitems
+16169 :     save(k)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16169 :     save(state)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16169 :     save(state)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 381, in save_instancemethod
+16169 :     self.save_reduce(types.MethodType, (obj.__func__, obj.__self__), obj=obj)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16169 :     save(args)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 508, in save
+16169 :     self.save_global(obj, rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 370, in save_global
+16169 :     raise pickle.PicklingError("Can't pickle %r" % obj)
+16169 : _pickle.PicklingError: Can't pickle <cyfunction Cluster.on_add at 0x7fefc9694df0>
+16169 : 16169: 2016-04-30 09:57:45,999   bndl.rmi.node         l#80   ERROR     unable to send exception
+16169 : Traceback (most recent call last):
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 31, in dumps
+16169 :     serialized = pickle.dumps(obj, protocol=4)
+16169 : _pickle.PicklingError: Can't pickle <class '_thread.lock'>: attribute lookup lock on _thread failed
+16169 : 
+16169 : During handling of the above exception, another exception occurred:
+16169 : 
+16169 : Traceback (most recent call last):
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 78, in _handle_request
+16169 :     yield from self.send(response)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 64, in send
+16169 :     yield from self.conn.send(msg, drain)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 125, in send
+16169 :     fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+16169 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+16169 :     yield self  # This tells Task to wait for completion.
+16169 :   File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+16169 :     value = future.result()
+16169 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+16169 :     raise self._exception
+16169 :   File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+16169 :     result = self.fn(*self.args, **self.kwargs)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 33, in dumps
+16169 :     serialized = cloudpickle.dumps(obj, protocol=4)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 629, in dumps
+16169 :     cp.dump(obj)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 107, in dump
+16169 :     return Pickler.dump(self, obj)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 410, in dump
+16169 :     self.save(obj)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16169 :     save(state)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16169 :     save(state)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16169 :     self.save_reduce(obj=obj, *rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16169 :     save(state)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16169 :     self._batch_setitems(obj.items())
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16169 :     save(v)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 381, in save_instancemethod
+16169 :     self.save_reduce(types.MethodType, (obj.__func__, obj.__self__), obj=obj)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16169 :     save(args)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16169 :     f(self, obj) # Call unbound method with explicit self
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16169 :     save(element)
+16169 :   File "/usr/lib64/python3.4/pickle.py", line 508, in save
+16169 :     self.save_global(obj, rv)
+16169 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 370, in save_global
+16169 :     raise pickle.PicklingError("Can't pickle %r" % obj)
+16169 : _pickle.PicklingError: Can't pickle <cyfunction Cluster.on_add at 0x7fefc9694df0>
+16168 : 16168: 2016-04-30 09:58:15,972   bndl.rmi.node         l#80   ERROR     unable to send exception
+16168 : Traceback (most recent call last):
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 31, in dumps
+16168 :     serialized = pickle.dumps(obj, protocol=4)
+16168 : _pickle.PicklingError: Can't pickle <class '_thread.lock'>: attribute lookup lock on _thread failed
+16168 : 
+16168 : During handling of the above exception, another exception occurred:
+16168 : 
+16168 : Traceback (most recent call last):
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 78, in _handle_request
+16168 :     yield from self.send(response)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 64, in send
+16168 :     yield from self.conn.send(msg, drain)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 125, in send
+16168 :     fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+16168 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+16168 :     yield self  # This tells Task to wait for completion.
+16168 :   File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+16168 :     value = future.result()
+16168 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+16168 :     raise self._exception
+16168 :   File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+16168 :     result = self.fn(*self.args, **self.kwargs)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 33, in dumps
+16168 :     serialized = cloudpickle.dumps(obj, protocol=4)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 629, in dumps
+16168 :     cp.dump(obj)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 107, in dump
+16168 :     return Pickler.dump(self, obj)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 410, in dump
+16168 :     self.save(obj)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16168 :     save(element)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16168 :     self._batch_setitems(obj.items())
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16168 :     save(v)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16168 :     save(element)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16168 :     self.save_reduce(obj=obj, *rv)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16168 :     save(args)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16168 :     save(element)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16168 :     self._batch_setitems(obj.items())
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 837, in _batch_setitems
+16168 :     save(k)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16168 :     self.save_reduce(obj=obj, *rv)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16168 :     save(state)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16168 :     self._batch_setitems(obj.items())
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16168 :     save(v)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16168 :     self.save_reduce(obj=obj, *rv)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16168 :     save(state)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16168 :     self._batch_setitems(obj.items())
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16168 :     save(v)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 381, in save_instancemethod
+16168 :     self.save_reduce(types.MethodType, (obj.__func__, obj.__self__), obj=obj)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16168 :     save(args)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16168 :     f(self, obj) # Call unbound method with explicit self
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16168 :     save(element)
+16168 :   File "/usr/lib64/python3.4/pickle.py", line 508, in save
+16168 :     self.save_global(obj, rv)
+16168 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 370, in save_global
+16168 :     raise pickle.PicklingError("Can't pickle %r" % obj)
+16168 : _pickle.PicklingError: Can't pickle <cyfunction Cluster.on_add at 0x7faa59d5edf0>
+---------------------------------------------------------------------------
+Exception                                 Traceback (most recent call last)
+Exception: OperationTimedOut: errors=errors={}, last_host=127.0.0.1, last_host=None
+---
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 50, in _handle_request
+    result = yield from async_call(self.loop, method, *(args or ()), **(request.kwargs or {}))
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+    value = future.result()
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+    raise self._exception
+  File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/worker.py", line 12, in run_task
+    return task(self, *args, **kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/schedule.py", line 166, in materialize_partition
+    data = part.materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 385, in materialize
+    data = self._materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 735, in _materialize
+    return self.transformation(self.src, self.src.materialize(ctx))
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 699, in __call__
+    iterator = op(p, iterator)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/save.py", line 23, in _save_part
+    prepared_insert = session.prepare(insert)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/session.py", line 19, in prepare
+    return _prepare(self, query, custom_payload)
+  File "/usr/lib64/python3.4/functools.py", line 458, in wrapper
+    result = user_function(*args, **kwds)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/session.py", line 15, in _prepare
+    return Session.prepare(self, query, custom_payload)
+  File "cassandra/cluster.py", line 1728, in cassandra.cluster.Session.prepare (cassandra/cluster.c:28039)
+  File "cassandra/cluster.py", line 1725, in cassandra.cluster.Session.prepare (cassandra/cluster.c:27913)
+  File "cassandra/cluster.py", line 3145, in cassandra.cluster.ResponseFuture.result (cassandra/cluster.c:58053)
+
+
+The above exception was the direct cause of the following exception:
+
+InvocationException                       Traceback (most recent call last)
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    126             if exc:
+--> 127                 raise exc
+    128 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    113                 try:
+--> 114                     yield task.result()
+    115                 except Exception as e:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in result(self)
+    187         assert self.future, 'task not yet scheduled'
+--> 188         return self.future.result()
+    189 
+
+/usr/lib64/python3.4/concurrent/futures/_base.py in result(self, timeout)
+    401             elif self._state == FINISHED:
+--> 402                 return self.__get_result()
+    403             else:
+
+/usr/lib64/python3.4/concurrent/futures/_base.py in __get_result(self)
+    353         if self._exception:
+--> 354             raise self._exception
+    355         else:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/aio.py in task_done(task)
+     58         try:
+---> 59             future.set_result(task.result())
+     60         except Exception as e:
+
+/usr/lib64/python3.4/asyncio/futures.py in result(self)
+    276         if self._exception is not None:
+--> 277             raise self._exception
+    278         return self._result
+
+/usr/lib64/python3.4/asyncio/tasks.py in _step(***failed resolving arguments***)
+    233             elif value is not None:
+--> 234                 result = coro.send(value)
+    235             else:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/invocation.py in _request(self, *args, **kwargs)
+     65             source = Exception('%s: %s\n---\n%s' % (exc_class.__name__, str(exc), ''.join(traceback.format_list(tb))))
+---> 66             raise InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__)) from source
+     67         else:
+
+InvocationException: An exception was raised on localdomain.localhost.16168.0: OperationTimedOut
+
+The above exception was the direct cause of the following exception:
+
+Exception                                 Traceback (most recent call last)
+<ipython-input-3-f882c4eb9eb6> in <module>()
+----> 1 ctx.cassandra_table('adg', 'publisher', contact_points='sp-prod-adg01').cassandra_save('adg', 'publisher').execute()
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py in execute(self)
+    307 
+    308     def execute(self):
+--> 309         for _ in self._execute():
+    310             pass
+    311 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py in _execute(self, eager)
+    311 
+    312     def _execute(self, eager=True):
+--> 313         yield from self.ctx.execute(schedule_job(self), eager=eager)
+    314 
+    315 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/context.py in execute(self, job, eager)
+     30             self.jobs.append(job)
+     31             for stage, stage_execution in zip(job.stages, job.execute(eager=eager)):
+---> 32                 for result in stage_execution:
+     33                     if stage == job.stages[-1]:
+     34                         yield result
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    133             while root.__cause__:
+    134                 root = root.__cause__
+--> 135             raise Exception('Unable to execute stage %s: %s' % (self, root)) from e
+    136         finally:
+    137             self.signal_stop()
+
+Exception: Unable to execute stage Stage(id=0): OperationTimedOut: errors=errors={}, last_host=127.0.0.1, last_host=None
+---
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 50, in _handle_request
+    result = yield from async_call(self.loop, method, *(args or ()), **(request.kwargs or {}))
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+    value = future.result()
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+    raise self._exception
+  File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/worker.py", line 12, in run_task
+    return task(self, *args, **kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/schedule.py", line 166, in materialize_partition
+    data = part.materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 385, in materialize
+    data = self._materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 735, in _materialize
+    return self.transformation(self.src, self.src.materialize(ctx))
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 699, in __call__
+    iterator = op(p, iterator)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/save.py", line 23, in _save_part
+    prepared_insert = session.prepare(insert)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/session.py", line 19, in prepare
+    return _prepare(self, query, custom_payload)
+  File "/usr/lib64/python3.4/functools.py", line 458, in wrapper
+    result = user_function(*args, **kwds)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/session.py", line 15, in _prepare
+    return Session.prepare(self, query, custom_payload)
+  File "cassandra/cluster.py", line 1728, in cassandra.cluster.Session.prepare (cassandra/cluster.c:28039)
+  File "cassandra/cluster.py", line 1725, in cassandra.cluster.Session.prepare (cassandra/cluster.c:27913)
+  File "cassandra/cluster.py", line 3145, in cassandra.cluster.ResponseFuture.result (cassandra/cluster.c:58053)
+
+
+In [4]: 16170 : 16170: 2016-04-30 09:58:45,957   bndl.rmi.node         l#80   ERROR     unable to send exception
+16170 : Traceback (most recent call last):
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 31, in dumps
+16170 :     serialized = pickle.dumps(obj, protocol=4)
+16170 : _pickle.PicklingError: Can't pickle <class '_thread.lock'>: attribute lookup lock on _thread failed
+16170 : 
+16170 : During handling of the above exception, another exception occurred:
+16170 : 
+16170 : Traceback (most recent call last):
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 78, in _handle_request
+16170 :     yield from self.send(response)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 64, in send
+16170 :     yield from self.conn.send(msg, drain)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 125, in send
+16170 :     fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+16170 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+16170 :     yield self  # This tells Task to wait for completion.
+16170 :   File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+16170 :     value = future.result()
+16170 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+16170 :     raise self._exception
+16170 :   File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+16170 :     result = self.fn(*self.args, **self.kwargs)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 33, in dumps
+16170 :     serialized = cloudpickle.dumps(obj, protocol=4)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 629, in dumps
+16170 :     cp.dump(obj)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 107, in dump
+16170 :     return Pickler.dump(self, obj)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 410, in dump
+16170 :     self.save(obj)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16170 :     save(args)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 837, in _batch_setitems
+16170 :     save(k)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16170 :     save(state)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16170 :     save(state)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 381, in save_instancemethod
+16170 :     self.save_reduce(types.MethodType, (obj.__func__, obj.__self__), obj=obj)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16170 :     save(args)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 508, in save
+16170 :     self.save_global(obj, rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 370, in save_global
+16170 :     raise pickle.PicklingError("Can't pickle %r" % obj)
+16170 : _pickle.PicklingError: Can't pickle <cyfunction Cluster.on_add at 0x7f464278bdf0>
+16170 : 16170: 2016-04-30 09:58:45,959   bndl.rmi.node         l#80   ERROR     unable to send exception
+16170 : Traceback (most recent call last):
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 31, in dumps
+16170 :     serialized = pickle.dumps(obj, protocol=4)
+16170 : _pickle.PicklingError: Can't pickle <class '_thread.lock'>: attribute lookup lock on _thread failed
+16170 : 
+16170 : During handling of the above exception, another exception occurred:
+16170 : 
+16170 : Traceback (most recent call last):
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 78, in _handle_request
+16170 :     yield from self.send(response)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 64, in send
+16170 :     yield from self.conn.send(msg, drain)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 125, in send
+16170 :     fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+16170 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+16170 :     yield self  # This tells Task to wait for completion.
+16170 :   File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+16170 :     value = future.result()
+16170 :   File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+16170 :     raise self._exception
+16170 :   File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+16170 :     result = self.fn(*self.args, **self.kwargs)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 33, in dumps
+16170 :     serialized = cloudpickle.dumps(obj, protocol=4)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 629, in dumps
+16170 :     cp.dump(obj)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 107, in dump
+16170 :     return Pickler.dump(self, obj)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 410, in dump
+16170 :     self.save(obj)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16170 :     save(args)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 837, in _batch_setitems
+16170 :     save(k)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16170 :     save(state)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 522, in save
+16170 :     self.save_reduce(obj=obj, *rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 547, in save_reduce
+16170 :     save(state)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 812, in save_dict
+16170 :     self._batch_setitems(obj.items())
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 838, in _batch_setitems
+16170 :     save(v)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 381, in save_instancemethod
+16170 :     self.save_reduce(types.MethodType, (obj.__func__, obj.__self__), obj=obj)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 529, in save_reduce
+16170 :     save(args)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 477, in save
+16170 :     f(self, obj) # Call unbound method with explicit self
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 727, in save_tuple
+16170 :     save(element)
+16170 :   File "/usr/lib64/python3.4/pickle.py", line 508, in save
+16170 :     self.save_global(obj, rv)
+16170 :   File "/home/frens-jan/Workspaces/tgho/bndl/bndl/venv/lib64/python3.4/site-packages/cloudpickle/cloudpickle.py", line 370, in save_global
+16170 :     raise pickle.PicklingError("Can't pickle %r" % obj)
+16170 : _pickle.PicklingError: Can't pickle <cyfunction Cluster.on_add at 0x7f464278bdf0>
+
+
+
+
+### ERRORS
+
+---------------------------------------------------------------------------
+Exception                                 Traceback (most recent call last)
+Exception: NoHostAvailable: ('Unable to complete the operation against any hosts', {})
+---
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 50, in _handle_request
+    result = yield from async_call(self.loop, method, *(args or ()), **(request.kwargs or {}))
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+    value = future.result()
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+    raise self._exception
+  File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/worker.py", line 12, in run_task
+    return task(self, *args, **kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/schedule.py", line 166, in materialize_partition
+    data = part.materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 385, in materialize
+    data = self._materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 735, in _materialize
+    return self.transformation(self.src, self.src.materialize(ctx))
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 699, in __call__
+    iterator = op(p, iterator)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/save.py", line 24, in _save_part
+    results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
+  File "cassandra/concurrent.py", line 220, in cassandra.concurrent.execute_concurrent_with_args (cassandra/concurrent.c:5809)
+  File "cassandra/concurrent.py", line 88, in cassandra.concurrent.execute_concurrent (cassandra/concurrent.c:1402)
+  File "cassandra/concurrent.py", line 183, in cassandra.concurrent.ConcurrentExecutorListResults.execute (cassandra/concurrent.c:4691)
+  File "cassandra/concurrent.py", line 111, in cassandra.concurrent._ConcurrentExecutor.execute (cassandra/concurrent.c:2057)
+  File "cassandra/concurrent.py", line 197, in cassandra.concurrent.ConcurrentExecutorListResults._results (cassandra/concurrent.c:5432)
+  File "cassandra/concurrent.py", line 201, in cassandra.concurrent.ConcurrentExecutorListResults._results (cassandra/concurrent.c:5370)
+  File "cassandra/concurrent.py", line 149, in cassandra.concurrent._ConcurrentExecutor._raise (cassandra/concurrent.c:3395)
+
+
+The above exception was the direct cause of the following exception:
+
+InvocationException                       Traceback (most recent call last)
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    126             if exc:
+--> 127                 raise exc
+    128 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    113                 try:
+--> 114                     yield task.result()
+    115                 except Exception as e:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in result(self)
+    187         assert self.future, 'task not yet scheduled'
+--> 188         return self.future.result()
+    189 
+
+/usr/lib64/python3.4/concurrent/futures/_base.py in result(self, timeout)
+    401             elif self._state == FINISHED:
+--> 402                 return self.__get_result()
+    403             else:
+
+/usr/lib64/python3.4/concurrent/futures/_base.py in __get_result(self)
+    353         if self._exception:
+--> 354             raise self._exception
+    355         else:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/aio.py in task_done(task)
+     58         try:
+---> 59             future.set_result(task.result())
+     60         except Exception as e:
+
+/usr/lib64/python3.4/asyncio/futures.py in result(self)
+    276         if self._exception is not None:
+--> 277             raise self._exception
+    278         return self._result
+
+/usr/lib64/python3.4/asyncio/tasks.py in _step(***failed resolving arguments***)
+    233             elif value is not None:
+--> 234                 result = coro.send(value)
+    235             else:
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/invocation.py in _request(self, *args, **kwargs)
+     65             source = Exception('%s: %s\n---\n%s' % (exc_class.__name__, str(exc), ''.join(traceback.format_list(tb))))
+---> 66             raise InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__)) from source
+     67         else:
+
+InvocationException: An exception was raised on localdomain.localhost.16169.0: NoHostAvailable
+
+The above exception was the direct cause of the following exception:
+
+Exception                                 Traceback (most recent call last)
+<ipython-input-3-c2954a2f5508> in <module>()
+----> 1 ctx.cassandra_table('adg', 'issue', contact_points='sp-prod-adg01').cassandra_save('adg', 'issue').execute()
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py in execute(self)
+    307 
+    308     def execute(self):
+--> 309         for _ in self._execute():
+    310             pass
+    311 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py in _execute(self, eager)
+    311 
+    312     def _execute(self, eager=True):
+--> 313         yield from self.ctx.execute(schedule_job(self), eager=eager)
+    314 
+    315 
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/context.py in execute(self, job, eager)
+     30             self.jobs.append(job)
+     31             for stage, stage_execution in zip(job.stages, job.execute(eager=eager)):
+---> 32                 for result in stage_execution:
+     33                     if stage == job.stages[-1]:
+     34                         yield result
+
+/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/job.py in execute(self, workers, eager)
+    133             while root.__cause__:
+    134                 root = root.__cause__
+--> 135             raise Exception('Unable to execute stage %s: %s' % (self, root)) from e
+    136         finally:
+    137             self.signal_stop()
+
+Exception: Unable to execute stage Stage(id=0): NoHostAvailable: ('Unable to complete the operation against any hosts', {})
+---
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py", line 50, in _handle_request
+    result = yield from async_call(self.loop, method, *(args or ()), **(request.kwargs or {}))
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 388, in __iter__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib64/python3.4/asyncio/tasks.py", line 285, in _wakeup
+    value = future.result()
+  File "/usr/lib64/python3.4/asyncio/futures.py", line 277, in result
+    raise self._exception
+  File "/usr/lib64/python3.4/concurrent/futures/thread.py", line 54, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/execute/worker.py", line 12, in run_task
+    return task(self, *args, **kwargs)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/schedule.py", line 166, in materialize_partition
+    data = part.materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 385, in materialize
+    data = self._materialize(ctx)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 735, in _materialize
+    return self.transformation(self.src, self.src.materialize(ctx))
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset/base.py", line 699, in __call__
+    iterator = op(p, iterator)
+  File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/cassandra/save.py", line 24, in _save_part
+    results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
+  File "cassandra/concurrent.py", line 220, in cassandra.concurrent.execute_concurrent_with_args (cassandra/concurrent.c:5809)
+  File "cassandra/concurrent.py", line 88, in cassandra.concurrent.execute_concurrent (cassandra/concurrent.c:1402)
+  File "cassandra/concurrent.py", line 183, in cassandra.concurrent.ConcurrentExecutorListResults.execute (cassandra/concurrent.c:4691)
+  File "cassandra/concurrent.py", line 111, in cassandra.concurrent._ConcurrentExecutor.execute (cassandra/concurrent.c:2057)
+  File "cassandra/concurrent.py", line 197, in cassandra.concurrent.ConcurrentExecutorListResults._results (cassandra/concurrent.c:5432)
+  File "cassandra/concurrent.py", line 201, in cassandra.concurrent.ConcurrentExecutorListResults._results (cassandra/concurrent.c:5370)
+  File "cassandra/concurrent.py", line 149, in cassandra.concurrent._ConcurrentExecutor._raise (cassandra/concurrent.c:3395)
+
