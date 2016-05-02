@@ -191,21 +191,24 @@ class Dataset(metaclass=abc.ABCMeta):
             yield key, group
 
         return (self
-            .shuffle_by(key=getter(0), partitioner=partitioner)
+            .shuffle(key=getter(0), partitioner=partitioner)
             .map_partitions(sort_and_group)
         )
 
 
 
-    def join_on(self, other, key, partitioner=None):
-        a = self.key_by(key)
-        b = other.key_by(key)
-        return a.join(b, partitioner=partitioner)
+    def join(self, other, key=None, partitioner=None):
+        if key:
+            left = self.key_by(key)
+            right = other.key_by(key)
+        else:
+            left = self
+            right = other
 
+        # add a key to keep left from right
+        left = left.map_values(lambda v: (1, v))
+        right = right.map_values(lambda v: (2, v))
 
-    def join(self, other, partitioner=None):
-        a = self.map_values(lambda v: (1, v))
-        b = other.map_values(lambda v: (2, v))
         def local_join(group):
             key, group = group
             left, right = [], []
@@ -216,7 +219,11 @@ class Dataset(metaclass=abc.ABCMeta):
                     right.append(v)
             if left and right:
                 return key, list(product(left, right))
-        return a.union(b).group_by_key(partitioner=partitioner).map(local_join).filter()
+
+        both = left.union(right)
+        shuffled = both.group_by_key(partitioner=partitioner)
+        joined = shuffled.map(local_join)
+        return joined.filter()
 
 
 
@@ -244,7 +251,7 @@ class Dataset(metaclass=abc.ABCMeta):
         boundaries = [samples[len(samples) * (i + 1) // pcount] for i in range(pcount - 1)]
         # and use that in the range partitioner to shuffle
         partitioner = RangePartitioner(boundaries, reverse)
-        shuffled = self.shuffle_by(pcount, partitioner=partitioner, key=key)
+        shuffled = self.shuffle(pcount, partitioner=partitioner, key=key)
         # finally sort within the partition
         return shuffled.map_partitions(partial(sorted, key=key, reverse=reverse))
 
@@ -259,11 +266,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return AggregatingDataset(self.ctx, shuffle, agg)
 
 
-    def shuffle(self, pcount=None, partitioner=None, bucket=None, comb=None):
-        return self.shuffle_by(pcount, partitioner, bucket, identity)
-
-
-    def shuffle_by(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
+    def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
         shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb)
         return ShuffleReadingDataset(self.ctx, shuffle)
 
@@ -310,7 +313,10 @@ class Dataset(metaclass=abc.ABCMeta):
             pass
 
     def _execute(self, eager=True):
-        yield from self.ctx.execute(schedule_job(self), eager=eager)
+        yield from self.ctx.execute(self._schedule(), eager=eager)
+
+    def _schedule(self):
+        return schedule_job(self)
 
 
     def prefer_workers(self, fltr):
