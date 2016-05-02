@@ -25,19 +25,21 @@ class Job(Lifecycle):
         self.stages = []
 
 
-    def execute(self, eager=True):
+    def execute(self, workers, eager=True):
         self.signal_start()
 
         logger.info('executing job %s with stages %s', self, self.stages)
 
-        workers = self.ctx.workers[:]
-
-        for stage in self.stages:
-            if not self.running:
-                break
-            logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
-            stage.add_listener(self._stage_done)
-            yield stage.execute(workers, eager)
+        try:
+            for stage in self.stages:
+                if not self.running:
+                    break
+                logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
+                stage.add_listener(self._stage_done)
+                yield stage.execute(workers, eager)
+        except:
+            self.signal_stop()
+            raise
 
 
     def _stage_done(self, stage):
@@ -70,34 +72,40 @@ class Stage(Lifecycle):
         self.signal_start()
 
         todo = self.tasks[:]
-        running = {w:None for w in workers}
+        available = set(workers)
         assignment_lock = Lock()
         results = queue.Queue()
 
         exc = None
         stop = False
 
-        def select_worker(task):
-            for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers or workers)):
-                if worker in workers and worker.is_connected and not running[worker]:
-                    return worker
-
         def start_next_task(done=None):
-            if done:
-                worker, task = done
-                running[worker] = None
-            if stop:
-                return
-            for idx, task in enumerate(todo[:]):
-                with assignment_lock:
-                    w = select_worker(task)
-                    if w:
-                        running[w] = task
+            '''
+            :param done: A worker done with it's previous task
+            '''
+            with assignment_lock:
+                if done:
+                    available.add(done)
+                if stop:
+                    return
+                for idx, task in enumerate(todo[:]):
+                    if task.preferred_workers or task.allowed_workers:
+                        for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers)):
+                            if worker in available and worker.is_connected:
+                                available.remove(worker)
+                                break
+                    else:
+                        for worker in available:
+                            if worker.is_connected:
+                                available.remove(worker)
+                                break
+                    if worker:
                         del todo[idx]
-                        future = task.execute(w)
-                        future.add_done_callback(lambda future: start_next_task((w, task)))
+                        future = task.execute(worker)
+                        future.add_done_callback(lambda future: start_next_task(worker))
                         results.put(task)
                         break
+
         try:
             if eager:
                 # start a task for each worker if eager
