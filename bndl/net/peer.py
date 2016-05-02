@@ -294,7 +294,7 @@ class PeerNode(object):
         return self.conn < other.conn
 
 
-    def __str__(self):
+    def __repr__(self):
         # return 'Peer %s of %s (%sconnected)' % (self.name, self.local.name, '' if self.is_connected() else 'not ')
         # return '%s - Peer %s of %s' % (id(self), self.name, self.local.name)
-        return 'Node ' + self.local.name + ' - Peer ' + (self.name or '?')
+        return '<Peer: %s of node %s>' % (self.name, self.local.name)
