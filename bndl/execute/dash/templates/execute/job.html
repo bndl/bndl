@@ -26,8 +26,8 @@ Job {{ job.id }}: {{ job.name }}
 		<thead>
 			<tr>
 				<th width="3%">#</th>
-				<th width="15%">Stage</th>
-				<th width="6%">
+				<th width="17%">Stage</th>
+				<th width="8%">
 					<span data-toggle="tooltip" data-original-title="Completed, started and total number of tasks">Tasks</span>
 				</th>
 				<th width="30%">
@@ -35,8 +35,8 @@ Job {{ job.id }}: {{ job.name }}
 				</th>
 				<th width="8%">Duration</th>
 				<th width="8%">Remaining</th>
-				<th width="15%">Started</th>
-				<th width="15%">Finished / ETA</th>
+				<th width="13%">Started</th>
+				<th width="13%">Finished / ETA</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -71,7 +71,7 @@ Job {{ job.id }}: {{ job.name }}
 			{% else %}
 				{% set remaining = None %}
 			{% endif %}
-			<td>{{ (duration|string).split('.')[0] }}</td>
+			<td>{{ (duration|string).split('.')[0] if duration else '' }}</td>
 			<td>{% if remaining %}{{ (remaining|string).split('.')[0] }}{% endif %}</td>
 			<td>{{ stage.started_on.strftime('%Y-%m-%d %H:%M:%S') if stage.started_on else '' }}</td>
 			<td>
