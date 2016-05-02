@@ -18,17 +18,20 @@ class ExecutionContext(Lifecycle):
         self.signal_start()
 
 
-    def execute(self, job, eager=True):
+    def execute(self, job, workers=None, eager=True):
         # TODO what if not everything is consumed?
         assert self.running, 'context is not running'
-        self._await_workers()
+        if not workers or not self.workers:
+            self._await_workers()
+        workers = workers or self.workers[:]
 
         try:
             for l in self.listeners:
                 job.add_listener(l)
 
             self.jobs.append(job)
-            for stage, stage_execution in zip(job.stages, job.execute(eager=eager)):
+            execution = job.execute(workers=workers, eager=eager)
+            for stage, stage_execution in zip(job.stages, execution):
                 for result in stage_execution:
                     if stage == job.stages[-1]:
                         yield result
