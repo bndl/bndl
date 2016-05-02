@@ -3,7 +3,6 @@ import functools
 from itertools import chain
 import logging
 import queue
-from threading import Lock
 
 import concurrent.futures
 
@@ -71,53 +70,64 @@ class Stage(Lifecycle):
     def execute(self, workers, eager=True):
         self.signal_start()
 
-        todo = self.tasks[:]
-        available = set(workers)
-        assignment_lock = Lock()
-        results = queue.Queue()
+        available_workers = queue.Queue()
+        for worker in workers:
+            available_workers.put(worker)
+
+        tasks_todo = self.tasks[:]
+        task_results = queue.Queue()
 
         exc = None
         stop = False
 
-        def start_next_task(done=None):
+        def start_next_task(available_worker=None):
             '''
             :param done: A worker done with it's previous task
             '''
-            with assignment_lock:
-                if done:
-                    available.add(done)
-                if stop:
+            while not stop:
+                try:
+                    task = tasks_todo.pop()
+                except IndexError:
                     return
-                for idx, task in enumerate(todo[:]):
-                    if task.preferred_workers or task.allowed_workers:
-                        for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers)):
-                            if worker in available and worker.is_connected:
-                                available.remove(worker)
-                                break
-                    else:
-                        for worker in available:
-                            if worker.is_connected:
-                                available.remove(worker)
-                                break
-                    if worker:
-                        del todo[idx]
-                        future = task.execute(worker)
-                        future.add_done_callback(lambda future: start_next_task(worker))
-                        results.put(task)
-                        break
+
+                if eager and not available_worker:
+                    try:
+                        available_worker = available_workers.get()
+                    except queue.Empty:
+                        return
+
+                # check if available_worker is a suitable worker
+                if task.preferred_workers or task.allowed_workers:
+                    for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers)):
+                        if worker == available_worker:
+                            break
+                else:
+                    worker = available_worker
+
+
+                if worker:
+                    # start the task if suitable
+                    future = task.execute(worker)
+                    future.add_done_callback(lambda future: start_next_task(worker))
+                    task_results.put(task)
+                    return
+                else:
+                    # or put it back on the todo list
+                    tasks_todo.insert(0, task)
+                    available_workers.put(available_worker)
 
         try:
             if eager:
                 # start a task for each worker if eager
                 for _ in workers:
-                    start_next_task()
+                    start_next_task(available_workers.get())
             else:
                 # or just go about it one at a time
-                start_next_task()
+                start_next_task(available_workers.get())
 
             # complete len(self.tasks)
             for _ in range(len(self.tasks)):
-                task = results.get()
+                task = task_results.get()
                 try:
                     yield task.result()
                 except Exception as e:
