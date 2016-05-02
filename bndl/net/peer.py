@@ -143,7 +143,7 @@ class PeerNode(object):
             except asyncio.futures.CancelledError:
                 logger.info('connection with %s cancelled', url)
                 self.disconnect(reason='connection cancelled')
-            except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError) as e:
+            except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as e:
                 logger.info('%s %s', type(e).__name__, url)
                 self.disconnect(reason='unable to connect: ' + str(type(e)))
             except TimeoutError:
@@ -186,12 +186,12 @@ class PeerNode(object):
                 logger.exception('unable to read hello from %s', self.conn.peername())
                 self.disconnect(reason=str(type(e)))
 
+            if not self.is_connected:
+                return
+
             if hello.name == self.local.name:
                 logger.debug('self connect attempt of %s', hello.name)
                 yield from self.disconnect(reason='self connect')
-
-            if not self.is_connected:
-                return
 
             logger.debug('hello received from %s at %s', hello.name, hello.addresses)
 
@@ -211,6 +211,8 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def _send_hello(self):
+        if not self.is_connected:
+            raise NotConnected()
         yield from self.conn.send(Hello(
             name=self.local.name,
             node_type=self.local.node_type,
