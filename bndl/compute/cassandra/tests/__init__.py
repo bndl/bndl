@@ -9,28 +9,27 @@ class CassandraTest(DatasetTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        session = cls.ctx.cassandra_session()
+        with cls.ctx.cassandra_session() as session:
+            session.execute('''
+                create keyspace if not exists {keyspace} 
+                with replication = {{
+                    'class': 'SimpleStrategy',
+                    'replication_factor': '1'
+                }};
+            '''.format(keyspace=cls.keyspace))
 
-        session.execute('''
-            create keyspace if not exists {keyspace} 
-            with replication = {{
-                'class': 'SimpleStrategy',
-                'replication_factor': '1'
-            }};
-        '''.format(keyspace=cls.keyspace))
-
-        session.execute('''
-            create table if not exists {keyspace}.{table} (
-                key text,
-                cluster text,
-                int_list list<int>,
-                double_set set<double>,
-                text_map map<text,text>,
-                timestamp_val timestamp,
-                varint_val varint,
-                primary key (key, cluster)
-            );
-        '''.format(keyspace=cls.keyspace, table=cls.table))
+            session.execute('''
+                create table if not exists {keyspace}.{table} (
+                    key text,
+                    cluster text,
+                    int_list list<int>,
+                    double_set set<double>,
+                    text_map map<text,text>,
+                    timestamp_val timestamp,
+                    varint_val varint,
+                    primary key (key, cluster)
+                );
+            '''.format(keyspace=cls.keyspace, table=cls.table))
 
 
     def setUp(self):

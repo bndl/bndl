@@ -6,6 +6,7 @@ from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import collection
 from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
+from cassandra.protocol import LazyProtocolHandler, ProtocolHandler
 
 
 logger = logging.getLogger(__name__)
@@ -37,9 +38,9 @@ class CassandraScanDataset(Dataset):
         self.concurrency = concurrency
         self._row_factory = named_tuple_factory
 
-        session = ctx.cassandra_session(contact_points=self.contact_points)
-        keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
-        table_meta = keyspace_meta.tables[self.table]
+        with ctx.cassandra_session(contact_points=self.contact_points) as session:
+            keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
+            table_meta = keyspace_meta.tables[self.table]
 
         self._select = '*'
         self._limit = None
@@ -81,8 +82,9 @@ class CassandraScanDataset(Dataset):
 
 
     def parts(self):
-        session = cassandra_session(self.ctx, contact_points=self.contact_points)
-        partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
+        with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
+            partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
+
         while len(partitions) < self.ctx.default_pcount:
             repartitioned = []
             for replicas, token_ranges in partitions:
@@ -126,17 +128,17 @@ class CassandraScanPartition(Partition):
 
 
     def _materialize(self, ctx):
-        session = ctx.cassandra_session(contact_points=self.dset.contact_points)
-        session.row_factory = named_tuple_factory
-        session.default_fetch_size = 1000
-        session.row_factory = self.dset._row_factory
-        query = self.dset.query(session)
-        logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
+        with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
+            session.default_fetch_size = 1000
+            session.client_protocol_handler = LazyProtocolHandler or ProtocolHandler
+            session.row_factory = self.dset._row_factory
+            query = self.dset.query(session)
+            logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-        results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
-        for success, rows in results:
-            assert success  # TODO handle failure
-            yield from rows
+            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
+            for success, rows in results:
+                assert success  # TODO handle failure
+                yield from rows
 
 
     def preferred_workers(self, workers):

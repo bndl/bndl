@@ -19,9 +19,9 @@ insert_template = (
 
 def _save_part(insert, concurrency, part, iterable, contact_points=None):
     logger.info('executing cassandra save on part %s with insert %s', part.idx, insert.replace('\n', ''))
-    session = cassandra_session(part.dset.ctx, contact_points=contact_points)
-    prepared_insert = session.prepare(insert)
-    results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
+    with cassandra_session(part.dset.ctx, contact_points=contact_points) as session:
+        prepared_insert = session.prepare(insert)
+        results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
     return [len(results)]
 
 
@@ -41,9 +41,9 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=
         using = ''
 
     if not columns:
-        session = dataset.ctx.cassandra_session(contact_points=contact_points)
-        table_meta = session.cluster.metadata.keyspaces[keyspace].tables[table]
-        columns = list(table_meta.columns)
+        with dataset.ctx.cassandra_session(contact_points=contact_points) as session:
+            table_meta = session.cluster.metadata.keyspaces[keyspace].tables[table]
+            columns = list(table_meta.columns)
 
     placeholders = (','.join(
         (':' + c for c in columns)
