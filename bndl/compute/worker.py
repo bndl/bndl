@@ -1,4 +1,5 @@
 import copy
+import gc
 import logging
 import os
 
@@ -35,6 +36,7 @@ class Worker(ExecutionWorker):
                 del self.buckets.get(dset_id, {})[part_idx]
             else:
                 del self.buckets[dset_id]
+            gc.collect()
         except KeyError:
             pass
 
