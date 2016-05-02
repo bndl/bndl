@@ -15,6 +15,10 @@ sort should be lazy
 wait for gossip to settle before starting a node / the shell
 
 check on cancelling jobs
+ - use https://docs.python.org/2/reference/expressions.html#generator.close ?
+
+check on partial iteration with e.g. itake and friends
+
 check stable ids for nodes
  - it causes a new node on an old address to be rejected
 
