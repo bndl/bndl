@@ -611,22 +611,6 @@ class ShuffleReadingDataset(Dataset):
         super().__init__(ctx, src)
         assert isinstance(src, ShuffleWritingDataset)
 
-
-    def bucket(self, worker, idx):
-        yield from chain.from_iterable(self._bucket(worker, idx))
-
-
-    def _bucket(self, worker, idx):
-        b = worker.get_bucket(None, self.src.id, idx)
-        if b:
-            yield b
-
-        futures = [w.get_bucket(self.src.id, idx) for w in worker.peers.filter(node_type='worker')]
-
-        for f in futures:
-            # TODO timeout and reschedule
-            yield f.result()
-
     def parts(self):
         return [
             ShuffleReadingPartition(self, i)
@@ -636,7 +620,18 @@ class ShuffleReadingDataset(Dataset):
 
 class ShuffleReadingPartition(Partition):
     def _materialize(self, ctx):
-        return self.dset.bucket(self.dset.ctx.node, self.idx)
+        b = self.dset.ctx.node.get_bucket(None, self.dset.src.id, self.idx)
+        if b:
+            yield from b
+
+        futures = [w.get_bucket(self.dset.src.id, self.idx) for w in self.dset.ctx.workers]
+
+        for f in futures:
+            # TODO timeout and reschedule
+            for e in f.result():
+                yield e
+
+        del futures
 
 
 class AggregatingDataset(ShuffleReadingDataset):
