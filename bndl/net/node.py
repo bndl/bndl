@@ -150,7 +150,7 @@ class Node(object):
                         peer = self.PeerNode(self.loop, self, addresses=addresses, name=name)
                         yield from peer.connect()
                     except:
-                        logger.exception('unexpected error while connecting to discovered peer %s', name)
+                        logger.warning('unexpected error while connecting to discovered peer %s', name)
 
 
     @asyncio.coroutine
