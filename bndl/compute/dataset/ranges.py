@@ -12,12 +12,14 @@ class DistributedRange(Dataset):
 
     def parts(self):
         return [
-            IterablePartition(self, idx, range(
+            part for part in
+            (IterablePartition(self, idx, range(
                 self._subrange_start(idx),
                 self._subrange_start(idx + 1),
                 self.range.step
             ))
-            for idx in range(self.pcount)
+            for idx in range(self.pcount))
+            if part.iterable
         ]
 
     def _subrange_start(self, idx):
