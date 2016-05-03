@@ -275,17 +275,20 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def _dispatch(self, msg):
-        logger.debug('dispatching %s', msg)
-        if isinstance(msg, Disconnect):
-            yield from self.disconnect(reason='received disconnect', active=False)
-        elif isinstance(msg, Discovered):
-            yield from self.local._discovered(self, msg)
-        elif isinstance(msg, Ping):
-            yield from self.send(Pong())
-        elif isinstance(msg, Pong):
-            pass
-        else:
-            logger.warning('message of unsupported type %s %s', type(msg), self)
+        try:
+            logger.debug('dispatching %s', msg)
+            if isinstance(msg, Disconnect):
+                yield from self.disconnect(reason='received disconnect', active=False)
+            elif isinstance(msg, Discovered):
+                yield from self.local._discovered(self, msg)
+            elif isinstance(msg, Ping):
+                yield from self.send(Pong())
+            elif isinstance(msg, Pong):
+                pass
+            else:
+                logger.warning('message of unsupported type %s %s', type(msg), self)
+        except:
+            logger.exception('unable to dispatch message %s', type(msg))
 
 
 
