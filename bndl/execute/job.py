@@ -4,8 +4,6 @@ from itertools import chain
 import logging
 import queue
 
-import concurrent.futures
-
 from bndl.util.lifecycle import Lifecycle
 import itertools
 from collections import Counter
