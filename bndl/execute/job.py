@@ -189,7 +189,11 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def result(self):
         assert self.future, 'task not yet scheduled'
-        return self.future.result()
+        result = self.future.result()
+        # release resources
+        self.args = None
+        self.kwargs = None
+        return result
 
     def cancel(self):
         super().cancel()
