@@ -234,7 +234,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def distinct(self, pcount=None, partitioner=None):
-        return self.reduce(set, pcount, partitioner=partitioner, bucket=SetBucket)
+        return self.aggregate(set, set, pcount, partitioner=partitioner, bucket=SetBucket)
 
 
     def sort(self, pcount=None, key=identity, reverse=False):
