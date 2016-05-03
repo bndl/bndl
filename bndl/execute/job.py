@@ -8,6 +8,8 @@ import concurrent.futures
 
 from bndl.util.lifecycle import Lifecycle
 import itertools
+from collections import Counter
+import threading
 
 
 logger = logging.getLogger(__name__)
@@ -70,89 +72,72 @@ class Stage(Lifecycle):
     def execute(self, workers, eager=True):
         self.signal_start()
 
-        available_workers = queue.Queue()
-        for worker in workers:
-            available_workers.put(worker)
-
-        tasks_todo = self.tasks[:]
-        task_results = queue.Queue()
-
-        exc = None
-        stop = False
-
-        def start_next_task(available_worker=None):
-            '''
-            :param done: A worker done with it's previous task
-            '''
-            while not stop:
-                try:
-                    task = tasks_todo.pop()
-                except IndexError:
-                    return
-
-                if eager and not available_worker:
-                    try:
-                        available_worker = available_workers.get()
-                    except queue.Empty:
-                        return
-
-                # check if available_worker is a suitable worker
-                if task.preferred_workers or task.allowed_workers:
-                    for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers)):
-                        if worker == available_worker:
-                            break
-                else:
-                    worker = available_worker
-
-
-                if worker:
-                    # start the task if suitable
-                    future = task.execute(worker)
-                    future.add_done_callback(lambda future: start_next_task(worker))
-                    task_results.put(task)
-                    return
-                else:
-                    # or put it back on the todo list
-                    tasks_todo.insert(0, task)
-                    available_workers.put(available_worker)
-
         try:
             if eager:
-                # start a task for each worker if eager
-                for _ in workers:
-                    start_next_task(available_workers.get())
+                yield from self._execute_eagerly(workers)
             else:
-                # or just go about it one at a time
-                start_next_task(available_workers.get())
-
-            # complete len(self.tasks)
-            for _ in range(len(self.tasks)):
-                task = task_results.get()
-                try:
-                    yield task.result()
-                except Exception as e:
-                    # TODO retry on other worker
-                    stop = True
-                    exc = e
-                    break
-
-            if stop:
-                for task in self.tasks:
-                    task.cancel()
-
-            # raise any error
-            if exc:
-                raise exc
-
-        except concurrent.futures.CancelledError as e:
-            return
-        except Exception as e:
-            root = e
-            while root.__cause__:
-                root = root.__cause__
-            raise Exception('Unable to execute stage %s: %s' % (self, root)) from e
+                yield from self._execute_onebyone(workers)
+        except (Exception, KeyboardInterrupt):
+            self.cancelled = True
+            raise
         finally:
+            for task in self.tasks:
+                if not task.stopped:
+                    task.cancel()
             self.signal_stop()
+
+    def _execute_eagerly(self, workers):
+        occupied = set()
+        workers_available = threading.Semaphore(len(workers))
+        task_results = queue.Queue()
+        tasks_todo = self.tasks[::-1]
+        tasks_pending = len(tasks_todo)
+        task_counts = Counter()
+
+        def task_done(worker, task):
+            task_results.put((worker, task))
+            workers_available.release()
+
+        def start_task(worker, task):
+            occupied.add(worker)
+            task_counts[worker.name] += 1
+            future = task.execute(worker)
+            future.add_done_callback(lambda future: task_done(worker, task))
+
+        while tasks_pending:
+            if tasks_todo:
+                workers_available.acquire()
+                task = tasks_todo.pop()
+                for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers or workers)):
+                    if worker not in occupied:
+                        break
+                    else:
+                        worker = None
+                if worker:
+                    start_task(worker, task)
+                else:
+                    tasks_todo.insert(0, task)
+
+            # yield available results
+            try:
+                worker, task = task_results.get_nowait() if tasks_todo else task_results.get()
+                tasks_pending -= 1
+                occupied.remove(worker)
+                yield task.result()
+            except queue.Empty:
+                continue
+
+
+    def _execute_onebyone(self, workers):
+        for task in self.tasks:
+            if task.preferred_workers:
+                worker = task.preferred_workers[0]
+            elif task.allowed_workers:
+                worker = task.allowed_workers[0]
+            else:
+                worker = workers[0]
+            future = task.execute(worker)
+            yield future.result()
 
 
     def cancel(self):
