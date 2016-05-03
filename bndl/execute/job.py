@@ -1,10 +1,8 @@
 import abc
 from collections import Counter
 import functools
-from itertools import chain
-import itertools
+from itertools import chain, count
 import logging
-import queue
 import threading
 
 from bndl.util.lifecycle import Lifecycle
@@ -15,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class Job(Lifecycle):
 
-    _jobids = itertools.count(1)
+    _jobids = count(1)
 
     def __init__(self, ctx, name=None, desc=None):
         super().__init__(name, desc)
@@ -91,14 +89,13 @@ class Stage(Lifecycle):
     def _execute_eagerly(self, workers):
         occupied = set()
         workers_available = threading.Semaphore(len(workers))
-        task_results = queue.Queue()
-        tasks_todo = self.tasks[::-1]
-        tasks_pending = len(tasks_todo)
+        to_schedule = self.tasks[::-1]
+        to_yield = to_schedule[:]
         task_counts = Counter()
 
         def task_done(worker, task):
-            task_results.put((worker, task))
             workers_available.release()
+            occupied.remove(worker)
 
         def start_task(worker, task):
             occupied.add(worker)
@@ -106,10 +103,10 @@ class Stage(Lifecycle):
             future = task.execute(worker)
             future.add_done_callback(lambda future: task_done(worker, task))
 
-        while tasks_pending:
-            if tasks_todo:
+        while to_yield:
+            if to_schedule:
                 workers_available.acquire()
-                task = tasks_todo.pop()
+                task = to_schedule.pop()
                 for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers or workers)):
                     if worker not in occupied:
                         break
@@ -118,16 +115,15 @@ class Stage(Lifecycle):
                 if worker:
                     start_task(worker, task)
                 else:
-                    tasks_todo.insert(0, task)
+                    to_schedule.insert(0, task)
 
             # yield available results
-            try:
-                worker, task = task_results.get_nowait() if tasks_todo else task_results.get()
-                tasks_pending -= 1
-                occupied.remove(worker)
-                yield task.result()
-            except queue.Empty:
-                continue
+            if to_yield[-1].future:
+                if to_schedule:
+                    if to_yield[-1].done():
+                        yield to_yield.pop().result()
+                else:
+                    yield to_yield.pop().result()
 
 
     def _execute_onebyone(self, workers):
@@ -187,6 +183,9 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.future = worker.run_task(self.method, *self.args, **(self.kwargs or {}))
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
+
+    def done(self):
+        return self.future and self.future.done()
 
     def result(self):
         assert self.future, 'task not yet scheduled'
