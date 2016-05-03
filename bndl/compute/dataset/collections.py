@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections import Sized
 from math import ceil
 
 from bndl.compute.dataset.base import Dataset, IterablePartition
@@ -37,7 +37,7 @@ class DistributedCollection(Dataset):
             return parts
         else:
             c = self._c
-            if not isinstance(c, Sequence):
+            if not isinstance(c, Sized):
                 self._c = c = list(c)
             step = max(1, ceil(len(c) / self.pcount))
             slices = (
