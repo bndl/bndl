@@ -1,7 +1,6 @@
 import time
 import logging
 from bndl.util.lifecycle import Lifecycle
-from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
