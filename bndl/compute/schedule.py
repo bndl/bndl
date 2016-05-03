@@ -1,4 +1,3 @@
-import collections.abc as collections_abc
 import collections
 import logging
 
@@ -37,7 +36,7 @@ def schedule_job(dset, workers=None):
     while dset:
         if dset.cleanup:
             job.add_listener(partial(_cleaner, dset))
-        if isinstance(dset.src, collections_abc.Iterable):
+        if isinstance(dset.src, collections.Iterable):
             for src in dset.src:
                 branch = schedule_job(src)
 
@@ -142,7 +141,7 @@ def materialize_partition(worker, part, return_data):
             # missed? or b) materializing data into a list is a bad (wrong
             # result, waste of resources, etc.)? numpy arrays are not wrongly
             # cast to a list through this. That's something ...
-            if isinstance(data, collections_abc.Iterable) and not isinstance(data, collections_abc.Sized):
+            if isinstance(data, collections.Iterable) and not isinstance(data, collections.Sized):
                 return list(data)
             else:
                 return data
@@ -153,7 +152,7 @@ def materialize_partition(worker, part, return_data):
 
 def _set_worker(dset, worker):
     dset.ctx.node = worker
-    if isinstance(dset.src, collections_abc.Iterable):
+    if isinstance(dset.src, collections.Iterable):
         for dset in dset.src:
             _set_worker(dset, worker)
     elif dset.src:
