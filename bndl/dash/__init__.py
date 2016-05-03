@@ -9,7 +9,7 @@ from flask import Flask
 import flask
 from flask.templating import render_template
 from werkzeug.utils import import_string
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,21 @@ def filtercount(seq, attr):
 @app.template_global('now')
 def now():
     return datetime.now()
+
+@app.template_filter('fmt_timedelta')
+def fmt_timedelta(td):
+    if not td:
+        return ''
+    parts = str(td).split('.')
+    if td < timedelta(seconds=0.01):
+        return parts[1].strip('0') + ' µs'
+    elif td < timedelta(seconds=1):
+        return parts[1][:3].strip('0') + ' ms'
+    elif td < timedelta(seconds=10):
+        return parts[0][-1] + '.' + parts[1][:2] + ' s'
+    else:
+        return parts[0]
+
 
 
 def run(node=None, ctx=None):
