@@ -28,7 +28,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{% for peer in g.node.peers.values() %}
+					{% for name, peer in g.node.peers|dictsort() %}
 					<tr class="{% if peer.is_connected %}success{% else %}danger{% endif %}">
 						<td>{{ peer.name }}</td>
 						<td>{{ peer.addresses|join(', ') }}</td>
