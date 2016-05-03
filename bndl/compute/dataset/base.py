@@ -17,7 +17,7 @@ import sortedcontainers.sortedlist
 
 
 try:
-    from bndl.compute.dataset.stats import partition_size, local_mean, reduce_mean
+    from bndl.compute.dataset.stats import iterable_size, local_mean, reduce_mean
     from bndl.util.hash import portable_hash
 except ImportError as e:
     raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
@@ -139,7 +139,11 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def count(self):
-        return sum(self.map_partitions(partition_size).icollect())
+        return sum(self.map_partitions(iterable_size).icollect())
+
+
+    def count_by(self, key=None):
+        self.reduce()
 
 
     def sum(self):
@@ -233,7 +237,6 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.reduce(set, pcount, partitioner=partitioner, bucket=SetBucket)
 
 
-
     def sort(self, pcount=None, key=identity, reverse=False):
         pcount = pcount or self.ctx.default_pcount
         # TODO if sort into 1 partition
@@ -259,19 +262,21 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
 
-    def reduce(self, op, pcount=None, partitioner=None, bucket=None):
-        return self.aggregate(op, op, pcount, partitioner, bucket)
+    def reduce(self, op, pcount=None, partitioner=None, bucket=None, key=None):
+        return self.aggregate(op, op, pcount, partitioner, bucket, key)
 
 
-    def aggregate(self, comb, agg, pcount=None, partitioner=None, bucket=None):
-        shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, comb=comb)
-        return AggregatingDataset(self.ctx, shuffle, agg)
+    def aggregate(self, comb, agg, pcount=None, partitioner=None, bucket=None, key=None):
+        shuffle = self.shuffle(pcount, partitioner, bucket, key, comb)
+        return shuffle.map_partitions(lambda p: agg(p) if p else ())
 
 
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
-        shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb)
+        shuffle = self._shuffle(pcount, partitioner, bucket, key, comb)
         return ShuffleReadingDataset(self.ctx, shuffle)
 
+    def _shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
+        return ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb)
 
 
     def sample(self, fraction, seed=None):
@@ -512,7 +517,7 @@ class SetBucket(set):
     extend = set.update
 
 class SortedListBucket(sortedcontainers.sortedlist.SortedList):
-    def add_all(self, iterable):
+    def extend(self, iterable):
         self.update(iterable)
         return self
 
@@ -598,8 +603,7 @@ class ShuffleWritingPartition(Partition):
             if self.dset.comb:
                 for k, b in enumerate(buckets):
                     if b:
-                        buckets[k] = bucket = self.dset.bucket()
-                        bucket.extend(self.dset.comb(b))
+                        buckets[k] = self.dset.bucket(self.dset.comb(b))
         else:
             data = self.src.materialize(ctx)
             if self.dset.comb:
@@ -634,30 +638,6 @@ class ShuffleReadingPartition(Partition):
                 yield e
 
         del futures
-
-
-class AggregatingDataset(ShuffleReadingDataset):
-    def __init__(self, ctx, src, agg):
-        super().__init__(ctx, src)
-        self.agg = agg
-
-    def parts(self):
-        return [
-            AggregatingPartition(self, i, self.agg)
-            for i in range(self.src.pcount)
-        ]
-
-
-class AggregatingPartition(ShuffleReadingPartition):
-    def __init__(self, dset, idx, op):
-        super().__init__(dset, idx)
-        self.op = op
-
-    def _materialize(self, ctx):
-        b = super()._materialize(ctx)
-        b = non_empty(b)
-        return self.op(b) if b else ()
-
 
 
 class TransformingDataset(Dataset):

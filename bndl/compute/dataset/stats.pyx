@@ -1,6 +1,6 @@
 from _collections_abc import Sized
 
-cpdef partition_size(i):
+cpdef iterable_size(i):
     cdef long s
     if isinstance(i, Sized):
         return (len(i),)
