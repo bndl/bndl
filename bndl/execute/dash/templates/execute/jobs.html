@@ -1,5 +1,7 @@
 {% extends "dash/base.html" %}
 
+{% import 'execute/stats_row.html' as stats_row %}
+
 {% block page_title %}
 Execute
 {% endblock %}
@@ -19,10 +21,10 @@ Execute
 				<th width="5%">
 					<span data-toggle="tooltip" data-original-title="Completed, started and total number of stages">Stages</span>
 				</th>
-				<th width="10%">
+				<th width="14%">
 					<span data-toggle="tooltip" data-original-title="Completed, started and total number of tasks">Tasks</span>
 				</th>
-				<th width="30%">
+				<th width="26%">
 					<span data-toggle="tooltip" data-original-title="Relative progress showing completed and running tasks">Progress</span>
 				</th>
 				<th width="8%">Duration</th>
@@ -33,47 +35,14 @@ Execute
 		</thead>
 		<tbody>
 			{% for job in (g.ctx.jobs)|reverse %}
-			
-				<tr class="clickable-row{{ '' if job.stopped_on else ' active' }}" data-href='/execute/job/{{ job.id }}'>
+				<tr class="clickable {{ '' if job.stopped_on else ' active' }}" data-href='/execute/job/{{ job.id }}'>
 					<td>{{ job.id }}</td>
 					<td><span data-toggle="tooltip" data-original-title="{{ job.desc }}">{{ job.name }}</span></td>
-					
 					<td>
 						{{ job.stages|filtercount('stopped_on') }} / {{ job.stages|length }}
 					</td>
 					
-					{% set tasks_started = job.tasks|filtercount('started_on') %}
-					{% set tasks_stopped = job.tasks|filtercount('stopped_on') %}
-					{% set tasks_running = tasks_started - tasks_stopped %}
-					{% set tasks_remaining = job.tasks|length - tasks_stopped %}
-					{% set tasks_idle = job.tasks|length - tasks_started %}
-					<td>
-						{{ tasks_stopped }} / {{ job.tasks|length }}
-					</td>
-					<td>
-						<div class="progress{{ ' progress-striped active' if tasks_remaining else '' }}" style="width: 100%; margin: 0;">
-						  <div class="progress-bar progress-bar-success" style="width: {{ tasks_stopped * 100 / job.tasks|length }}%">{{ tasks_stopped or '' }}</div>
-						  <div class="progress-bar progress-bar-default" style="width: {{ (tasks_started - tasks_stopped) * 100 / job.tasks|length }}%">{{ tasks_running or '' }}</div>
-						  <div style="text-align: center;">{{ tasks_idle }}</div>
-						</div>
-					</td>
-					
-					{% set duration = (job.stopped_on or now()) - job.started_on %}
-					{% if tasks_stopped and tasks_remaining %}
-						{% set remaining = duration / tasks_stopped * (job.tasks|length) - duration %}
-					{% else %}
-						{% set remaining = None %}
-					{% endif %}
-					<td>{{ (duration|string).split('.')[0] }}</td>
-					<td>{% if remaining %}{{ (remaining|string).split('.')[0] }}{% endif %}</td>
-					<td>{{ job.started_on.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-					<td>
-						{% if job.stopped_on %}
-							{{ job.stopped_on.strftime('%Y-%m-%d %H:%M:%S') }}
-						{% elif remaining %}
-							{{ (job.started_on + remaining).strftime('%Y-%m-%d %H:%M:%S') }}
-						{% endif %}
-					</td>
+					{{ stats_row.stats_row(job, job|task_stats) }}
 				</tr>
 			{% endfor %}
 		</tbody>

@@ -1,0 +1,16 @@
+{% macro stats_row(tasklist, stats) -%}
+	<td>
+		{{ stats.stopped }} + {{ stats.running }} / {{ stats.tasks|length }}
+	</td>
+	<td>
+		<div class="progress{{ ' progress-striped active' if stats.remaining else '' }}" style="width: 100%; margin: 0;">
+		  <div class="progress-bar progress-bar-success" style="width: {{ stats.stopped * 100 / stats.tasks|length }}%"></div>
+		  <div class="progress-bar progress-bar-default" style="width: {{ (stats.running) * 100 / stats.tasks|length }}%"></div>
+		  <div style="text-align: center;">{{ stats.idle }}</div>
+		</div>
+	</td>
+	<td>{{ (stats.duration|string).split('.')[0] }}</td>
+	<td>{% if stats.time_remaining %}{{ (stats.time_remaining|string).split('.')[0] }}{% endif %}</td>
+	<td>{{ tasklist.started_on.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+	<td>{{ stats.finished.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+{%- endmacro %}

@@ -4,6 +4,8 @@ from bndl import dash
 import flask
 import traceback
 from werkzeug.exceptions import NotFound
+from bndl.dash import app
+from datetime import datetime
 
 
 blueprint = Blueprint('execute', __name__,
@@ -23,6 +25,20 @@ class Dash(dash.Dash):
     blueprint = blueprint
     status_panel_cls = Status
 
+
+@blueprint.app_template_filter('task_stats')
+def task_stats(tasklist):
+    tasks = tasklist.tasks
+    total = len(tasks)
+    started = sum(1 for t in tasks if t.started_on)
+    stopped = sum(1 for t in tasks if t.stopped_on)
+    running = sum(1 for t in tasks if t.started_on and not t.stopped_on)
+    remaining = len(tasks) - stopped
+    idle = len(tasks) - started
+    duration = (tasklist.stopped_on or datetime.now()) - tasklist.started_on
+    time_remaining = (duration / stopped * len(tasks) - duration if stopped and remaining else None)
+    finished = tasklist.stopped_on or tasklist.started_on + time_remaining
+    return locals()
 
 @blueprint.route('/')
 def jobs():

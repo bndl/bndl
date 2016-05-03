@@ -1,5 +1,7 @@
 {% extends "dash/base.html" %}
 
+{% import 'execute/stats_row.html' as stats_row %}
+
 {% block page_title %}
 Job {{ job.id }}: {{ job.name }}
 {% endblock %}
@@ -28,10 +30,10 @@ Job {{ job.id }}: {{ job.name }}
 			<tr>
 				<th width="3%">#</th>
 				<th width="17%">Stage</th>
-				<th width="8%">
-					<span data-toggle="tooltip" data-original-title="Completed, started and total number of tasks">Tasks</span>
+				<th width="12%">
+					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Tasks</span>
 				</th>
-				<th width="30%">
+				<th width="26%">
 					<span data-toggle="tooltip" data-original-title="Relative progress showing completed and running tasks">Progress</span>
 				</th>
 				<th width="8%">Duration</th>
@@ -46,42 +48,7 @@ Job {{ job.id }}: {{ job.name }}
 			<td>{{ stage.id + 1 }}</td>
 			<td>{{ stage.name }}</td>
 			
-			{% set tasks_started = stage.tasks|filtercount('started_on') %}
-			{% set tasks_stopped = stage.tasks|filtercount('stopped_on') %}
-			{% set tasks_running = tasks_started - tasks_stopped %}
-			{% set tasks_remaining = stage.tasks|length - tasks_stopped %}
-			{% set tasks_idle = stage.tasks|length - tasks_started %}
-			<td>
-				{{ tasks_stopped }} / {{ stage.tasks|length }}
-			</td>
-			<td>
-				<div class="progress{{ ' progress-striped active' if tasks_remaining else '' }}" style="width: 100%; margin: 0;">
-				  <div class="progress-bar progress-bar-success" style="width: {{ tasks_stopped * 100 / stage.tasks|length }}%">{{ tasks_stopped or '' }}</div>
-				  <div class="progress-bar progress-bar-default" style="width: {{ (tasks_started - tasks_stopped) * 100 / stage.tasks|length }}%">{{ tasks_running or '' }}</div>
-				  <div style="text-align: center;">{{ tasks_idle }}</div>
-				</div>
-			</td>
-			
-			{% if stage.started_on %}
-				{% set duration = (stage.stopped_on or now()) - stage.started_on %}
-			{% else %}
-				{% set duration = None %}
-			{% endif %}
-			{% if tasks_stopped and tasks_remaining %}
-				{% set remaining = duration / tasks_stopped * (stage.tasks|length) - duration %}
-			{% else %}
-				{% set remaining = None %}
-			{% endif %}
-			<td>{{ (duration|string).split('.')[0] if duration else '' }}</td>
-			<td>{% if remaining %}{{ (remaining|string).split('.')[0] }}{% endif %}</td>
-			<td>{{ stage.started_on.strftime('%Y-%m-%d %H:%M:%S') if stage.started_on else '' }}</td>
-			<td>
-				{% if stage.stopped_on %}
-					{{ stage.stopped_on.strftime('%Y-%m-%d %H:%M:%S') }}
-				{% elif remaining %}
-					{{ (stage.started_on + remaining).strftime('%Y-%m-%d %H:%M:%S') }}
-				{% endif %}
-			</td>
+			{{ stats_row.stats_row(job, job|task_stats) }}			
 		</tr>
 		{% endfor %}
 		</tbody>
