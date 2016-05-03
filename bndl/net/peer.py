@@ -140,12 +140,12 @@ class PeerNode(object):
                 elif rep.name == self.local.name:
                     logger.debug('self connect attempt of %s', rep.name)
                     yield from self.disconnect(reason='self connect')
-            except asyncio.futures.CancelledError:
+            except (asyncio.futures.CancelledError, GeneratorExit):
                 logger.info('connection with %s cancelled', url)
                 self.disconnect(reason='connection cancelled')
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as e:
                 logger.info('%s %s', type(e).__name__, url)
-                self.disconnect(reason='unable to connect: ' + str(type(e)))
+                self.disconnect(reason='unable to connect: ' + str(type(e)), active=False)
             except TimeoutError:
                 logger.warning('hello not received in time from %s on %s', url, self.conn)
                 yield from self.disconnect(reason='hello timed out')
