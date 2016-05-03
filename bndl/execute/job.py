@@ -1,13 +1,13 @@
 import abc
+from collections import Counter
 import functools
 from itertools import chain
+import itertools
 import logging
 import queue
+import threading
 
 from bndl.util.lifecycle import Lifecycle
-import itertools
-from collections import Counter
-import threading
 
 
 logger = logging.getLogger(__name__)
