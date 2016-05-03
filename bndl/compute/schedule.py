@@ -93,33 +93,6 @@ def _job_calling_info():
 
 
 
-def get_assignments(dset, workers):
-    assignments = collections.defaultdict(lambda: [])
-    assignment_count = lambda worker: (len(assignments[worker]), worker.name)
-
-    for part in dset.parts():
-        allowed_workers = list(part.allowed_workers(workers) or [])
-        preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
-
-        # sort the allowed and preferred workers, least assigned first
-        allowed_workers.sort(key=assignment_count)
-        preferred_workers.sort(key=assignment_count)
-
-        # select one worker to execute the task on
-        selected_worker = (preferred_workers or allowed_workers or [None])[0]
-        if not selected_worker:
-            selected_worker = sorted(workers, key=assignment_count)[0]
-
-        # use it as preferred worker if no provided by partition
-        if not preferred_workers:
-            preferred_workers = [selected_worker]
-
-        # and update assignments
-        assignments[selected_worker].append((part, (allowed_workers, preferred_workers)))
-
-    return assignments
-
-
 def schedule_stage(stage, workers, dset):
     '''
     Schedule a stage for a data set.
@@ -133,25 +106,23 @@ def schedule_stage(stage, workers, dset):
     
     :param stage: Stage
         stage to add tasks to
-    :param workers: iterable
+    :param workers: list or set
         Workers to schedule the data set on
     :param dset:
         The data set to schedule
     '''
     stage.name = dset.__class__.__name__
 
-    assignments = get_assignments(dset, workers)
+    for part in dset.parts():
+        allowed_workers = list(part.allowed_workers(workers) or [])
+        preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
 
-    # loop over assignments per worker
-    for parts in assignments.values():
-        # and task per assigned part
-        for part, (allowed_workers, preferred_workers) in parts:
-            stage.tasks.append(Task(
-                (part.dset.id, part.idx),
-                stage,
-                materialize_partition, [part, False], None,
-                preferred_workers, allowed_workers
-            ))
+        stage.tasks.append(Task(
+            (part.dset.id, part.idx),
+            stage,
+            materialize_partition, [part, False], None,
+            preferred_workers, allowed_workers
+        ))
 
     # sort the tasks by their id
     stage.tasks.sort(key=lambda t: t.id)
