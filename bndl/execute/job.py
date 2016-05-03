@@ -39,6 +39,10 @@ class Job(Lifecycle):
         except:
             self.signal_stop()
             raise
+        finally:
+            for stage in self.stages:
+                if not stage.stopped:
+                    stage.cancel()
 
 
     def _stage_done(self, stage):
