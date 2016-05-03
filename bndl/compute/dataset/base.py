@@ -126,7 +126,9 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def itake(self, num):
         sliced_parts = self.map_partitions(lambda p: islice(p, num))
-        yield from islice(sliced_parts.icollect(eager=False), num)
+        results = sliced_parts.icollect(eager=False)
+        yield from islice(results, num)
+        results.close()
 
 
     def stat(self, f):
