@@ -35,4 +35,5 @@ class CassandraTest(DatasetTest):
     def setUp(self):
         super().setUp()
         truncate = 'truncate {keyspace}.{table};'.format(keyspace=self.keyspace, table=self.table)
-        self.ctx.cassandra_session().execute(truncate)
+        with self.ctx.cassandra_session() as session:
+            session.execute(truncate)
