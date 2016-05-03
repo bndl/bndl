@@ -21,6 +21,9 @@ check on partial iteration with e.g. itake and friends
 
 check stable ids for nodes
  - it causes a new node on an old address to be rejected
+ - perhaps drop node id and use hostname and port?
+   then use each address as key in peertable (node.peers)
+   might just as well have issues with multiple hostnames resolving to the same machine ... 
 
 the rx tx rates aren't updated on sp-dev
 only start gui on driver by default
