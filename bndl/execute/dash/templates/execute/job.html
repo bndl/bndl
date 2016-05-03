@@ -18,9 +18,10 @@ Job {{ job.id }}: {{ job.name }}
 	{% set file, line, func, text = job.desc %}
 	<pre>{{ text }}</pre>
 	Invoked line {{ line }} of {{ file }} in {{ func }}
-	
 	<hr />
-	
+</div>
+
+<div class="container">
 	<h2>Stages:</h2>
 	<table class="table table-hover ">
 		<thead>
@@ -85,6 +86,6 @@ Job {{ job.id }}: {{ job.name }}
 		{% endfor %}
 		</tbody>
 	</table>
-
+	<hr />
 </div>
 {% endblock %}

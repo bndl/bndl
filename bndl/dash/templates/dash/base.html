@@ -11,8 +11,16 @@
 	<link rel="stylesheet" href="https://bootswatch.com/superhero/bootstrap.min.css">
 	
 	<style type="text/css">
-		.clickable-row {
+		.clickable {
 			cursor: pointer;
+		}
+		
+		.progress-bar {
+			overflow-x: hidden;
+		}
+		
+		.page {
+			margin-bottom: 2em;
 		}
 	</style>
 </head>
@@ -47,16 +55,20 @@
 	{% endblock %}
 	
 	{% block page %}
-		{% block page_header %}
-		<div class="container">
+		<div class="page">
+			{% block page_header %}
 			<div class="page-header">
-				<h1>{% block page_title %}BNDL dashboard{% endblock %}</h1>
+				<div class="container">
+					<h1>{% block page_title %}BNDL dashboard{% endblock %}</h1>
+				</div>
+			</div>
+			{% endblock %}
+		
+			<div class="page-body">
+			{% block page_body %}
+			{% endblock %}
 			</div>
 		</div>
-		{% endblock %}
-	
-		{% block page_body %}
-		{% endblock %}
 	{% endblock %}
 
 	{% block scripts %}
@@ -66,7 +78,7 @@
 		jQuery(document).ready(function($) {
 			$('[data-toggle="tooltip"]').tooltip()
 					
-			$(".clickable-row").click(function() {
+			$(".clickable").click(function() {
 				window.document.location = $(this).data("href");
 			});
 		});
