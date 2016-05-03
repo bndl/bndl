@@ -7,6 +7,7 @@ from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy
+import queue
 
 
 _prepare_lock = Lock()
@@ -62,11 +63,14 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
         def check(session):
             '''check if the session is not closed'''
             return not session.is_shutdown
-        pools[contact_points] = pool = ObjectPool(create, check, max_size=2)
+        pools[contact_points] = pool = ObjectPool(create, check, max_size=4)
     # take a session from the pool, yield it to the caller
     # and put the session back in the pool
     session = pool.get()
     try:
         yield session
     finally:
-        pool.put(session)
+        try:
+            pool.put(session)
+        except queue.Full:
+            session.shutdown()
