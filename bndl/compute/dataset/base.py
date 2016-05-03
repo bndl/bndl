@@ -133,7 +133,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def stat(self, f):
         try:
-            return next(self.reduce(lambda seq: (f(seq),), pcount=1).icollect())
+            return f(self.map_partitions(lambda seq: (f(seq),)).icollect())
         except StopIteration:
             raise ValueError('dataset is empty')
 
