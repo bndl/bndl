@@ -35,7 +35,7 @@ class Job(Lifecycle):
                     break
                 logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
                 stage.add_listener(self._stage_done)
-                yield stage.execute(workers, eager)
+                yield stage.execute(workers, stage != self.stages[-1] or eager)
         except:
             self.signal_stop()
             raise
