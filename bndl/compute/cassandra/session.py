@@ -1,12 +1,12 @@
+from collections import Sequence
 import contextlib
 from functools import lru_cache, partial
+from threading import Lock
 
 from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
+from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy
-from threading import Lock
-from collections import Sequence
-from weakref import WeakValueDictionary
 
 
 _prepare_lock = Lock()
@@ -42,22 +42,31 @@ def _get_contact_points(ctx, *contact_points):
 
 @contextlib.contextmanager
 def cassandra_session(ctx, keyspace=None, contact_points=None):
-    # keep a weak reference to existing cluster objects
-    clusters = getattr(cassandra_session, 'clusters', None)
-    if clusters is None:
-        cassandra_session.clusters = clusters = WeakValueDictionary()
+    # get hold of the dict of pools (keyed by contact_points)
+    pools = getattr(cassandra_session, 'pools', None)
+    if not pools:
+        cassandra_session.pools = pools = {}
     # determine contact points, either given or ip addresses of the workers
     contact_points = get_contact_points(ctx, contact_points)
-    # check if there is a cached cluster object
-    cluster = clusters.get(contact_points)
+    # check if there is a cached session object
+    pool = pools.get(contact_points)
     # or create one if not or that session is shutdown
-    if not cluster or cluster.is_shutdown:
-        clusters[contact_points] = cluster = Cluster(contact_points)
-        cluster.load_balancing_policy = TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses))
-    # created a session
-    session = cluster.connect(keyspace)
-    session.prepare = partial(prepare, session)
-    # provided it to users
-    yield session
-    # and close the session
-    session.shutdown()
+    if not pool:
+        def create():
+            '''create a new session'''
+            cluster = Cluster(contact_points)
+            cluster.load_balancing_policy = TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses))
+            session = cluster.connect(keyspace)
+            session.prepare = partial(prepare, session)
+            return session
+        def check(session):
+            '''check if the session is not closed'''
+            return not session.is_shutdown
+        pools[contact_points] = pool = ObjectPool(create, check, max_size=2)
+    # take a session from the pool, yield it to the caller
+    # and put the session back in the pool
+    session = pool.get()
+    try:
+        yield session
+    finally:
+        pool.put(session)
