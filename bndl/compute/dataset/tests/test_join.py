@@ -35,5 +35,5 @@ class JoinTest(DatasetTest):
         ]
         a = self.ctx.range(0, 5)
         b = self.ctx.range(5, 10)
-        self.assertEqual(a.join_on(b, iseven).keys().collect_as_set(), {False, True})
-        self.assertEqual(a.join_on(b, iseven).values().map(sorted).collect(), expected)
+        self.assertEqual(a.join(b, iseven).keys().collect_as_set(), {False, True})
+        self.assertEqual(a.join(b, iseven).values().map(sorted).collect(), expected)
