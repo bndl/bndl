@@ -7,7 +7,7 @@
 		<div class="progress{{ ' progress-striped active' if stats.remaining else '' }}" style="width: 100%; margin: 0;">
 		  <div class="progress-bar progress-bar-success" style="width: {{ stats.stopped * 100 / stats.tasks|length }}%"></div>
 		  <div class="progress-bar progress-bar-default" style="width: {{ (stats.running) * 100 / stats.tasks|length }}%"></div>
-		  <div style="text-align: center;">{{ stats.idle }}</div>
+		  <div style="text-align: center;"></div>
 		</div>
 		{% endif %}
 	</td>

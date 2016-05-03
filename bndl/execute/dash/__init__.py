@@ -35,8 +35,8 @@ def task_stats(tasklist):
     running = sum(1 for t in tasks if t.started_on and not t.stopped_on)
     remaining = len(tasks) - stopped
     idle = len(tasks) - started
-    duration = (tasklist.stopped_on or datetime.now()) - tasklist.started_on
-    time_remaining = (duration / stopped * len(tasks) - duration if stopped and remaining else None)
+    duration = ((tasklist.stopped_on or datetime.now()) - tasklist.started_on) if tasklist.started_on else None
+    time_remaining = (duration / stopped * len(tasks) - duration if duration and stopped and remaining else None)
     finished = tasklist.stopped_on or (tasklist.started_on + time_remaining if time_remaining else '')
     return locals()
 

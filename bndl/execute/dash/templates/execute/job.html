@@ -48,7 +48,7 @@ Job {{ job.id }}: {{ job.name }}
 			<td>{{ stage.id + 1 }}</td>
 			<td>{{ stage.name }}</td>
 			
-			{{ stats_row.stats_row(job, job|task_stats) }}			
+			{{ stats_row.stats_row(stage, stage|task_stats) }}			
 		</tr>
 		{% endfor %}
 		</tbody>
