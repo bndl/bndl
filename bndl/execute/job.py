@@ -95,7 +95,10 @@ class Stage(Lifecycle):
 
         def task_done(worker, task):
             workers_available.release()
-            occupied.remove(worker)
+            try:
+                occupied.remove(worker)
+            except KeyError:
+                pass
 
         def start_task(worker, task):
             occupied.add(worker)
