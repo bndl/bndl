@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import os.path
-import socket
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
@@ -197,6 +195,8 @@ class PeerNode(object):
 
             try:
                 yield from self._send_hello()
+            except NotConnected:
+                return
             except:
                 logger.exception('unable to complete handshake with %s', hello.name)
                 connection.close()
