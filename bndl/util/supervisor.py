@@ -49,11 +49,14 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
         # print('connected with process')
 
     def connection_lost(self, exc):
-        # print('connection lost, reason:', exc)
+        print('connection lost, reason:', exc)
         ...
 
     def process_exited(self):
-        # print('process exited')
+        pid = self.transport.get_pid()
+        returncode = self.transport.get_returncode()
+        print('process', pid, 'exited with return code', returncode)
+
         ...
 
     def pipe_data_received(self, fd, data):
