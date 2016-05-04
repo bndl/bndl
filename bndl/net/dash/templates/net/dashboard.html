@@ -20,6 +20,22 @@
 			</table>
 		
 			<h2>Peers:</h2>
+			<div class="panel panel-default">
+  				<div class="panel-body">
+					<div class="row">
+						<div class="col-xs-4">Status:</div>
+						<div class="col-xs-1">
+							<span class="glyphicon glyphicon-{% if g.node.peers.values()|filtercount('is_connected') == g.node.peers|length %}ok{% else %}flash{% endif %}"></span>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-xs-4">Connections:</div>
+						<div class="col-xs-1">
+							{{ g.node.peers|length }}
+						</div>
+					</div>
+				</div>
+			</div>
 			<table class="table table-striped table-hover ">
 				<thead>
 					<tr>
