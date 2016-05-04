@@ -180,7 +180,7 @@ class Dataset(metaclass=abc.ABCMeta):
         )
 
 
-    def group_by_key(self, partitioner=None):
+    def group_by_key(self, partitioner=None, pcount=None):
         def sort_and_group(partition):
             partition = sorted(partition, key=getter(0))
             if not partition:
@@ -197,13 +197,13 @@ class Dataset(metaclass=abc.ABCMeta):
             yield key, group
 
         return (self
-            .shuffle(key=getter(0), partitioner=partitioner)
+            .shuffle(key=getter(0), partitioner=partitioner, pcount=pcount)
             .map_partitions(sort_and_group)
         )
 
 
 
-    def join(self, other, key=None, partitioner=None):
+    def join(self, other, key=None, partitioner=None, pcount=None):
         if key:
             left = self.key_by(key)
             right = other.key_by(key)
@@ -227,7 +227,7 @@ class Dataset(metaclass=abc.ABCMeta):
                 return key, list(product(left, right))
 
         both = left.union(right)
-        shuffled = both.group_by_key(partitioner=partitioner)
+        shuffled = both.group_by_key(partitioner=partitioner, pcount=pcount)
         joined = shuffled.map(local_join)
         return joined.filter()
 
