@@ -20,7 +20,7 @@ class Message(metaclass=MessageType):
         for k in self.__slots__:
             setattr(self, k, kwargs.get(k))
 
-    def __str__(self):
+    def __repr__(self):
         return (self.__class__.__name__ + '(' +
             ', '.join(k + '=' + str(getattr(self, k)) for k in self.__slots__)
         + ')')
@@ -28,6 +28,14 @@ class Message(metaclass=MessageType):
     def __msgdict__(self):
         d = {k:getattr(self, k) for k in self.__slots__}
         return (type(self).__name__, d)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        for k in self.__slots__:
+            if getattr(self, k, None) != getattr(other, k, None):
+                return False
+        return True
 
     @staticmethod
     def load(msg):
