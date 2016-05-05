@@ -36,6 +36,8 @@ def _get_contact_points(ctx, *contact_points):
             contact_points |= worker.ip_addresses
     if not contact_points:
         contact_points = ctx.node.ip_addresses
+    if isinstance(contact_points, str):
+        contact_points = [contact_points]
     if isinstance(contact_points, Sequence) and len(contact_points) == 1 and isinstance(contact_points[0], str):
         contact_points = contact_points[0].split(',')
     return tuple(sorted(contact_points))

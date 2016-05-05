@@ -1,12 +1,13 @@
 import logging
 
 from bndl.compute.cassandra import partitioner
+from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import collection
 from cassandra.concurrent import execute_concurrent_with_args
-from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 from cassandra.protocol import LazyProtocolHandler, ProtocolHandler
+from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class CassandraScanDataset(Dataset):
             keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
             table_meta = keyspace_meta.tables[self.table]
 
-        self._select = '*'
+        self._select = None
         self._limit = None
         self._where = '''
             token({partition_key_column_names}) > ? and
@@ -66,7 +67,7 @@ class CassandraScanDataset(Dataset):
         return self._with('_row_factory', dict_factory)
 
     def select(self, *columns):
-        return self._with('_select', ', '.join(columns))
+        return self._with('_select', columns)
 
 
     def limit(self, num):
@@ -81,22 +82,15 @@ class CassandraScanDataset(Dataset):
             return super().itake(num)
 
 
+    def coscan(self, other, keys=None):
+        assert isinstance(other, CassandraScanDataset)
+        return CassandraCoScanDataset(self, other, keys=keys)
+
+
+
     def parts(self):
         with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
-            partitions = partitioner.partition_ranges(session, self.keyspace, self.table)
-
-        while len(partitions) < self.ctx.default_pcount:
-            repartitioned = []
-            for replicas, token_ranges in partitions:
-                if len(token_ranges) == 1:
-                    continue
-                mid = len(token_ranges) // 2
-                repartitioned.append((replicas, token_ranges[:mid]))
-                repartitioned.append((replicas, token_ranges[mid:]))
-            if len(repartitioned) == len(partitions):
-                break
-            partitions = repartitioned
-
+            partitions = partitioner.partition_ranges(session, self.keyspace, self.table, min_pcount=self.ctx.default_pcount)
 
         return [
             CassandraScanPartition(self, i, replicas, token_ranges)
@@ -105,19 +99,21 @@ class CassandraScanDataset(Dataset):
 
 
     def query(self, session):
+        select = ', '.join(self._select) if self._select else '*'
         limit = ' limit %s' % self._limit if self._limit else ''
         query = '''
             select {select}
             from {keyspace}.{table}
             where {where}{limit}
         '''.format(
-            select=self._select,
+            select=select,
             keyspace=self.keyspace,
             table=self.table,
             where=self._where,
             limit=limit
         )
         return session.prepare(query)
+
 
 
 class CassandraScanPartition(Partition):
@@ -150,3 +146,4 @@ class CassandraScanPartition(Partition):
             for worker in workers
             if worker.ip_addresses & self.replicas
         ]
+

@@ -1,6 +1,7 @@
 from operator import itemgetter
 
 from bndl.util.collection import sortgroupby
+import copy
 
 
 T_COUNT = 2 ** 64
@@ -9,24 +10,24 @@ T_MAX = (2 ** 63) - 1
 
 
 
-MAX_PARTITIONS_SIZE_PK = 40 * 5000  # 10 * session.default_fetch_size
-MAX_PARTITIONS_SIZE_MB = 40
+MAX_PARTITIONS_SIZE_PK = 100 * 1000
+MAX_PARTITIONS_SIZE_MB = 100
 MAX_PARTITIONS_SIZE_B = MAX_PARTITIONS_SIZE_MB * 1024 * 1024
 
 
 
-def token_ranges(ring):
+def get_token_ranges(ring):
     ring = [t.value for t in ring]
     return list(zip([T_MIN] + ring, ring + [T_MAX]))
 
 
-def partition_ranges(session, keyspace, table):
+def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pcount=None):
     # estimate size of table
-    size_estimate = estimate_size(session, keyspace, table)
+    size_estimate = size_estimates or estimate_size(session, keyspace, table)
 
     # get raw ranges from token ring
     token_map = session.cluster.metadata.token_map
-    raw_ranges = token_ranges(token_map.ring)
+    raw_ranges = get_token_ranges(token_map.ring)
 
     # group by replica
     by_replicas = sortgroupby(
@@ -69,11 +70,26 @@ def partition_ranges(session, keyspace, table):
             current_ranges_size_b = 0
             current_ranges_size_pk = 0
 
+
+
+    if min_pcount:
+        while len(partitions) < min_pcount:
+            repartitioned = []
+            for replicas, token_ranges in partitions:
+                if len(token_ranges) == 1:
+                    continue
+                mid = len(token_ranges) // 2
+                repartitioned.append((replicas, token_ranges[:mid]))
+                repartitioned.append((replicas, token_ranges[mid:]))
+            if len(repartitioned) == len(partitions):
+                break
+            partitions = repartitioned
+
     return partitions
 
 
 
-class SizeEstimates(object):
+class SizeEstimate(object):
     def __init__(self, size, partitions, fraction):
         if fraction:
             self.table_size_b = int(size / fraction)
@@ -86,8 +102,20 @@ class SizeEstimates(object):
             self.token_size_b = 0
             self.token_size_pk = 0
 
-    def __str__(self):
-        return 'table size: %s, partitions: %s, partitions / token: %s, token size: %s' % (
+    def __add__(self, other):
+        est = copy.copy(self)
+        est += other
+        return est
+
+    def __iadd__(self, other):
+        self.table_size_b += other.table_size_b
+        self.table_size_pk += other.table_size_pk
+        self.token_size_pk = (self.token_size_pk + other.token_size_pk) / 2
+        self.token_size_b = (self.token_size_b + other.token_size_b) / 2
+        return self
+
+    def __repr__(self):
+        return '<SizeEstimate: size=%s, partitions=%s, partitions / token=%s, tokensize=%s>' % (
             self.table_size_b / 1024. / 1024.,
             self.table_size_pk,
             self.token_size_pk,
@@ -127,4 +155,4 @@ def estimate_size(session, keyspace, table):
 
     fraction = tokens / T_COUNT
 
-    return SizeEstimates(size_b, size_pk, fraction)
+    return SizeEstimate(size_b, size_pk, fraction)
