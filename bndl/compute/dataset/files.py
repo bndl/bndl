@@ -3,6 +3,10 @@ import os.path
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util.fs import filenames, read_file
 from bndl.util.collection import batch
+from bndl.net.serialize import attach, attachment
+import asyncio
+from bndl.net.sendfile import sendfile
+from collections import OrderedDict
 
 
 class DistributedFiles(Dataset):
@@ -62,6 +66,26 @@ class DistributedFiles(Dataset):
         ]
 
 
+def _file_attachment(filename):
+    # get the size of the file
+    size = os.stat(filename).st_size
+    # the attachment sender:
+    @asyncio.coroutine
+    def sender(writer):
+        # get the socket from the writer
+        socket = writer.get_extra_info('socket')
+        # open the file for binary reading
+        file = open(filename, 'rb')
+        try:
+            # use sendfile to send file to socket
+            yield from sendfile(socket.fileno(), file.fileno(), 0, size)
+        finally:
+            # close the file to clean up
+            file.close()
+    # return the key, the size and the attachment sender
+    return filename.encode('utf-8'), size, sender
+
+
 class FilesPartition(Partition):
     def __init__(self, dset, idx, filenames):
         super().__init__(dset, idx)
@@ -69,16 +93,24 @@ class FilesPartition(Partition):
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        # TODO redesign this so that file data can be sent with
-        # sendfile or something similar
-        state['data'] = list(self._read())
+        state.pop('data', None)  # make sure we don't send the files twice
+        for filename in self.filenames:
+            attach(*_file_attachment(filename))
         return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.data = OrderedDict()
+        for filename in self.filenames:
+            a = attachment(filename.encode('utf-8'))
+            self.data[filename] = a
 
     def _materialize(self, ctx):
         data = getattr(self, 'data', None)
         if data is None:
-            data = self._read()
-        return zip(self.filenames, data)
+            return zip(self.filenames, self._read())
+        else:
+            return iter(data.items())
 
     def _read(self):
         for filename in self.filenames:
