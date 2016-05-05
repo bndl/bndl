@@ -9,7 +9,7 @@ import random
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize
-from bndl.util.collection import non_empty, getter
+from bndl.util.collection import getter
 from bndl.util.funcs import identity
 import collections.abc as collections_abc
 from cytoolz import pluck  # @UnresolvedImport
@@ -103,6 +103,14 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def map_keys(self, op):
         return self.map(lambda kv: (op(kv[0]), kv[1]))
+
+    def filter_keys(self, op=None):
+        f = (lambda kv: op(kv[0])) if op else (lambda kv: kv[0])
+        return self.filter(f)
+
+    def filter_values(self, op=None):
+        f = (lambda kv: op(kv[1])) if op else (lambda kv: kv[1])
+        return self.filter(f)
 
 
     def flatmap_values(self, op):
