@@ -15,8 +15,6 @@ except ImportError as e:
     raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
 
 
-# TODO investigate performance of snappy in a cluster
-# import snappy
 def dumps(obj):
     marshalled = False
     if marshalable(obj):
@@ -32,15 +30,10 @@ def dumps(obj):
         except pickle.PicklingError:
             serialized = cloudpickle.dumps(obj, protocol=4)
 
-    # serialized = snappy.compress(serialized)
-    fmt = int(marshalled).to_bytes(1, sys.byteorder)
-
-    return fmt, serialized
+    return marshalled, serialized
 
 
-def loads(fmt, msg):
-    marshalled = int.from_bytes(fmt, sys.byteorder)
-    # msg = snappy.uncompress(msg)
+def loads(marshalled, msg):
     if marshalled:
         return marshal.loads(msg)
     else:

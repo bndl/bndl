@@ -1,13 +1,14 @@
 import asyncio
+import functools
 import logging
 import socket
 import struct
 import sys
 import urllib.parse
 
-from bndl.util import serialize
+from bndl.net import serialize
 from bndl.net.messages import Message
-import functools
+from bndl.util.aio import async_call
 
 
 logger = logging.getLogger(__name__)
@@ -120,15 +121,40 @@ class Connection(object):
         '''
         if not self.is_connected:
             raise NotConnected()
-        # TODO investigate alternatives to pickling
         logger.debug('sending %s', msg)
-        fmt, serialized = (yield from self.loop.run_in_executor(None, serialize.dumps, msg.__msgdict__()))
+        marshalled, serialized, attachments = (yield from self.loop.run_in_executor(None, serialize.dump, msg.__msgdict__()))
         with (yield from self.write_lock):
-            self.writer.writelines((struct.pack('I', len(serialized)), struct.pack('c', fmt), serialized))
+            # send format header
+            fmt = int(marshalled)
+            fmt += int(bool(attachments)) * 2
+            fmt = fmt.to_bytes(1, sys.byteorder)
+            self.writer.write(struct.pack('c', fmt))
+            # send attachments, if any
+            if attachments:
+                # send attachment count
+                self.writer.write(struct.pack('I', len(attachments)))
+                for key, (size, sender) in attachments.items():
+                    # send key len and key
+                    self.writer.write(struct.pack('I', len(key)))
+                    self.writer.write(key)
+                    # send attachment len and attachment itself
+                    self.writer.write(struct.pack('I', size))
+                    yield from async_call(self.loop, sender, self.writer)
+                    self.bytes_sent += size
+            # send msg length and msg
+            self.writer.write(struct.pack('I', len(serialized)))
+            self.writer.write(serialized)
             self.bytes_sent += len(serialized)
+            # drain if requested
             if drain:
                 yield from self.writer.drain()
         logger.debug('sent %s', msg)
+
+
+    def _recv_unpack(self, fmt, timeout=None):
+        size = struct.calcsize(fmt)
+        buffer = yield from asyncio.wait_for(self.reader.readexactly(size), timeout)
+        return struct.unpack(fmt, buffer)[0]
 
 
     @asyncio.coroutine
@@ -142,12 +168,32 @@ class Connection(object):
             raise NotConnected()
         try:
             with (yield from self.read_lock):
-                header = yield from asyncio.wait_for(self.reader.readexactly(5), timeout)
-                l = struct.unpack('I', header[:4])[0]
-                fmt = struct.unpack('c', header[4:])[0]
+                # read and unpackformat
+                fmt = yield from asyncio.wait_for(self.reader.readexactly(1), timeout)
+                fmt = int.from_bytes(fmt, sys.byteorder)
+                marshalled = fmt & 1
+                has_attachments = fmt & 2
+
+                # read in attachments if any
+                attachments = {}
+                if has_attachments:
+                    att_count = yield from self._recv_unpack('I', timeout)
+                    for _ in range(att_count):
+                        # read key
+                        keylen = yield from self._recv_unpack('I', timeout)
+                        key = yield from asyncio.wait_for(self.reader.readexactly(keylen), timeout)
+                        # read attachment
+                        size = yield from self._recv_unpack('I', timeout)
+                        attachment = yield from asyncio.wait_for(self.reader.readexactly(size), timeout)
+                        attachments[key] = attachment
+                        self.bytes_received += size
+
+                # read message len and message
+                l = yield from self._recv_unpack('I', timeout)
                 msg = yield from asyncio.wait_for(self.reader.readexactly(l), timeout)
                 self.bytes_received += l
-            msg = (yield from self.loop.run_in_executor(None, serialize.loads, fmt, msg))
+            # parse the message and attachments
+            msg = (yield from self.loop.run_in_executor(None, serialize.load, marshalled, msg, attachments))
             msg = Message.load(msg)
             return msg
         except BrokenPipeError as e:
@@ -190,6 +236,9 @@ class Connection(object):
         return self.socket().family
 
 
-    def __str__(self):
-        return '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername()
+    def __repr__(self):
+        return '<Connection %s %s>' % (
+            '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername(),
+            'connected' if self.is_connected else 'not connected'
+        )
 
