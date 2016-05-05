@@ -65,7 +65,7 @@ class RMIPeerNode(PeerNode):
             logger.warning('unable to deliver response %s on connection %s (not connected)', response.req_id, self)
         except asyncio.futures.CancelledError:
             logger.warning('unable to deliver response %s on connection %s (cancelled)', response.req_id, self)
-        except Exception as e:
+        except Exception:
             logger.exception('unable to send response')
             exc = sys.exc_info()
 

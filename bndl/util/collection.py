@@ -1,5 +1,5 @@
 from itertools import islice, tee, groupby
-from collections.abc import Sized
+from collections import Sized
 from functools import partial
 
 
