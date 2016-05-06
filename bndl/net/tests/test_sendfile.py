@@ -11,7 +11,9 @@ from bndl.util.aio import get_loop
 
 
 class ConnectionTest(TestCase):
-    data = ''.join(random.choice(string.ascii_lowercase) for _ in range(5 * 1000 * 1000)).encode('utf-8')
+    @classmethod
+    def setUpClass(cls):
+        cls.data = ''.join(random.choice(string.ascii_lowercase) for _ in range(5 * 1000 * 1000)).encode('utf-8')
 
     def setUp(self):
         self.loop = get_loop()
