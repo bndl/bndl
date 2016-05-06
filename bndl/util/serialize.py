@@ -1,5 +1,3 @@
-from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
-
 import collections
 import marshal
 import pickle
@@ -9,28 +7,14 @@ import types
 import cloudpickle
 
 
-try:
-    from bndl.util.marshalable import marshalable
-except ImportError as e:
-    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
-
-
 def dumps(obj):
-    marshalled = False
-    if marshalable(obj):
+    try:
+        return True, marshal.dumps(obj)
+    except ValueError:
         try:
-            serialized = marshal.dumps(obj)
-            marshalled = True
-        except ValueError:
-            marshalled = False
-
-    if not marshalled:
-        try:
-            serialized = pickle.dumps(obj, protocol=4)
+            return False, pickle.dumps(obj, protocol=4)
         except pickle.PicklingError:
-            serialized = cloudpickle.dumps(obj, protocol=4)
-
-    return marshalled, serialized
+            return False, cloudpickle.dumps(obj, protocol=4)
 
 
 def loads(marshalled, msg):
