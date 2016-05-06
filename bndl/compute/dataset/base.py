@@ -26,6 +26,92 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+
+def _pluck(ind, p, **kwargs):
+    return pluck(ind, p, **kwargs)
+
+def _flatmap(iterable):
+    return chain.from_iterable(iterable)
+
+
+def _map_partition(op, p, iterator):
+    return op(iterator)
+
+def _map_partition_with_index(op, p, iterator):
+    return op(p.idx, iterator)
+
+
+def _key_by(key, e):
+    return key(e), e
+
+def _value_as(val, e):
+    return e, val(e)
+
+
+def _map_key(op, kv):
+    return op(kv[0]), kv[1]
+
+def _map_value(op, kv):
+    return kv[0], op(kv[1])
+
+
+def _selecttransform_key(op, e):
+    return op(e[0])
+
+def _selecttransform_value(op, e):
+    return op(e[1])
+
+
+def _return_1tuple(f, *args, **kwargs):
+    return (f(*args, **kwargs),)
+
+
+def _prefix_args(prefix, *args):
+    return prefix + args
+
+
+def _local_join(group):
+    key, group = group
+    left, right = [], []
+    for (i, v) in pluck(1, group):
+        if i == 1:
+            left.append(v)
+        elif i == 2:
+            right.append(v)
+    if left and right:
+        return key, list(product(left, right))
+
+
+def _sort_and_group(partition):
+    partition = sorted(partition, key=getter(0))
+    if not partition:
+        return ()
+    key = partition[0][0]
+    group = []
+    for e in partition:
+        if key == e[0]:
+            group.append(e)
+        else:
+            yield key, group
+            group = [e]
+            key = e[0]
+    yield key, group
+
+
+def _random_filter(rng, fraction, e):
+    return bool(rng.random() < fraction)
+
+
+def _aggregate_partition(agg, partition):
+    return agg(partition) if partition else ()
+
+
+def _filter_local_workers(workers):
+    return [w for w in workers if w.islocal]
+
+
+
+
 class Dataset(metaclass=abc.ABCMeta):
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
@@ -56,21 +142,20 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def pluck(self, ind, default=None):
-        return self.map_partitions(lambda p:
-                                   pluck(ind, p, default=default)
-                                   if default else pluck(ind, p))
+        kwargs = {'default': default} if default is not None else {}
+        return self.map_partitions(partial(_pluck, ind, **kwargs))
 
 
     def flatmap(self, op):
-        return self.map(op).map_partitions(lambda i: chain.from_iterable(i))
+        return self.map(op).map_partitions(_flatmap)
 
 
     def map_partitions(self, op):
-        return self.map_partitions_with_part(lambda p, iterator: op(iterator))
+        return self.map_partitions_with_part(partial(_map_partition, op))
 
 
     def map_partitions_with_index(self, op):
-        return self.map_partitions_with_part(lambda p, iterator: op(p.idx, iterator))
+        return self.map_partitions_with_part(partial(_map_partition_with_index, op))
 
 
     def map_partitions_with_part(self, op):
@@ -86,62 +171,49 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def key_by(self, key):
-        return self.map(lambda e: (key(e), e))
-
+        return self.map(partial(_key_by, key))
 
     def values_as(self, val):
-        return self.map(lambda e: (e, val(e)))
-
+        return self.map(partial(_value_as, val))
 
     def keys(self):
         return self.pluck(0)
 
-
     def values(self):
         return self.pluck(1)
 
-
     def map_keys(self, op):
-        return self.map(lambda kv: (op(kv[0]), kv[1]))
+        return self.map(partial(_map_key, op))
 
-    def filter_keys(self, op=None):
-        f = (lambda kv: op(kv[0])) if op else (lambda kv: kv[0])
-        return self.filter(f)
+    def map_values(self, op):
+        return self.map(partial(_map_value, op))
 
-    def filter_values(self, op=None):
-        f = (lambda kv: op(kv[1])) if op else (lambda kv: kv[1])
-        return self.filter(f)
+    def filter_keys(self, op=bool):
+        return self.filter(partial(_selecttransform_key, op))
 
+    def filter_values(self, op=bool):
+        return self.filter(partial(_selecttransform_value, op))
 
     def flatmap_values(self, op):
         return self.values().flatmap(op)
 
 
-    def map_values(self, op):
-        return self.map(lambda kv: (kv[0], op(kv[1])))
-
-
-
     def first(self):
-        # TODO is this leaving _request tasks hanging on workers?
         return next(self.itake(1))
 
-
     def take(self, num):
-        # TODO don't use itake if first partition doesn't yield > 50% of num
         return list(self.itake(num))
 
-
     def itake(self, num):
-        sliced_parts = self.map_partitions(lambda p: islice(p, num))
-        results = sliced_parts.icollect(eager=False)
+        # TODO don't use itake if first partition doesn't yield > 50% of num
+        results = self.icollect(eager=False)
         yield from islice(results, num)
         results.close()
 
 
     def stat(self, f):
         try:
-            return f(self.map_partitions(lambda seq: (f(seq),)).icollect())
+            return f(self.map_partitions(partial(_return_1tuple, f)).icollect())
         except StopIteration:
             raise ValueError('dataset is empty')
 
@@ -181,32 +253,14 @@ class Dataset(metaclass=abc.ABCMeta):
         return (self
             .key_by(key)
             .group_by_key(partitioner=partitioner)
-            .map(lambda group: (
-                group[0],
-                list(pluck(1, group[1]))
-            ))
+            .map_values(partial(pluck, 1))
         )
 
 
     def group_by_key(self, partitioner=None, pcount=None):
-        def sort_and_group(partition):
-            partition = sorted(partition, key=getter(0))
-            if not partition:
-                return ()
-            key = partition[0][0]
-            group = []
-            for e in partition:
-                if key == e[0]:
-                    group.append(e)
-                else:
-                    yield key, group
-                    group = [e]
-                    key = e[0]
-            yield key, group
-
         return (self
             .shuffle(key=getter(0), partitioner=partitioner, pcount=pcount)
-            .map_partitions(sort_and_group)
+            .map_partitions(_sort_and_group)
         )
 
 
@@ -220,23 +274,12 @@ class Dataset(metaclass=abc.ABCMeta):
             right = other
 
         # add a key to keep left from right
-        left = left.map_values(lambda v: (1, v))
-        right = right.map_values(lambda v: (2, v))
-
-        def local_join(group):
-            key, group = group
-            left, right = [], []
-            for (i, v) in pluck(1, group):
-                if i == 1:
-                    left.append(v)
-                elif i == 2:
-                    right.append(v)
-            if left and right:
-                return key, list(product(left, right))
+        left = left.map_values(partial(_prefix_args, (1,)))
+        right = right.map_values(partial(_prefix_args, (2,)))
 
         both = left.union(right)
         shuffled = both.group_by_key(partitioner=partitioner, pcount=pcount)
-        joined = shuffled.map(local_join)
+        joined = shuffled.map(_local_join)
         return joined.filter()
 
 
@@ -276,7 +319,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def aggregate(self, comb, agg, pcount=None, partitioner=None, bucket=None, key=None):
         shuffle = self.shuffle(pcount, partitioner, bucket, key, comb)
-        return shuffle.map_partitions(lambda p: agg(p) if p else ())
+        return shuffle.map_partitions(partial(_aggregate_partition, agg))
 
 
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
@@ -291,7 +334,7 @@ class Dataset(metaclass=abc.ABCMeta):
         # TODO implement sampling with_replacement
         # TODO implement stratified sampling
         rng = random.Random(seed)
-        return self.filter(lambda e: rng.random() < fraction)
+        return self.filter(partial(_random_filter, rng, fraction))
 
 
 
@@ -312,9 +355,9 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def icollect(self, eager=True, parts=False):
         result = self._execute(eager)
-        result = filter(lambda part: part is not None, result)
+        result = filter(None, result)  # filter out empty parts
         if not parts:
-            result = chain.from_iterable(result)
+            result = chain.from_iterable(result)  # chain the parts into a big iterable
         yield from result
 
 
@@ -341,7 +384,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self._with('_worker_filter', fltr)
 
     def require_local_workers(self):
-        return self.allow_workers(lambda workers: [w for w in workers if w.islocal])
+        return self.allow_workers(_filter_local_workers)
 
     def allow_all_workers(self):
         return self.allow_workers(None)

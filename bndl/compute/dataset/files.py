@@ -9,6 +9,14 @@ from bndl.net.sendfile import sendfile
 from collections import OrderedDict
 from bndl.util import aio
 import sys
+from functools import partial
+
+
+def _decode(encoding, errors, blob):
+    return blob.decode(encoding, errors)
+
+def _splitlines(keepends, blob):
+    return blob.splitlines(keepends)
 
 
 class DistributedFiles(Dataset):
@@ -33,11 +41,11 @@ class DistributedFiles(Dataset):
 
 
     def decode(self, encoding='utf-8', errors='strict'):
-        return self.map_values(lambda blob: blob.decode(encoding, errors))
+        return self.map_values(partial(_decode, encoding, errors))
 
 
     def lines(self, encoding='utf-8', keepends=False, errors='strict'):
-        return self.decode(encoding, errors).values().flatmap(lambda blob: blob.splitlines(keepends))
+        return self.decode(encoding, errors).values().flatmap(partial(_splitlines, keepends))
 
 
     def parts(self):
