@@ -7,7 +7,6 @@ clean:
 	find bndl -name '*.so' -exec rm -f {} +
 	find bndl -name '*~' -exec rm -f {} +
 	find bndl -name '__pycache__' -exec rm -rf {} +
-	rm -rf bndl.egg-info
 	rm -rf build
 	rm -rf dist
 
