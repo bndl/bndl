@@ -6,6 +6,7 @@ import logging
 from bndl.net.messages import Ping
 from random import random
 from bndl.util.exceptions import catch
+from bndl.net.connection import NotConnected
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ class PeerStats(object):
 class Watchdog(object):
     def __init__(self, node):
         self.node = node
-        self.peer_stats = {}
+        self._peer_stats = {}
 
 
     def start(self):
@@ -99,6 +100,13 @@ class Watchdog(object):
         if self.monitor_task:
             self.monitor_task.cancel()
             self.monitor_task = None
+
+
+    def peer_stats(self, peer):
+        stats = self._peer_stats.get(peer)
+        if not stats:
+            self._peer_stats[peer] = stats = PeerStats(peer)
+        return stats
 
 
     @asyncio.coroutine
@@ -117,14 +125,20 @@ class Watchdog(object):
 
 
     @asyncio.coroutine
+    def _ping(self, peer):
+        try:
+            peer.send(Ping())
+        except:
+            self.peer_stats(peer).update()
+
+
+    @asyncio.coroutine
     def _check(self):
         peers = list(self.node.peers.values())
 
         # check if a connection with a peer was dropped
         for peer in peers:
-            stats = self.peer_stats.get(peer)
-            if not stats:
-                self.peer_stats[peer] = stats = PeerStats(peer)
+            stats = self.peer_stats(peer)
             now = datetime.now()
             stats.update()
 
@@ -138,8 +152,7 @@ class Watchdog(object):
                 stats.connection_attempts += 1
                 yield from peer.connect()
             elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:
-                with catch():
-                    yield from peer.send(Ping())
+                self.node.loop.create_task(self._ping(peer))
 
         # if no nodes are connected, attempt to connect with the seeds
         if not any(peer.is_connected for peer in peers):
@@ -153,7 +166,7 @@ class Watchdog(object):
             bytes_received=0,
             bytes_received_rate=0
         )
-        for peer_stats in self.peer_stats.values():
+        for peer_stats in self._peer_stats.values():
             for k in stats.keys():
                 stats[k] += getattr(peer_stats, k, 0)
         return stats
