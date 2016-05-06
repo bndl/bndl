@@ -8,6 +8,7 @@ import urllib.parse
 
 from bndl.net import serialize
 from bndl.net.messages import Message
+from bndl.util import aio
 from bndl.util.aio import async_call
 
 
@@ -112,7 +113,7 @@ class Connection(object):
 
 
     @asyncio.coroutine
-    def send(self, msg, drain=False):
+    def send(self, msg, drain=True):
         '''
         Send an object
         :param msg: Message
@@ -145,9 +146,9 @@ class Connection(object):
             self.writer.write(struct.pack('I', len(serialized)))
             self.writer.write(serialized)
             self.bytes_sent += len(serialized)
-            # drain if requested
+
             if drain:
-                yield from self.writer.drain()
+                yield from aio.drain(self.writer)
         logger.debug('sent %s', msg)
 
 
