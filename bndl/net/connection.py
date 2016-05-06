@@ -132,24 +132,20 @@ class Connection(object):
             fmt = int(marshalled)
             fmt += int(bool(attachments)) * 2
             fmt = fmt.to_bytes(1, sys.byteorder)
-            self.writer.write(struct.pack('c', fmt))
             # send attachments, if any
             if attachments:
                 # send attachment count
-                self.writer.write(struct.pack('I', len(attachments)))
+                self.writer.writelines((struct.pack('c', fmt), struct.pack('I', len(attachments))))
                 for key, attachment in attachments.items():
-                    # send key len and key
-                    self.writer.write(struct.pack('I', len(key)))
-                    self.writer.write(key)
-                    # send attachment len and attachment itself
                     with attachment() as (size, sender):
-                        self.writer.write(struct.pack('I', size))
+                        self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('I', size)))
                         yield from async_call(self.loop, sender, self.writer)
                         self.bytes_sent += size
-            # send msg length and msg
-            self.writer.write(struct.pack('I', len(serialized)))
-            self.writer.write(serialized)
-            self.bytes_sent += len(serialized)
+                self.writer.writelines((struct.pack('I', len(serialized)), serialized))
+                self.bytes_sent += len(serialized)
+            else:
+                self.writer.writelines((struct.pack('c', fmt), struct.pack('I', len(serialized)), serialized))
+                self.bytes_sent += len(serialized)
 
             if drain:
                 yield from aio.drain(self.writer)
