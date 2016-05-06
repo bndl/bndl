@@ -13,7 +13,7 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
         A function to return True if a directory is to be traversed, or False
         otherwise. Only used when recursing into sub directories.
     :param ffilter: callable
-        A function to return True if a directory is to be yielded, or False
+        A function to return True if a file is to be yielded, or False
         otherwise.
     '''
     for name in glob.glob(root):
