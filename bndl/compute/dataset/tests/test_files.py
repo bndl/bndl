@@ -14,16 +14,16 @@ class FilesTest(DatasetTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.contents = ['\n'.join(random_string(127) for _ in range(8)).encode() for _ in range(32)]
+        cls.contents = [('\n'.join(random_string(127) for _ in range(8)) + '\n').encode() for _ in range(32)]
         cls.files = [NamedTemporaryFile(prefix='bndl_unit_test_', suffix='.tmp') for _ in cls.contents]
         cls.filenames = [file.name for file in cls.files]
         for contents, file in zip(cls.contents, cls.files):
             file.file.write(contents)
             file.file.flush()
-        cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1023 * 2)
+        cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1024 * 2, psize_files=None)
 
     def test_pcount(self):
-        self.assertEqual(len(self.dset.parts()), round(((128 * 8 - 1) * 32) / (1024 * 2)))
+        self.assertEqual(len(self.dset.parts()), round(((128 * 8) * 32) / (1024 * 2)))
 
     def test_count(self):
         self.assertEqual(self.dset.count(), 32)
@@ -58,7 +58,7 @@ class FilesTest(DatasetTest):
 
     def test_decode(self):
         self.assertEqual(''.join(self.dset.decode().values().collect()), ''.join(c.decode() for c in self.contents))
-        self.assertEqual(self.dset.decode().values().map(len).collect(), [128 * 8 - 1] * 32)
+        self.assertEqual(self.dset.decode().values().map(len).collect(), [128 * 8 ] * 32)
 
     def test_lines(self):
         self.assertEqual(self.dset.lines().count(), 8 * 32)

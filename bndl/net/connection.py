@@ -137,14 +137,15 @@ class Connection(object):
             if attachments:
                 # send attachment count
                 self.writer.write(struct.pack('I', len(attachments)))
-                for key, (size, sender) in attachments.items():
+                for key, attachment in attachments.items():
                     # send key len and key
                     self.writer.write(struct.pack('I', len(key)))
                     self.writer.write(key)
                     # send attachment len and attachment itself
-                    self.writer.write(struct.pack('I', size))
-                    yield from async_call(self.loop, sender, self.writer)
-                    self.bytes_sent += size
+                    with attachment() as (size, sender):
+                        self.writer.write(struct.pack('I', size))
+                        yield from async_call(self.loop, sender, self.writer)
+                        self.bytes_sent += size
             # send msg length and msg
             self.writer.write(struct.pack('I', len(serialized)))
             self.writer.write(serialized)

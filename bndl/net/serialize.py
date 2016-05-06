@@ -12,16 +12,12 @@ class AttachError(Exception):
     as provided by _dump_with_attachments
     '''
 
-def attach(key, size, writer):
+def attach(key, attachment):
     '''
     Add an attachment to the message currently being serialized (pickled)
     :param key: bytestring
         to lookup the attachment on deserialization
-    :param size: int
-        length of the attachment
-    :param writer: f(asyncio.WriteTransport)
-        function which accepts a asyncio.WriteTransport as argument and sends
-        the attachment via this transport (e.g. using sendfile ...)
+    :param attachment: TODO 
     '''
     try:
         attachments = getattr(_attachments, 'v')
@@ -29,7 +25,7 @@ def attach(key, size, writer):
         attachments = _attachments.v = {}
     if key in attachments:
         return AttachError("key conflict in attaching key " + str(key))
-    attachments[key] = (size, writer)
+    attachments[key] = attachment
 
 
 def attachment(key):

@@ -1,15 +1,16 @@
+import asyncio
+from collections import OrderedDict
+import contextlib
+from functools import partial
 import os.path
+import sys
 
 from bndl.compute.dataset.base import Dataset, Partition
-from bndl.util.fs import filenames, read_file
-from bndl.util.collection import batch
-from bndl.net.serialize import attach, attachment
-import asyncio
 from bndl.net.sendfile import sendfile
-from collections import OrderedDict
+from bndl.net.serialize import attach, attachment
 from bndl.util import aio
-import sys
-from functools import partial
+from bndl.util.collection import batch
+from bndl.util.fs import filenames, read_file
 
 
 def _decode(encoding, errors, blob):
@@ -63,7 +64,7 @@ class DistributedFiles(Dataset):
             for filename in self.filenames:
                 part.append(filename)
                 size += os.path.getsize(filename)
-                if size > psize_bytes or len(part) > psize_files:
+                if size >= psize_bytes or len(part) >= psize_files:
                     part = []
                     parts.append(part)
                     size = 0
@@ -78,26 +79,31 @@ class DistributedFiles(Dataset):
         ]
 
 
+
+
 def _file_attachment(filename):
-    # get the size of the file
-    size = os.stat(filename).st_size
-    # the attachment sender:
-    @asyncio.coroutine
-    def sender(writer):
-        # make sure there is no data pending in the writer's buffer
-        yield from aio.drain(writer)
-        # get the socket from the writer
-        socket = writer.get_extra_info('socket')
-        # open the file for binary reading
+    @contextlib.contextmanager
+    def _attacher():
         file = open(filename, 'rb')
-        try:
-            # use sendfile to send file to socket
+        size = os.fstat(file.fileno()).st_size
+
+        @asyncio.coroutine
+        def sender(writer):
+            '''
+            make sure there is no data pending in the writer's buffer
+            get the socket from the writer
+            use sendfile to send file to socket
+            '''
+            yield from aio.drain(writer)
+            socket = writer.get_extra_info('socket')
             yield from sendfile(socket.fileno(), file.fileno(), 0, size)
+
+        try:
+            yield size, sender
         finally:
-            # close the file to clean up
             file.close()
-    # return the key, the size and the attachment sender
-    return filename.encode('utf-8'), size, sender
+
+    return filename.encode('utf-8'), _attacher
 
 
 class FilesPartition(Partition):
