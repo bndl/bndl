@@ -5,8 +5,6 @@ import logging
 
 from bndl.net.messages import Ping
 from random import random
-from bndl.util.exceptions import catch
-from bndl.net.connection import NotConnected
 
 
 logger = logging.getLogger(__name__)
