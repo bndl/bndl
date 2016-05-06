@@ -7,7 +7,6 @@ import sys
 import urllib.parse
 
 from bndl.net import serialize
-from bndl.net.messages import Message
 from bndl.util import aio
 from bndl.util.aio import async_call
 
@@ -115,15 +114,19 @@ class Connection(object):
     @asyncio.coroutine
     def send(self, msg, drain=True):
         '''
-        Send an object
+        Send a message
         :param msg: Message
             The message to send.
-        :param drain:
+        :param drain: bool
+            Whether to drain the socket after sending the message, defaults to
+            True. If False there is no guarantee that the message will be sent
+            unless more messages are sent (due to watermarks at the level of
+            the asyncio transport)
         '''
         if not self.is_connected:
             raise NotConnected()
         logger.debug('sending %s', msg)
-        marshalled, serialized, attachments = (yield from self.loop.run_in_executor(None, serialize.dump, msg.__msgdict__()))
+        marshalled, serialized, attachments = (yield from self.loop.run_in_executor(None, serialize.dump, msg))
         with (yield from self.write_lock):
             # send format header
             fmt = int(marshalled)
@@ -194,9 +197,7 @@ class Connection(object):
                 msg = yield from asyncio.wait_for(self.reader.readexactly(l), timeout)
                 self.bytes_received += l
             # parse the message and attachments
-            msg = (yield from self.loop.run_in_executor(None, serialize.load, marshalled, msg, attachments))
-            msg = Message.load(msg)
-            return msg
+            return (yield from self.loop.run_in_executor(None, serialize.load, marshalled, msg, attachments))
         except BrokenPipeError as e:
             raise NotConnected() from e
         except asyncio.streams.IncompleteReadError as e:

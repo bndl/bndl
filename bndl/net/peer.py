@@ -3,7 +3,7 @@ import logging
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
-from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong
+from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util.exceptions import catch
 
 
@@ -59,7 +59,13 @@ class PeerNode(object):
         if not self.is_connected:
             raise NotConnected()
         logger.debug('sending %s to %s', msg.__class__.__name__, self.name)
-        yield from self.conn.send(msg, drain)
+        yield from self.conn.send(msg.__msgdict__(), drain)
+
+
+    @asyncio.coroutine
+    def recv(self, timeout=None):
+        msg = yield from self.conn.recv(timeout)
+        return Message.load(msg)
 
 
     @property
@@ -122,7 +128,7 @@ class PeerNode(object):
 
                 # wait for hello back
                 logger.debug('waiting for hello from %s', url)
-                rep = yield from self.conn.recv(HELLO_TIMEOUT)
+                rep = yield from self.recv(HELLO_TIMEOUT)
 
                 if isinstance(rep, Disconnect):
                     logger.debug("received Disconnect from %s, disconnecting", url)
@@ -173,7 +179,7 @@ class PeerNode(object):
 
         with (yield from self.handshake_lock):
             try:
-                hello = yield from connection.recv(HELLO_TIMEOUT)
+                hello = yield from self.recv(HELLO_TIMEOUT)
             except TimeoutError:
                 logger.warning('receiving hello timed out from %s', self.conn.peername())
                 self.disconnect(reason='hello timed out')
@@ -213,7 +219,7 @@ class PeerNode(object):
     def _send_hello(self):
         if not self.is_connected:
             raise NotConnected()
-        yield from self.conn.send(Hello(
+        yield from self.send(Hello(
             name=self.local.name,
             node_type=self.local.node_type,
             addresses=list(self.local.servers.keys()),
@@ -233,7 +239,7 @@ class PeerNode(object):
         while self.is_connected:
             try:
                 # logger.debug('%s is waiting for message from %s', self.local.name, self.name)
-                msg = yield from self.conn.recv()
+                msg = yield from self.recv()
                 # logger.debug('%s received message from %s: %s', self.local.name, self.name, msg)
             except NotConnected:
                 logger.debug('read EOF on connection with %s', self.name)
