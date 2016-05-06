@@ -7,6 +7,8 @@ from bndl.net.serialize import attach, attachment
 import asyncio
 from bndl.net.sendfile import sendfile
 from collections import OrderedDict
+from bndl.util import aio
+import sys
 
 
 class DistributedFiles(Dataset):
@@ -18,14 +20,13 @@ class DistributedFiles(Dataset):
             else list(root)
         )
 
-        if psize_bytes is not None and psize_files is not None:
-            raise ValueError("can't set both psize_bytes and psize_files")
-        elif psize_bytes is not None and psize_bytes <= 0:
+        if psize_bytes is not None and psize_bytes <= 0:
             raise ValueError("psize_bytes can't be negative or zero")
         elif psize_files is not None and psize_files <= 0:
             raise ValueError("psize_bytes can't be negative or zero")
         elif psize_bytes is None and psize_files is None:
-            psize_bytes = 64 * 1024 * 1024
+            psize_bytes = 16 * 1024 * 1024
+            psize_files = 1000
 
         self.psize_bytes = psize_bytes
         self.psize_files = psize_files
@@ -41,6 +42,9 @@ class DistributedFiles(Dataset):
 
     def parts(self):
         if self.psize_bytes:
+            psize_bytes = self.psize_bytes
+            psize_files = self.psize_files or sys.maxsize
+
             # TODO split within files
             # for start in range(0, len(file), 64):
             #     file[start:start+64]
@@ -51,7 +55,7 @@ class DistributedFiles(Dataset):
             for filename in self.filenames:
                 part.append(filename)
                 size += os.path.getsize(filename)
-                if size >= self.psize_bytes:
+                if size > psize_bytes or len(part) > psize_files:
                     part = []
                     parts.append(part)
                     size = 0
@@ -72,6 +76,8 @@ def _file_attachment(filename):
     # the attachment sender:
     @asyncio.coroutine
     def sender(writer):
+        # make sure there is no data pending in the writer's buffer
+        yield from aio.drain(writer)
         # get the socket from the writer
         socket = writer.get_extra_info('socket')
         # open the file for binary reading
@@ -93,9 +99,9 @@ class FilesPartition(Partition):
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        state.pop('data', None)  # make sure we don't send the files twice
-        for filename in self.filenames:
-            attach(*_file_attachment(filename))
+        if 'data' not in state:
+            for filename in self.filenames:
+                attach(*_file_attachment(filename))
         return state
 
     def __setstate__(self, state):
@@ -106,11 +112,11 @@ class FilesPartition(Partition):
             self.data[filename] = a
 
     def _materialize(self, ctx):
-        data = getattr(self, 'data', None)
-        if data is None:
-            return zip(self.filenames, self._read())
-        else:
+        data = getattr(self, 'data', {})
+        if data:
             return iter(data.items())
+        else:
+            data = OrderedDict(zip(self.filenames, self._read()))
 
     def _read(self):
         for filename in self.filenames:
