@@ -17,7 +17,8 @@ class MappingTest(DatasetTest):
         self.assertEqual(self.dset.flatmap(lambda i: (i,)).collect(),
                          list(range(10)))
         self.assertEqual(self.dset.flatmap(lambda x: [x, x + 1]).collect(),
-                         list(chain.from_iterable((x, x + 1) for x in range(10))))
+                        list(chain.from_iterable((x, x + 1) for x in range(10))))
+        self.assertEqual(''.join(self.ctx.range(100, pcount=3).map(str).flatmap(identity).collect()), ''.join(list(map(str, range(100)))))
 
     def test_map_partitions(self):
         self.assertEqual(self.dset.map_partitions(identity).collect(), list(range(10)))
