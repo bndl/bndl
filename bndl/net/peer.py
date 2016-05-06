@@ -237,23 +237,23 @@ class PeerNode(object):
                 # logger.debug('%s received message from %s: %s', self.local.name, self.name, msg)
             except NotConnected:
                 logger.debug('read EOF on connection with %s', self.name)
-                yield from self.disconnect('received EOF')
+                yield from self.disconnect('received EOF', active=False)
                 break
             except asyncio.futures.CancelledError:
                 logger.debug('connection with %s cancelled', self.name)
-                yield from self.disconnect('connection cancelled')
+                yield from self.disconnect('connection cancelled', active=False)
                 break
             except ConnectionResetError:
                 logger.warning('connection with %s closed unexpectedly', self.name)
-                yield from self.disconnect('connection reset')
+                yield from self.disconnect('connection reset', active=False)
                 break
             except asyncio.streams.IncompleteReadError:
                 logger.exception('connection with %s closed unexpectedly', self.name)
-                yield from self.disconnect('connection reset')
+                yield from self.disconnect('connection reset', active=False)
                 break
             except Exception as e:
                 logger.exception('An unknown exception occurred in connection %s', self.name)
-                yield from self.disconnect('unexpected error: ' + str(e))
+                yield from self.disconnect('unexpected error: ' + str(e), active=False)
                 break
 
             self.loop.create_task(self._dispatch(msg))
