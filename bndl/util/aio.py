@@ -86,3 +86,13 @@ def run_coroutine_threadsafe(coro, loop):
     future.add_done_callback(future_done)
 
     return future
+
+
+@asyncio.coroutine
+def drain(writer):
+    if writer.transport.get_write_buffer_size():
+        low, high = writer.transport.get_write_buffer_limits()
+        writer.transport.set_write_buffer_limits(low=0)
+        yield from writer.drain()
+        assert writer.transport.get_write_buffer_size() == 0  # TODO remove assertion
+        writer.transport.set_write_buffer_limits(high, low)
