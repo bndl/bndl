@@ -28,14 +28,27 @@ check stable ids for nodes
 the rx tx rates aren't updated on sp-dev
 only start gui on driver by default
 
-cassandra retry policy
+investigate cassandra retry policy
+
+pickle ops in the map / filter partitions
+ - this may cloudpickle functions so that this 'requirement' doesn't ripple out into the entire dset dag
+same for filenames, nparrays, etc.
 
 
 Limit resource usage from supervisor with: https://docs.python.org/3.4/library/resource.html
 Enhance dashboard with info from https://pypi.python.org/pypi/psutil
 
+Show cancellation of tasks / stages / jobs
 
 Don't skip job ids for branches
+(assign them on execute?)
+
+
+Wait for gossip stability with ctx.worker_count and/or sum(t.result() for t in [w.run_task(lambda w: sum(1 for w in w.peers.values() if w.is_connected)) for w in ctx.workers])
+
+
+Keep broadcast values ready in pickled format
+
 
 
 ## ERRORS
