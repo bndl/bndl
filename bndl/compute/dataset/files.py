@@ -78,6 +78,11 @@ class DistributedFiles(Dataset):
             if filenames
         ]
 
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        del state['filenames']
+        return state
+
 
 
 
