@@ -206,7 +206,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def itake(self, num):
         # TODO don't use itake if first partition doesn't yield > 50% of num
-        results = self.icollect(eager=False)
+        sliced = self.map_partitions(partial(islice, stop=num))
+        results = sliced.icollect(eager=False)
         yield from islice(results, num)
         results.close()
 
