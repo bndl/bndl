@@ -8,7 +8,7 @@ class GroupbyTest(DatasetTest):
 
     def test_groupby_key(self):
         dset = self.ctx.range(10).key_by(iseven).group_by_key().map_values(sorted)
-        print(dset.keys().collect_as_map(), {
-            False: range(1, 10, 2),
-            True: range(0, 10, 2),
+        self.assertEqual(dset.collect_as_map(), {
+            False: [(False, i) for i in range(1, 10, 2)],
+            True: [(True, i) for i in range(0, 10, 2)],
         })
