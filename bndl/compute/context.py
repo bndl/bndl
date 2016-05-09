@@ -1,6 +1,6 @@
 import itertools
 
-from bndl.compute.broadcast import broadcast
+from bndl.compute.broadcast import broadcast, broadcast_pickled
 from bndl.compute.dataset.arrays import SourceDistributedArray, DistributedArray
 from bndl.compute.dataset.collections import DistributedCollection
 from bndl.compute.dataset.files import DistributedFiles
@@ -27,6 +27,7 @@ class ComputeContext(ExecutionContext):
     range = as_method(DistributedRange)
     files = as_method(DistributedFiles)
     broadcast = broadcast
+    broadcast_pickled = broadcast_pickled
 
     array = as_method(SourceDistributedArray)
     empty = as_method(DistributedArray.empty)

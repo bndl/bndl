@@ -41,17 +41,6 @@ class Worker(ExecutionWorker):
             pass
 
 
-    def get_broadcast_value(self, key):
-        if key in self.broadcast_values:
-            return self.broadcast_values.get(key)
-        else:
-            driver = self.peers.filter(node_type='driver')[0]
-            logger.debug('retrieving broadcast value with key %s from %s', key, driver)
-            val = driver.get_broadcast_value(key).result()
-            self.broadcast_values[key] = val
-            return val
-
-
     def unpersist_broadcast_value(self, src, key):
         if key in self.broadcast_values:
             del self.broadcast_values[key]
