@@ -687,8 +687,7 @@ class ShuffleReadingPartition(Partition):
 
         for f in futures:
             # TODO timeout and reschedule
-            for e in f.result():
-                yield e
+            yield from f.result()
 
         del futures
 
