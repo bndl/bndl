@@ -5,7 +5,6 @@ from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import collection
-from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.protocol import LazyProtocolHandler, ProtocolHandler
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class CassandraScanDataset(Dataset):
-    def __init__(self, ctx, keyspace, table, concurrency=10, contact_points=None):
+    def __init__(self, ctx, keyspace, table, contact_points=None):
         '''
         Create a scan across keyspace.table.
         
@@ -24,10 +23,6 @@ class CassandraScanDataset(Dataset):
             Keyspace of the table to scan.
         :param table: str
             Name of the table to scan.
-        :param concurrency: int > 0
-            Maximum number of concurrent queries per partition.
-            concurrency * ctx.worker_count is the maximum number of concurrent
-            queries in total.
         :param contact_points: None or str or [str,str,str,...]
             None to use the default contact points or a list of contact points
             or a comma separated string of contact points.
@@ -36,7 +31,6 @@ class CassandraScanDataset(Dataset):
         self.keyspace = keyspace
         self.table = table
         self.contact_points = contact_points
-        self.concurrency = concurrency
         self._row_factory = named_tuple_factory
 
         with ctx.cassandra_session(contact_points=self.contact_points) as session:
@@ -72,7 +66,6 @@ class CassandraScanDataset(Dataset):
 
     def limit(self, num):
         wlimit = self._with('_limit', int(num))
-        wlimit.concurrency = min(wlimit.concurrency, num)
         return wlimit
 
     def itake(self, num):
@@ -129,15 +122,25 @@ class CassandraScanPartition(Partition):
             session.client_protocol_handler = LazyProtocolHandler or ProtocolHandler
             session.row_factory = self.dset._row_factory
             query = self.dset.query(session)
-            logger.info('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
+            logger.debug('scanning %s token ranges with query %s', len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            results = execute_concurrent_with_args(session, query, self.token_ranges, concurrency=self.dset.concurrency)
-            try:
-                for success, rows in results:
-                    assert success  # TODO handle failure
-                    yield from rows
-            except Exception as e:
-                raise Exception('%r %r' % (type(e), e))
+            next_rs = session.execute_async(query, self.token_ranges[0])
+            resultset = None
+
+            for next_tr in self.token_ranges[1:] + [None]:
+                resultset = next_rs.result()
+
+                while True:
+                    has_more = resultset.response_future.has_more_pages
+                    if has_more:
+                        resultset.response_future.start_fetching_next_page()
+                    elif next_tr:
+                        next_rs = session.execute_async(query, next_tr)
+                    yield from resultset.current_rows
+                    if has_more:
+                        resultset = resultset.response_future.result()
+                    else:
+                        break
 
 
     def preferred_workers(self, workers):
