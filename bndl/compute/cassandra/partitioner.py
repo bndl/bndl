@@ -57,7 +57,10 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
             current_ranges_size_pk += size_pk
 
             if current_ranges_size_b > MAX_PARTITIONS_SIZE_B or current_ranges_size_pk > MAX_PARTITIONS_SIZE_PK:
-                partitions.append((replicas, current_ranges))
+                # possibly a single token range exceeds our limits
+                # TODO split that range into chunks within our limits
+                if current_ranges:
+                    partitions.append((replicas, current_ranges))
                 current_ranges = []
                 current_ranges_size_b = 0
                 current_ranges_size_pk = 0
@@ -66,6 +69,8 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
 
         if current_ranges:
             partitions.append((replicas, current_ranges))
+            if not current_ranges:
+                print('end')
             current_ranges = []
             current_ranges_size_b = 0
             current_ranges_size_pk = 0
