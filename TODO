@@ -50,6 +50,13 @@ Wait for gossip stability with ctx.worker_count and/or sum(t.result() for t in [
 Keep broadcast values ready in pickled format
 
 
+move caches, broadcast values etc down to execute layer
+use hierarchical namespace for set / del
+
+
+Use custom pickle to set node in Execute/ComputeContext
+
+
 
 ## ERRORS
 
