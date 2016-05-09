@@ -105,3 +105,7 @@ Consider changing the task execution model from push to pull.
 Spill shuffles to disk
  - and do the sorting in place
  
+ 
+Implement checkpointing
+ - perform cleanup of stages before the stage of the checkpointed dset 
+ 
