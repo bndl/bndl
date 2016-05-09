@@ -9,16 +9,20 @@ class ReadTest(CassandraTest):
         self.ctx.collection(self.rows).cassandra_save(self.keyspace, self.table).execute()
 
     def test_count(self):
-        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(), len(self.rows))
         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=False), len(self.rows))
         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=True), len(self.rows))
-        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).cache().count(), len(self.rows))
+
+    def test_cache(self):
+        dset = self.ctx.cassandra_table(self.keyspace, self.table)
+        self.assertEqual(dset.count(), len(self.rows))  # count before
+        self.assertEqual(dset.cache().count(), len(self.rows))  # count while caching
+        self.assertEqual(dset.count(), len(self.rows))  # count after
 
     def test_collect_dicts(self):
-        self.ctx.cassandra_table(self.keyspace, self.table).as_dicts().collect()
+        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).as_dicts().collect(), len(self.rows))
 
     def test_collect_tuples(self):
-        self.ctx.cassandra_table(self.keyspace, self.table).as_tuples().collect()
+        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).as_tuples().collect(), len(self.rows))
 
     # TODO def test_select(self):
     # TODO def test_where(self):
