@@ -12,7 +12,7 @@ from bndl.util import serialize
 from bndl.util.collection import getter
 from bndl.util.funcs import identity
 import collections.abc as collections_abc
-from cytoolz import pluck  # @UnresolvedImport
+from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
 
 
@@ -68,6 +68,7 @@ def _return_1tuple(f, *args, **kwargs):
 
 def _prefix_args(prefix, *args):
     return prefix + args
+
 
 
 def _local_join(group):
@@ -206,7 +207,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def itake(self, num):
         # TODO don't use itake if first partition doesn't yield > 50% of num
-        sliced = self.map_partitions(partial(islice, stop=num))
+        sliced = self.map_partitions(partial(take, num))
         results = sliced.icollect(eager=False)
         yield from islice(results, num)
         results.close()
