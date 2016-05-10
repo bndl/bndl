@@ -83,6 +83,10 @@ Consider not using 1 fixed worker per core, but 1 worker per node which forks pe
    - figure out an alternative memory efficient broadcast   
  
  
+Consider a communication architecture with a core cross node network and a on node inter process network
+ - perhaps supplemented by (temporary) direct connections on a data layer
+ 
+ 
 Make entire compute.dataset api asynchronous
  - i.e. some_action() returns a future
  - use some_action().result() to get the results (may be an iterable)
