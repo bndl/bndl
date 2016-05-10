@@ -20,7 +20,7 @@ MAX_CONNECTION_ATTEMPT = 10
 
 # The maximum time in seconds with no communication
 # after which a ping is sent
-DT_PING_AFTER = WATCHDOG_INTERVAL * 3
+DT_PING_AFTER = 60
 
 # The maximum time in seconds with no communication
 # after which the connection is considered lost
