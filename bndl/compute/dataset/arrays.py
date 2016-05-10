@@ -16,17 +16,45 @@ class DistributedArray(Dataset):
             else:
                 return np.empty(0, dtype=self.dtype)
 
-    # TODO use slicing
-    # def take(self, num):
-    #     ...
+    def take(self, num):
+        sliced = self.map_partitions(lambda p: p[0:num])
+        parts = iter(sliced.icollect(eager=False, parts=True))
+        collected = next(parts)
+        for part in parts:
+            collected = np.concatenate([collected, part])
+        parts.close()
+        return collected[:num]
+
+
+    def sum(self, axis=None, dtype=None):
+        res = np.array(self.map_partitions(lambda a: [a.sum(axis, dtype=dtype)]).collect())
+        if axis is None or axis < len(self.shape) - 1:
+            return res.sum(axis=axis)
+        else:
+            return res
 
     def mean(self, axis=None):
-        means_weights = np.array(self.map_partitions(lambda a: [(a.mean(), np.prod(a.shape))]).collect()).transpose()
-        return np.average(means_weights[0], weights=means_weights[1])
+        if axis in (None, 0):
+            if axis is None:
+                local_mean = lambda a: [(a.mean(), np.prod(a.shape))]
+            else:
+                local_mean = lambda a: [(a.mean(0), np.prod(a.shape[1:]))]
+            means_weights = np.array(self.map_partitions(local_mean).collect()).T
+            return np.average(means_weights[0], weights=means_weights[1])
+        else:
+            return np.array(self.map_partitions(lambda a: a.mean(axis=axis)).collect())
 
-    # def max(self, axis=None):
+    def min(self, axis=None):
+        if axis not in (None, 0):
+            raise ValueError("Can't determine max over axis other than the distribution axis")
+        return np.array(self.map_partitions(lambda p: [p.min(axis=axis)]).collect()).min(axis=axis)
 
-    # etc ...
+    def max(self, axis=None):
+        if axis not in (None, 0):
+            raise ValueError("Can't determine max over axis other than the distribution axis")
+            # TODO possibly implement this through a transpose (shuffle) ...
+        return np.array(self.map_partitions(lambda p: [p.max(axis=axis)]).collect()).max(axis=axis)
+
 
     def astype(self, dtype):
         return self._transformed(

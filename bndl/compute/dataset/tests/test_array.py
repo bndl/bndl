@@ -97,10 +97,31 @@ class ArrayTest(DatasetTest):
             self.assertEqual(dset_arange, arange)
 
 
+    def test_sum(self):
+        self.assertEqual(self.ctx.arange(100).sum(), np.arange(100).sum())
+        base_shape = (4, 5, 5, 5)
+        for shape_slice in range(2, 5):
+            shape = base_shape[:shape_slice]
+            size = np.prod(shape[:shape_slice])
+            for axis in [None] + list(range(len(shape))):
+                self.assertEqual(self.ctx.arange(size).reshape(shape).sum(axis=axis), np.arange(size).reshape(shape).sum(axis=axis))
+
     def test_mean(self):
         self.assertEqual(self.ctx.array(range(1, 100)).mean(), 50)
         self.assertEqual(self.ctx.arange(2.5, 100, 2.5).mean(), np.arange(2.5, 100, 2.5).mean())
         self.assertEqual(self.ctx.arange(1.3, 17, 1.7).mean(), np.arange(1.3, 17, 1.7).mean())
+
+        for axis in (None, 0, 1, 2, 3):
+            self.assertEqual(self.ctx.arange(500).reshape((4, 5, 5, 5)).mean(axis=axis), np.arange(500).reshape((4, 5, 5, 5)).mean(axis=axis))
+
+
+    def test_minmax(self):
+        self.assertEqual(self.ctx.arange(100).min(), np.arange(100).min())
+        self.assertEqual(self.ctx.arange(100).max(), np.arange(100).max())
+        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).min(), np.arange(100).reshape((20, 5)).min())
+        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).max(), np.arange(100).reshape((20, 5)).max())
+        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).min(axis=0), np.arange(100).reshape((20, 5)).min(axis=0))
+        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).max(axis=0), np.arange(100).reshape((20, 5)).max(axis=0))
 
 
     def test_reshape(self):
