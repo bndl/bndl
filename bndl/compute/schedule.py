@@ -145,10 +145,11 @@ def materialize_partition(worker, part, return_data):
                 return list(data)
             else:
                 return data
-    except Exception:
+    except:
         logger.info('error while materializing part %s on worker %s',
                     part, worker, exc_info=True)
         raise
+
 
 def _set_worker(dset, worker):
     dset.ctx.node = worker
@@ -157,4 +158,3 @@ def _set_worker(dset, worker):
             _set_worker(dset, worker)
     elif dset.src:
         _set_worker(dset.src, worker)
-
