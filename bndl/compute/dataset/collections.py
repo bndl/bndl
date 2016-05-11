@@ -16,7 +16,7 @@ class DistributedCollection(Dataset):
             raise ValueError('psize must be None or > 0')
         if pcount and psize:
             raise ValueError("can't set both pcount and psize")
-        elif ctx.default_pcount <= 0:
+        if not psize and not pcount and ctx.default_pcount <= 0:
             raise Exception("can't use default_pcount, no workers available")
 
         if psize:
