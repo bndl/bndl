@@ -2,6 +2,7 @@ from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
 
 import abc
 import bisect
+import copy
 from functools import partial, total_ordering
 from itertools import islice, product, chain
 import logging
@@ -139,7 +140,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def map(self, op):
-        return ElementTransformingDataset(self.ctx, self, op)
+        return self.map_partitions(partial(map, op))
 
 
     def pluck(self, ind, default=None):
@@ -160,11 +161,11 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def map_partitions_with_part(self, op):
-        return PartitionTransformingDataset(self.ctx, self, op)
+        return TransformingDataset(self.ctx, self, op)
 
 
     def filter(self, op=None):
-        return FilteringDataset(self.ctx, self, op)
+        return self.map_partitions(partial(filter, op))
 
 
     def mask_partitions(self, mask):
@@ -189,15 +190,14 @@ class Dataset(metaclass=abc.ABCMeta):
     def map_values(self, op):
         return self.map(partial(_map_value, op))
 
+    def flatmap_values(self, op):
+        return self.values().flatmap(op)
+
     def filter_keys(self, op=bool):
         return self.filter(partial(_selecttransform_key, op))
 
     def filter_values(self, op=bool):
         return self.filter(partial(_selecttransform_value, op))
-
-    def flatmap_values(self, op):
-        return self.values().flatmap(op)
-
 
     def first(self):
         return next(self.itake(1))
@@ -213,36 +213,29 @@ class Dataset(metaclass=abc.ABCMeta):
         results.close()
 
 
-    def stat(self, f):
+    def aggregate(self, local, comb):
         try:
-            return f(self.map_partitions(partial(_return_1tuple, f)).icollect())
+            return comb(self.map_partitions(partial(_return_1tuple, local)).icollect())
         except StopIteration:
             raise ValueError('dataset is empty')
 
 
     def count(self):
-        return sum(self.map_partitions(iterable_size).icollect())
-
-
-    def count_by(self, key=None):
-        self.reduce()
-
+        return self.aggregate(iterable_size, sum)
 
     def sum(self):
-        return self.stat(sum)
+        return self.aggregate(sum, sum)
 
+    def min(self, key=None):
+        f = partial(min, key=key) if key else min
+        return self.aggregate(f, f)
 
-    def min(self):
-        return self.stat(min)
-
-
-    def max(self):
-        return self.stat(max)
-
+    def max(self, key=None):
+        f = partial(max, key=key) if key else max
+        return self.aggregate(f, f)
 
     def mean(self):
-        means = self.map_partitions(local_mean).icollect()
-        total, count = reduce_mean(means)
+        total, count = self.aggregate(local_mean, reduce_mean)
         return total / count
 
 
@@ -257,7 +250,6 @@ class Dataset(metaclass=abc.ABCMeta):
             .group_by_key(partitioner=partitioner)
             .map_values(partial(pluck, 1))
         )
-
 
     def group_by_key(self, partitioner=None, pcount=None):
         return (self
@@ -286,8 +278,9 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
 
-    def distinct(self, pcount=None, partitioner=None):
-        return self.aggregate(set, set, pcount, partitioner=partitioner, bucket=SetBucket)
+    def distinct(self, pcount=None):
+        shuffle = self.shuffle(pcount, bucket=SetBucket, comb=set)
+        return shuffle.map_partitions(set)
 
 
     def sort(self, pcount=None, key=identity, reverse=False):
@@ -312,16 +305,6 @@ class Dataset(metaclass=abc.ABCMeta):
         shuffled = self.shuffle(pcount, partitioner=partitioner, key=key)
         # finally sort within the partition
         return shuffled.map_partitions(partial(sorted, key=key, reverse=reverse))
-
-
-
-    def reduce(self, op, pcount=None, partitioner=None, bucket=None, key=None):
-        return self.aggregate(op, op, pcount, partitioner, bucket, key)
-
-
-    def aggregate(self, comb, agg, pcount=None, partitioner=None, bucket=None, key=None):
-        shuffle = self.shuffle(pcount, partitioner, bucket, key, comb)
-        return shuffle.map_partitions(partial(_aggregate_partition, agg))
 
 
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
@@ -693,78 +676,26 @@ class ShuffleReadingPartition(Partition):
 
 
 class TransformingDataset(Dataset):
-    def __init__(self, ctx, src, *ops):
+    def __init__(self, ctx, src, transformation):
         super().__init__(ctx, src)
-        self.ops = ops
+        self.transformation = transformation
 
     def parts(self):
-        transformer = self.partition_transformer(self.ops)
         return [
-            TransformingPartition(self, i, part, transformer)
+            TransformingPartition(self, i, part)
             for i, part in enumerate(self.src.parts())
         ]
 
-    @abc.abstractmethod
-    def partition_transformer(self, ops):
-        pass
+    def __getstate__(self):
+        state = copy.copy(self.__dict__)
+        state['transformation'] = serialize.dumps(self.transformation)
+        return state
 
-
-
-class ElementTransformer(object):
-    def __init__(self, ops):
-        self.ops = ops
-
-    def __call__(self, p, iterator):
-        for o in self.ops:
-            iterator = map(o, iterator)
-        return iterator
-
-
-class ElementTransformingDataset(TransformingDataset):
-    partition_transformer = ElementTransformer
-
-
-
-class PartitionTransformer(object):
-    def __init__(self, ops):
-        self.ops = ops
-
-    def __call__(self, p, iterator):
-        for op in self.ops:
-            iterator = op(p, iterator)
-        if iterator is None:
-            return ()
-        else:
-            return iterator
-
-
-class PartitionTransformingDataset(TransformingDataset):
-    partition_transformer = PartitionTransformer
-
-
-
-class PartitionFilter(object):
-    def __init__(self, ops):
-        self.ops = ops
-
-    def __call__(self, p, iterator):
-        if self.ops:
-            for o in self.ops:
-                iterator = filter(o, iterator)
-            return iterator
-        else:
-            return filter(None, iterator)
-
-
-class FilteringDataset(TransformingDataset):
-    partition_transformer = PartitionFilter
-
+    def __setstate__(self, state):
+        self.transformation = serialize.loads(*state.pop('transformation'))
+        self.__dict__.update(state)
 
 
 class TransformingPartition(Partition):
-    def __init__(self, dset, idx, src, transformation):
-        super().__init__(dset, idx, src)
-        self.transformation = transformation
-
     def _materialize(self, ctx):
-        return self.transformation(self.src, self.src.materialize(ctx))
+        return self.dset.transformation(self, self.src.materialize(ctx) or ())

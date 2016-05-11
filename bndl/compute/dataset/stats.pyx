@@ -1,41 +1,36 @@
 from _collections_abc import Sized
 
 cpdef iterable_size(i):
-    cdef long s
     if isinstance(i, Sized):
-        return (len(i),)
+        return len(i)
     else:
         s = 0
         for _ in i:
             s += 1
-        return (s,)
+        return s
 
 
-# TODO doesn't scale to large numbers
 cpdef local_mean(p):
-    cdef double total
-    cdef long count
     i = iter(p)
     if isinstance(p, Sized):
-        return [(sum(i), len(p))]
+        return sum(i), len(p)
     else:
         total = next(i)
         count = 1
         for e in i:
             total += e
             count += 1
-        return [(total, count)]
+        return total, count
 
 
 cpdef reduce_mean(p):
-    cdef double total
-    cdef long count
     i = iter(p)
     total, count = next(i)
     for a, b in i:
         total += a
         count += b
-    return (total, count)
+    return total, count
+
 
 # import math
 # 
