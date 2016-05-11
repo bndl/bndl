@@ -34,6 +34,8 @@ import re
 import io
 import codecs
 import _compat_pickle
+from cloudpickle.cloudpickle import _make_skel_func, _gen_ellipsis,\
+    _gen_not_implemented, _fill_function
 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
@@ -59,40 +61,6 @@ HIGHEST_PROTOCOL = 4
 # We intentionally write a protocol that Python 2.x cannot read;
 # there are too many issues with that.
 DEFAULT_PROTOCOL = 3
-
-class PickleError(Exception):
-    """A common base class for the other pickling exceptions."""
-    pass
-
-class PicklingError(PickleError):
-    """This exception is raised when an unpicklable object is passed to the
-    dump() method.
-
-    """
-    pass
-
-class UnpicklingError(PickleError):
-    """This exception is raised when there is a problem unpickling an object,
-    such as a security violation.
-
-    Note that other exceptions may also be raised during unpickling, including
-    (but not necessarily limited to) AttributeError, EOFError, ImportError,
-    and IndexError.
-
-    """
-    pass
-
-# An instance of _Stop is raised by Unpickler.load_stop() in response to
-# the STOP opcode, passing the object that is the result of unpickling.
-class _Stop(Exception):
-    def __init__(self, value):
-        self.value = value
-
-# Jython has PyStringMap; it's a dict subclass with string keys
-try:
-    from org.python.core import PyStringMap
-except ImportError:
-    PyStringMap = None
 
 # Pickle opcodes.  See pickletools.py for extensive docs.  The listing
 # here is in kind-of alphabetical order of 1-character pickle code.
@@ -222,7 +190,7 @@ cdef class _Framer:
 # Tools used for pickling.
 
 cdef _getattribute(object obj, str name, bint allow_qualname=False):
-    cdef object dotted_path = name.split(".")
+    dotted_path = name.split(".")
     if not allow_qualname and len(dotted_path) > 1:
         raise AttributeError("Can't get qualified attribute {!r} on {!r}; " +
                              "use protocols >= 4 to enable support"
@@ -449,7 +417,7 @@ cdef class Pickler:
                 if reduce is not None:
                     rv = reduce()
                 else:
-                    raise PicklingError("Can't pickle %r object: %r" %
+                    raise pickle.PicklingError("Can't pickle %r object: %r" %
                                         (t.__name__, obj))
 
         # Check for string returned by reduce(), meaning "save as global"
@@ -459,12 +427,12 @@ cdef class Pickler:
 
         # Assert that reduce() returned a tuple
         if not isinstance(rv, tuple):
-            raise PicklingError("%s must return string or tuple" % reduce)
+            raise pickle.PicklingError("%s must return string or tuple" % reduce)
 
         # Assert that it returned an appropriately sized tuple
         l = len(rv)
         if not (2 <= l <= 5):
-            raise PicklingError("Tuple returned by %s must have "
+            raise pickle.PicklingError("Tuple returned by %s must have "
                                 "two to five elements" % reduce)
 
         # Save the reduce() output and finally memoize the object
@@ -487,9 +455,9 @@ cdef class Pickler:
         # This API is called by some subclasses
 
         if not isinstance(args, tuple):
-            raise PicklingError("args from save_reduce() must be a tuple")
+            raise pickle.PicklingError("args from save_reduce() must be a tuple")
         if not callable(func):
-            raise PicklingError("func from save_reduce() must be callable")
+            raise pickle.PicklingError("func from save_reduce() must be callable")
 
         save = self.save
         write = self.write
@@ -498,10 +466,10 @@ cdef class Pickler:
         if self.proto >= 4 and func_name == "__newobj_ex__":
             cls, args, kwargs = args
             if not hasattr(cls, "__new__"):
-                raise PicklingError("args[0] from {} args has no __new__"
+                raise pickle.PicklingError("args[0] from {} args has no __new__"
                                     .format(func_name))
             if obj is not None and cls is not obj.__class__:
-                raise PicklingError("args[0] from {} args has the wrong class"
+                raise pickle.PicklingError("args[0] from {} args has the wrong class"
                                     .format(func_name))
             save(cls)
             save(args)
@@ -536,10 +504,10 @@ cdef class Pickler:
             # Python 2.2).
             cls = args[0]
             if not hasattr(cls, "__new__"):
-                raise PicklingError(
+                raise pickle.PicklingError(
                     "args[0] from __newobj__ args has no __new__")
             if obj is not None and cls is not obj.__class__:
-                raise PicklingError(
+                raise pickle.PicklingError(
                     "args[0] from __newobj__ args has the wrong class")
             args = args[1:]
             save(cls)
@@ -668,7 +636,7 @@ cdef class Pickler:
                 self.write(MARK + TUPLE)
             return
 
-        n = len(obj)
+        cdef int n = len(obj)
         save = self.save
         memo = self.memo
         if n <= 3 and self.proto >= 2:
@@ -736,6 +704,8 @@ cdef class Pickler:
             return
 
         it = iter(items)
+        cdef int n
+        cdef list tmp
         while True:
             tmp = list(islice(it, self._BATCHSIZE))
             n = len(tmp)
@@ -759,10 +729,7 @@ cdef class Pickler:
 
         self.memoize(obj)
         self._batch_setitems(obj.items())
-
     dispatch[dict] = save_dict
-    if PyStringMap is not None:
-        dispatch[PyStringMap] = save_dict
 
     def _batch_setitems(self, items):
         # Helper to batch up SETITEMS sequences; proto >= 1 only
@@ -857,12 +824,12 @@ cdef class Pickler:
             module = sys.modules[module_name]
             obj2 = _getattribute(module, name, allow_qualname=self.proto >= 4)
         except (ImportError, KeyError, AttributeError):
-            raise PicklingError(
+            raise pickle.PicklingError(
                 "Can't pickle %r: it's not found as %s.%s" %
                 (obj, module_name, name))
         else:
             if obj2 is not obj:
-                raise PicklingError(
+                raise pickle.PicklingError(
                     "Can't pickle %r: it's not the same object as %s.%s" %
                     (obj, module_name, name))
 
@@ -897,7 +864,7 @@ cdef class Pickler:
                 write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
                       bytes(name, "ascii") + b'\n')
             except UnicodeEncodeError:
-                raise PicklingError(
+                raise pickle.PicklingError(
                     "can't pickle global identifier '%s.%s' using "
                     "pickle protocol %i" % (module, name, self.proto))
 
@@ -1003,7 +970,7 @@ HAVE_ARGUMENT = dis.HAVE_ARGUMENT
 EXTENDED_ARG = dis.EXTENDED_ARG
 
 
-def islambda(func):
+cdef islambda(object func):
     return getattr(func, '__name__') == '<lambda>'
 
 
@@ -1256,7 +1223,7 @@ cdef class CloudPickler(Pickler):
         if name is None:
             name = obj.__name__
 
-        str modname = getattr(obj, "__module__", None)
+        cdef str modname = getattr(obj, "__module__", None)
         if modname is None:
             modname = pickle.whichmodule(obj, name)
 
@@ -1505,43 +1472,6 @@ cdef _restore_attr(obj, attr):
     for key, val in attr.items():
         setattr(obj, key, val)
     return obj
-
-
-def _gen_ellipsis():
-    return Ellipsis
-
-def _gen_not_implemented():
-    return NotImplemented
-
-def _fill_function(func, globals, defaults, dict):
-    """ Fills in the rest of function data into the skeleton function object
-        that were created via _make_skel_func().
-         """
-    func.__globals__.update(globals)
-    func.__defaults__ = defaults
-    func.__dict__ = dict
-
-    return func
-
-cdef _make_cell(value):
-    return (lambda: value).__closure__[0]
-
-cdef _reconstruct_closure(values):
-    return tuple([_make_cell(v) for v in values])
-
-def _make_skel_func(code, closures, base_globals=None):
-    """ Creates a skeleton function object that contains just the provided
-        code and the correct number of cells in func_closure.  All other
-        func attributes (e.g. func_globals) are empty.
-    """
-    closure = _reconstruct_closure(closures) if closures else None
-
-    if base_globals is None:
-        base_globals = {}
-    base_globals['__builtins__'] = __builtins__
-
-    return types.FunctionType(code, base_globals,
-                              None, None, closure)
 
 
 cdef _find_module(str mod_name):
