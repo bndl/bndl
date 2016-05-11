@@ -6,7 +6,7 @@ import pickle
 import sys
 import types
 
-import cloudpickle
+from . import cycloudpickle as cloudpickle
 
 
 try:
