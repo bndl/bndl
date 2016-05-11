@@ -28,90 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 
-def _pluck(ind, p, **kwargs):
-    return pluck(ind, p, **kwargs)
-
-def _flatmap(iterable):
-    return chain.from_iterable(iterable)
-
-
-def _map_partition(op, p, iterator):
-    return op(iterator)
-
-def _map_partition_with_index(op, p, iterator):
-    return op(p.idx, iterator)
-
-
-def _key_by(key, e):
-    return key(e), e
-
-def _value_as(val, e):
-    return e, val(e)
-
-
-def _map_key(op, kv):
-    return op(kv[0]), kv[1]
-
-def _map_value(op, kv):
-    return kv[0], op(kv[1])
-
-
-def _selecttransform_key(op, e):
-    return op(e[0])
-
-def _selecttransform_value(op, e):
-    return op(e[1])
-
-
-def _return_1tuple(f, *args, **kwargs):
-    return (f(*args, **kwargs),)
-
-
-def _prefix_args(prefix, *args):
-    return prefix + args
-
-
-
-def _local_join(group):
-    key, group = group
-    left, right = [], []
-    for (i, v) in pluck(1, group):
-        if i == 1:
-            left.append(v)
-        elif i == 2:
-            right.append(v)
-    if left and right:
-        return key, list(product(left, right))
-
-
-def _sort_and_group(partition):
-    partition = sorted(partition, key=getter(0))
-    if not partition:
-        return ()
-    key = partition[0][0]
-    group = []
-    for e in partition:
-        if key == e[0]:
-            group.append(e)
-        else:
-            yield key, group
-            group = [e]
-            key = e[0]
-    yield key, group
-
-
-def _random_filter(rng, fraction, e):
-    return bool(rng.random() < fraction)
-
-
-def _aggregate_partition(agg, partition):
-    return agg(partition) if partition else ()
-
-
 def _filter_local_workers(workers):
     return [w for w in workers if w.islocal]
-
-
 
 
 class Dataset(metaclass=abc.ABCMeta):
@@ -145,19 +63,19 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def pluck(self, ind, default=None):
         kwargs = {'default': default} if default is not None else {}
-        return self.map_partitions(partial(_pluck, ind, **kwargs))
+        return self.map_partitions(lambda p: pluck(ind, p, **kwargs))
 
 
     def flatmap(self, op):
-        return self.map(op).map_partitions(_flatmap)
+        return self.map(op).map_partitions(lambda iterable: chain.from_iterable(iterable))
 
 
     def map_partitions(self, op):
-        return self.map_partitions_with_part(partial(_map_partition, op))
+        return self.map_partitions_with_part(lambda p, iterator: op(iterator))
 
 
     def map_partitions_with_index(self, op):
-        return self.map_partitions_with_part(partial(_map_partition_with_index, op))
+        return self.map_partitions_with_part(lambda p, iterator: op(p.idx, iterator))
 
 
     def map_partitions_with_part(self, op):
@@ -173,10 +91,10 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def key_by(self, key):
-        return self.map(partial(_key_by, key))
+        return self.map(lambda e: (key(e), e))
 
     def values_as(self, val):
-        return self.map(partial(_value_as, val))
+        return self.map(lambda e: (e, val(e)))
 
     def keys(self):
         return self.pluck(0)
@@ -185,19 +103,20 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.pluck(1)
 
     def map_keys(self, op):
-        return self.map(partial(_map_key, op))
+        return self.map(lambda kv: (op(kv[0]), kv[1]))
 
     def map_values(self, op):
-        return self.map(partial(_map_value, op))
+        return self.map(lambda kv: (kv[0], op(kv[1])))
 
     def flatmap_values(self, op):
         return self.values().flatmap(op)
 
     def filter_keys(self, op=bool):
-        return self.filter(partial(_selecttransform_key, op))
+        return self.filter(lambda kv: op(kv[0]))
 
     def filter_values(self, op=bool):
-        return self.filter(partial(_selecttransform_value, op))
+        return self.filter(lambda kv: op(kv[1]))
+
 
     def first(self):
         return next(self.itake(1))
@@ -215,7 +134,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def aggregate(self, local, comb):
         try:
-            return comb(self.map_partitions(partial(_return_1tuple, local)).icollect())
+            return comb(self.map_partitions(lambda p: (local(p),)).icollect())
         except StopIteration:
             raise ValueError('dataset is empty')
 
@@ -252,9 +171,24 @@ class Dataset(metaclass=abc.ABCMeta):
         )
 
     def group_by_key(self, partitioner=None, pcount=None):
+        def sort_and_group(partition):
+            partition = sorted(partition, key=getter(0))
+            if not partition:
+                return ()
+            key = partition[0][0]
+            group = []
+            for e in partition:
+                if key == e[0]:
+                    group.append(e)
+                else:
+                    yield key, group
+                    group = [e]
+                    key = e[0]
+            yield key, group
+
         return (self
             .shuffle(key=getter(0), partitioner=partitioner, pcount=pcount)
-            .map_partitions(_sort_and_group)
+            .map_partitions(sort_and_group)
         )
 
 
@@ -268,12 +202,24 @@ class Dataset(metaclass=abc.ABCMeta):
             right = other
 
         # add a key to keep left from right
-        left = left.map_values(partial(_prefix_args, (1,)))
-        right = right.map_values(partial(_prefix_args, (2,)))
+        left = left.map_values(lambda v: (1, v))
+        right = right.map_values(lambda v: (2, v))
 
         both = left.union(right)
         shuffled = both.group_by_key(partitioner=partitioner, pcount=pcount)
-        joined = shuffled.map(_local_join)
+
+        def local_join(group):
+            key, group = group
+            left, right = [], []
+            for (i, v) in pluck(1, group):
+                if i == 1:
+                    left.append(v)
+                elif i == 2:
+                    right.append(v)
+            if left and right:
+                return key, list(product(left, right))
+
+        joined = shuffled.map(local_join)
         return joined.filter()
 
 
@@ -319,7 +265,7 @@ class Dataset(metaclass=abc.ABCMeta):
         # TODO implement sampling with_replacement
         # TODO implement stratified sampling
         rng = random.Random(seed)
-        return self.filter(partial(_random_filter, rng, fraction))
+        return self.filter(lambda e: rng.random() < fraction)
 
 
 
