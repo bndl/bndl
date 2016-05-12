@@ -694,4 +694,5 @@ class TransformingDataset(Dataset):
 
 class TransformingPartition(Partition):
     def _materialize(self, ctx):
-        return self.dset.transformation(self, self.src.materialize(ctx) or ())
+        data = self.src.materialize(ctx)
+        return self.dset.transformation(self.src, data if data is not None else ())
