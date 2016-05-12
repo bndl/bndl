@@ -17,7 +17,7 @@ class RangeTest(DatasetTest):
         self.assertEqual(is_even.values().collect(), list(range(10)))
 
     def test_values_as(self):
-        self.assertEqual(self.ctx.range(10).values_as(neg).collect(), list(zip(range(10), range(0, -10, -1))))
+        self.assertEqual(self.ctx.range(10).with_value(neg).collect(), list(zip(range(10), range(0, -10, -1))))
 
     def test_mapping(self):
         is_even = self.dset.key_by(iseven)
@@ -26,7 +26,7 @@ class RangeTest(DatasetTest):
 
     def test_flatmap_values(self):
         self.assertEqual(
-            self.ctx.range(10).values_as(lambda i: string.ascii_lowercase[i] * (i + 1)).flatmap_values(identity).collect(),
+            self.ctx.range(10).with_value(lambda i: string.ascii_lowercase[i] * (i + 1)).flatmap_values(identity).collect(),
             list(chain.from_iterable(string.ascii_lowercase[i] * (i + 1) for i in range(10)))
         )
 
