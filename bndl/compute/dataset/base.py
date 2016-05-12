@@ -10,7 +10,7 @@ import logging
 import random
 
 from bndl.compute.schedule import schedule_job
-from bndl.util import serialize
+from bndl.util import serialize, cycloudpickle
 from bndl.util.collection import getter
 from bndl.util.funcs import identity
 import collections.abc as collections_abc
@@ -684,11 +684,11 @@ class TransformingDataset(Dataset):
 
     def __getstate__(self):
         state = copy.copy(self.__dict__)
-        state['transformation'] = serialize.dumps(self.transformation)
+        state['transformation'] = cycloudpickle.dumps(self.transformation)
         return state
 
     def __setstate__(self, state):
-        self.transformation = serialize.loads(*state.pop('transformation'))
+        self.transformation = cycloudpickle.loads(state.pop('transformation'))
         self.__dict__.update(state)
 
 
