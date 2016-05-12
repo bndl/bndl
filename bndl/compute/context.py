@@ -16,7 +16,7 @@ class ComputeContext(ExecutionContext):
 
     @property
     def default_pcount(self):
-        return self.worker_count
+        return self.worker_count * 2
 
     def collection(self, c, pcount=None, psize=None):
         if isinstance(c, range):
