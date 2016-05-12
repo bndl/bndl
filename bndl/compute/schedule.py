@@ -141,7 +141,7 @@ def materialize_partition(worker, part, return_data):
             # missed? or b) materializing data into a list is a bad (wrong
             # result, waste of resources, etc.)? numpy arrays are not wrongly
             # cast to a list through this. That's something ...
-            if isinstance(data, collections.Iterable) and not isinstance(data, collections.Sized):
+            if isinstance(data, collections.Iterable) and (not isinstance(data, collections.Sized) or isinstance(data, type({}.items()))):
                 return list(data)
             else:
                 return data
