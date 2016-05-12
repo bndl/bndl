@@ -516,32 +516,6 @@ class UnionDataset(Dataset):
 
 
 
-class Partitioner(object, metaclass=abc.ABCMeta):
-    def __init__(self, pcount, key=None):
-        self.pcount = pcount
-        self.key = key or identity
-
-    def create_buckets(self, N):
-        return [self.create_bucket() for _ in range(N)]
-
-    @abc.abstractmethod
-    def __call__(self, v):
-        ...
-
-
-class Buckets(object, metaclass=abc.ABCMeta):
-    def __init__(self, pcount, key=None):
-        self.pcount = pcount
-        self.key = key or identity
-
-    def __call__(self, N):
-        return [self.create_bucket() for _ in range(N)]
-
-    @abc.abstractmethod
-    def create_bucket(self):
-        ...
-
-
 class ListBucket(list):
     add = list.append
 
@@ -684,11 +658,11 @@ class TransformingDataset(Dataset):
 
     def __getstate__(self):
         state = copy.copy(self.__dict__)
-        state['transformation'] = cycloudpickle.dumps(self.transformation)
+        state['transformation'] = cycloudpickle.dumps(self.transformation)  # @UndefinedVariable
         return state
 
     def __setstate__(self, state):
-        self.transformation = cycloudpickle.loads(state.pop('transformation'))
+        self.transformation = cycloudpickle.loads(state.pop('transformation'))  # @UndefinedVariable
         self.__dict__.update(state)
 
 
