@@ -4,6 +4,7 @@ import abc
 import bisect
 import copy
 from functools import partial, total_ordering
+import heapq
 from itertools import islice, product, chain
 import logging
 import random
@@ -93,7 +94,10 @@ class Dataset(metaclass=abc.ABCMeta):
     def key_by(self, key):
         return self.map(lambda e: (key(e), e))
 
-    def values_as(self, val):
+    def with_value(self, val):
+        if not callable(val):
+            const = val
+            val = lambda v: const
         return self.map(lambda e: (e, val(e)))
 
     def keys(self):
@@ -111,10 +115,10 @@ class Dataset(metaclass=abc.ABCMeta):
     def flatmap_values(self, op):
         return self.values().flatmap(op)
 
-    def filter_keys(self, op=bool):
+    def filter_bykey(self, op=bool):
         return self.filter(lambda kv: op(kv[0]))
 
-    def filter_values(self, op=bool):
+    def filter_byvalue(self, op=bool):
         return self.filter(lambda kv: op(kv[1]))
 
 
@@ -132,8 +136,26 @@ class Dataset(metaclass=abc.ABCMeta):
         results.close()
 
 
-    def aggregate(self, local, comb):
+    def nlargest(self, num, key=None):
+        if num == 1:
+            return self.max(key)
+        return self._take_ordered(num, key, heapq.nlargest)
+
+    def nsmallest(self, num, key=None):
+        if num == 1:
+            return self.min(key)
+        return self._take_ordered(num, key, heapq.nsmallest)
+
+    def _take_ordered(self, num, key, take):
+        if key is not None and not callable(key):
+            key = getter(key)
+        op = partial(take, num, key=key)
+        return op(self.map_partitions(op).icollect())
+
+
+    def aggregate(self, local, comb=None):
         try:
+            comb = comb or local
             return comb(self.map_partitions(lambda p: (local(p),)).icollect())
         except StopIteration:
             raise ValueError('dataset is empty')
@@ -143,15 +165,17 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.aggregate(iterable_size, sum)
 
     def sum(self):
-        return self.aggregate(sum, sum)
+        return self.aggregate(sum)
 
     def min(self, key=None):
-        f = partial(min, key=key) if key else min
-        return self.aggregate(f, f)
+        if key is not None and not callable(key):
+            key = getter(key)
+        return self.aggregate(partial(min, key=key) if key else min)
 
     def max(self, key=None):
-        f = partial(max, key=key) if key else max
-        return self.aggregate(f, f)
+        if key is not None and not callable(key):
+            key = getter(key)
+        return self.aggregate(partial(max, key=key) if key else max)
 
     def mean(self):
         total, count = self.aggregate(local_mean, reduce_mean)
@@ -190,6 +214,32 @@ class Dataset(metaclass=abc.ABCMeta):
             .shuffle(key=getter(0), partitioner=partitioner, pcount=pcount)
             .map_partitions(sort_and_group)
         )
+
+
+    def combine_by_key(self, create, merge_value, merge_combs, pcount=None, partitioner=None):
+        def _merge_vals(p):
+            items = {}
+            for k, v in p:
+                if k in items:
+                    items[k] = merge_value(items[k], v)
+                else:
+                    items[k] = create(v)
+            return items.items()
+
+        def _merge_combs(p):
+            items = {}
+            for k, v in p:
+                if k in items:
+                    items[k] = merge_combs(items[k], v)
+                else:
+                    items[k] = v
+            return items.items()
+
+
+        return self.map_partitions(_merge_vals).shuffle(pcount, partitioner, key=getter(0)).map_partitions(_merge_combs)
+
+    def reduce_by_key(self, reduction, pcount=None, partitioner=None):
+        return self.combine_by_key(identity, reduction, reduction, pcount, partitioner)
 
 
 
