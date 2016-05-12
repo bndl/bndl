@@ -113,3 +113,9 @@ Spill shuffles to disk
 Implement checkpointing
  - perform cleanup of stages before the stage of the checkpointed dset 
  
+ 
+ 
+Be more carefull in base.py with [task.result() for task in tasks]
+ - try except around each task.result()
+ 
+ 
