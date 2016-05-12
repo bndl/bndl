@@ -131,7 +131,7 @@ def schedule_stage(stage, workers, dset):
 def materialize_partition(worker, part, return_data):
     try:
         ctx = part.dset.ctx
-        _set_worker(part.dset, worker)
+#         _set_worker(part.dset, worker)
 
         data = part.materialize(ctx)
         if return_data and data is not None:
@@ -151,10 +151,10 @@ def materialize_partition(worker, part, return_data):
         raise
 
 
-def _set_worker(dset, worker):
-    dset.ctx.node = worker
-    if isinstance(dset.src, collections.Iterable):
-        for dset in dset.src:
-            _set_worker(dset, worker)
-    elif dset.src:
-        _set_worker(dset.src, worker)
+# def _set_worker(dset, worker):
+#     dset.ctx.node = worker
+#     if isinstance(dset.src, collections.Iterable):
+#         for dset in dset.src:
+#             _set_worker(dset, worker)
+#     elif dset.src:
+#         _set_worker(dset.src, worker)

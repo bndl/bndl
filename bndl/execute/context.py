@@ -1,6 +1,7 @@
 import time
 import logging
 from bndl.util.lifecycle import Lifecycle
+from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)
@@ -11,11 +12,14 @@ class ExecutionContext(Lifecycle):
     def __init__(self, driver, conf=None):
         super().__init__()
         self._driver = driver
-        self.node = driver
+        self._node = driver
         self.conf = conf
         self.jobs = []
         self.signal_start()
 
+    @property
+    def node(self):
+        return getattr(self, '_node', None) or current_worker()
 
     def execute(self, job, workers=None, eager=True):
         # TODO what if not everything is consumed?
@@ -71,6 +75,7 @@ class ExecutionContext(Lifecycle):
 
     def __getstate__(self):
         state = super().__getstate__()
-        for attr in ('_driver', 'node', 'jobs'):
+        for attr in ('_driver', '_node', 'jobs'):
             state.pop(attr, None)
         return state
+
