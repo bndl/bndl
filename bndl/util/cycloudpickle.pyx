@@ -1028,7 +1028,7 @@ cdef class CloudPickler(Pickler):
         """
         Save a module as an import
         """
-        cdef str mod_name = obj.__name__
+        mod_name = obj.__name__
         # If module is successfully found then it is not a dynamically created module
         cdef bint is_dynamic = True
         try:
@@ -1479,7 +1479,7 @@ cdef _find_module(str mod_name):
     Iterate over each part instead of calling imp.find_module directly.
     This function is able to find submodules (e.g. sickit.tree)
     """
-    cdef list path = None
+    path = None
     for part in mod_name.split('.'):
         if path is not None:
             path = [path]
