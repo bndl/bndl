@@ -43,18 +43,21 @@ class ExecutionContext(Lifecycle):
                 job.remove_listener(l)
 
 
-    def _await_workers(self, timeout=60):
+    def _await_workers(self, connect_timeout=5, stable_timeout=60):
         # TODO await gossip to settle
         count = 0
-        if not self.workers:
-            step_sleep = .1
-            for _ in range(int(timeout // step_sleep)):
-                time.sleep(step_sleep)
-                if self.workers:
-                    if self.worker_count == count:
-                        return
-                    else:
-                        count = self.worker_count
+        step_sleep = .2
+        for _ in range(int(connect_timeout // step_sleep)):
+            time.sleep(step_sleep)
+            if self.workers:
+                break
+        for _ in range(int(stable_timeout // step_sleep)):
+            time.sleep(step_sleep)
+            if self.workers:
+                if self.worker_count == count:
+                    return
+                else:
+                    count = self.worker_count
         if not self.workers:
             raise Exception('no workers available')
 
