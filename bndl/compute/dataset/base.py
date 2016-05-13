@@ -2,19 +2,21 @@ from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
 
 import abc
 import bisect
+import collections
 import copy
 from functools import partial, total_ordering, reduce
 import heapq
 from itertools import islice, product, chain
 import logging
+from math import sqrt, log
 from  operator import add
 import random
+import sys
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
 from bndl.util.collection import getter
 from bndl.util.funcs import identity
-import collections
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
 
@@ -329,13 +331,53 @@ class Dataset(metaclass=abc.ABCMeta):
             return self
 
         assert 0 < fraction < 1
-        import numpy as np
 
+        import numpy as np
         rng = np.random.RandomState(seed)
+
         sampling = sample_with_replacement if with_replacement else sample_without_replacement
         return self.map_partitions(partial(sampling, rng, fraction))
 
     # TODO implement stratified sampling
+
+    def take_sample(self, num, with_replacement=False, seed=None):
+        '''
+        based on https://github.com/apache/spark/blob/master/python/pyspark/rdd.py#L425
+        '''
+        num = int(num)
+        assert num >= 0
+        if num == 0:
+            return []
+
+        count = self.count()
+        if count == 0:
+            return []
+
+        import numpy as np
+        rng = np.random.RandomState(seed)
+
+        if (not with_replacement) and num >= count:
+            return rng.shuffle(self.collect())
+
+        fraction = float(num) / count
+        if with_replacement:
+            num_stdev = 9 if (num < 12)  else 5
+            fraction = fraction + num_stdev * sqrt(fraction / count)
+        else:
+            delta = 0.00005
+            gamma = -log(delta) / count
+            fraction = min(1, fraction + gamma + sqrt(gamma * gamma + 2 * gamma * fraction))
+
+        samples = self.sample(fraction, with_replacement, seed).collect()
+
+        while len(samples) < num:
+            print('second round')
+            seed = rng.randint(0, np.iinfo(np.uint32).max)
+            samples = self.sample(fraction, with_replacement, seed).collect()
+
+        rng.shuffle(samples)
+        return samples[0:num]
+
 
 
     def collect(self, parts=False):
