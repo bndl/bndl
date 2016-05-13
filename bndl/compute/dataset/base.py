@@ -3,10 +3,11 @@ from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
 import abc
 import bisect
 import copy
-from functools import partial, total_ordering
+from functools import partial, total_ordering, reduce
 import heapq
 from itertools import islice, product, chain
 import logging
+from  operator import add
 import random
 
 from bndl.compute.schedule import schedule_job
@@ -19,7 +20,7 @@ import sortedcontainers.sortedlist
 
 
 try:
-    from bndl.compute.dataset.stats import iterable_size, local_mean, reduce_mean
+    from bndl.compute.dataset.stats import iterable_size, Stats
     from bndl.util.hash import portable_hash
 except ImportError as e:
     raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
@@ -155,8 +156,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def aggregate(self, local, comb=None):
         try:
-            comb = comb or local
-            return comb(self.map_partitions(lambda p: (local(p),)).icollect())
+            parts = self.map_partitions(lambda p: (local(p),)).icollect()
+            return (comb or local)(parts)
         except StopIteration:
             raise ValueError('dataset is empty')
 
@@ -178,9 +179,10 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.aggregate(partial(max, key=key) if key else max)
 
     def mean(self):
-        total, count = self.aggregate(local_mean, reduce_mean)
-        return total / count
+        return self.stats().mean
 
+    def stats(self):
+        return self.aggregate(Stats, partial(reduce, add))
 
 
     def union(self, other):
