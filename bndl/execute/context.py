@@ -19,7 +19,12 @@ class ExecutionContext(Lifecycle):
 
     @property
     def node(self):
-        return getattr(self, '_node', None) or current_worker()
+        node = getattr(self, '_node', None)
+        if node:
+            return node
+        else:
+            self._node = current_worker()
+            return self._node
 
     def execute(self, job, workers=None, eager=True):
         # TODO what if not everything is consumed?
