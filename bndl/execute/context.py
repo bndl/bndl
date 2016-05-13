@@ -46,7 +46,7 @@ class ExecutionContext(Lifecycle):
     def _await_workers(self, connect_timeout=5, stable_timeout=60):
         # TODO await gossip to settle
         count = 0
-        step_sleep = .2
+        step_sleep = 1
         for _ in range(int(connect_timeout // step_sleep)):
             time.sleep(step_sleep)
             if self.workers:
