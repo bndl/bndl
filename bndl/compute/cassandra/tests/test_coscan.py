@@ -35,35 +35,25 @@ class PrimaryKeyCoScanTest(CassandraTest):
         for table in self.tables[1:]:
             dset = dset.coscan(self.ctx.cassandra_table(self.keyspace, table))
 
-        for key, group in dset.collect():
-            print(key, group)
+        grouped = dset.collect()
+        self.assertEqual(len(grouped), 20)
 
+        keys = []
+        for key, group in grouped:
+            keys.append(key)
+            self.assertEqual(len(group), 3)
+            for postfix, column in zip(self.postfixes, group):
+                self.assertEqual(column.key, key[0])
+                self.assertEqual(column.cluster, key[1])
+                self.assertEqual(column.val, postfix + '-' + key[1])
 
-#     def test_count(self):
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=False), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=True), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).cache().count(), len(self.rows))
-
-#     def test_collect_dicts(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).as_dicts().collect()
-#
-#     def test_collect_tuples(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).as_tuples().collect()
-
-    # TODO def test_select(self):
-    # TODO def test_where(self):
-
-#     def test_slicing(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).first()
-#         self.ctx.cassandra_table(self.keyspace, self.table).take(3)
-
-
-
+        self.assertEqual(sorted(keys), sorted(set(keys)))
+        self.assertEqual(sorted(keys), sorted((str(i % 10), str(i)) for i in range(20)))
 
 
 class PartitionKeyCoScanTest(CassandraTest):
-    tables = ['test_coscan_partitionkey_%s' % t for t in ('a', 'b')]
+    postfixes = ('a', 'b')
+    tables = ['test_coscan_partitionkey_%s' % t for t in postfixes]
     table_defs = [
         '''
           create table if not exists {{keyspace}}.{table} (
@@ -101,31 +91,22 @@ class PartitionKeyCoScanTest(CassandraTest):
 
     def test_read(self):
         a = self.ctx.cassandra_table(self.keyspace, self.tables[0])
-
-        print(a.collect())
-
         b = self.ctx.cassandra_table(self.keyspace, self.tables[1])
         dset = a.coscan(b, keys=('pk', 'key'))
 
-        for key, group in dset.collect():
-            print(key, group)
+        grouped = dset.collect()
+        self.assertEqual(len(grouped), 10)
 
+        keys = []
+        for key, group in grouped:
+            keys.append(key)
+            self.assertEqual(len(group), 2)
+            self.assertEqual((group[0].pk,), key)
+            self.assertEqual(group[0].val.split('-'), [self.postfixes[0], key[0]])
+            for column in group[1]:
+                self.assertEqual((column.key,), key)
+                self.assertEqual(column.val, self.postfixes[1] + '-' + column.cluster)
+            clusters = sorted(int(column.cluster) for column in group[1])
+            self.assertEqual(clusters, [int(key[0]), int(key[0]) + 10])
+        self.assertEqual(sorted(keys), [(str(i),) for i in range(10)])
 
-#     def test_count(self):
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=False), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=True), len(self.rows))
-#         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).cache().count(), len(self.rows))
-
-#     def test_collect_dicts(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).as_dicts().collect()
-#
-#     def test_collect_tuples(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).as_tuples().collect()
-
-    # TODO def test_select(self):
-    # TODO def test_where(self):
-
-#     def test_slicing(self):
-#         self.ctx.cassandra_table(self.keyspace, self.table).first()
-#         self.ctx.cassandra_table(self.keyspace, self.table).take(3)
