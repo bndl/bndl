@@ -44,22 +44,38 @@ class ExecutionContext(Lifecycle):
 
 
     def _await_workers(self, connect_timeout=5, stable_timeout=60):
+        '''
+        _await_workers waits for workers to be available. If not in
+        connect_timeout a RuntimeError is raised. Once a worker is found, at
+        most stable_timeout seconds will be waited for the cluster to settle.
+        That is, until no new workers are discovered / the worker count is
+        stable.
+        
+        :param connect_timeout: int or float
+            Maximum time in seconds waited until the first worker is discovered.
+        :param stable_timeout: int or float
+            Maximum time in seconds waited until no more workers are discovered.
+        '''
         # TODO await gossip to settle
-        count = 0
-        step_sleep = 1
+        # TODO look at time of last node discovery if waiting is required at all
+
+        step_sleep = .01
+
+        # wait connect_timeout seconds to find first worker
         for _ in range(int(connect_timeout // step_sleep)):
-            time.sleep(step_sleep)
             if self.workers:
                 break
-        for _ in range(int(stable_timeout // step_sleep)):
             time.sleep(step_sleep)
-            if self.workers:
-                if self.worker_count == count:
-                    return
-                else:
-                    count = self.worker_count
         if not self.workers:
-            raise Exception('no workers available')
+            raise RuntimeError('no workers available')
+
+        # wait stable_timeout to let the discovery complete
+        for _ in range(int(stable_timeout // step_sleep)):
+            count = self.worker_count
+            time.sleep(step_sleep)
+            if self.worker_count == count:
+                break
+            step_sleep = min(step_sleep * 3, 5)
 
 
     @property
