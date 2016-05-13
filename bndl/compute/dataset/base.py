@@ -313,6 +313,15 @@ class Dataset(metaclass=abc.ABCMeta):
         return ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb)
 
 
+    def zip(self, other):
+        # TODO what if some partition is shorter/longer than another?
+        return self.zip_partitions(other, zip)
+
+    def zip_partitions(self, other, comb):
+        from .zip import ZippedDataset
+        return ZippedDataset(self, other, comb=comb)
+
+
     def sample(self, fraction, seed=None):
         # TODO implement sampling with_replacement
         # TODO implement stratified sampling
