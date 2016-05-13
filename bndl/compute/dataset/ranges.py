@@ -3,6 +3,7 @@ from bndl.compute.dataset.base import Dataset, IterablePartition
 
 class DistributedRange(Dataset):
     def __init__(self, ctx, start, stop=None, step=1, pcount=None):
+        # TODO test / fix negative step
         super().__init__(ctx)
         if not stop:
             stop = start
