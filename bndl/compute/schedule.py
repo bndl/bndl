@@ -19,9 +19,8 @@ def schedule_job(dset, workers=None):
     ctx = dset.ctx
     assert ctx.running, 'context of dataset is not running'
 
-    if not workers:
-        ctx._await_workers()
-        workers = ctx.workers[:]
+    ctx._await_workers()
+    workers = ctx.workers[:]
 
     job = Job(ctx, *_job_calling_info())
 
