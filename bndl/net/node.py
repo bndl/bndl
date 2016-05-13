@@ -221,7 +221,6 @@ class Node(object):
 
         for peer in peers:
             if peer.name != new_peer.name:
-                yield from asyncio.sleep(.001)  # @UndefinedVariable
                 try:
                     yield from asyncio.wait_for(
                         peer._notify_discovery([(new_peer.name, new_peer.addresses)]),
