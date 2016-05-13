@@ -16,14 +16,12 @@ class DistributedCollection(Dataset):
             raise ValueError('psize must be None or > 0')
         if pcount and psize:
             raise ValueError("can't set both pcount and psize")
-        if not psize and not pcount and ctx.default_pcount <= 0:
-            raise Exception("can't use default_pcount, no workers available")
 
         if psize:
             self.pcount = None
             self.psize = psize
         else:
-            self.pcount = pcount or ctx.default_pcount
+            self.pcount = pcount
             self.psize = None
 
 
@@ -33,16 +31,23 @@ class DistributedCollection(Dataset):
                 IterablePartition(self, i, list(b))
                 for i, b in enumerate(batch(self._c, self.psize))
             ]
-            self.pcount = parts
+            self.pcount = len(parts)
             return parts
         else:
+            if not self.pcount:
+                pcount = self.ctx.default_pcount
+                if pcount <= 0:
+                    raise Exception("can't use default_pcount, no workers available")
+            else:
+                pcount = self.pcount
+
             c = self._c
             if not isinstance(c, Sized):
                 self._c = c = list(c)
-            step = max(1, ceil(len(c) / self.pcount))
+            step = max(1, ceil(len(c) / pcount))
             slices = (
                 (idx, c[idx * step: (idx + 1) * step])
-                for idx in range(self.pcount)
+                for idx in range(pcount)
             )
             return [
                 IterablePartition(self, idx, slice)
