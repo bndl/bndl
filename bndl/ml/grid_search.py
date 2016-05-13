@@ -9,13 +9,14 @@ import numpy as np
 
 class GridSearchCV(SKGridSearchCV):
     def __init__(self, ctx, estimator, param_grid, scoring=None, fit_params=None,
-                 iid=True, refit=True, cv=None, verbose=0, error_score='raise'):
+                 iid=True, refit=True, cv=None, error_score='raise'):
         super(GridSearchCV, self).__init__(
             estimator, param_grid, scoring=scoring, fit_params=fit_params, iid=iid,
-            refit=refit, cv=cv, verbose=verbose, error_score=error_score)
+            refit=refit, cv=cv, error_score=error_score)
         self.ctx = ctx
 
     def _fit(self, X, y, parameter_iterable):
+        parameter_iterable = list(parameter_iterable)
         estimator = self.estimator
         self.scorer_ = check_scoring(self.estimator, scoring=self.scoring)
 
@@ -27,8 +28,6 @@ class GridSearchCV(SKGridSearchCV):
                 raise ValueError('Target variable (y) has a different number '
                                  'of samples (%i) than data (X: %i samples)'
                                  % (len(y), n_samples))
-
-
 
         base_estimator = clone(self.estimator)
         cv = check_cv(self.cv, X, y, classifier=is_classifier(estimator))
