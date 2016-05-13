@@ -152,7 +152,7 @@ cdef class Stats:
     
     def __repr__(self):
         return '<Stats count=%s, mean=%s, min=%s, max=%s, var=%s, stdev=%s, skew=%s, kurt=%s>' % (
-            self.count, self.mean, self.min, self.max, self.var, self.stdev, self.skew, self.kurt
+            self.count, self.mean, self.min, self.max, self.variance, self.stdev, self.skew, self.kurtosis
         )
     
 # TODO
