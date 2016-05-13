@@ -1,4 +1,4 @@
-from collections import Sized
+from collections import Sized, Sequence
 import math
 
 
@@ -10,6 +10,33 @@ cpdef iterable_size(i):
         for _ in i:
             s += 1
         return s
+    
+    
+cpdef sample_with_replacement(rng, fraction, partition):
+    if isinstance(partition, Sequence):
+        return [
+            e for e, count in zip(partition, rng.poisson(fraction, len(partition)))
+              for _ in range(count)
+        ]
+    else:
+        return [
+            e for e in partition
+              for _ in range(rng.poisson(fraction))
+        ]
+
+
+cpdef sample_without_replacement(rng, fraction, partition):
+    if isinstance(partition, Sized):
+        return [
+            e for e, sample in zip(partition, rng.random_sample(len(partition)))
+              if sample < fraction
+        ]
+    else:
+        return [
+            e for e in partition
+              if rng.poisson() < fraction
+        ]
+
 
 
 def _reconstruct_stats(n, min, max, m1, m2, m3, m4):
@@ -120,9 +147,9 @@ cdef class Stats:
         return self.add(b)
  
     cpdef add(self, Stats b):
-        cdef object a = self
+        cdef Stats a = self
          
-        cdef object c = Stats()
+        cdef Stats c = Stats()
         c._min = min(a._min, b._min)
         c._max = max(a._max, b._max)
         

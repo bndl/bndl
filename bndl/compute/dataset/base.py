@@ -14,13 +14,13 @@ from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
 from bndl.util.collection import getter
 from bndl.util.funcs import identity
-import collections.abc as collections_abc
+import collections
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
 
 
 try:
-    from bndl.compute.dataset.stats import iterable_size, Stats
+    from bndl.compute.dataset.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
     from bndl.util.hash import portable_hash
 except ImportError as e:
     raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
@@ -322,12 +322,20 @@ class Dataset(metaclass=abc.ABCMeta):
         return ZippedDataset(self, other, comb=comb)
 
 
-    def sample(self, fraction, seed=None):
-        # TODO implement sampling with_replacement
-        # TODO implement stratified sampling
-        rng = random.Random(seed)
-        return self.filter(lambda e: rng.random() < fraction)
+    def sample(self, fraction, with_replacement=False, seed=None):
+        if fraction == 0.0:
+            return self.ctx.range(0)
+        elif fraction == 1.0:
+            return self
 
+        assert 0 < fraction < 1
+        import numpy as np
+
+        rng = np.random.RandomState(seed)
+        sampling = sample_with_replacement if with_replacement else sample_without_replacement
+        return self.map_partitions(partial(sampling, rng, fraction))
+
+    # TODO implement stratified sampling
 
 
     def collect(self, parts=False):
@@ -442,7 +450,7 @@ class Partition(metaclass=abc.ABCMeta):
 
         # cache if requested
         if self.dset.cached:
-            if not isinstance(data, collections_abc.Sequence):
+            if not isinstance(data, collections.Sequence):
                 data = list(data)
             dset_cache = worker.dset_cache.setdefault(self.dset.id, {})
             dset_cache[self.idx] = data
