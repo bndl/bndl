@@ -208,8 +208,15 @@ class Connection(object):
         Compare this connection with another. Can be used to break ties.
         :param other: bndl.net.connection.Connection
         '''
-        if not isinstance(other, Connection):
-            raise ValueError()
+        if other is None:
+            # Works around a race condition in where two peer connections exist
+            # and the 'tie' must be broken. In that case the peer connections
+            # are 'compared'. The lower wins. However, since the tie breaking
+            # happens on both ends, the peer may be disconnected and thus the
+            # other peer.conn is None
+            return True
+        elif not isinstance(other, Connection):
+            raise ValueError
         return min(self.sockname(), self.peername()) < min(other.sockname(), other.peername())
 
 
