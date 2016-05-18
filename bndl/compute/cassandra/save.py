@@ -5,6 +5,8 @@ from cassandra.concurrent import execute_concurrent_with_args
 
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.util.timestamps import ms_timestamp
+from bndl.compute.cassandra import conf
+from cassandra import ConsistencyLevel
 
 
 logger = logging.getLogger(__name__)
@@ -17,16 +19,20 @@ INSERT_TEMPLATE = (
 )
 
 
-def _save_part(insert, concurrency, part, iterable, contact_points=None):
-    logger.info('executing cassandra save on part %s with insert %s', part.idx, insert.replace('\n', ''))
+def _save_part(insert, part, iterable, contact_points=None):
+    if logger.isEnabledFor(logging.INFO):
+        logger.info('executing cassandra save on part %s with insert %s', part.idx, insert.replace('\n', ''))
     with cassandra_session(part.dset.ctx, contact_points=contact_points) as session:
+        session.default_timeout = part.dset.ctx.conf.get_int(conf.WRITE_TIMEOUT, defaults=conf.DEFAULTS)
         prepared_insert = session.prepare(insert)
+        prepared_insert.consistency_level = part.dset.ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
+        concurrency = part.dset.ctx.conf.get_int(conf.WRITE_CONCURRENCY, defaults=conf.DEFAULTS)
         results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
     return [len(results)]
 
 
 def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True,
-                   ttl=None, timestamp=None, concurrency=10, contact_points=None):
+                   ttl=None, timestamp=None, contact_points=None):
     if ttl or timestamp:
         using = []
         if ttl:
@@ -60,5 +66,5 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True,
         using=using,
     )
 
-    do_save = functools.partial(_save_part, insert, concurrency, contact_points=contact_points)
+    do_save = functools.partial(_save_part, insert, contact_points=contact_points)
     return dataset.map_partitions_with_part(do_save)

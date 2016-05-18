@@ -7,7 +7,28 @@ from threading import Lock
 from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
-from cassandra.policies import TokenAwarePolicy
+from cassandra.policies import TokenAwarePolicy, RetryPolicy, WriteType
+from bndl.compute.cassandra import conf
+
+
+class MultipleRetryPolicy(RetryPolicy):
+    def __init__(self, read_retries=0, write_retries=0):
+        self.read_retries = read_retries
+        self.write_retries = write_retries
+
+    def on_read_timeout(self, query, consistency, required_responses,
+        received_responses, data_retrieved, retry_num):
+        if retry_num < self.read_retries or received_responses >= required_responses and not data_retrieved:
+            return (self.RETRY, consistency)
+        else:
+            return (self.RETHROW, None)
+
+    def on_write_timeout(self, query, consistency, write_type,
+        required_responses, received_responses, retry_num):
+        if retry_num < self.write_retries or write_type in (WriteType.SIMPLE, WriteType.BATCH_LOG):
+            return (self.RETRY, consistency)
+        else:
+            return (self.RETHROW, None)
 
 
 _PREPARE_LOCK = Lock()
@@ -32,7 +53,7 @@ def get_contact_points(ctx, contact_points):
 @lru_cache()
 def _get_contact_points(ctx, *contact_points):
     if not contact_points:
-        contact_points = ctx.conf.get('cassandra.contact_points')
+        contact_points = ctx.conf.get(conf.CONTACT_POINTS, defaults=conf.DEFAULTS)
     if not contact_points:
         contact_points = set()
         for worker in ctx.workers:
@@ -60,10 +81,22 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     if not pool:
         def create():
             '''create a new session'''
-            cluster = Cluster(contact_points)
-            cluster.load_balancing_policy = TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses))
+
+            retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
+                                               ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
+
+            cluster = Cluster(
+                contact_points,
+                port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
+                compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
+                load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
+                default_retry_policy=retry_policy,
+            )
+
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
+            session.default_fetch_size = ctx.conf.get_int(conf.FETCH_SIZE_ROWS, defaults=conf.DEFAULTS)
+
             return session
 
         def check(session):

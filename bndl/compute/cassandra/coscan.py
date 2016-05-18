@@ -2,26 +2,31 @@ from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
 import logging
 
-from bndl.compute.cassandra.session import cassandra_session
-from bndl.compute.dataset.zip import ZippedDataset, ZippedPartition
-from bndl.util.funcs import identity
+from bndl.compute.cassandra import partitioner, conf
 from bndl.compute.cassandra.partitioner import estimate_size, SizeEstimate
-from bndl.compute.cassandra import partitioner
+from bndl.compute.cassandra.session import cassandra_session
+from bndl.compute.dataset.base import Dataset, Partition
+from bndl.util.funcs import identity
 
 
 logger = logging.getLogger(__name__)
 
 
-class CassandraCoScanDataset(ZippedDataset):
+class CassandraCoScanDataset(Dataset):
     def __init__(self, *scans, keys=None, dset_id=None):
+        assert len(scans) > 1
+        super().__init__(scans[0].ctx, src=scans, dset_id=dset_id)
+
         for scan in scans[1:]:
             assert scan.contact_points == scans[0].contact_points, "only scan in parallel within the same cluster"
             assert scan.keyspace == scans[0].keyspace, "only scan in parallel within the same keyspace"
         assert len(set(scan.table for scan in scans)) == len(scans), "don't scan the same table twice"
 
-        super().__init__(*scans, comb=self.combiner, dset_id=dset_id)
         self.contact_points = scans[0].contact_points
         self.keyspace = scans[0].keyspace
+
+        self.srcparts = [src.parts() for src in scans]
+        self.pcount = len(self.srcparts[0])
 
         # TODO check format (dicts, tuples, namedtuples, etc.)
         # TODO adapt keyfuncs to below
@@ -79,24 +84,6 @@ class CassandraCoScanDataset(ZippedDataset):
         return CassandraCoScanDataset(*self.src + (other,), keys=keys)
 
 
-    def combiner(self, *partitions):
-        merged = {}
-
-        for cidx, child in enumerate(partitions):
-            key = self.keyfuncs[cidx]
-            for row in child:
-                k = key(row)
-                batch = merged.get(k)
-                if not batch:
-                    merged[k] = batch = [[] for _ in partitions]
-                batch[cidx].append(row)
-
-        for key, groups in merged.items():
-            for idx, (group, transform) in enumerate(zip(groups, self.grouptransforms)):
-                groups[idx] = transform(group)
-            yield key, groups
-
-
     def parts(self):
         from bndl.compute.cassandra.dataset import CassandraScanPartition
 
@@ -105,7 +92,9 @@ class CassandraCoScanDataset(ZippedDataset):
                                  SizeEstimate(0, 0, 0))
 
             partitions = partitioner.partition_ranges(session, self.keyspace, size_estimates=size_estimates,
-                                                      min_pcount=self.ctx.default_pcount)
+                                                      min_pcount=self.ctx.default_pcount,
+                                                      part_size_keys=self.ctx.conf.get_int(conf.PART_SIZE_KEYS, defaults=conf.DEFAULTS),
+                                                      part_size_mb=self.ctx.conf.get_int(conf.PART_SIZE_MB, defaults=conf.DEFAULTS))
 
             return [
                 CassandraCoScanPartition(self, idx, [CassandraScanPartition(scan, idx, replicas, token_ranges)
@@ -115,6 +104,31 @@ class CassandraCoScanDataset(ZippedDataset):
 
 
 
-class CassandraCoScanPartition(ZippedPartition):
+class CassandraCoScanPartition(Partition):
+    def __init__(self, dset, idx, scans):
+        super().__init__(dset, idx)
+        self.scans = scans
+
     def _preferred_workers(self, workers):
-        return self.children[0].preferred_workers(workers)
+        return self.scans[0].preferred_workers(workers)
+
+    def _materialize(self, ctx):
+        keyfuncs = self.dset.keyfuncs
+        grouptransforms = self.dset.grouptransforms
+
+        subscans = [scan.materialize(ctx) for scan in self.scans]
+        merged = {}
+
+        for cidx, scan in enumerate(subscans):
+            key = keyfuncs[cidx]
+            for row in scan:
+                k = key(row)
+                batch = merged.get(k)
+                if not batch:
+                    merged[k] = batch = [[] for _ in subscans]
+                batch[cidx].append(row)
+
+        for key, groups in merged.items():
+            for idx, (group, transform) in enumerate(zip(groups, grouptransforms)):
+                groups[idx] = transform(group)
+            yield key, groups

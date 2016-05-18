@@ -4,6 +4,7 @@ import time
 
 from bndl.execute.worker import current_worker
 from bndl.util.lifecycle import Lifecycle
+from bndl.util.conf import Config
 
 
 logger = logging.getLogger(__name__)
@@ -11,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 class ExecutionContext(Lifecycle):
 
-    def __init__(self, driver, conf=None):
+    def __init__(self, driver, conf={}):
         super().__init__()
         self._driver = driver
         self._node = driver
-        self.conf = conf
+        self.conf = Config(conf)
         self.jobs = []
         self.signal_start()
 

@@ -2,18 +2,12 @@ import copy
 from operator import itemgetter
 
 from bndl.util.collection import sortgroupby
+from bndl.compute.cassandra import conf
 
 
 T_COUNT = 2 ** 64
 T_MIN = -(2 ** 63)
 T_MAX = (2 ** 63) - 1
-
-
-
-MAX_PARTITIONS_SIZE_PK = 100 * 1000
-MAX_PARTITIONS_SIZE_MB = 100
-MAX_PARTITIONS_SIZE_B = MAX_PARTITIONS_SIZE_MB * 1024 * 1024
-
 
 
 def get_token_ranges(ring):
@@ -36,7 +30,9 @@ def repartition(partitions, min_pcount):
     return partitions
 
 
-def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pcount=None):
+def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pcount=None,
+                     part_size_keys=conf.DEFAULTS[conf.PART_SIZE_KEYS],
+                     part_size_mb=conf.DEFAULTS[conf.PART_SIZE_MB]):
     # estimate size of table
     size_estimate = size_estimates or estimate_size(session, keyspace, table)
 
@@ -54,12 +50,12 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
     )
 
     # divide the token ranges in partitions
-    # joining ranges for the same replicaset
-    # but limited in size (in bytes and cassandra partition keys)
+    # joining ranges for the same replica set
+    # but limited in size (in bytes and Cassandra partition keys)
     partitions = []
     current_ranges = []
-    current_ranges_size_b = 0
-    current_ranges_size_pk = 0
+    current_ranges_size_mb = 0
+    current_ranges_size_keys = 0
 
     for replicas, ranges in by_replicas:
         ranges = list(ranges)
@@ -68,27 +64,25 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
             size_b = length * size_estimate.token_size_b
             size_pk = length * size_estimate.token_size_pk
 
-            current_ranges_size_b += size_b
-            current_ranges_size_pk += size_pk
+            current_ranges_size_mb += (size_b / 1024. / 1024.)
+            current_ranges_size_keys += size_pk
 
-            if current_ranges_size_b > MAX_PARTITIONS_SIZE_B or current_ranges_size_pk > MAX_PARTITIONS_SIZE_PK:
+            if current_ranges_size_mb > part_size_mb or current_ranges_size_keys > part_size_keys:
                 # possibly a single token range exceeds our limits
                 # TODO split that range into chunks within our limits
                 if current_ranges:
                     partitions.append((replicas, current_ranges))
                 current_ranges = []
-                current_ranges_size_b = 0
-                current_ranges_size_pk = 0
+                current_ranges_size_mb = 0
+                current_ranges_size_keys = 0
 
             current_ranges.append((start, end))
 
         if current_ranges:
             partitions.append((replicas, current_ranges))
             current_ranges = []
-            current_ranges_size_b = 0
-            current_ranges_size_pk = 0
-
-
+            current_ranges_size_mb = 0
+            current_ranges_size_keys = 0
 
     if min_pcount:
         return repartition(partitions, min_pcount)

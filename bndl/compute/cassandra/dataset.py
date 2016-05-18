@@ -1,12 +1,12 @@
-from cassandra.protocol import LazyProtocolHandler, ProtocolHandler
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 import logging
 
-from bndl.compute.cassandra import partitioner
+from bndl.compute.cassandra import partitioner, conf
 from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import funcs
+from cassandra import ConsistencyLevel
 
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,9 @@ class CassandraScanDataset(Dataset):
     def parts(self):
         with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
             partitions = partitioner.partition_ranges(session, self.keyspace, self.table,
-                                                      min_pcount=self.ctx.default_pcount)
+                                                      min_pcount=self.ctx.default_pcount,
+                                                      part_size_keys=self.ctx.conf.get_int(conf.PART_SIZE_KEYS, defaults=conf.DEFAULTS),
+                                                      part_size_mb=self.ctx.conf.get_int(conf.PART_SIZE_MB, defaults=conf.DEFAULTS))
 
         return [
             CassandraScanPartition(self, i, replicas, token_ranges)
@@ -119,14 +121,15 @@ class CassandraScanPartition(Partition):
 
     def _materialize(self, ctx):
         with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
-            session.default_fetch_size = 1000
-            session.client_protocol_handler = LazyProtocolHandler or ProtocolHandler
+
             session.row_factory = self.dset._row_factory
             query = self.dset.query(session)
             logger.debug('scanning %s token ranges with query %s',
                          len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            next_rs = session.execute_async(query, self.token_ranges[0])
+            query.consistency_level = ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
+            timeout = ctx.conf.get_int(conf.READ_TIMEOUT, defaults=conf.DEFAULTS)
+            next_rs = session.execute_async(query, self.token_ranges[0], timeout=timeout)
             resultset = None
 
             for next_tr in self.token_ranges[1:] + [None]:
