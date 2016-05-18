@@ -79,20 +79,20 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     pool = pools.get(contact_points)
     # or create one if not or that session is shutdown
     if not pool:
+        retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
+                                           ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
+
+        cluster = Cluster(
+            contact_points,
+            port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
+            compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
+            load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
+            default_retry_policy=retry_policy,
+            metrics_enabled=ctx.conf.get_bool(conf.METRICS_ENABLED, defaults=conf.DEFAULTS),
+        )
+
         def create():
             '''create a new session'''
-
-            retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
-                                               ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
-
-            cluster = Cluster(
-                contact_points,
-                port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
-                compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
-                load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
-                default_retry_policy=retry_policy,
-            )
-
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
             session.default_fetch_size = ctx.conf.get_int(conf.FETCH_SIZE_ROWS, defaults=conf.DEFAULTS)

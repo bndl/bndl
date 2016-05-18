@@ -1,6 +1,7 @@
 CONTACT_POINTS = 'cassandra.contact_points'
 PORT = 'cassandra.port'
 COMPRESSION = 'cassandra.compression'
+METRICS_ENABLED = 'cassandra.metrics_enabled'
 
 READ_RETRY_COUNT = 'cassandra.read_retry_count'
 READ_TIMEOUT = 'cassandra.read_timeout'
@@ -20,6 +21,7 @@ DEFAULTS = {
     CONTACT_POINTS: None,
     PORT: 9042,
     COMPRESSION: True,
+    METRICS_ENABLED: True,
 
     READ_RETRY_COUNT: 10,
     READ_TIMEOUT: 120 * 1000,

@@ -55,6 +55,7 @@ setup(
         'flask',
         'cassandra-driver',
         'lz4',
+        'scales',
     ],
 
     extras_require=dict(
