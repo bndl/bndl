@@ -146,6 +146,9 @@ class CassandraScanPartition(Partition):
 
 
     def preferred_workers(self, workers):
+        if self.cached_on:
+            return super().preferred_workers(workers)
+
         return [
             worker
             for worker in workers

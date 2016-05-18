@@ -114,7 +114,8 @@ def schedule_stage(stage, workers, dset):
         allowed_workers = list(part.allowed_workers(workers) or [])
         preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
 
-        stage.tasks.append(Task(
+        stage.tasks.append(MaterializePartitionTask(
+            part,
             (part.dset.id, part.idx),
             stage,
             materialize_partition, [part, False], None,
@@ -125,11 +126,24 @@ def schedule_stage(stage, workers, dset):
     stage.tasks.sort(key=lambda t: t.id)
 
 
+class MaterializePartitionTask(Task):
+    def __init__(self, part, *args, **kwargs):
+        self.part = part
+        super().__init__(*args, **kwargs)
+
+    def result(self):
+        result = super().result()
+        # memorize caching location if any
+        if self.part.dset.cached:
+            self.part.dset._cache_locs[self.part.idx] = self.executed_on[-1]
+        # release resources
+        self.part = None
+        return result
+
 
 def materialize_partition(worker, part, return_data):
     try:
         ctx = part.dset.ctx
-#         _set_worker(part.dset, worker)
 
         data = part.materialize(ctx)
         if return_data and data is not None:
@@ -149,12 +163,3 @@ def materialize_partition(worker, part, return_data):
         logger.info('error while materializing part %s on worker %s',
                     part, worker, exc_info=True)
         raise
-
-
-# def _set_worker(dset, worker):
-#     dset.ctx.node = worker
-#     if isinstance(dset.src, collections.Iterable):
-#         for dset in dset.src:
-#             _set_worker(dset, worker)
-#     elif dset.src:
-#         _set_worker(dset.src, worker)

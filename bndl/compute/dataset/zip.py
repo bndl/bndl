@@ -24,6 +24,9 @@ class ZippedPartition(Partition):
         self.children = children
 
     def preferred_workers(self, workers):
+        if self.cached_on:
+            return super().preferred_workers(workers)
+
         prefs = [set(child.preferred_workers(workers) or ()) for child in self.children]
         matches = reduce(lambda a, b: a.intersection(b), prefs)
         if matches:

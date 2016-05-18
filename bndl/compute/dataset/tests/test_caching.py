@@ -6,30 +6,27 @@ from bndl.compute.dataset.tests import DatasetTest
 
 class CachingTest(DatasetTest):
     def test_memory_cache(self):
-        dset = self.ctx.range(1000).map(lambda i: random.randint(1, 1000))
-#         self.assertNotEqual(dset.collect(), dset.collect())
-#         self.assertEqual(self.get_cachekeys(), [])
+        dset = self.ctx.range(10 * 1000).map(lambda i: random.randint(1, 1000))
+        self.assertNotEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [])
 
         dset.cache()
-        dset.collect(),
-        print('---')
-        dset.collect()
-#         self.assertEqual(dset.collect(), dset.collect())
-#         self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
-#         self.assertEqual(dset.collect(), dset.collect())
-#
-#         dset.cache(False)
-#         self.assertNotEqual(dset.collect(), dset.collect())
-#         self.assertEqual(self.get_cachekeys(), [])
-#
-#         dset.cache()
-#         self.assertEqual(dset.collect(), dset.collect())
-#         self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
-#
-#         del dset
-#         for _ in range(3):
-#             gc.collect()
-#         self.assertEqual(self.get_cachekeys(), [])
+        self.assertEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
+        self.assertEqual(dset.collect(), dset.collect())
+
+        dset.cache(False)
+        self.assertNotEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [])
+
+        dset.cache()
+        self.assertEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
+
+        del dset
+        for _ in range(3):
+            gc.collect()
+        self.assertEqual(self.get_cachekeys(), [])
 
 
     def get_cachekeys(self):

@@ -1,21 +1,22 @@
 from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
+from functools import partial, total_ordering, reduce
+from itertools import islice, product, chain
+from math import sqrt, log
+from operator import add
 import abc
 import bisect
 import collections
 import copy
-from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
-from functools import partial, total_ordering, reduce
 import heapq
-from itertools import islice, product, chain
 import logging
-from math import sqrt, log
-from operator import add
-import sortedcontainers.sortedlist
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
+from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
+from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
+import sortedcontainers.sortedlist
 
 
 try:
@@ -39,6 +40,7 @@ class Dataset(metaclass=abc.ABCMeta):
         self.src = src
         self.id = dset_id or next(ctx._dataset_ids)
         self._cache = False
+        self._cache_locs = {}
         self._worker_preference = None
         self._worker_filter = None
 
@@ -374,7 +376,6 @@ class Dataset(metaclass=abc.ABCMeta):
         samples = self.sample(fraction, with_replacement, seed).collect()
 
         while len(samples) < num:
-            print('second round')
             seed = rng.randint(0, np.iinfo(np.uint32).max)
             samples = self.sample(fraction, with_replacement, seed).collect()
 
@@ -437,11 +438,22 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def cache(self, cached=True):
         assert self.ctx.node.node_type == 'driver'
+        # set mark
         self._cache = cached
+        # cleanup on 'uncache'
         if not cached:
-            tasks = [w.uncache_dset(self.id) for w in self.ctx.workers]
+            # issue uncache tasks
+            cache_loc_names = set(self._cache_locs.values())
+            tasks = [
+                worker.uncache_dset.with_timeout(1)(self.id)
+                for worker in self.ctx.workers
+                if worker.name in cache_loc_names]
+            # wait for them to finish
             for task in tasks:
-                task.result()
+                with catch(Exception):
+                    task.result()
+            # clear cache locations
+            self._cache_locs = {}
 
         return self
 
@@ -487,8 +499,6 @@ class Partition(metaclass=abc.ABCMeta):
         worker = ctx.node
 
         # check cache
-        if self.dset.id == 1:
-            print('!', self, self.dset, self.dset.cached , self.idx in worker.dset_cache.get(self.dset.id, {}))
         if self.dset.cached and self.dset.id in worker.dset_cache:
             dset_cache = worker.dset_cache[self.dset.id]
             if self.idx in dset_cache:
@@ -512,10 +522,14 @@ class Partition(metaclass=abc.ABCMeta):
 
 
     def preferred_workers(self, workers):
-        if self.dset._worker_preference:
+        cache_loc = self.dset._cache_locs.get(self.idx, None)
+        if cache_loc:
+            return [worker for worker in workers if worker.name == cache_loc]
+        elif self.dset._worker_preference:
             return self.dset._worker_preference(workers)
         elif self.src:
             return self.src.preferred_workers(workers)
+
 
     def allowed_workers(self, workers):
         if self.dset._worker_filter:
