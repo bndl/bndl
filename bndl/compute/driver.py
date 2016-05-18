@@ -105,7 +105,7 @@ def run_bndl(args, conf, started, stopped):
 
 
 
-def main(args=None, daemon=False):
+def main(args=None, daemon=True):
     if isinstance(args, argparse.Namespace):
         args = args
     else:
@@ -113,11 +113,9 @@ def main(args=None, daemon=False):
 
     conf = dict(c.split('=', 1) for c in args.conf)
 
-
     # signals for starting and stopping
     started = concurrent.futures.Future()
     stopped = concurrent.futures.Future()
-
 
     # start the thread to set up the driver etc. and run the aio loop
     bndl_thread = threading.Thread(target=run_bndl, args=(args, conf, started, stopped), daemon=daemon)
@@ -125,13 +123,11 @@ def main(args=None, daemon=False):
     # wait for driver, workers etc. to set up
     started.result()
 
-
     def stop():
         # signal the aio loop can stop and everything can be torn down
         stopped.set_result(True)
         # wait for everything to stop
-        bndl_thread.join()
-
+        bndl_thread.join(timeout=5)
 
     ctx.add_listener(lambda ctx: stop() if isinstance(ctx, ComputeContext) else None)
     atexit.register(stop)
