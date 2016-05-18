@@ -108,13 +108,13 @@ class CassandraCoScanDataset(ZippedDataset):
                                                       min_pcount=self.ctx.default_pcount)
 
             return [
-                CassandraParallelScanDataset(self, idx, [CassandraScanPartition(scan, idx, replicas, token_ranges)
+                CassandraCoScanPartition(self, idx, [CassandraScanPartition(scan, idx, replicas, token_ranges)
                                                          for scan in self.src])
                 for idx, (replicas, token_ranges) in enumerate(partitions)
             ]
 
 
 
-class CassandraParallelScanDataset(ZippedPartition):
+class CassandraCoScanPartition(ZippedPartition):
     def _preferred_workers(self, workers):
         return self.children[0].preferred_workers(workers)
