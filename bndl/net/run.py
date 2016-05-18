@@ -2,6 +2,7 @@ import argparse
 
 from bndl.net.connection import urlparse
 from bndl.util.aio import get_loop
+import os
 
 
 def url(string):
@@ -30,13 +31,15 @@ def run_nodecls(cls, args):
 
 
 def run_node(node):
+    loop = node.loop
+    loop.run_until_complete(node.start())
     try:
-        loop = node.loop
-        loop.run_until_complete(node.start())
-        loop.run_forever()
-    except KeyboardInterrupt:
-        print('kb interupt?')
-        pass
+        while True:
+            try:
+                loop.run_forever()
+            except KeyboardInterrupt:
+                if int(os.environ.get('BNDL_IS_SUPERVISED', '0')) == 0:
+                    break
     finally:
         loop.run_until_complete(node.stop())
         loop.close()

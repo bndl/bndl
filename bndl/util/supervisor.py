@@ -7,6 +7,7 @@ import sys
 
 from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
+from bndl.util import aio
 
 
 def entry_point(string):
@@ -54,6 +55,7 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
         pid = self.transport.get_pid()
         returncode = self.transport.get_returncode()
         print('process', pid, 'exited with return code', returncode)
+        aio.run_coroutine_threadsafe(self.supervisor._start(), self.supervisor.loop)
 
     def pipe_data_received(self, fd, data):
         pid = self.transport.get_pid()
@@ -85,6 +87,7 @@ class Supervisor(object):
 
         env = copy.copy(os.environ)
         env['PYTHONHASHSEED'] = '0'
+        env['BNDL_IS_SUPERVISED'] = '1'
 
         transport, protocol = yield from self.loop.subprocess_exec(
             lambda: Monitor(self),
