@@ -516,22 +516,34 @@ class Partition(metaclass=abc.ABCMeta):
         # return data
         return data
 
+    @property
+    def cache_loc(self):
+        return self.dset._cache_locs.get(self.idx, None)
+
     @abc.abstractmethod
     def _materialize(self, ctx):
         pass
 
 
     def preferred_workers(self, workers):
-        cache_loc = self.dset._cache_locs.get(self.idx, None)
-        if cache_loc:
-            return [worker for worker in workers if worker.name == cache_loc]
-        elif self.dset._worker_preference:
+        if self.cache_loc:
+            return [worker for worker in workers if worker.name == self.cache_loc]
+        else:
+            return self._preferred_workers(workers)
+
+
+    def _preferred_workers(self, workers):
+        if self.dset._worker_preference:
             return self.dset._worker_preference(workers)
         elif self.src:
             return self.src.preferred_workers(workers)
 
 
     def allowed_workers(self, workers):
+        return self._allowed_workers(workers)
+
+
+    def _allowed_workers(self, workers):
         if self.dset._worker_filter:
             return self.dset._worker_filter(workers)
         elif self.src:

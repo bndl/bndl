@@ -116,8 +116,5 @@ class CassandraCoScanDataset(ZippedDataset):
 
 
 class CassandraParallelScanDataset(ZippedPartition):
-    def preferred_workers(self, workers):
-        if self.cached_on:
-            return super().preferred_workers(workers)
-
+    def _preferred_workers(self, workers):
         return self.children[0].preferred_workers(workers)
