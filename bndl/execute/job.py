@@ -130,8 +130,10 @@ class Stage(Lifecycle):
             else:
                 # re-insert task near the end so it'll pop up soon enough
                 to_schedule.insert(-len(workers) // 2, task)
+                # we didn't actually occupy a worker
+                workers_available.release()
 
-            if to_yield[-1].done():
+            while to_yield[-1].done():
                 yield to_yield.pop().result()
 
         for task in to_yield[::-1]:
