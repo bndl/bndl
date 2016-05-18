@@ -63,6 +63,9 @@ class Dataset(metaclass=abc.ABCMeta):
     def map(self, func):
         return self.map_partitions(partial(map, func))
 
+    def starmap(self, func):
+        return self.map_partitions(partial(map, lambda e: func(*e)))
+
 
     def pluck(self, ind, default=None):
         kwargs = {'default': default} if default is not None else {}
