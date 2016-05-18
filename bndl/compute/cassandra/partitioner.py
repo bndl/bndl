@@ -84,8 +84,6 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
 
         if current_ranges:
             partitions.append((replicas, current_ranges))
-            if not current_ranges:
-                print('end')
             current_ranges = []
             current_ranges_size_b = 0
             current_ranges_size_pk = 0
