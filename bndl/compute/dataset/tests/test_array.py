@@ -39,6 +39,8 @@ class ArrayTest(DatasetTest):
     def test_collect(self):
         ten = self.ctx.array(range(10), pcount=4)
         self.assertEqual(ten.first(), 0)
+        self.assertEqual(ten.take(4), np.arange(4))
+        self.assertEqual(list(ten.itake(4)), [0, 1, 2, 3])
         self.assertEqual(ten.count(), 10)
         self.assertEqual(len(ten.collect()), 10)
         self.assertEqual(list(ten.collect()), list(range(10)))
