@@ -77,22 +77,26 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     contact_points = get_contact_points(ctx, contact_points)
     # check if there is a cached session object
     pool = pools.get(contact_points)
-    # or create one if not or that session is shutdown
+    # or create one if not
     if not pool:
-        retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
-                                           ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
+        def create_cluster():
+            retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
+                                               ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
+            return Cluster(
+                contact_points,
+                port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
+                compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
+                load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
+                default_retry_policy=retry_policy,
+                metrics_enabled=ctx.conf.get_bool(conf.METRICS_ENABLED, defaults=conf.DEFAULTS),
+            )
 
-        cluster = Cluster(
-            contact_points,
-            port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
-            compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
-            load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
-            default_retry_policy=retry_policy,
-            metrics_enabled=ctx.conf.get_bool(conf.METRICS_ENABLED, defaults=conf.DEFAULTS),
-        )
-
-        def create(cluster=cluster):
+        def create():
             '''create a new session'''
+            pool = pools[contact_points]
+            cluster = getattr(pool, 'cluster', None)
+            if not cluster or cluster.is_shutdown:
+                pool.cluster = cluster = create_cluster()
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
             session.default_fetch_size = ctx.conf.get_int(conf.FETCH_SIZE_ROWS, defaults=conf.DEFAULTS)
@@ -104,7 +108,6 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
             return not session.is_shutdown
 
         pools[contact_points] = pool = ObjectPool(create, check, max_size=4)
-        pool.cluster = cluster
 
     # take a session from the pool, yield it to the caller
     # and put the session back in the pool
