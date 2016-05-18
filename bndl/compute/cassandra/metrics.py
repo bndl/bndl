@@ -1,5 +1,6 @@
 from bndl.compute.cassandra.session import cassandra_session
 import math
+import copy
 
 def get_cassandra_metrics(worker):
     try:
@@ -12,14 +13,14 @@ def get_cassandra_metrics(worker):
         cluster = pool.cluster
         metrics = cluster.metrics
         metrics_per_pool[cluster.metadata.cluster_name] = {
-            'request_timer': metrics.request_timer,
-            'connection_errors': metrics.connection_errors,
-            'write_timeouts': metrics.write_timeouts,
-            'read_timeouts': metrics.read_timeouts,
-            'unavailables': metrics.unavailables,
-            'other_errors': metrics.other_errors,
-            'retries': metrics.retries,
-            'ignores': metrics.ignores,
+            'request_timer': copy.deepcopy(metrics.request_timer),
+            'connection_errors': int(metrics.connection_errors),
+            'write_timeouts': int(metrics.write_timeouts),
+            'read_timeouts': int(metrics.read_timeouts),
+            'unavailables': int(metrics.unavailables),
+            'other_errors': int(metrics.other_errors),
+            'retries': int(metrics.retries),
+            'ignores': int(metrics.ignores),
 
             'known_hosts': metrics.known_hosts(),
             'connected_to': metrics.connected_to(),
