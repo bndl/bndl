@@ -72,7 +72,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.map_partitions(lambda p: pluck(ind, p, **kwargs))
 
 
-    def flatmap(self, func):
+    def flatmap(self, func=identity):
         return self.map(func).map_partitions(lambda iterable: chain.from_iterable(iterable))
 
 
