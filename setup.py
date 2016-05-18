@@ -33,12 +33,12 @@ if USE_CYTHON:
     extensions = cythonize(extensions)
 
 setup(
-    name="bndl",
-    version="0.0.1",
-    url="",
-    description="Bundle compute resources with BNDL",
-    author="Frens Jan Rumph",
-    author_email="mail@frensjan.nl",
+    name='bndl',
+    version='0.0.1',
+    url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
+    description='Bundle compute resources with BNDL',
+    author='Frens Jan Rumph',
+    author_email='mail@frensjan.nl',
 
     packages=(
         find_packages()
@@ -48,33 +48,22 @@ setup(
     zip_safe=False,
 
     install_requires=[
-        # TODO for source distributions
-        # "cython",
-
-        # bundle, .net, .run and .util
-        "sortedcontainers",
-        "cloudpickle",
-        # "python-snappy",
-        "cytoolz",
-        "numpy",
-        # "progressbar2",
-
-        "flask",
-
-        # bundle.run.ssh
-        # "asyncssh",  # TODO make optional dependency
-
-        # bundle.cassandra TODO separate?
-        "cassandra-driver",
-        # "netifaces",
+        'sortedcontainers',
+        'cloudpickle',
+        'cytoolz',
+        'numpy',
+        'flask',
+        'cassandra-driver',
     ],
 
     extras_require=dict(
         shell=['ipython'],
         dev=[
+            'cython',
             'pytest',
             'pytest-cov',
             'pylint',
+            'flake8',
             'sphinx',
             'sphinx-autobuild',
         ],
@@ -89,5 +78,5 @@ setup(
         ],
     ),
 
-    test_suite="bndl"
+    test_suite='bndl'
 )
