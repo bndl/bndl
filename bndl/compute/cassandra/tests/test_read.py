@@ -19,14 +19,19 @@ class ReadTest(CassandraTest):
         self.assertEqual(dset.count(), len(self.rows))  # count after
 
     def test_collect_dicts(self):
-        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).as_dicts().collect(), len(self.rows))
+        dicts = self.ctx.cassandra_table(self.keyspace, self.table).as_dicts()
+        self.assertEqual(len(dicts.collect()), len(self.rows))
+        self.assertEqual(type(dicts.first()), dict)
 
     def test_collect_tuples(self):
-        self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).as_tuples().collect(), len(self.rows))
+        tuples = self.ctx.cassandra_table(self.keyspace, self.table).as_tuples()
+        self.assertEqual(len(tuples.collect()), len(self.rows))
+        self.assertEqual(type(tuples.first()), tuple)
 
     # TODO def test_select(self):
     # TODO def test_where(self):
 
     def test_slicing(self):
-        self.ctx.cassandra_table(self.keyspace, self.table).first()
-        self.ctx.cassandra_table(self.keyspace, self.table).take(3)
+        first = self.ctx.cassandra_table(self.keyspace, self.table).first()
+        self.assertIn({k: v for k, v in first._asdict().items() if k in ('key', 'cluster', 'varint_val')}, self.rows)
+        self.assertEqual(len(self.ctx.cassandra_table(self.keyspace, self.table).take(3)), 3)
