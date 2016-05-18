@@ -233,7 +233,7 @@ class SourceDistributedArray(DistributedArray, DistributedCollection):
     def __init__(self, ctx, arr, pcount=None, psize=None):
         if not isinstance(arr, np.ndarray):
             arr = np.array(arr)
-        super().__init__(ctx, arr, pcount=None, psize=None)
+        super().__init__(ctx, arr, pcount, psize)
         self.arr = arr
         self.dtype = arr.dtype
         self.shape = arr.shape
