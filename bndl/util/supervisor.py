@@ -19,23 +19,31 @@ def entry_point(string):
 
 
 argparser = argparse.ArgumentParser()
+argparser.epilog = 'Use -- before bndl arguments to separate the from' \
+                   'arguments to the main program.'
 argparser.add_argument('entry_point', type=entry_point)
 argparser.add_argument('--process_count', nargs='?', type=int, default=os.cpu_count())
 
 
 def split_args():
-    args = []
+    prog_args = []
 
     idx = -1
+    split = False
     for idx, val in enumerate(sys.argv[1:]):
         if val == '--':
+            split = True
             break
         else:
-            args.append(val)
+            prog_args.append(val)
 
-    sys.argv = sys.argv[:1] + sys.argv[idx + 2:]
-
-    return args
+    if split:
+        bndl_args = sys.argv[idx + 2:]
+        sys.argv = sys.argv[:1] + prog_args
+    else:
+        bndl_args = sys.argv[1:]
+        sys.argv = sys.argv[:1]
+    return bndl_args
 
 
 class Monitor(asyncio.protocols.SubprocessProtocol):
