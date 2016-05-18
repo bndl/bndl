@@ -22,13 +22,11 @@ class Dash(object):
 
 
 class StatusPanel(object):
-    status = status.OK
-
     def __init__(self, application):
         self.app = application
 
     def render(self):
-        return ''
+        return status.DISABLED, ''
 
 
 app = Flask(__name__)
@@ -80,6 +78,8 @@ def now():
 def fmt_timedelta(tdelta):
     if not tdelta:
         return ''
+    elif isinstance(tdelta, (int, float)):
+        tdelta = timedelta(seconds=tdelta)
     parts = str(tdelta).split('.')
     if tdelta < timedelta(seconds=0.01):
         return parts[1].strip('0') + ' µs'

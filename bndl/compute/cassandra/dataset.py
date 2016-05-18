@@ -127,7 +127,7 @@ class CassandraScanPartition(Partition):
             logger.debug('scanning %s token ranges with query %s',
                          len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            query.consistency_level = ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
+            query.consistency_level = ctx.conf.get_attr(conf.READ_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
             timeout = ctx.conf.get_int(conf.READ_TIMEOUT, defaults=conf.DEFAULTS)
             next_rs = session.execute_async(query, self.token_ranges[0], timeout=timeout)
             resultset = None

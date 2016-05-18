@@ -6,11 +6,13 @@
 	<div class="row">
 		{% for key, panel in status_panels.items() %}
 		<div class="col-md-6">
-			<div class="panel panel-{{ panel.status }}">
+			{% set status, body = panel.render() %}
+		
+			<div class="panel panel-{{ status }}">
 				<div class="panel-heading">
 					<h3 class="panel-title"><a href="/{{ key }}">{{ key }}</a></h3>
 				</div>
-				<div class="panel-body">{{ panel.render() | safe }}</div>
+				<div class="panel-body">{{ body | safe }}</div>
 			</div>
 		</div>
 		{% endfor %}

@@ -1,1 +1,39 @@
-Status!
+{% if metrics %}
+
+<table class="table table-hover table-condensed">
+	<thead>
+		<tr>
+			<th>Cluster</th>
+			<th>
+				<span data-toggle="tooltip" data-original-title="Request count">
+					<span class="glyphicon glyphicon-send"></span>
+				</span>
+			</th>
+			<th>
+				<span data-toggle="tooltip" data-original-title="Error count">
+					<span class="glyphicon glyphicon-flash"></span>
+				</span>
+			</th>
+			<th>
+				<span data-toggle="tooltip" data-original-title="Mean request latency">
+					<span class="glyphicon glyphicon-time"></span>
+				</span>
+			</th>
+		</tr>
+	</thead>
+	<tbody>
+	{% for cluster, metrics in metrics|dictsort %}
+		{% set requests=metrics.request_timer %}
+		<tr class="{{ 'danger' if metrics.errors else '' }}">
+			<td>{{ cluster }}</td>
+			<td>{{ requests.count }}</td>
+			<td>{{ metrics.errors }}</td>
+			<td>{{ requests.mean|fmt_timedelta }}</td>
+		</tr>
+	{% endfor %}
+	</tbody>
+</table>
+
+{% else %}
+Nothing to report
+{% endif %}

@@ -13,12 +13,8 @@ blueprint = Blueprint('execute', __name__,
 
 
 class Status(dash.StatusPanel):
-    @property
-    def status(self):
-        return dash.status.OK
-
     def render(self):
-        return render_template('execute/status.html')
+        return dash.status.OK, render_template('execute/status.html')
 
 
 class Dash(dash.Dash):

@@ -91,7 +91,7 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
             metrics_enabled=ctx.conf.get_bool(conf.METRICS_ENABLED, defaults=conf.DEFAULTS),
         )
 
-        def create():
+        def create(cluster=cluster):
             '''create a new session'''
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
@@ -104,6 +104,7 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
             return not session.is_shutdown
 
         pools[contact_points] = pool = ObjectPool(create, check, max_size=4)
+        pool.cluster = cluster
 
     # take a session from the pool, yield it to the caller
     # and put the session back in the pool
