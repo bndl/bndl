@@ -26,9 +26,9 @@
 		{% set requests=metrics.request_timer %}
 		<tr class="{{ 'danger' if metrics.errors else '' }}">
 			<td>{{ cluster }}</td>
-			<td>{{ requests.count }}</td>
-			<td>{{ metrics.errors }}</td>
-			<td>{{ requests.mean|fmt_timedelta }}</td>
+			<td width="15%">{{ requests.count }}</td>
+			<td width="15%">{{ metrics.errors }}</td>
+			<td width="15%">{{ requests.mean|fmt_timedelta }}</td>
 		</tr>
 	{% endfor %}
 	</tbody>
