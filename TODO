@@ -119,3 +119,15 @@ Be more carefull in base.py with [task.result() for task in tasks]
  - try except around each task.result()
  
  
+add pickle options to broadcast_pickle
+ 
+ 
+decouple yielding results from job/stage/task executions from driving their execution
+  - yield returns when the receiver is done ... all that time, no tasks are scheduled
+  - may check the hypotheses above ...
+ 
+ 
+Prevent occurences of:
+ 27158 : OpenBLAS blas_thread_init: RLIMIT_NPROC 4096 current, 4127376 max
+27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
+ 
