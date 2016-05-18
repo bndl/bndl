@@ -1,7 +1,9 @@
-import time
+from datetime import datetime
 import logging
-from bndl.util.lifecycle import Lifecycle
+import time
+
 from bndl.execute.worker import current_worker
+from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -29,8 +31,7 @@ class ExecutionContext(Lifecycle):
     def execute(self, job, workers=None, eager=True):
         # TODO what if not everything is consumed?
         assert self.running, 'context is not running'
-        if not workers or not self.workers:
-            self.await_workers()
+        self.await_workers()
         workers = workers or self.workers[:]
 
         try:
@@ -61,10 +62,10 @@ class ExecutionContext(Lifecycle):
         :param stable_timeout: int or float
             Maximum time in seconds waited until no more workers are discovered.
         '''
-        # TODO await gossip to settle
-        # TODO look at time of last node discovery if waiting is required at all
+        step_sleep = .1
 
-        step_sleep = .01
+        if self.workers and (datetime.now() - max(worker.connected_on for worker in self.workers)).total_seconds() > step_sleep:
+            return
 
         # wait connect_timeout seconds to find first worker
         for _ in range(int(connect_timeout // step_sleep)):

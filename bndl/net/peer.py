@@ -5,6 +5,7 @@ from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util.exceptions import catch
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ class PeerNode(object):
         self.handshake_lock = asyncio.Lock()
         self.conn = None
         self.server = None
+        self.connected_on = None
+        self.disconnected_on = None
 
 
     @property
@@ -233,6 +236,9 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def _serve(self):
+        self.connected_on = datetime.now()
+        self.disconnected_on = None
+
         if not self.is_connected:
             return
 
@@ -271,6 +277,7 @@ class PeerNode(object):
             self.loop.create_task(self._dispatch(msg))
 
         logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
+        self.disconnected_on = datetime.now()
 
 
     @asyncio.coroutine
