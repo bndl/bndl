@@ -54,6 +54,7 @@ setup(
         'numpy',
         'flask',
         'cassandra-driver',
+        'lz4',
     ],
 
     extras_require=dict(
