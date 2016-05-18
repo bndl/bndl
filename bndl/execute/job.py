@@ -1,8 +1,10 @@
 from itertools import chain, count
+from queue import Queue
 import abc
 import logging
 import threading
 
+from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
 
 
@@ -75,6 +77,7 @@ class Stage(Lifecycle):
         self.job = job
         self.tasks = []
 
+
     def execute(self, workers, eager=True):
         self.signal_start()
 
@@ -98,46 +101,67 @@ class Stage(Lifecycle):
                     task.cancel()
             self.signal_stop()
 
+
     def _execute_eagerly(self, workers):
-        occupied = set()
-        workers_available = threading.Semaphore(len(workers))
-        to_schedule = self.tasks[::-1]
-        to_yield = to_schedule[:]
+        workers_available = Queue()
+        for worker in workers:
+            workers_available.put(worker)
+        to_schedule = self.tasks[:]
+        sentinel = object()
+        scheduled = threading.Semaphore(0)
 
-        def task_done(worker):
-            workers_available.release()
-            try:
-                occupied.remove(worker)
-            except KeyError:
-                pass
+        def task_done(task, worker):
+            workers_available.put(worker)
 
-        while to_schedule:
-            workers_available.acquire()
-            task = to_schedule.pop()
-            worker = None
-            # select a worker
-            for worker in (task.preferred_workers or task.allowed_workers or workers):
-                if worker not in occupied:
+        def schedule_tasks():
+            while to_schedule:
+                # only step if there is a worker available
+                worker = workers_available.get()
+                # print('searching for task on worker', worker.name)
+                # break if sentinel received
+                if worker == sentinel:
                     break
+
+                idx, task = None, None
+                for idx, task in enumerate(to_schedule):
+                    if task.preferred_workers:
+                        if worker in task.preferred_workers:
+                            break
+                        else:
+                            idx, task = None, None
+                    elif task.allowed_workers:
+                        if worker in task.allowed_workers:
+                            break
+                        else:
+                            idx, task = None, None
+                    else:
+                        break
+
+                if not task:
+                    workers_available.put(worker)
                 else:
-                    worker = None
-            # execute or put back on the list
-            if worker:
-                # mark worker as occupied, execute and add done callback
-                occupied.add(worker)
-                future = task.execute(worker)
-                future.add_done_callback(lambda future, worker=worker: task_done(worker))
-            else:
-                # re-insert task near the end so it'll pop up soon enough
-                to_schedule.insert(-len(workers) // 2, task)
-                # we didn't actually occupy a worker
-                workers_available.release()
+                    del to_schedule[idx]
+                    future = task.execute(worker)
+                    future.add_done_callback(lambda future, task=task, worker=worker: task_done(task, worker))
+                    scheduled.release()
 
-            while to_yield[-1].done():
-                yield to_yield.pop().result()
+        task_driver = threading.Thread(target=schedule_tasks, daemon=True)
+        task_driver.start()
 
-        for task in to_yield[::-1]:
-            yield task.result()
+        next_task_idx = 0
+        while next_task_idx < len(self.tasks):
+            try:
+                next_task = self.tasks[next_task_idx]
+                if next_task.started():
+                    yield next_task.result()
+                    next_task_idx += 1
+                else:
+                    scheduled.acquire()
+            except:
+                workers_available.put(sentinel)
+                raise
+
+        task_driver.join()
 
 
     def _execute_onebyone(self, workers):
@@ -185,6 +209,9 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.future = worker.run_task(self.method, *self.args, **(self.kwargs or {}))
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
+
+    def started(self):
+        return bool(self.future)
 
     def done(self):
         return self.future and self.future.done()
