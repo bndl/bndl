@@ -1,4 +1,4 @@
-.PHONY: test
+.PHONY: clean, test, codecheck, sdist, bdist, upload
 
 clean:
 	find bndl -name '*.pyc' -exec rm -f {} +
@@ -10,16 +10,7 @@ clean:
 	rm -rf build
 	rm -rf dist
 
-ccm-create:
-	ccm create -n 5 -s bndl -v 2.2.5 --vnodes
-
 test:
-	venv/bin/python setup.py test
-
-test-py:
-	venv/bin/py.test bndl
-
-test-py-cov:
 	venv/bin/py.test --cov-report html --cov=bndl bndl
 
 codestyle:
