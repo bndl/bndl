@@ -1,6 +1,5 @@
 from itertools import chain, count
 import abc
-import functools
 import logging
 import threading
 
@@ -68,7 +67,6 @@ class Job(Lifecycle):
 
 
 
-@functools.total_ordering
 class Stage(Lifecycle):
 
     def __init__(self, stage_id, job, name=None, desc=None):
@@ -158,25 +156,11 @@ class Stage(Lifecycle):
             task.cancel()
 
 
-    def __lt__(self, other):
-        assert self.id is not None
-        assert self.job == other.job
-        return self.id < other.id
-
-
-    def __eq__(self, other):
-        if other is None:
-            return False
-        assert self.id is not None
-        assert self.job == other.job, '%s %s %s %s' % (self, self.job, other, other.job)
-        return other and self.id == other.id
-
     def __repr__(self):
         return 'Stage(id=%s)' % self.id
 
 
 
-@functools.total_ordering
 class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def __init__(self, task_id, stage, method, args, kwargs,
@@ -219,12 +203,3 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         if self.future:
             self.future.cancel()
         super().cancel()
-
-
-    def __lt__(self, other):
-        assert self.stage == other.stage
-        return self.id < other.id
-
-
-    def __eq__(self, other):
-        return other.id == self.id
