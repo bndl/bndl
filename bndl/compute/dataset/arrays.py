@@ -1,10 +1,16 @@
-from bndl.compute.dataset.base import Dataset, Partition
-from bndl.compute.dataset.collections import DistributedCollection
-import collections.abc as collections_abc
+import abc
+import collections
 import numpy as np
 
+from bndl.compute.dataset.base import Dataset, Partition
+from bndl.compute.dataset.collections import DistributedCollection
 
-class DistributedArray(Dataset):
+
+class DistributedArray(Dataset, metaclass=abc.ABCMeta):
+    dtype = None
+    shape = None
+    pcount = None
+
     def collect(self, parts=False):
         if parts:
             return super().collect(parts=True)
@@ -36,9 +42,11 @@ class DistributedArray(Dataset):
     def mean(self, axis=None):
         if axis in (None, 0):
             if axis is None:
-                local_mean = lambda a: [(a.mean(), np.prod(a.shape))]
+                def local_mean(arr):
+                    return [(arr.mean(), np.prod(arr.shape))]
             else:
-                local_mean = lambda a: [(a.mean(0), np.prod(a.shape[1:]))]
+                def local_mean(arr):
+                    return [(arr.mean(0), np.prod(arr.shape[1:]))]
             means_weights = np.array(self.map_partitions(local_mean).collect()).T
             return np.average(means_weights[0], weights=means_weights[1])
         else:
@@ -116,10 +124,9 @@ class DistributedArray(Dataset):
 #             value = self.ctx.array(value, pcount=self.pcount, psize=self.psize)
 #         else:
 #             raise ValueError("can't add %s to %s" % (value, self))
-
-
-
-
+#
+#
+#
 #     def __getitem__(self, key):
 #         if isinstance(key, int):
 #             key = slice(key, key + 1)
@@ -223,26 +230,26 @@ class DistributedArray(Dataset):
 
 
 class SourceDistributedArray(DistributedArray, DistributedCollection):
-    def __init__(self, ctx, a, pcount=None, psize=None):
-        if not isinstance(a, np.ndarray):
-            a = np.array(a)
-        super().__init__(ctx, a, pcount=None, psize=None)
-        self.a = a
-        self.dtype = a.dtype
-        self.shape = a.shape
+    def __init__(self, ctx, arr, pcount=None, psize=None):
+        if not isinstance(arr, np.ndarray):
+            arr = np.array(arr)
+        super().__init__(ctx, arr, pcount=None, psize=None)
+        self.arr = arr
+        self.dtype = arr.dtype
+        self.shape = arr.shape
 
     def parts(self):
-        p = super().parts()
-        for part in p:
+        parts = super().parts()
+        for part in parts:
             part.shape = (len(part.iterable),) + self.shape[1:]
-        return p
+        return parts
 
 
 class CtorDistributedArray(DistributedArray):
     def __init__(self, ctx, ctor, shape, dtype, pcount=None):
         super().__init__(ctx)
         self.dtype = dtype
-        self.shape = shape if isinstance(shape, collections_abc.Sized) else (shape,)
+        self.shape = shape if isinstance(shape, collections.Sized) else (shape,)
         self.ctor = ctor
         self.pcount = pcount or ctx.default_pcount
 

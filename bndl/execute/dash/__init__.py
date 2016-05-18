@@ -1,11 +1,11 @@
+from datetime import datetime
+
+import flask
 from flask.blueprints import Blueprint
 from flask.templating import render_template
-from bndl import dash
-import flask
-import traceback
 from werkzeug.exceptions import NotFound
-from bndl.dash import app
-from datetime import datetime
+
+from bndl import dash
 
 
 blueprint = Blueprint('execute', __name__,
@@ -40,19 +40,22 @@ def task_stats(tasklist):
     finished = tasklist.stopped_on or (tasklist.started_on + time_remaining if time_remaining else '')
     return locals()
 
+
 @blueprint.route('/')
 def jobs():
     return render_template('execute/jobs.html')
 
+
+def job_by_id(job_id):
+    job_id = int(job_id)
+    for job in flask.g.ctx.jobs:
+        if job.id == job_id:
+            return job
+
+
 @blueprint.route('/job/<job_id>')
 def job(job_id):
-    job_id = int(job_id)
-    job = None
-    for j in flask.g.ctx.jobs:
-        if j.id == job_id:
-            job = j
-            break
-
+    job = job_by_id(job_id)
     if job:
         return render_template('execute/job.html', job=job)
     else:

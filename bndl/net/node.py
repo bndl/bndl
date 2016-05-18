@@ -34,7 +34,7 @@ class Node(object):
             self.name += '.' + str(next(Node._nodeids))
         self.node_type = camel_to_snake(self.__class__.__name__)
         self.servers = {
-            address:None for address in
+            address: None for address in
             (addresses or ['tcp://%s:%s' % (socket.getfqdn(), 5000)])
         }
         # TODO ensure that if a seed can't be connected to, it is retried
@@ -124,8 +124,8 @@ class Node(object):
             try:
                 server = yield from asyncio.start_server(self._serve, host, port)
                 break
-            except OSError as e:
-                if e.errno == errno.EADDRINUSE:
+            except OSError as exc:
+                if exc.errno == errno.EADDRINUSE:
                     continue
                 else:
                     logger.exception('unable to open server socket')
@@ -156,14 +156,13 @@ class Node(object):
     @asyncio.coroutine
     def _serve(self, reader, writer):
         try:
-            c = Connection(self.loop, reader, writer)
-            yield from self.PeerNode(self.loop, self)._connected(c)
+            conn = Connection(self.loop, reader, writer)
+            yield from self.PeerNode(self.loop, self)._connected(conn)
         except GeneratorExit:
-            c.close()
+            conn.close()
         except:
-            c.close()
-            logger.exception('unable to accept connection from %s', c.peername())
-            return
+            conn.close()
+            logger.exception('unable to accept connection from %s', conn.peername())
 
 
     @asyncio.coroutine
@@ -232,4 +231,3 @@ class Node(object):
 
     def __str__(self):
         return 'Node ' + self.name
-

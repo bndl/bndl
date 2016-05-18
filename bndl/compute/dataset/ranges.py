@@ -12,17 +12,15 @@ class DistributedRange(Dataset):
         self.pcount = pcount or ctx.default_pcount
 
     def parts(self):
-        return [
-            part for part in
-            (IterablePartition(self, idx, range(
+        parts = (
+            IterablePartition(self, idx, range(
                 self._subrange_start(idx),
                 self._subrange_start(idx + 1),
                 self.range.step
             ))
-            for idx in range(self.pcount))
-            if part.iterable
-        ]
+            for idx in range(self.pcount)
+        )
+        return [part for part in parts if part.iterable]
 
     def _subrange_start(self, idx):
-        r = self.range
-        return r.start + idx * len(r) // self.pcount * r.step
+        return self.range.start + idx * len(self.range) // self.pcount * self.range.step

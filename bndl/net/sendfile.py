@@ -1,43 +1,28 @@
 '''
-Adapted from https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a0970203/aiohttp/web_urldispatcher.py#L439
-and generalized into a utility outside the web context
+Adapted from and generalized into a utility outside the web context:
+https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a0970203/aiohttp/web_urldispatcher.py#L439
 '''
 
-
-import os
 import asyncio
-from bndl.util.aio import get_loop
-from datetime import datetime
-
-
-
-#     resp.set_tcp_cork(True)
-#     try:
-#         with filepath.open('rb') as f:
-#             yield from self._sendfile(request, resp, f, file_size)
-#     finally:
-#         resp.set_tcp_nodelay(True)
-
-
-
+import os
 
 
 def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):
     if registered:
         loop.remove_writer(out_fd)
     try:
-        n = os.sendfile(out_fd, in_fd, offset, nbytes)
-        if n == 0:  # EOF reached
-            n = nbytes
+        written = os.sendfile(out_fd, in_fd, offset, nbytes)
+        if written == 0:  # EOF reached
+            written = nbytes
     except (BlockingIOError, InterruptedError):
-        n = 0
+        written = 0
     except Exception as exc:
         fut.set_exception(exc)
         return
 
-    if n < nbytes:
+    if written < nbytes:
         loop.add_writer(out_fd, _sendfile_cb_system,
-                        loop, fut, out_fd, in_fd, offset + n, nbytes - n, True)
+                        loop, fut, out_fd, in_fd, offset + written, nbytes - written, True)
     else:
         fut.set_result(None)
 
@@ -63,11 +48,12 @@ def _sendfile_cb_fallback(loop, fut, out_fd, in_fd, buffered, registered):
             return
 
 
-def _getfd(f):
-    if hasattr(f, 'fileno'):
-        return f.fileno()
+def _getfd(file):
+    if hasattr(file, 'fileno'):
+        return file.fileno()
     else:
-        return f
+        return file
+
 
 @asyncio.coroutine
 def sendfile(outf, inf, offset, nbytes, loop=None):
@@ -80,6 +66,3 @@ def sendfile(outf, inf, offset, nbytes, loop=None):
     else:
         _sendfile_cb_fallback(loop, fut, out_fd, in_fd, None, False)
     yield from fut
-
-
-

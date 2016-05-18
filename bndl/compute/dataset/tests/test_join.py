@@ -1,6 +1,7 @@
+from itertools import product
+
 from bndl.compute.dataset.tests import DatasetTest
 from bndl.util.funcs import iseven, isodd
-from itertools import product
 
 
 class JoinTest(DatasetTest):
@@ -20,12 +21,12 @@ class JoinTest(DatasetTest):
         c = self.ctx.range(100).key_by(lambda i: str(i // 2))
 
         ab = a.join(b)
-        x = c.join(ab)
-        y = ab.join(c)
+        cab = c.join(ab)
+        abc = ab.join(c)
 
-        self.assertEqual(x.count(), 50)
-        self.assertEqual(y.count(), 50)
-        self.assertEqual(x.keys().collect_as_set(), y.keys().collect_as_set())
+        self.assertEqual(cab.count(), 50)
+        self.assertEqual(abc.count(), 50)
+        self.assertEqual(cab.keys().collect_as_set(), abc.keys().collect_as_set())
 
 
     def test_join_on(self):

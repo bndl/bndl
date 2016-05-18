@@ -10,15 +10,16 @@ class MappingTest(DatasetTest):
         self.dset = self.ctx.range(10, pcount=3)
 
     def test_mapping(self):
-        v = self.dset.map(lambda x: x % 2).collect()
-        self.assertEqual(v, list(x % 2 for x in range(10)))
+        remainders = self.dset.map(lambda x: x % 2).collect()
+        self.assertEqual(remainders, list(x % 2 for x in range(10)))
 
     def test_flatmap(self):
         self.assertEqual(self.dset.flatmap(lambda i: (i,)).collect(),
                          list(range(10)))
         self.assertEqual(self.dset.flatmap(lambda x: [x, x + 1]).collect(),
                         list(chain.from_iterable((x, x + 1) for x in range(10))))
-        self.assertEqual(''.join(self.ctx.range(100, pcount=3).map(str).flatmap(identity).collect()), ''.join(list(map(str, range(100)))))
+        self.assertEqual(''.join(self.ctx.range(100, pcount=3).map(str).flatmap(identity).collect()),
+                         ''.join(list(map(str, range(100)))))
 
     def test_map_partitions(self):
         self.assertEqual(self.dset.map_partitions(identity).collect(), list(range(10)))

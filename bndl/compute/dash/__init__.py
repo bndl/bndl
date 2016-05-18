@@ -1,9 +1,7 @@
-import traceback
-
-from bndl import dash
-import flask
 from flask.blueprints import Blueprint
 from flask.templating import render_template
+
+from bndl import dash
 
 
 blueprint = Blueprint('compute', __name__,

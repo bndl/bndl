@@ -5,6 +5,7 @@ from bndl.net.connection import Connection
 from bndl.net.messages import Hello
 from bndl.util.aio import get_loop
 from bndl.net import serialize
+import contextlib
 
 
 class WithAttachment(object):
@@ -16,7 +17,8 @@ class WithAttachment(object):
         body = self.body.encode('utf-8')
         def write(writer):
             writer.write(body)
-        serialize.attach(self.name.encode('utf-8'), len(body), write)
+        serialize.attach(self.name.encode('utf-8'),
+                         contextlib.contextmanager(lambda: (yield (len(body), write))))
         return dict(name=self.name)
 
     def __setstate__(self, state):
@@ -37,7 +39,7 @@ class ConnectionTest(TestCase):
 
         @asyncio.coroutine
         def connect():
-            host, port = 'localhost' , 5000
+            host, port = 'localhost', 5000
             # let a server listen
             self.server = (yield from asyncio.start_server(serve, host, port, loop=self.loop))
             # connect a client
@@ -81,7 +83,7 @@ class ConnectionTest(TestCase):
 
 
     def test_cloudpicklable(self):
-        hello = Hello(name=lambda:'test')
+        hello = Hello(name=lambda: 'test')
         self.send(self.conns[0], hello)
         self.assertEqual(self.recv(self.conns[1]).name(), hello.name())
 

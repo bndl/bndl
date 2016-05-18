@@ -2,9 +2,9 @@ import asyncio
 from asyncio.futures import CancelledError
 from datetime import datetime
 import logging
+from random import random
 
 from bndl.net.messages import Ping
-from random import random
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,7 @@ class Watchdog(object):
     def __init__(self, node):
         self.node = node
         self._peer_stats = {}
+        self.monitor_task = None
 
 
     def start(self):
@@ -144,9 +145,11 @@ class Watchdog(object):
                 popped = self.node.peers.pop(peer.name)
                 if popped != peer:
                     self.node.peers[peer.name] = popped
-                peer.disconnect('disconnected by watchdog after %s failed connection attempts', stats.connection_attempts)
+                peer.disconnect('disconnected by watchdog after %s failed connection attempts',
+                                stats.connection_attempts)
                 continue
-            if stats.error_since and (now - stats.error_since).total_seconds() > (WATCHDOG_INTERVAL * 2 ** stats.connection_attempts * (random() / 2 + .75)):
+            if stats.error_since and (now - stats.error_since).total_seconds() > \
+                                     (WATCHDOG_INTERVAL * 2 ** stats.connection_attempts * (random() / 2 + .75)):
                 stats.connection_attempts += 1
                 yield from peer.connect()
             elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:

@@ -3,7 +3,7 @@ from bndl.compute.dataset.tests import DatasetTest
 import numpy as np
 
 
-numeric_types = (
+NUMERIC_TYPES = (
     np.bool8,
     np.int0,
     np.int8,
@@ -24,12 +24,12 @@ numeric_types = (
     np.complex256,
 )
 
-other_types = (
+OTHER_TYPES = (
     np.datetime64,
     np.str0,
 )
 
-all_types = numeric_types + other_types
+ALL_TYPES = NUMERIC_TYPES + OTHER_TYPES
 
 
 class ArrayTest(DatasetTest):
@@ -37,7 +37,7 @@ class ArrayTest(DatasetTest):
         self.assertEqual(self.ctx.array(range(0)).collect().shape, (0,))
 
     def test_collect(self):
-        ten = self.ctx.array(range(10))
+        ten = self.ctx.array(range(10), pcount=4)
         self.assertEqual(ten.first(), 0)
         self.assertEqual(ten.count(), 10)
         self.assertEqual(len(ten.collect()), 10)
@@ -68,7 +68,7 @@ class ArrayTest(DatasetTest):
 
 
     def test_dtype(self):
-        for nptype in numeric_types:
+        for nptype in NUMERIC_TYPES:
             dtype = np.dtype(nptype)
             a = np.zeros(10, dtype)
             dset = self.ctx.array(a)
@@ -104,7 +104,8 @@ class ArrayTest(DatasetTest):
             shape = base_shape[:shape_slice]
             size = np.prod(shape[:shape_slice])
             for axis in [None] + list(range(len(shape))):
-                self.assertEqual(self.ctx.arange(size).reshape(shape).sum(axis=axis), np.arange(size).reshape(shape).sum(axis=axis))
+                self.assertEqual(self.ctx.arange(size, pcount=4).reshape(shape).sum(axis=axis),
+                                 np.arange(size).reshape(shape).sum(axis=axis))
 
     def test_mean(self):
         self.assertEqual(self.ctx.array(range(1, 100)).mean(), 50)
@@ -112,16 +113,22 @@ class ArrayTest(DatasetTest):
         self.assertEqual(self.ctx.arange(1.3, 17, 1.7).mean(), np.arange(1.3, 17, 1.7).mean())
 
         for axis in (None, 0, 1, 2, 3):
-            self.assertEqual(self.ctx.arange(500).reshape((4, 5, 5, 5)).mean(axis=axis), np.arange(500).reshape((4, 5, 5, 5)).mean(axis=axis))
+            self.assertEqual(self.ctx.arange(500, pcount=4).reshape((4, 5, 5, 5)).mean(axis=axis),
+                             np.arange(500).reshape((4, 5, 5, 5)).mean(axis=axis))
 
 
     def test_minmax(self):
-        self.assertEqual(self.ctx.arange(100).min(), np.arange(100).min())
-        self.assertEqual(self.ctx.arange(100).max(), np.arange(100).max())
-        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).min(), np.arange(100).reshape((20, 5)).min())
-        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).max(), np.arange(100).reshape((20, 5)).max())
-        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).min(axis=0), np.arange(100).reshape((20, 5)).min(axis=0))
-        self.assertEqual(self.ctx.arange(100).reshape((20, 5)).max(axis=0), np.arange(100).reshape((20, 5)).max(axis=0))
+        dset = self.ctx.arange(100, pcount=4)
+        arr = np.arange(100)
+        self.assertEqual(dset.min(), arr.min())
+        self.assertEqual(dset.max(), arr.max())
+
+        dset = dset.reshape((20, 5))
+        arr = np.arange(100).reshape((20, 5))
+        self.assertEqual(dset.min(), arr.min())
+        self.assertEqual(dset.max(), arr.max())
+        self.assertEqual(dset.min(axis=0), arr.min(axis=0))
+        self.assertEqual(dset.max(axis=0), arr.max(axis=0))
 
 
     def test_reshape(self):

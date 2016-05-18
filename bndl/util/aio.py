@@ -47,7 +47,7 @@ def async_call(loop, method, *args, **kwargs):
 def run_coroutine_threadsafe(coro, loop):
     '''
     Run a asyncio coroutine in the given loop safely and return a
-    concurrent.futures.Future 
+    concurrent.futures.Future
     :param coro: asyncio.couroutine
     :param loop: asyncio loop
     '''
@@ -57,9 +57,9 @@ def run_coroutine_threadsafe(coro, loop):
     def task_done(task):
         try:
             future.set_result(task.result())
-        except Exception as e:
+        except Exception as exc:
             logger.debug('task failed', exc_info=True)
-            future.set_exception(e)
+            future.set_exception(exc)
 
 
     def schedule_task():
@@ -68,9 +68,9 @@ def run_coroutine_threadsafe(coro, loop):
             task = loop.create_task(coro)
             task.add_done_callback(task_done)
             scheduled.set_result(task)
-        except Exception as e:
+        except Exception as exc:
             logger.exception('unable to schedule task')
-            future.set_exception(e)
+            future.set_exception(exc)
 
     schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
 
@@ -94,5 +94,4 @@ def drain(writer):
         low, high = writer.transport.get_write_buffer_limits()
         writer.transport.set_write_buffer_limits(low=0)
         yield from writer.drain()
-        assert writer.transport.get_write_buffer_size() == 0  # TODO remove assertion
         writer.transport.set_write_buffer_limits(high, low)

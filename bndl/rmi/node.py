@@ -8,7 +8,7 @@ from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
 from bndl.rmi.invocation import Invocation
 from bndl.rmi.messages import Response, Request
-from bndl.util.aio import  async_call
+from bndl.util.aio import async_call
 from bndl.net.node import Node
 
 
@@ -55,6 +55,11 @@ class RMIPeerNode(PeerNode):
                 logger.debug('unable to invoke method %s', request.method, exc_info=True)
                 exc = sys.exc_info()
 
+        yield from self._send_response(request, result, exc)
+
+
+    @asyncio.coroutine
+    def _send_response(self, request, result, exc):
         response = Response(req_id=request.req_id)
 
         try:
@@ -71,12 +76,12 @@ class RMIPeerNode(PeerNode):
 
         if exc:
             response.value = None
-            exc_class, exc, tb = exc
-            tb = traceback.extract_tb(tb)
-            response.exception = exc_class, exc, tb
+            exc_class, exc, tback = exc
+            tback = traceback.extract_tb(tback)
+            response.exception = exc_class, exc, tback
             try:
                 yield from self.send(response)
-            except Exception as e:
+            except Exception:
                 logger.exception('unable to send exception')
 
 
@@ -97,4 +102,3 @@ class RMIPeerNode(PeerNode):
 
 class RMINode(Node):
     PeerNode = RMIPeerNode
-

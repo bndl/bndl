@@ -1,31 +1,30 @@
-from flask.blueprints import Blueprint
 from flask import g
+from flask.blueprints import Blueprint
 from flask.templating import render_template
-from bndl import dash as dash2
-import flask
-import traceback
+
+from bndl import dash as bndl_dash
 
 
 blueprint = Blueprint('net', __name__,
                       template_folder='templates')
 
 
-class Status(dash2.StatusPanel):
+class Status(bndl_dash.StatusPanel):
     @property
     def status(self):
         if not g.node.running:
-            return dash2.status.ERROR
+            return bndl_dash.status.ERROR
         if len(g.node.peers.filter()) < len(g.node.peers):
-            return dash2.status.WARNING
+            return bndl_dash.status.WARNING
         else:
-            return dash2.status.OK
+            return bndl_dash.status.OK
 
 
     def render(self):
         return render_template('net/status.html')
 
 
-class Dash(dash2.Dash):
+class Dash(bndl_dash.Dash):
     blueprint = blueprint
     status_panel_cls = Status
 

@@ -119,8 +119,8 @@ class PeerNode(object):
                 if address.scheme != 'tcp':
                     raise ValueError('unsupported scheme in %s', url)
 
-                rw = yield from asyncio.open_connection(address.hostname, address.port)
-                self.conn = Connection(self.loop, *rw)
+                reader, writer = yield from asyncio.open_connection(address.hostname, address.port)
+                self.conn = Connection(self.loop, reader, writer)
                 logger.debug('%s connected', self.conn)
 
                 # Say hello
@@ -129,33 +129,20 @@ class PeerNode(object):
                 # wait for hello back
                 logger.debug('waiting for hello from %s', url)
                 rep = yield from self.recv(HELLO_TIMEOUT)
-
-                if isinstance(rep, Disconnect):
-                    logger.debug("received Disconnect from %s, disconnecting", url)
-                    yield from self.disconnect(reason="received disconnect", active=False)
-                elif not isinstance(rep, Hello):
-                    logger.error("didn't receive Hello back from %s, disconnecting", url)
-                    yield from self.disconnect(reason="didn't receive hello")
-                elif self.name and self.name != rep.name:
-                    # check if reported name and expected name (if any) agree
-                    logger.error('shaking hands with peer at %s but claims to have the name %s instead of %s, '
-                                 'disconnecting ...', self.addresses, rep.name, self.name)
-                    yield from self.disconnect(reason='name mismatch')
-                elif rep.name == self.local.name:
-                    logger.debug('self connect attempt of %s', rep.name)
-                    yield from self.disconnect(reason='self connect')
+                yield from self._check_hello(rep, url)
             except (asyncio.futures.CancelledError, GeneratorExit):
                 logger.info('connection with %s cancelled', url)
                 self.disconnect(reason='connection cancelled')
-            except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as e:
-                logger.info('%s %s', type(e).__name__, url)
-                self.disconnect(reason='unable to connect: ' + str(type(e)), active=False)
+            except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
+                logger.info('%s %s', type(exc).__name__, url)
+                self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except TimeoutError:
                 logger.warning('hello not received in time from %s on %s', url, self.conn)
                 yield from self.disconnect(reason='hello timed out')
-            except Exception as e:
+            except Exception as exc:
                 logger.exception('unable to connect with %s on %s', url, self.conn)
-                yield from self.disconnect(reason=str(type(e)))
+                yield from self.disconnect(reason=str(type(exc)))
+
 
             if not self.is_connected:
                 return False
@@ -169,6 +156,24 @@ class PeerNode(object):
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
             self.server = self.loop.create_task(self._serve())
             return True
+
+
+    @asyncio.coroutine
+    def _check_hello(self, hello, url):
+        if isinstance(hello, Disconnect):
+            logger.debug("received Disconnect from %s, disconnecting", url)
+            yield from self.disconnect(reason="received disconnect", active=False)
+        elif not isinstance(hello, Hello):
+            logger.error("didn't receive Hello back from %s, disconnecting", url)
+            yield from self.disconnect(reason="didn't receive hello")
+        elif self.name and self.name != hello.name:
+            # check if reported name and expected name (if any) agree
+            logger.error('shaking hands with peer at %s but claims to have the name %s instead of %s, '
+                         'disconnecting ...', self.addresses, hello.name, self.name)
+            yield from self.disconnect(reason='name mismatch')
+        elif hello.name == self.local.name:
+            logger.debug('self connect attempt of %s', hello.name)
+            yield from self.disconnect(reason='self connect')
 
 
     @asyncio.coroutine
@@ -186,9 +191,9 @@ class PeerNode(object):
             except NotConnected:
                 logger.warning('connection closed before receiving hello from %s', self.conn.peername())
                 self.disconnect(reason='connection closed')
-            except Exception as e:
+            except Exception as exc:
                 logger.exception('unable to read hello from %s', self.conn.peername())
-                self.disconnect(reason=str(type(e)))
+                self.disconnect(reason=str(type(exc)))
 
             if not self.is_connected:
                 return
@@ -234,7 +239,8 @@ class PeerNode(object):
         yield from self.local._peer_connected(self)
 
         if self.is_connected:
-            logger.info('serving connection for %s (local) with %s (remote) on %s', self.local.name, self.name, self.conn)
+            logger.info('serving connection for %s (local) with %s (remote) on %s',
+                        self.local.name, self.name, self.conn)
 
         while self.is_connected:
             try:
@@ -257,9 +263,9 @@ class PeerNode(object):
                 logger.exception('connection with %s closed unexpectedly', self.name)
                 yield from self.disconnect('connection reset', active=False)
                 break
-            except Exception as e:
+            except Exception as exc:
                 logger.exception('An unknown exception occurred in connection %s', self.name)
-                yield from self.disconnect('unexpected error: ' + str(e), active=False)
+                yield from self.disconnect('unexpected error: ' + str(exc), active=False)
                 break
 
             self.loop.create_task(self._dispatch(msg))
@@ -275,7 +281,6 @@ class PeerNode(object):
             logger.debug('notifying %s of discovery of %s', self.name, peers)
             yield from self.send(Discovered(peers=peers))
         except NotConnected:
-            logger.debug('not connected')
             pass
 
 

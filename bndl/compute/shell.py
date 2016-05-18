@@ -3,18 +3,19 @@ import IPython
 from bndl.compute.script import ctx
 
 
-header = ''' ___ _  _ ___  _    
-| _ ) \| |   \| |   
-| _ \ .` | |) | |__ 
+HEADER = r''' ___ _  _ ___  _    
+| _ ) \| |   \| |
+| _ \ .` | |) | |__
 |___/_|\_|___/|____|
                     '''
 
 
 def main():
     try:
-        # as ctx is lazy, access an attribute to start the driver
-        ctx.worker_count
-        IPython.embed(header=header, user_ns=dict(ctx=ctx))
+        # as ctx is lazy, access it to start the driver
+        # and wait for workers to become online
+        ctx.await_workers()
+        IPython.embed(header=HEADER, user_ns=dict(ctx=ctx))
     finally:
         ctx.stop()
 

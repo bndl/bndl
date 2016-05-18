@@ -47,8 +47,8 @@ class NetTest(TestCase):
 
             if not self.seeds:
                 self.seeds = [
-                    'tcp://localhost.localdomain:%s' % p
-                    for p in range(5000, min(5000 + self.node_count, 5004))
+                    'tcp://localhost.localdomain:%s' % port
+                    for port in range(5000, min(5000 + self.node_count, 5004))
                 ]
 
             self.nodes = self.create_nodes()
@@ -62,24 +62,24 @@ class NetTest(TestCase):
 
             try:
                 # start the nodes
-                for i, n in enumerate(self.nodes):
-                    self.loop.run_until_complete(n.start())
+                for i, node in enumerate(self.nodes):
+                    self.loop.run_until_complete(node.start())
                     if self.ease_discovery:
-                        self.loop.run_until_complete(wait_for_discovery(n, i))
+                        self.loop.run_until_complete(wait_for_discovery(node, i))
                         self.loop.run_until_complete(sleep(.01))
                 # give the nodes a final shot to connect
-                for n in self.nodes:
-                    self.loop.run_until_complete(wait_for_discovery(n, self.node_count - 1))
+                for node in self.nodes:
+                    self.loop.run_until_complete(wait_for_discovery(node, self.node_count - 1))
                     self.loop.run_until_complete(sleep(.1))
                 # notify started
                 self._started.set_result(True)
                 # wait for stopped notification
                 self.loop.run_until_complete(
-                    self.loop.run_in_executor(None, lambda: self._stopped.result())
+                    self.loop.run_in_executor(None, self._stopped.result)
                 )
             finally:
-                for n in self.nodes:
-                    self.loop.run_until_complete(n.stop())
+                for node in self.nodes:
+                    self.loop.run_until_complete(node.stop())
                     self.loop.run_until_complete(sleep(.01))
 
                 self.loop.close()

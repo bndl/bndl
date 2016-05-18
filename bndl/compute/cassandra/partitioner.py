@@ -1,7 +1,7 @@
+import copy
 from operator import itemgetter
 
 from bndl.util.collection import sortgroupby
-import copy
 
 
 T_COUNT = 2 ** 64
@@ -19,6 +19,21 @@ MAX_PARTITIONS_SIZE_B = MAX_PARTITIONS_SIZE_MB * 1024 * 1024
 def get_token_ranges(ring):
     ring = [t.value for t in ring]
     return list(zip([T_MIN] + ring, ring + [T_MAX]))
+
+
+def repartition(partitions, min_pcount):
+    while len(partitions) < min_pcount:
+        repartitioned = []
+        for replicas, token_ranges in partitions:
+            if len(token_ranges) == 1:
+                continue
+            mid = len(token_ranges) // 2
+            repartitioned.append((replicas, token_ranges[:mid]))
+            repartitioned.append((replicas, token_ranges[mid:]))
+        if len(repartitioned) == len(partitions):
+            break
+        partitions = repartitioned
+    return partitions
 
 
 def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pcount=None):
@@ -78,19 +93,9 @@ def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pco
 
 
     if min_pcount:
-        while len(partitions) < min_pcount:
-            repartitioned = []
-            for replicas, token_ranges in partitions:
-                if len(token_ranges) == 1:
-                    continue
-                mid = len(token_ranges) // 2
-                repartitioned.append((replicas, token_ranges[:mid]))
-                repartitioned.append((replicas, token_ranges[mid:]))
-            if len(repartitioned) == len(partitions):
-                break
-            partitions = repartitioned
-
-    return partitions
+        return repartition(partitions, min_pcount)
+    else:
+        return partitions
 
 
 
@@ -129,34 +134,32 @@ class SizeEstimate(object):
 
 
 def estimate_size(session, keyspace, table):
-    ranges = list(
-        session.execute('''
-            select range_start, range_end, partitions_count, mean_partition_size
-            from system.size_estimates
-            where keyspace_name = %s and table_name = %s
-        ''',
-        (keyspace, table)
-    ))
+    size_estimate_query = '''
+        select range_start, range_end, partitions_count, mean_partition_size
+        from system.size_estimates
+        where keyspace_name = %s and table_name = %s
+    '''
+    size_estimates = list(session.execute(size_estimate_query, (keyspace, table)))
 
     size_b = 0
     size_pk = 0
     tokens = 0
 
-    if len(ranges) == 1:
-        r = ranges[0]
-        size_pk = r.partitions_count
-        size_b = r.mean_partition_size * r.partitions_count
+    if len(size_estimates) == 1:
+        range_estimate = size_estimates[0]
+        size_pk = range_estimate.partitions_count
+        size_b = range_estimate.mean_partition_size * range_estimate.partitions_count
         tokens = T_COUNT
     else:
-        for r in ranges:
-            start, end = int(r.range_start), int(r.range_end)
+        for range_estimate in size_estimates:
+            start, end = int(range_estimate.range_start), int(range_estimate.range_end)
             # don't bother unwrapping the token range crossing 0
             if start > end:
                 continue
             # count partitions, bytes and size of the range
-            size_pk += r.partitions_count
-            size_b += r.mean_partition_size * r.partitions_count
-            tokens += int(r.range_end) - int(r.range_start)
+            size_pk += range_estimate.partitions_count
+            size_b += range_estimate.mean_partition_size * range_estimate.partitions_count
+            tokens += int(range_estimate.range_end) - int(range_estimate.range_start)
 
     fraction = tokens / T_COUNT
 

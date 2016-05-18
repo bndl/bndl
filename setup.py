@@ -74,6 +74,7 @@ setup(
         dev=[
             'pytest',
             'pytest-cov',
+            'pylint',
             'sphinx',
             'sphinx-autobuild',
         ],

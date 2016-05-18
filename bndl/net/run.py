@@ -4,12 +4,12 @@ from bndl.net.connection import urlparse
 from bndl.util.aio import get_loop
 
 
-def url(s):
+def url(string):
     try:
-        urlparse(s)
-        return s
-    except ValueError as e:
-        raise ValueError('ill-formatted seed url:', s, 'error:', e)
+        urlparse(string)
+        return string
+    except ValueError as exc:
+        raise ValueError('ill-formatted seed url:', string, 'error:', exc)
 
 
 argparser = argparse.ArgumentParser()

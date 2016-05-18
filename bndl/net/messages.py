@@ -1,4 +1,4 @@
-_msgtypes = {}
+MSG_TYPES = {}
 
 
 class Field(object):
@@ -7,10 +7,11 @@ class Field(object):
 
 class MessageType(type):
     def __new__(cls, name, parents, dct):
-        dct['__slots__'] = schema = [k for k, v in dct.items() if isinstance(v, Field)]
-        for k in schema:
-            dct.pop(k)
-        _msgtypes[name] = msgtype = super().__new__(cls, name, parents, dct)
+        dct['__slots__'] = schema = [key for key, value in dct.items()
+                                     if isinstance(value, Field)]
+        for key in schema:
+            dct.pop(key)
+        MSG_TYPES[name] = msgtype = super().__new__(cls, name, parents, dct)
         return msgtype
 
 
@@ -21,13 +22,12 @@ class Message(metaclass=MessageType):
             setattr(self, k, kwargs.get(k))
 
     def __repr__(self):
-        return (self.__class__.__name__ + '(' +
-            ', '.join(k + '=' + str(getattr(self, k)) for k in self.__slots__)
-        + ')')
+        return '<%s %s>' % (self.__class__.__name__,
+                            ', '.join(key + '=' + str(getattr(self, key)) for key in self.__slots__))
 
     def __msgdict__(self):
-        d = {k:getattr(self, k) for k in self.__slots__}
-        return (type(self).__name__, d)
+        data = {k: getattr(self, k) for k in self.__slots__}
+        return (type(self).__name__, data)
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -39,7 +39,7 @@ class Message(metaclass=MessageType):
 
     @staticmethod
     def load(msg):
-        return _msgtypes[msg[0]](**msg[1])
+        return MSG_TYPES[msg[0]](**msg[1])
 
 
 
@@ -66,6 +66,7 @@ class Disconnect(Message):
 
 class Ping(Message):
     pass
+
 
 class Pong(Message):
     pass

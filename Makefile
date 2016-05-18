@@ -22,6 +22,10 @@ test-py:
 test-py-cov:
 	venv/bin/py.test --cov-report html --cov=bndl bndl
 
+codestyle:
+	pylint bndl > build/pylint.html
+	flake8 bndl > build/flake8.txt
+
 sdist:
 	venv/bin/python setup.py sdist
 

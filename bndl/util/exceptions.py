@@ -1,9 +1,10 @@
 from contextlib import contextmanager
 
+
 @contextmanager
-def catch(*exc):
+def catch(*ignore):
     try:
         yield
-    except Exception as e:
-        if exc and e not in exc:
-            raise e
+    except Exception as exc:
+        if ignore and exc not in ignore:
+            raise exc

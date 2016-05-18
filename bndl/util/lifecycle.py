@@ -22,13 +22,13 @@ class Lifecycle(object):
 
     def signal_start(self):
         self.started_on = datetime.now()
-        for l in self.listeners:
-            l(self)
+        for listener in self.listeners:
+            listener(self)
 
     def signal_stop(self):
         self.stopped_on = datetime.now()
-        for l in self.listeners:
-            l(self)
+        for listener in self.listeners:
+            listener(self)
 
     @property
     def running(self):

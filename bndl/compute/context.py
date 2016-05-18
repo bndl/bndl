@@ -18,11 +18,11 @@ class ComputeContext(ExecutionContext):
     def default_pcount(self):
         return self.worker_count * 2
 
-    def collection(self, c, pcount=None, psize=None):
-        if isinstance(c, range):
-            return self.range(c.start, c.stop, c.step, pcount=pcount)
+    def collection(self, collection, pcount=None, psize=None):
+        if isinstance(collection, range):
+            return self.range(collection.start, collection.stop, collection.step, pcount=pcount)
         else:
-            return DistributedCollection(self, c, pcount, psize)
+            return DistributedCollection(self, collection, pcount, psize)
 
     range = as_method(DistributedRange)
     files = as_method(DistributedFiles)

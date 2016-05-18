@@ -16,7 +16,7 @@ class ReconnectTest(NetTest):
                     return False
         return True
 
-    def wait_connected(self, node):
+    def wait_connected(self):
         for _ in range(30):
             time.sleep(WATCHDOG_INTERVAL / 10)
             if self.all_connected():
@@ -29,7 +29,7 @@ class ReconnectTest(NetTest):
         peer = next(iter(node.peers.values()))
         aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
 
-        self.wait_connected(node)
+        self.wait_connected()
         self.assertTrue(self.all_connected())
 
         node = self.nodes[1]
@@ -39,6 +39,6 @@ class ReconnectTest(NetTest):
         for peer in node.peers.values():
             aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
 
-        self.wait_connected(node)
+        self.wait_connected()
         self.assertTrue(self.all_connected())
 

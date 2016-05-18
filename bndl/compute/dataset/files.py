@@ -16,6 +16,7 @@ from bndl.util.fs import filenames, read_file
 def _decode(encoding, errors, blob):
     return blob.decode(encoding, errors)
 
+
 def _splitlines(keepends, blob):
     return blob.splitlines(keepends)
 
@@ -51,26 +52,9 @@ class DistributedFiles(Dataset):
 
     def parts(self):
         if self.psize_bytes:
-            psize_bytes = self.psize_bytes
-            psize_files = self.psize_files or sys.maxsize
-
-            # TODO split within files
-            # for start in range(0, len(file), 64):
-            #     file[start:start+64]
-
-            part = []
-            parts = [part]
-            size = 0
-            for filename in self.filenames:
-                part.append(filename)
-                size += os.path.getsize(filename)
-                if size >= psize_bytes or len(part) >= psize_files:
-                    part = []
-                    parts.append(part)
-                    size = 0
+            parts = self._sliceby_psize()
         else:
             parts = batch(self.filenames, self.psize_files)
-
 
         return [
             FilesPartition(self, idx, filenames)
@@ -78,11 +62,34 @@ class DistributedFiles(Dataset):
             if filenames
         ]
 
+
+    def _sliceby_psize(self):
+        psize_bytes = self.psize_bytes
+        psize_files = self.psize_files or sys.maxsize
+
+        # TODO split within files
+        # for start in range(0, len(file), 64):
+        #     file[start:start+64]
+
+        part = []
+        parts = [part]
+        size = 0
+
+        for filename in self.filenames:
+            part.append(filename)
+            size += os.path.getsize(filename)
+            if size >= psize_bytes or len(part) >= psize_files:
+                part = []
+                parts.append(part)
+                size = 0
+
+        return parts
+
+
     def __getstate__(self):
         state = dict(self.__dict__)
         del state['filenames']
         return state
-
 
 
 
@@ -115,27 +122,33 @@ class FilesPartition(Partition):
     def __init__(self, dset, idx, filenames):
         super().__init__(dset, idx)
         self.filenames = filenames
+        self._data = None
+
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        if 'data' not in state:
+        if not state.get('_data'):
             for filename in self.filenames:
                 attach(*_file_attachment(filename))
         return state
 
+
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.data = OrderedDict()
-        for filename in self.filenames:
-            a = attachment(filename.encode('utf-8'))
-            self.data[filename] = a
+        if not self._data:
+            self._data = OrderedDict()
+            for filename in self.filenames:
+                att = attachment(filename.encode('utf-8'))
+                self._data[filename] = att
+
 
     def _materialize(self, ctx):
-        data = getattr(self, 'data', {})
+        data = getattr(self, '_data', {})
         if data:
             return iter(data.items())
         else:
             data = OrderedDict(zip(self.filenames, self._read()))
+
 
     def _read(self):
         for filename in self.filenames:

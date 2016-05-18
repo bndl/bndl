@@ -48,13 +48,13 @@ def check_addresses(addresses, exit_on_fail=True,
     '''
     try:
         return [urlparse(address) for address in addresses]
-    except ValueError as e:
+    except ValueError as exc:
         if exit_on_fail:
             if exit_msg:
-                print(exit_msg.format(addresses=addresses, error=str(e)))
+                print(exit_msg.format(addresses=addresses, error=str(exc)))
             sys.exit(1)
         else:
-            raise e
+            raise
 
 
 @functools.lru_cache(maxsize=1024)
@@ -190,18 +190,18 @@ class Connection(object):
                         self.bytes_received += size
 
                 # read message len and message
-                l = yield from self._recv_unpack('I', timeout)
-                msg = yield from asyncio.wait_for(self.reader.readexactly(l), timeout)
-                self.bytes_received += l
+                length = yield from self._recv_unpack('I', timeout)
+                msg = yield from asyncio.wait_for(self.reader.readexactly(length), timeout)
+                self.bytes_received += length
             # parse the message and attachments
             return (yield from self.loop.run_in_executor(None, serialize.load, marshalled, msg, attachments))
-        except BrokenPipeError as e:
-            raise NotConnected() from e
-        except asyncio.streams.IncompleteReadError as e:
-            if not e.partial:
-                raise NotConnected() from e
+        except BrokenPipeError as exc:
+            raise NotConnected() from exc
+        except asyncio.streams.IncompleteReadError as exc:
+            if not exc.partial:
+                raise NotConnected() from exc
             else:
-                raise e
+                raise
 
     def __lt__(self, other):
         '''
@@ -247,4 +247,3 @@ class Connection(object):
             '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername(),
             'connected' if self.is_connected else 'not connected'
         )
-

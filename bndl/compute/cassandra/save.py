@@ -1,19 +1,19 @@
 from datetime import timedelta, date, datetime
 import functools
 import logging
+from cassandra.concurrent import execute_concurrent_with_args
 
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.util.timestamps import ms_timestamp
-from cassandra.concurrent import execute_concurrent_with_args
 
 
 logger = logging.getLogger(__name__)
 
 
-insert_template = (
-'insert into {keyspace}.{table} '
-'({columns}) values ({placeholders})'
-'{using}'
+INSERT_TEMPLATE = (
+    'insert into {keyspace}.{table} '
+    '({columns}) values ({placeholders})'
+    '{using}'
 )
 
 
@@ -25,7 +25,8 @@ def _save_part(insert, concurrency, part, iterable, contact_points=None):
     return [len(results)]
 
 
-def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=None, timestamp=None, concurrency=10, contact_points=None):
+def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True,
+                   ttl=None, timestamp=None, concurrency=10, contact_points=None):
     if ttl or timestamp:
         using = []
         if ttl:
@@ -51,7 +52,7 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=
         ('?' for c in columns)
     ))
 
-    insert = insert_template.format(
+    insert = INSERT_TEMPLATE.format(
         keyspace=keyspace,
         table=table,
         columns=', '.join(columns),
@@ -59,4 +60,5 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True, ttl=
         using=using,
     )
 
-    return dataset.map_partitions_with_part(functools.partial(_save_part, insert, concurrency, contact_points=contact_points))
+    do_save = functools.partial(_save_part, insert, concurrency, contact_points=contact_points)
+    return dataset.map_partitions_with_part(do_save)

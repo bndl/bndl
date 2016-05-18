@@ -1,6 +1,7 @@
-from uuid import uuid4
-from bndl.util import serialize
 import logging
+from uuid import uuid4
+
+from bndl.util import serialize
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ def broadcast(ctx, value):
     driver.broadcast_values[key] = serialize.dumps(value)
     return BroadcastValue(ctx, key, value)
 
+
 def broadcast_pickled(ctx, pickled_value):
     driver = ctx.node
     key = str(uuid4())
@@ -22,11 +24,13 @@ def broadcast_pickled(ctx, pickled_value):
     return BroadcastValue(ctx, key)
 
 
+
 class BroadcastValue(object):
     def __init__(self, ctx, key, value=MISSING):
         self.ctx = ctx
         self.key = key
         self._value = value
+
 
     def __getstate__(self):
         return dict(ctx=self.ctx, key=self.key)
@@ -36,16 +40,19 @@ class BroadcastValue(object):
     def value(self):
         if not getattr(self, '_value', MISSING) == MISSING:
             return self._value
+
         node = self.ctx.node
-        v = node.broadcast_values.get(self.key, MISSING)
-        if v == MISSING:
+        val = node.broadcast_values.get(self.key, MISSING)
+
+        if val == MISSING:
             driver = node.peers.filter(node_type='driver')[0]
             logger.debug('retrieving broadcast value with key %s from %s', self.key, driver)
             marshalled, payload = driver.get_broadcast_value(self.key).result()
-            v = serialize.loads(marshalled, payload)
-            node.broadcast_values[self.key] = v
-            self._value = v
-        return v
+            val = serialize.loads(marshalled, payload)
+            node.broadcast_values[self.key] = val
+            self._value = val
+
+        return val
 
 
     def unpersist(self):

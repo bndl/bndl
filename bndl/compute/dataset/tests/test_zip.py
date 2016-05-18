@@ -4,7 +4,7 @@ from bndl.compute.dataset.tests import DatasetTest
 class ZipTest(DatasetTest):
 
     def test_zip(self):
-        a = self.ctx.range(1000)
-        b = a.map(str)
-        self.assertEqual(a.zip(b).collect(),
+        left = self.ctx.range(1000)
+        right = left.map(str)
+        self.assertEqual(left.zip(right).collect(),
                          list(zip(range(1000), map(str, range(1000)))))

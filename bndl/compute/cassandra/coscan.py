@@ -1,10 +1,12 @@
-from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
+from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
 import logging
 
 from bndl.compute.cassandra.session import cassandra_session
+from bndl.compute.dataset.zip import ZippedDataset, ZippedPartition
 from bndl.util.funcs import identity
-from bndl.compute.dataset.zip import ZippedDataset
+from bndl.compute.cassandra.partitioner import estimate_size, SizeEstimate
+from bndl.compute.cassandra import partitioner
 
 
 logger = logging.getLogger(__name__)
@@ -32,23 +34,38 @@ class CassandraCoScanDataset(ZippedDataset):
 
             if not keys:
                 primary_key_length = len(tbl_metas[0].primary_key)
-                for m in tbl_metas[1:]:
-                    assert len(m.primary_key) == primary_key_length, "can't co-scan without key over tables with varying primary key column count"
-                self.keyfuncs = [lambda row: tuple(row[i] for i in range(primary_key_length))] * len(scans)
-                self.grouptransforms = [lambda group: group[0] if group else None] * len(scans)
+                for tbl_meta in tbl_metas[1:]:
+                    assert len(tbl_meta.primary_key) == primary_key_length, \
+                        "can't co-scan without keys with varying primary key length"
+
+                def keyfunc(row):
+                    return tuple(row[i] for i in range(primary_key_length))
+                self.keyfuncs = [keyfunc] * len(scans)
+
+                def grouptransform(group):
+                    return group[0] if group else None
+                self.grouptransforms = [grouptransform] * len(scans)
+
             else:
-                assert len(keys) == len(scans), "provide a key for each table scanned or none at all"
+                assert len(keys) == len(scans), \
+                    "provide a key for each table scanned or none at all"
+
                 self.keyfuncs = []
                 self.grouptransforms = []
                 for key, scan, tbl_meta in zip(keys, scans, tbl_metas):
                     if isinstance(key, str):
                         key = (key,)
-
                     keylen = len(key)
-                    assert len(tbl_meta.partition_key) <= keylen, "can't co-scan over a table keyed by part of the partition key"
-                    assert tuple(key) == tuple(c.name for c in tbl_meta.primary_key)[:keylen], "the key columns must be the first part (or all) of the primary key"
-                    assert scan._select == None or tuple(key) == tuple(scan._select)[:keylen], "select all columns or the primary key columns in the order as they are defined in the CQL schema"
-                    self.keyfuncs.append(lambda row: row[:keylen])
+
+                    assert len(tbl_meta.partition_key) <= keylen, \
+                        "can't co-scan over a table keyed by part of the partition key"
+                    assert tuple(key) == tuple(c.name for c in tbl_meta.primary_key)[:keylen], \
+                        "the key columns must be the first part (or all) of the primary key"
+                    assert scan._select is None or tuple(key) == tuple(scan._select)[:keylen], \
+                        "select all columns or the primary key columns in the order as they " \
+                        "are defined in the CQL schema"
+
+                    self.keyfuncs.append(lambda row, keylen=keylen: row[:keylen])
                     if keylen == len(tbl_meta.primary_key):
                         self.grouptransforms.append(lambda group: group[0] if group else None)
                     else:
@@ -78,3 +95,26 @@ class CassandraCoScanDataset(ZippedDataset):
             for idx, (group, transform) in enumerate(zip(groups, self.grouptransforms)):
                 groups[idx] = transform(group)
             yield key, groups
+
+
+    def parts(self):
+        from bndl.compute.cassandra.dataset import CassandraScanPartition
+
+        with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
+            size_estimates = sum((estimate_size(session, self.keyspace, src.table) for src in self.src),
+                                 SizeEstimate(0, 0, 0))
+
+            partitions = partitioner.partition_ranges(session, self.keyspace, size_estimates=size_estimates,
+                                                      min_pcount=self.ctx.default_pcount)
+
+            return [
+                CassandraParallelScanDataset(self, idx, [CassandraScanPartition(scan, idx, replicas, token_ranges)
+                                                         for scan in self.src])
+                for idx, (replicas, token_ranges) in enumerate(partitions)
+            ]
+
+
+
+class CassandraParallelScanDataset(ZippedPartition):
+    def preferred_workers(self, workers):
+        return self.children[0].preferred_workers(workers)

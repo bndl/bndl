@@ -1,8 +1,7 @@
 from flask.blueprints import Blueprint
 from flask.templating import render_template
+
 from bndl import dash
-import flask
-import traceback
 
 
 blueprint = Blueprint('cassandra', __name__,

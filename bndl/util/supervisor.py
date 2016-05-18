@@ -9,10 +9,10 @@ from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
 
 
-def entry_point(s):
+def entry_point(string):
     try:
-        module, main = s.split(':')
-        return module, main
+        module, main_method = string.split(':')
+        return module, main_method
     except:
         raise ValueError()
 
@@ -26,11 +26,11 @@ def split_args():
     args = []
 
     idx = -1
-    for idx, v in enumerate(sys.argv[1:]):
-        if v == '--':
+    for idx, val in enumerate(sys.argv[1:]):
+        if val == '--':
             break
         else:
-            args.append(v)
+            args.append(val)
 
     sys.argv = sys.argv[:1] + sys.argv[idx + 2:]
 
@@ -46,18 +46,14 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        # print('connected with process')
 
     def connection_lost(self, exc):
         print('connection lost, reason:', exc)
-        ...
 
     def process_exited(self):
         pid = self.transport.get_pid()
         returncode = self.transport.get_returncode()
         print('process', pid, 'exited with return code', returncode)
-
-        ...
 
     def pipe_data_received(self, fd, data):
         pid = self.transport.get_pid()
@@ -78,12 +74,12 @@ class Supervisor(object):
 
     @asyncio.coroutine
     def start(self):
-        for i in range(self.process_count):
-            yield from self._start(i)
+        for _ in range(self.process_count):
+            yield from self._start()
 
 
     @asyncio.coroutine
-    def _start(self, i):
+    def _start(self):
         script = 'import {mod} ; {mod}.{main}()'.format(mod=self.module, main=self.main)
         args = [sys.executable, '-c', script, ] + self.args
 
@@ -111,7 +107,7 @@ class Supervisor(object):
 
     @asyncio.coroutine
     def stop(self):
-        for transport, protocol in self.subprocesses:  # @UnusedVariable
+        for transport, _ in self.subprocesses:  # @UnusedVariable
             transport.close()
 
 
@@ -132,4 +128,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

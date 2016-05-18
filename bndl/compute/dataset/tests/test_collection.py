@@ -13,9 +13,9 @@ class CollectionTest(DatasetTest):
 
 
     def test_generator(self):
-        g = self.ctx.collection(c for c in string.ascii_lowercase)
-        self.assertEqual(g.count(), 26)
-        self.assertEqual(g.count(), 26)
+        gen = self.ctx.collection(c for c in string.ascii_lowercase)
+        self.assertEqual(gen.count(), 26)
+        self.assertEqual(gen.count(), 26)
 
 
     def test_sizing(self):
@@ -25,17 +25,13 @@ class CollectionTest(DatasetTest):
             self.ctx.collection(string.ascii_lowercase, psize=0)
         with self.assertRaises(ValueError):
             self.ctx.collection(string.ascii_lowercase, pcount=1, psize=1)
-        self.assertEqual(
-            self.ctx
-                .collection([1, 2, 3, 4], psize=2)
-                .map_partitions_with_index(lambda idx, iterator: [idx])
-                .collect(),
-            [0, 1]
-        )
-        self.assertEqual(
-            self.ctx
-                .collection([1, 2, 3, 4, 5, 6], pcount=3)
-                .map_partitions_with_index(lambda idx, iterator: [idx])
-                .collect(),
-            [0, 1, 2]
-        )
+
+        p_indices = self.ctx.collection([1, 2, 3, 4], psize=2) \
+                            .map_partitions_with_index(lambda idx, iterator: [idx]) \
+                            .collect()
+        self.assertEqual(p_indices, [0, 1])
+
+        p_indices = self.ctx.collection([1, 2, 3, 4, 5, 6], pcount=3) \
+                            .map_partitions_with_index(lambda idx, iterator: [idx]) \
+                            .collect()
+        self.assertEqual(p_indices, [0, 1, 2])

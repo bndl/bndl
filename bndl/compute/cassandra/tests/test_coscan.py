@@ -27,7 +27,9 @@ class PrimaryKeyCoScanTest(CassandraTest):
                 session.execute('truncate {keyspace}.{table};'.format(keyspace=self.keyspace, table=table))
 
         for postfix, table in zip(self.postfixes, self.tables):
-            self.ctx.range(20).map(lambda i: dict(key=str(i % 10), cluster=str(i), val='%s-%s' % (postfix, i))).cassandra_save(self.keyspace, table).execute()
+            def create_row(i, postfix=postfix):
+                return dict(key=str(i % 10), cluster=str(i), val='%s-%s' % (postfix, i))
+            self.ctx.range(20).map(create_row).cassandra_save(self.keyspace, table).execute()
 
 
     def test_read(self):
@@ -81,18 +83,22 @@ class PartitionKeyCoScanTest(CassandraTest):
 
     def setUp(self):
         super().setUp()
+
         with self.ctx.cassandra_session() as session:
             for table in self.tables:
                 session.execute('truncate {keyspace}.{table};'.format(keyspace=self.keyspace, table=table))
 
-        self.ctx.range(10).map(lambda i: dict(pk=str(i), val='%s-%s' % ('a', i))).cassandra_save(self.keyspace, self.tables[0]).execute()
-        self.ctx.range(20).map(lambda i: dict(key=str(i % 10), cluster=str(i), val='%s-%s' % ('b', i))).cassandra_save(self.keyspace, self.tables[1]).execute()
+        self.ctx.range(10).map(lambda i: dict(pk=str(i), val='%s-%s' % ('a', i))) \
+            .cassandra_save(self.keyspace, self.tables[0]).execute()
+
+        self.ctx.range(20).map(lambda i: dict(key=str(i % 10), cluster=str(i), val='%s-%s' % ('b', i))) \
+            .cassandra_save(self.keyspace, self.tables[1]).execute()
 
 
     def test_read(self):
-        a = self.ctx.cassandra_table(self.keyspace, self.tables[0])
-        b = self.ctx.cassandra_table(self.keyspace, self.tables[1])
-        dset = a.coscan(b, keys=('pk', 'key'))
+        left = self.ctx.cassandra_table(self.keyspace, self.tables[0])
+        right = self.ctx.cassandra_table(self.keyspace, self.tables[1])
+        dset = left.coscan(right, keys=('pk', 'key'))
 
         grouped = dset.collect()
         self.assertEqual(len(grouped), 10)
@@ -109,4 +115,3 @@ class PartitionKeyCoScanTest(CassandraTest):
             clusters = sorted(int(column.cluster) for column in group[1])
             self.assertEqual(clusters, [int(key[0]), int(key[0]) + 10])
         self.assertEqual(sorted(keys), [(str(i),) for i in range(10)])
-

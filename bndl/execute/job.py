@@ -93,7 +93,7 @@ class Stage(Lifecycle):
         to_yield = to_schedule[:]
         task_counts = Counter()
 
-        def task_done(worker, task):
+        def task_done(worker):
             workers_available.release()
             try:
                 occupied.remove(worker)
@@ -104,12 +104,13 @@ class Stage(Lifecycle):
             occupied.add(worker)
             task_counts[worker.name] += 1
             future = task.execute(worker)
-            future.add_done_callback(lambda future: task_done(worker, task))
+            future.add_done_callback(lambda future: task_done(worker))
 
         while to_yield:
             if to_schedule:
                 workers_available.acquire()
                 task = to_schedule.pop()
+                worker = None
                 for worker in chain.from_iterable((task.preferred_workers or (), task.allowed_workers or workers)):
                     if worker not in occupied:
                         break

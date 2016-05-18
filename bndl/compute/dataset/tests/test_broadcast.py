@@ -1,9 +1,8 @@
+import numpy as np
+import pickle
 import string
 
 from bndl.compute.dataset.tests import DatasetTest
-import numpy as np
-import pickle
-from functools import partial
 
 
 class BroadcastTest(DatasetTest):
@@ -57,7 +56,7 @@ class BroadcastTest(DatasetTest):
             self.ctx.range(1).map(lambda i: one.value).collect()
 
     def test_pickled(self):
-        l = list(range(1000 * 1000))
-        pickled = pickle.dumps(l)
+        lst = list(range(1000 * 1000))
+        pickled = pickle.dumps(lst)
         bc_list = self.ctx.broadcast_pickled(pickled)
-        self.assertEqual(self.ctx.range(len(l)).map(lambda i: bc_list.value[i]).collect(), l)
+        self.assertEqual(self.ctx.range(len(lst)).map(lambda i: bc_list.value[i]).collect(), lst)

@@ -6,9 +6,9 @@ from bndl.util.collection import batch
 
 
 class DistributedCollection(Dataset):
-    def __init__(self, ctx, c, pcount=None, psize=None):
+    def __init__(self, ctx, collection, pcount=None, psize=None):
         super().__init__(ctx)
-        self._c = c
+        self.collection = collection
 
         if pcount is not None and pcount <= 0:
             raise ValueError('pcount must be None or > 0')
@@ -29,7 +29,7 @@ class DistributedCollection(Dataset):
         if self.psize:
             parts = [
                 IterablePartition(self, i, list(b))
-                for i, b in enumerate(batch(self._c, self.psize))
+                for i, b in enumerate(batch(self.collection, self.psize))
             ]
             self.pcount = len(parts)
             return parts
@@ -41,21 +41,23 @@ class DistributedCollection(Dataset):
             else:
                 pcount = self.pcount
 
-            c = self._c
-            if not isinstance(c, Sized):
-                self._c = c = list(c)
-            step = max(1, ceil(len(c) / pcount))
+            if not isinstance(self.collection, Sized):
+                self.collection = list(self.collection)
+
+            step = max(1, ceil(len(self.collection) / pcount))
             slices = (
-                (idx, c[idx * step: (idx + 1) * step])
+                (idx, self.collection[idx * step: (idx + 1) * step])
                 for idx in range(pcount)
             )
+
             return [
                 IterablePartition(self, idx, slice)
                 for idx, slice in slices  # @ReservedAssignment
                 if len(slice)
             ]
 
+
     def __getstate__(self):
         state = dict(self.__dict__)
-        del state['_c']
+        del state['collection']
         return state

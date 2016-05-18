@@ -20,21 +20,23 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
         if os.path.isfile(name) and (not ffilter or ffilter(name)):
             yield name
         elif recursive:
-            for directory, _, filenames in os.walk(name):
+            for directory, _, fnames in os.walk(name):
                 if not dfilter or dfilter(directory):
-                    for filename in filenames:
-                        filepath = os.path.join(directory, filename)
-                        if not ffilter or ffilter(filepath):
-                            yield filepath
+                    for fname in fnames:
+                        fpath = os.path.join(directory, fname)
+                        if not ffilter or ffilter(fpath):
+                            yield fpath
         else:
-            for filename in os.listdir(name):
-                filepath = os.path.join(name, filename)
-                if os.path.isfile(filepath) and (not ffilter or ffilter(filepath)):
-                    yield filepath
+            for fname in os.listdir(name):
+                fpath = os.path.join(name, fname)
+                if os.path.isfile(fpath) and (not ffilter or ffilter(fpath)):
+                    yield fpath
+
 
 def listdirabs(path):
     return (os.path.join(path, fname) for fname in os.listdir(path))
 
+
 def read_file(filename, mode='rb'):
-    with open(filename, mode) as f:
-        return f.read()
+    with open(filename, mode) as file:
+        return file.read()

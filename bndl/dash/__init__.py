@@ -1,15 +1,16 @@
 from collections import OrderedDict
+from datetime import datetime, timedelta
 import errno
 from functools import lru_cache
 import logging
 import threading
 
-from bndl.dash import status
 from flask import Flask
 import flask
 from flask.templating import render_template
 from werkzeug.utils import import_string
-from datetime import datetime, timedelta
+
+from bndl.dash import status
 
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ class Dash(object):
 class StatusPanel(object):
     status = status.OK
 
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, application):
+        self.app = application
 
     def render(self):
         return ''
@@ -37,6 +38,8 @@ app.config.from_object('bndl.dash.settings')
 
 
 dashes = OrderedDict()
+
+
 def _load_dashes():
     for key, dash in app.config['BNDL_DASHES']:
         dash = import_string(dash)
@@ -51,9 +54,9 @@ def _load_dashes():
 @lru_cache()
 def _status_panels():
     panels = OrderedDict()
-    for key, d in dashes.items():
-        if d.status_panel_cls:
-            panels[key] = d.status_panel_cls(app)
+    for key, dash in dashes.items():
+        if dash.status_panel_cls:
+            panels[key] = dash.status_panel_cls(app)
     return panels
 
 
@@ -72,20 +75,20 @@ def filtercount(seq, attr):
 def now():
     return datetime.now()
 
+
 @app.template_filter('fmt_timedelta')
-def fmt_timedelta(td):
-    if not td:
+def fmt_timedelta(tdelta):
+    if not tdelta:
         return ''
-    parts = str(td).split('.')
-    if td < timedelta(seconds=0.01):
+    parts = str(tdelta).split('.')
+    if tdelta < timedelta(seconds=0.01):
         return parts[1].strip('0') + ' µs'
-    elif td < timedelta(seconds=1):
+    elif tdelta < timedelta(seconds=1):
         return parts[1][:3].strip('0') + ' ms'
-    elif td < timedelta(seconds=10):
+    elif tdelta < timedelta(seconds=10):
         return parts[0][-1] + '.' + parts[1][:2] + ' s'
     else:
         return parts[0]
-
 
 
 def run(node=None, ctx=None):
@@ -107,7 +110,6 @@ def _run():
             app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
             print('running dash on', port)
             break
-        except OSError as e:
-            if e.errno != errno.EADDRINUSE:
-                raise e
-
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise exc

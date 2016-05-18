@@ -1,8 +1,6 @@
-import sys
 import unittest
-from bndl.util.log import configure_console_logging
+
 from bndl.compute.driver import main
-import time
 
 
 class DatasetTest(unittest.TestCase):

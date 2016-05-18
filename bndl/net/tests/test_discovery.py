@@ -1,7 +1,7 @@
 from bndl.net.tests import NetTest
 
 
-class DiscoveryTestBase(object):
+class DiscoveryTestMixin:
     def test_discovery(self):
         for node in self.nodes:
             for peer in node.peers.values():
@@ -9,12 +9,12 @@ class DiscoveryTestBase(object):
             self.assertEqual(len(node.peers), self.node_count - 1)
 
 
-class DiscoveryTest(DiscoveryTestBase, NetTest):
+class DiscoveryTest(NetTest, DiscoveryTestMixin):
     def test_discovery(self):
         super().test_discovery()
 
 
-class JustTwoTest(DiscoveryTestBase, NetTest):
+class JustTwoTest(NetTest, DiscoveryTestMixin):
     node_count = 2
 
     def test_discovery(self):

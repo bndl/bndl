@@ -30,12 +30,12 @@ class ExecutionContext(Lifecycle):
         # TODO what if not everything is consumed?
         assert self.running, 'context is not running'
         if not workers or not self.workers:
-            self._await_workers()
+            self.await_workers()
         workers = workers or self.workers[:]
 
         try:
-            for l in self.listeners:
-                job.add_listener(l)
+            for listener in self.listeners:
+                job.add_listener(listener)
 
             self.jobs.append(job)
             execution = job.execute(workers=workers, eager=eager)
@@ -44,18 +44,18 @@ class ExecutionContext(Lifecycle):
                     if stage == job.stages[-1]:
                         yield result
         finally:
-            for l in self.listeners:
-                job.remove_listener(l)
+            for listener in self.listeners:
+                job.remove_listener(listener)
 
 
-    def _await_workers(self, connect_timeout=5, stable_timeout=60):
+    def await_workers(self, connect_timeout=5, stable_timeout=60):
         '''
-        _await_workers waits for workers to be available. If not in
+        await_workers waits for workers to be available. If not in
         connect_timeout a RuntimeError is raised. Once a worker is found, at
         most stable_timeout seconds will be waited for the cluster to settle.
         That is, until no new workers are discovered / the worker count is
         stable.
-        
+
         :param connect_timeout: int or float
             Maximum time in seconds waited until the first worker is discovered.
         :param stable_timeout: int or float
@@ -102,4 +102,3 @@ class ExecutionContext(Lifecycle):
         for attr in ('_driver', '_node', 'jobs'):
             state.pop(attr, None)
         return state
-

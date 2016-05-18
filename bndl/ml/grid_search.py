@@ -7,6 +7,32 @@ from sklearn.utils.validation import _num_samples, indexable
 import numpy as np
 
 
+def _reduce_scores(n_folds, iid, scores):
+    grid_scores = []
+
+    for parameters, fold_scores in scores:
+        n_test_samples = 0
+        score = 0
+        all_scores = []
+        for this_score, this_n_test_samples, _ in fold_scores:
+            all_scores.append(this_score)
+            if iid:
+                this_score *= this_n_test_samples
+                n_test_samples += this_n_test_samples
+            score += this_score
+        if iid:
+            score /= float(n_test_samples)
+        else:
+            score /= float(n_folds)
+
+        grid_scores.append(_CVScoreTuple(
+            parameters,
+            score,
+            np.array(all_scores)))
+
+    return grid_scores
+
+
 class GridSearchCV(SKGridSearchCV):
     def __init__(self, ctx, estimator, param_grid, scoring=None, fit_params=None,
                  iid=True, refit=True, cv=None, error_score='raise'):
@@ -23,15 +49,13 @@ class GridSearchCV(SKGridSearchCV):
         n_samples = _num_samples(X)
         X, y = indexable(X, y)
 
-        if y is not None:
-            if len(y) != n_samples:
-                raise ValueError('Target variable (y) has a different number '
-                                 'of samples (%i) than data (X: %i samples)'
-                                 % (len(y), n_samples))
+        if y is not None and len(y) != n_samples:
+            raise ValueError('Target variable (y) has a different number '
+                             'of samples (%i) than data (X: %i samples)'
+                             % (len(y), n_samples))
 
         base_estimator = clone(self.estimator)
         cv = check_cv(self.cv, X, y, classifier=is_classifier(estimator))
-        n_folds = len(cv)
 
         Xycv = self.ctx.broadcast((X, y, cv))
 
@@ -39,37 +63,19 @@ class GridSearchCV(SKGridSearchCV):
             def fit_and_score(parameters):
                 X, y, cv = Xycv.value
                 return parameters, [_fit_and_score(clone(base_estimator), X, y, self.scorer_,
-                                        train, test, self.verbose, parameters,
-                                        self.fit_params, error_score=self.error_score)
+                                    train, test, self.verbose, parameters,
+                                    self.fit_params, error_score=self.error_score)
                                     for train, test in cv]
 
-            scores = self.ctx.collection(parameter_iterable, pcount=len(parameter_iterable)).map(fit_and_score).collect()
+            runs = self.ctx.collection(parameter_iterable,
+                                       pcount=self.ctx.default_pcount * 2)
+            scores = runs.map(fit_and_score).collect()
         finally:
             Xycv.unpersist()
 
-        grid_scores = []
-
-        for parameters, fold_scores in scores:
-            n_test_samples = 0
-            score = 0
-            all_scores = []
-            for this_score, this_n_test_samples, _ in fold_scores:
-                all_scores.append(this_score)
-                if self.iid:
-                    this_score *= this_n_test_samples
-                    n_test_samples += this_n_test_samples
-                score += this_score
-            if self.iid:
-                score /= float(n_test_samples)
-            else:
-                score /= float(n_folds)
-
-            grid_scores.append(_CVScoreTuple(
-                parameters,
-                score,
-                np.array(all_scores)))
-
+        grid_scores = _reduce_scores(len(cv), self.iid, scores)
         self.grid_scores_ = grid_scores
+
         best = sorted(grid_scores, key=lambda x: x.mean_validation_score,
                       reverse=True)[0]
         self.best_params_ = best.parameters

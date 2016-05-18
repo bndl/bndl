@@ -1,9 +1,9 @@
 import collections
+from functools import partial
 import logging
+import traceback
 
 from bndl.execute.job import Job, Stage, Task
-from functools import partial
-import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def schedule_job(dset, workers=None):
     ctx = dset.ctx
     assert ctx.running, 'context of dataset is not running'
 
-    ctx._await_workers()
+    ctx.await_workers()
     workers = ctx.workers[:]
 
     job = Job(ctx, *_job_calling_info())
@@ -42,8 +42,8 @@ def schedule_job(dset, workers=None):
                 for task in branch.stages[-1].tasks:
                     task.args[1] = False
 
-                for l in branch.listeners:
-                    job.add_listener(l)
+                for listener in branch.listeners:
+                    job.add_listener(listener)
 
                 if dset.sync_required:
                     branch_stages = branch.stages
@@ -52,7 +52,6 @@ def schedule_job(dset, workers=None):
                 else:
                     continue
 
-                # branch_stages[-1].next_stage = job.stages[-1]
                 for stage in reversed(branch_stages):
                     stage.job = job
                     stage.is_last = False
@@ -61,7 +60,7 @@ def schedule_job(dset, workers=None):
             break
 
         elif dset.sync_required:
-            stage = stage.prev_stage = Stage(None, job)  # , next_stage=stage)
+            stage = stage.prev_stage = Stage(None, job)
             schedule_stage(stage, workers, dset)
             job.stages.insert(0, stage)
 
@@ -85,7 +84,7 @@ def _job_calling_info():
         if 'bndl/' in file and func[0] != '_':
             name = func
         desc = file, lineno, func, text
-        if not 'bndl/' in file:
+        if 'bndl/' not in file:
             break
     return name, desc
 
@@ -94,14 +93,14 @@ def _job_calling_info():
 def schedule_stage(stage, workers, dset):
     '''
     Schedule a stage for a data set.
-    
+
     It is assumed that all source data sets (and their parts) are materialized when
     this data set is materialized. (i.e. parts call materialize on their sources,
     if any).
-    
+
     Also it is assumed that stages are scheduled backwards. Specifically if
     stage.is_last when this function is called it will remain that way ...
-    
+
     :param stage: Stage
         stage to add tasks to
     :param workers: list or set
@@ -140,7 +139,9 @@ def materialize_partition(worker, part, return_data):
             # missed? or b) materializing data into a list is a bad (wrong
             # result, waste of resources, etc.)? numpy arrays are not wrongly
             # cast to a list through this. That's something ...
-            if isinstance(data, collections.Iterable) and (not isinstance(data, collections.Sized) or isinstance(data, type({}.items()))):
+            if (isinstance(data, collections.Iterable) and
+                (not isinstance(data, collections.Sized) or
+                 isinstance(data, type({}.items())))):
                 return list(data)
             else:
                 return data

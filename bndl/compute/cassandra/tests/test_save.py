@@ -16,7 +16,8 @@ class SaveTest(CassandraTest):
         self.assertEqual(saved, self.num_rows)
         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=True), self.num_rows)
 
-        rows = self.ctx.cassandra_table(self.keyspace, self.table).select('key', 'cluster', 'varint_val').as_dicts().collect()
+        rows = self.ctx.cassandra_table(self.keyspace, self.table) \
+                   .select('key', 'cluster', 'varint_val').as_dicts().collect()
         self.assertEqual(len(rows), len(dset.collect()))
         self.assertEqual(sorted(rows, key=lambda row: int(row['key'])), dset.collect())
 
@@ -32,6 +33,7 @@ class SaveTest(CassandraTest):
         self.assertEqual(saved, self.num_rows)
         self.assertEqual(self.ctx.cassandra_table(self.keyspace, self.table).count(push_down=True), self.num_rows)
 
-        rows = self.ctx.cassandra_table(self.keyspace, self.table).select('key', 'cluster', 'varint_val').as_tuples().collect()
+        rows = self.ctx.cassandra_table(self.keyspace, self.table) \
+                       .select('key', 'cluster', 'varint_val').as_tuples().collect()
         self.assertEqual(len(rows), len(dset.collect()))
         self.assertEqual(sorted(rows, key=lambda row: int(row[0])), dset.collect())

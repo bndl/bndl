@@ -1,7 +1,9 @@
 # from https://docs.python.org/3/library/datetime.html
 from datetime import timedelta, tzinfo, date, datetime
 
+
 ZERO_TIME = timedelta(0)
+
 
 class UTC(tzinfo):
     def utcoffset(self, dt):
@@ -18,8 +20,6 @@ class UTC(tzinfo):
 
     def __repr__(self):
         return self.__class__.__name__
-
-utc = UTC()
 
 
 def ms_timestamp(value):

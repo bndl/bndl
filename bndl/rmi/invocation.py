@@ -61,8 +61,11 @@ class Invocation(object):
                 pass
 
         if response.exception:
-            exc_class, exc, tb = response.exception
-            source = Exception('%s: %s\n---\n%s' % (exc_class.__name__, str(exc), ''.join(traceback.format_list(tb))))
-            raise InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__)) from source
+            exc_class, exc, tback = response.exception
+            source = Exception('%s: %s\n---\n%s' % (exc_class.__name__,
+                                                    str(exc),
+                                                    ''.join(traceback.format_list(tback))))
+            iexc = InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__))
+            raise iexc from source
         else:
             return response.value

@@ -1,18 +1,15 @@
-from bndl.util.cython import try_pyximport_install ; try_pyximport_install()
-
 import collections
 import marshal
 import pickle
 import sys
 import types
 
-from . import cycloudpickle as cloudpickle
-
-
 try:
-    from bndl.util.marshalable import marshalable
-except ImportError as e:
-    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from e
+    from bndl.util.cython import try_pyximport_install; try_pyximport_install()
+    from . import cycloudpickle as cloudpickle
+    from .marshalable import marshalable
+except ImportError as exc:
+    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from exc
 
 
 def dumps(obj):
@@ -34,22 +31,20 @@ def loads(marshalled, msg):
         return pickle.loads(msg)
 
 
-
 # Hook namedtuple, make it picklable
 # From https://github.com/apache/spark/blob/d6dc12ef0146ae409834c78737c116050961f350/python/pyspark/serializers.py
 
 
-
-__cls = {}
+_CLS_CACHE = {}
 
 
 def _restore(name, fields, value):
     """ Restore an object of namedtuple"""
-    k = (name, fields)
-    cls = __cls.get(k)
+    key = (name, fields)
+    cls = _CLS_CACHE.get(key)
     if cls is None:
         cls = collections.namedtuple(name, fields)
-        __cls[k] = cls
+        _CLS_CACHE[key] = cls
     return cls(*value)
 
 
@@ -73,9 +68,9 @@ def _hijack_namedtuple():
 
     global _old_namedtuple  # or it will put in closure
 
-    def _copy_func(f):
-        return types.FunctionType(f.__code__, f.__globals__, f.__name__,
-                                  f.__defaults__, f.__closure__)
+    def _copy_func(func):
+        return types.FunctionType(func.__code__, func.__globals__, func.__name__,
+                                  func.__defaults__, func.__closure__)
 
     _old_namedtuple = _copy_func(collections.namedtuple)
 
@@ -83,7 +78,7 @@ def _hijack_namedtuple():
         cls = _old_namedtuple(*args, **kwargs)
         return _hack_namedtuple(cls)
 
-#     # replace namedtuple with new one
+    # replace namedtuple with new one
     collections.namedtuple.__globals__["_old_namedtuple"] = _old_namedtuple  # @UndefinedVariable
     collections.namedtuple.__globals__["_hack_namedtuple"] = _hack_namedtuple  # @UndefinedVariable
     collections.namedtuple.__code__ = namedtuple.__code__
@@ -93,9 +88,10 @@ def _hijack_namedtuple():
     # those created in other module can be pickled as normal,
     # so only hack those in __main__ module
     for o in sys.modules["__main__"].__dict__.values():
-        if (type(o) is type and o.__base__ is tuple
-                and hasattr(o, "_fields")
-                and "__reduce__" not in o.__dict__):
+        if (type(o) is type and o.__base__ is tuple and
+                hasattr(o, "_fields") and
+                "__reduce__" not in o.__dict__):
             _hack_namedtuple(o)  # hack inplace
+
 
 _hijack_namedtuple()

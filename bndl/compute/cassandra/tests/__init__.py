@@ -1,6 +1,4 @@
-from bndl.compute import cassandra  # @UnusedImport
 from bndl.compute.dataset.tests import DatasetTest
-import socket
 
 
 class CassandraTest(DatasetTest):
@@ -12,7 +10,7 @@ class CassandraTest(DatasetTest):
         super().setUpClass()
         with cls.ctx.cassandra_session() as session:
             session.execute('''
-                create keyspace if not exists {keyspace} 
+                create keyspace if not exists {keyspace}
                 with replication = {{
                     'class': 'SimpleStrategy',
                     'replication_factor': '3'

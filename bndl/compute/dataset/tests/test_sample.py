@@ -1,5 +1,6 @@
-from bndl.compute.dataset.tests import DatasetTest
 from statistics import mean
+
+from bndl.compute.dataset.tests import DatasetTest
 
 
 class SampleTest(DatasetTest):

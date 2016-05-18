@@ -30,7 +30,7 @@ class Worker(ExecutionWorker):
         except KeyError:
             return ()
 
-    def clear_bucket(self, src, dset_id, part_idx=None, local=False):
+    def clear_bucket(self, src, dset_id, part_idx=None):
         try:
             if part_idx is not None:
                 del self.buckets.get(dset_id, {})[part_idx]

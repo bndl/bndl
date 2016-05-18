@@ -1,23 +1,25 @@
 from collections import Sequence
 import contextlib
 from functools import lru_cache, partial
+import queue
 from threading import Lock
 
 from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy
-import queue
 
 
-_prepare_lock = Lock()
+_PREPARE_LOCK = Lock()
+
 
 @lru_cache()
 def _prepare(self, query, custom_payload=None):
     return Session.prepare(self, query, custom_payload)
 
+
 def prepare(self, query, custom_payload=None):
-    with _prepare_lock:
+    with _PREPARE_LOCK:
         return _prepare(self, query, custom_payload)
 
 
@@ -25,6 +27,7 @@ def get_contact_points(ctx, contact_points):
     if isinstance(contact_points, str):
         contact_points = (contact_points,)
     return _get_contact_points(ctx, *(contact_points or ()))
+
 
 @lru_cache()
 def _get_contact_points(ctx, *contact_points):
@@ -62,10 +65,13 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
             return session
+
         def check(session):
             '''check if the session is not closed'''
             return not session.is_shutdown
+
         pools[contact_points] = pool = ObjectPool(create, check, max_size=4)
+
     # take a session from the pool, yield it to the caller
     # and put the session back in the pool
     session = pool.get()

@@ -1,8 +1,8 @@
-from bndl.compute.dataset.tests import DatasetTest
-from operator import add
-from bndl.util import strings
-import re
 from collections import Counter
+from operator import add
+
+from bndl.compute.dataset.tests import DatasetTest
+from bndl.util import strings
 
 
 class ReduceByKeyTest(DatasetTest):
@@ -11,6 +11,6 @@ class ReduceByKeyTest(DatasetTest):
         counts = Counter(words)
         dset = self.ctx.collection(words, pcount=4).with_value(1).reduce_by_key(add)
         self.assertEqual(dset.count(), len(counts))
-        for w, c in dset.collect():
-            self.assertTrue(w in counts)
-            self.assertEqual(c, counts[w])
+        for word, count in dset.collect():
+            self.assertTrue(word in counts)
+            self.assertEqual(count, counts[word])
