@@ -47,7 +47,8 @@ Don't skip job ids for branches
 
 wait for gossip to settle before starting a node / the shell
  - e.g. with ctx.worker_count
-   and/or sum(t.result() for t in [w.run_task(lambda w: sum(1 for w in w.peers.values() if w.is_connected)) for w in ctx.workers])
+   and/or sum(t.result() for t in [w.run_task(lambda w: sum(1 for w in w.peers.filter())) for w in ctx.workers])
+ - or perhaps show this as measure in the dashboard?   
 
 
 move caches, broadcast values etc down to execute layer
