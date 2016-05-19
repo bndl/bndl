@@ -11,6 +11,7 @@ from flask.templating import render_template
 from werkzeug.utils import import_string
 
 from bndl.dash import status
+import math
 
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,10 @@ def fmt_timedelta(tdelta):
     if not tdelta:
         return ''
     elif isinstance(tdelta, (int, float)):
-        tdelta = timedelta(seconds=tdelta)
+        if math.isnan(tdelta):
+            return 'NaN'
+        else:
+            tdelta = timedelta(seconds=tdelta)
     parts = str(tdelta).split('.')
     if tdelta < timedelta(seconds=0.01):
         return parts[1].strip('0') + ' µs'
