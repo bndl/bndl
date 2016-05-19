@@ -1,11 +1,12 @@
+from datetime import datetime
 import asyncio
+import errno
 import logging
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util.exceptions import catch
-from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,10 @@ class PeerNode(object):
                 self.disconnect(reason='connection cancelled')
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
                 logger.info('%s %s', type(exc).__name__, url)
+                self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
+            except OSError as exc:
+                logger.info('unable to connect with %s on %s', url, self.conn,
+                            exc_info=bool(exc.errno in (errno.ECONNREFUSED, errno.ECONNRESET)))
                 self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except TimeoutError:
                 logger.warning('hello not received in time from %s on %s', url, self.conn)
