@@ -1111,6 +1111,7 @@ class TransformingDataset(Dataset):
     def __init__(self, ctx, src, transformation):
         super().__init__(ctx, src)
         self.transformation = transformation
+        self._transformation = cycloudpickle.dumps(self.transformation)  # @UndefinedVariable
 
     def parts(self):
         return [
@@ -1120,12 +1121,12 @@ class TransformingDataset(Dataset):
 
     def __getstate__(self):
         state = copy.copy(self.__dict__)
-        state['transformation'] = cycloudpickle.dumps(self.transformation)  # @UndefinedVariable
+        del state['transformation']
         return state
 
     def __setstate__(self, state):
-        self.transformation = cycloudpickle.loads(state.pop('transformation'))  # @UndefinedVariable
         self.__dict__.update(state)
+        self.transformation = cycloudpickle.loads(self._transformation)  # @UndefinedVariable
 
 
 class TransformingPartition(Partition):
