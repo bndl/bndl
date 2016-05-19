@@ -6,7 +6,8 @@ import os
 import random
 import socket
 
-from bndl.net.connection import urlparse, Connection, filter_ip_addresses
+from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
+    gethostbyname, getlocalhostname
 from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
 from bndl.util.aio import get_loop
 from bndl.util.text import camel_to_snake
@@ -33,10 +34,10 @@ class Node(object):
             self.name += '.' + str(os.getpid())
             self.name += '.' + str(next(Node._nodeids))
         self.node_type = camel_to_snake(self.__class__.__name__)
-        self.servers = {
-            address: None for address in
-            (addresses or ['tcp://%s:%s' % (socket.getfqdn(), 5000)])
-        }
+        self.servers = {address: None for address in (addresses or ())}
+        if not self.servers:
+            self.servers = {'tcp://%s:%s' % (getlocalhostname(), 5000): None}
+
         # TODO ensure that if a seed can't be connected to, it is retried
         self.seeds = seeds or ()
         self.peers = PeerTable()

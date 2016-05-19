@@ -62,6 +62,19 @@ def gethostbyname(hostname):
     return socket.gethostbyname(hostname)
 
 
+@functools.lru_cache(maxsize=1)
+def getlocalhostname():
+    options = (socket.getfqdn, socket.gethostname, lambda: 'localhost')
+    for option in options:
+        try:
+            address = option()
+            gethostbyname(address)
+            return address
+        except:
+            pass
+    return '127.0.0.1'
+
+
 @functools.lru_cache(maxsize=1024)
 def filter_ip_addresses(*addresses):
     '''
