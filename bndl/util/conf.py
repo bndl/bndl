@@ -27,3 +27,13 @@ class Config(object):
     def get_attr(self, *args, obj, **kwargs):
         attr = self.get(*args, fmt=str, **kwargs)
         return getattr(obj, attr)
+
+    def __setitem__(self, key, value):
+        self.values[key] = value
+        return self
+
+    def __getitem__(self, key):
+        return self.values[key]
+
+    def __repr__(self):
+        return '<Conf %s>' % self.values
