@@ -61,85 +61,248 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def map(self, func):
+        '''
+        Transform elements in this dataset one by one.
+
+        :param func: callable(element)
+            applied to each element of the dataset
+        '''
         return self.map_partitions(partial(map, func))
 
     def starmap(self, func):
+        '''
+        Variadic form of map.
+
+        :param func: callable(element)
+            applied to each element of the dataset
+        '''
         return self.map_partitions(partial(map, lambda e: func(*e)))
 
 
     def pluck(self, ind, default=None):
+        '''
+        Pluck indices from each of the elements in this dataset.
+
+        :param ind: obj or list
+            The indices to pluck with.
+        :param default: obj
+            A default value.
+
+        For example::
+
+            >>> ctx.collection(['abc']*10).pluck(1).collect()
+            ['b', 'b', 'b', 'b', 'b', 'b', 'b', 'b', 'b', 'b']
+
+        '''
         kwargs = {'default': default} if default is not None else {}
         return self.map_partitions(lambda p: pluck(ind, p, **kwargs))
 
 
-    def flatmap(self, func=identity):
-        return self.map(func).map_partitions(lambda iterable: chain.from_iterable(iterable))
+    def flatmap(self, func=None):
+        '''
+        Transform the elements in this dataset into iterables and chain them
+        within each of the partitions.
+
+        :param func:
+            The transformation to apply. Defaults to none; i.e. consider the
+            elements in this the iterables to chain.
+
+        For example::
+
+            >>> ''.join(ctx.collection(['abc']*10).flatmap().collect())
+            'abcabcabcabcabcabcabcabcabcabc'
+
+        or::
+
+            >>> import string
+            >>> ''.join(ctx.range(5).flatmap(lambda i: string.ascii_lowercase[i-1]*i).collect())
+            'abbcccdddd'
+
+        '''
+        iterables = self.map(func) if func else self
+        return iterables.map_partitions(lambda iterable: chain.from_iterable(iterable))
 
 
     def map_partitions(self, func):
+        '''
+        Transform the partitions of this dataset.
+
+        :param func: callable(iterator)
+            The transformation to apply.
+        '''
         return self.map_partitions_with_part(lambda p, iterator: func(iterator))
 
 
     def map_partitions_with_index(self, func):
+        '''
+        Transform the partitions - with their index - of this dataset.
+
+        :param func: callable(index, iterator)
+            The transformation to apply on the partition index and the iterator
+            over the partition's elements.
+        '''
         return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
 
 
     def map_partitions_with_part(self, func):
+        '''
+        Transform the partitions - with the partition object as argument - of
+        this dataset.
+
+        :param func: callable(partition, iterator)
+            The transformation to apply on the partition object and the iterator
+            over the partition's elements.
+        '''
         return TransformingDataset(self.ctx, self, func)
 
 
     def filter(self, func=None):
+        '''
+        Filter out elements from this dataset
+
+        :param func: callable(element
+            The test function to filter this dataset with. An element is
+            retained in the dataset if the test is positive.
+        '''
         return self.map_partitions(partial(filter, func))
 
 
     def mask_partitions(self, mask):
+        '''
+        :warning: experimental, don't use
+        '''
         return MaskedDataset(self, mask)
 
 
     def key_by(self, key):
+        '''
+        Prepend the elements in this dataset with a key.
+
+        The resulting dataset will consist of K,V tuples.
+
+        :param key: callable(element)
+            The transformation of the element which, when applied, provides the
+            key value.
+
+        Example::
+
+            >>> import string
+            >>> ctx.range(5).key_by(lambda i: string.ascii_lowercase[i]).collect()
+            [('a', 0), ('b', 1), ('c', 2), ('d', 3), ('e', 4)]
+        '''
         return self.map(lambda e: (key(e), e))
 
+
     def with_value(self, val):
+        '''
+        Create a dataset of K,V tuples with the elements of this dataset as K
+        and V from the given value.
+
+        :param val: callable(element) or obj
+            If val is a callable, it will be applied to the elements of this
+            dataset and the return values will be the values. If val is a plain
+            object, it will be used as a constant value for each element.
+
+        Example::
+
+            >>> ctx.collection('abcdef').with_value(1).collect()
+            [('a', 1), ('b', 1), ('c', 1), ('d', 1), ('e', 1), ('f', 1)]
+        '''
         if not callable(val):
-            const = val
-
-            def val(*args):
-                return const
-
-        return self.map(lambda e: (e, val(e)))
+            return self.map(lambda e: (e, val))
+        else:
+            return self.map(lambda e: (e, val(e)))
 
 
     def keys(self):
+        '''
+        Pluck the keys from this dataset.
+
+        Example:
+
+            >>> ctx.collection([('a', 1), ('b', 2), ('c', 3)]).keys().collect()
+            ['a', 'b', 'c']
+        '''
         return self.pluck(0)
 
+
     def values(self):
+        '''
+        Pluck the values from this dataset.
+
+        Example:
+
+            >>> ctx.collection([('a', 1), ('b', 2), ('c', 3)]).keys().collect()
+            [1, 2, 3]
+        '''
         return self.pluck(1)
 
 
     def map_keys(self, func):
+        '''
+        Transform the keys of this dataset.
+
+        :param func: callable(key)
+            Transformation to apply to the keys
+        '''
         return self.map(lambda kv: (func(kv[0]), kv[1]))
 
     def map_values(self, func):
+        '''
+        Transform the values of this dataset.
+
+        :param func: callable(value)
+            Transformation to apply to the values
+        '''
         return self.map(lambda kv: (kv[0], func(kv[1])))
 
-    def flatmap_values(self, func):
+    def flatmap_values(self, func=None):
+        '''
+        :param func: callable(value) or None
+            The callable which flattens the values of this dataset or None in
+            order to use the values as iterables to flatten.
+        '''
         return self.values().flatmap(func)
 
 
     def filter_bykey(self, func=bool):
+        '''
+        Filter the dataset by testing the keys.
+
+        :param func: callable(key)
+            The test to apply to the keys. When positive, the key, value tuple
+            will be retained.
+        '''
         return self.filter(lambda kv: func(kv[0]))
 
+
     def filter_byvalue(self, func=bool):
+        '''
+        Filter the dataset by testing the values.
+
+        :param func: callable(value)
+            The test to apply to the values. When positive, the key, value tuple
+            will be retained.
+        '''
         return self.filter(lambda kv: func(kv[1]))
 
 
     def first(self):
+        '''
+        Take the first element from this dataset.
+        '''
         return next(self.itake(1))
 
     def take(self, num):
+        '''
+        Take the first num elements from this dataset.
+        '''
         return list(self.itake(num))
 
     def itake(self, num):
+        '''
+        Take the first num elements from this dataset as iterator.
+        '''
         # TODO don't use itake if first partition doesn't yield > 50% of num
         sliced = self.map_partitions(partial(take, num))
         results = sliced.icollect(eager=False)
@@ -148,14 +311,31 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def nlargest(self, num, key=None):
+        '''
+        Take the num largest elements from this dataset.
+
+        :param num: int
+            The number of elements to take.
+        :param key: callable(element) or None
+            The (optional) key to apply when ordering elements.
+        '''
         if num == 1:
             return self.max(key)
         return self._take_ordered(num, key, heapq.nlargest)
 
     def nsmallest(self, num, key=None):
+        '''
+        Take the num smallest elements from this dataset.
+
+        :param num: int
+            The number of elements to take.
+        :param key: callable(element) or None
+            The (optional) key to apply when ordering elements.
+        '''
         if num == 1:
             return self.min(key)
         return self._take_ordered(num, key, heapq.nsmallest)
+
 
     def _take_ordered(self, num, key, taker):
         key = key_or_getter(key)
@@ -164,6 +344,16 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def aggregate(self, local, comb=None):
+        '''
+        Collect an aggregate of this dataset, where the aggregate is determined
+        by a local aggregation and a global combination.
+
+        :param local: callable(partition)
+            Function to apply on the partition iterable
+        :param comb: callable
+            Function to combine the results from local. If None, the local
+            callable will be applied.
+        '''
         try:
             parts = self.map_partitions(lambda p: (local(p),)).icollect()
             return (comb or local)(parts)
@@ -172,38 +362,122 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def count(self):
+        '''
+        Count the elements in this dataset.
+        '''
         return self.aggregate(iterable_size, sum)
 
+
     def sum(self):
+        '''
+        Sum the elements in this dataset.
+
+        Example:
+
+            >>> ctx.collection(['abc', 'def', 'ghi']).map(len).sum()
+            9
+
+        '''
         return self.aggregate(sum)
 
-    def min(self, key=None):
-        key = key_or_getter(key)
-        return self.aggregate(partial(min, key=key) if key else min)
 
     def max(self, key=None):
+        '''
+        Take the largest element of this dataset.
+        :param key: callable(element) or object
+            The (optional) key to apply in comparing element. If key is an
+            object, it is used to pluck from the element with the given to get
+            the comparison key.
+
+        Example:
+
+            >>> ctx.range(10).max()
+            9
+            >>> ctx.range(10).with_value(1).max(0)
+            (9, 1)
+            >>> ctx.range(10).map(lambda i: dict(key=i, val=-i)).max('val')
+            {'val': 0, 'key': 0}
+
+        '''
         key = key_or_getter(key)
         return self.aggregate(partial(max, key=key) if key else max)
 
+
+    def min(self, key=None):
+        '''
+        Take the smallest element of this dataset.
+        :param key: callable(element) or object
+            The (optional) key to apply in comparing element. If key is an
+            object, it is used to pluck from the element with the given to get
+            the comparison key.
+        '''
+        key = key_or_getter(key)
+        return self.aggregate(partial(min, key=key) if key else min)
+
+
     def mean(self):
+        '''
+        Calculate the mean of this dataset.
+        '''
         return self.stats().mean
 
+
     def stats(self):
+        '''
+        Calculate count, mean, min, max, variance, stdev, skew and kurtosis of
+        this dataset.
+        '''
         return self.aggregate(Stats, partial(reduce, add))
 
 
     def union(self, other):
+        '''
+        Union this dataset with another
+
+        :param other: Dataset
+
+        Example::
+
+            >>> ctx.range(0, 5).union(ctx.range(5, 10)).collect()
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        '''
         return UnionDataset(self, other)
 
 
-    def group_by(self, key, partitioner=None):
+    def group_by(self, key, partitioner=None, pcount=None):
+        '''
+        Group the dataset by a given key function.
+
+        :param key: callable(element) or obj
+            The callable producing the key to group on or an index / indices
+            for plucking the key from the elements. 
+        :param partitioner: callable(element)
+            A callable producing an integer which is used to determine to which
+            partition the group is assigned.
+        :param pcount:
+            The number of partitions to group into.
+
+        Example:
+
+            >>> ctx.range(10).group_by(lambda i: i%2).collect()
+            [(0, [0, 6, 8, 4, 2]), (1, [1, 3, 7, 9, 5])]
+
+        '''
         key = key_or_getter(key)
         return (self.key_by(key)
-                    .group_by_key(partitioner=partitioner)
-                    .map_values(partial(pluck, 1)))
+                    .group_by_key(partitioner=partitioner, pcount=pcount)
+                    .map_values(lambda val: [v for k, v in val]))  # @UnusedVariable
 
 
     def group_by_key(self, partitioner=None, pcount=None):
+        '''
+        Group a K, V dataset by K.
+
+        :param partitioner: callable
+            The (optional) partitioner to apply.
+        :param pcount:
+            The number of partitions to group into.
+        '''
         def sort_and_group(partition):
             partition = sorted(partition, key=getter(0))
             if not partition:
@@ -223,7 +497,21 @@ class Dataset(metaclass=abc.ABCMeta):
                     .map_partitions(sort_and_group))
 
 
-    def combine_by_key(self, create, merge_value, merge_combs, pcount=None, partitioner=None):
+    def combine_by_key(self, create, merge_value, merge_combs, partitioner=None, pcount=None):
+        '''
+        Combine the values in a K, V1 dataset into a dataset of K, V2.
+
+        :param create: callable(V1)
+            A callable which returns the initial V2 for the value's key.
+        :param merge_value: callable(V2, V1): V2
+            A callable which merges a V1 into a V2.
+        :param merge_combs: callable(V2, V2)
+            A callable which merges two V2's.
+        :param partitioner:
+            The (optional) partitioner to apply.
+        :param pcount:
+            The number of partitions to combine into.
+        '''
         def _merge_vals(partition):
             items = {}
             for key, value in partition:
@@ -243,13 +531,50 @@ class Dataset(metaclass=abc.ABCMeta):
             return items.items()
 
 
-        return self.map_partitions(_merge_vals).shuffle(pcount, partitioner, key=getter(0)).map_partitions(_merge_combs)
+        return self.map_partitions(_merge_vals) \
+                   .shuffle(pcount, partitioner, key=getter(0)) \
+                   .map_partitions(_merge_combs)
 
-    def reduce_by_key(self, reduction, pcount=None, partitioner=None):
+
+    def reduce_by_key(self, reduction, partitioner=None, pcount=None):
+        '''
+        Reduce the values of a K, V dataset.
+
+        :param reduction: callable(v, v)
+            The reduction to apply.
+        :param partitioner:
+            The (optional) partitioner to apply.
+        :param pcount:
+            The number of partitions to reduce into.
+
+        Example:
+
+            >>> ctx.range(12).map(lambda i: (i%3, 1)).reduce_by_key(lambda a, b: a+b).collect()
+            [(0, 4), (1, 4), (2, 4)]
+        '''
         return self.combine_by_key(identity, reduction, reduction, pcount, partitioner)
 
 
     def join(self, other, key=None, partitioner=None, pcount=None):
+        '''
+        Join two datasets.
+
+        :param other:
+            The dataset to join with.
+        :param key: callable(element) or object
+            The callable which returns the join key or an object used as index
+            to get the join key from the elements in the datasets to join.
+        :param partitioner:
+            The (optional) partitioner to apply.
+        :param pcount:
+            The number of partitions to join into.
+
+        Example::
+
+            >>> ctx.range(0, 5).key_by(lambda i: i%2).join(ctx.range(5, 10).key_by(lambda i: i%2)).collect()
+            [(0, [(0, 8), (0, 6), (2, 8), (2, 6), (4, 8), (4, 6)]),
+             (1, [(1, 5), (1, 9), (1, 7), (3, 5), (3, 9), (3, 7)])]
+        '''
         key = key_or_getter(key)
 
         if key:
@@ -283,11 +608,45 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def distinct(self, pcount=None):
+        '''
+        Select the distinct elements from this dataset.
+
+        :param pcount:
+            The number of partitions to shuffle into.
+
+        Example:
+
+            >>> sorted(ctx.range(10).map(lambda i: i%2).distinct().collect())
+            [0, 1]
+        '''
         shuffle = self.shuffle(pcount, bucket=SetBucket, comb=set)
         return shuffle.map_partitions(set)
 
 
-    def sort(self, pcount=None, key=identity, reverse=False):
+    def sort(self, key=identity, reverse=False, pcount=None):
+        '''
+        Sort the elements in this dataset.
+
+        :param key: callable or obj
+            A callable which returns the sort key or an object which is the
+            index in the elements for getting the sort key.
+        :param reverse: bool
+            If True perform a sort in descending order, or False to sort in
+            ascending order. 
+        :param pcount:
+            Optionally the number of partitions to sort into.
+
+        Example:
+
+            >>> ''.join(ctx.collection('asdfzxcvqwer').sort().collect())
+            'acdefqrsvwxz'
+
+            >>> ctx.range(5).map(lambda i: dict(a=i-2, b=i)).sort(key='a').collect()
+            [{'b': 0, 'a': -2}, {'b': 1, 'a': -1}, {'b': 2, 'a': 0}, {'b': 3, 'a': 1}, {'b': 4, 'a': 2}]
+
+            >>> ctx.range(5).key_by(lambda i: i-2).sort(key=1).sort().collect()
+            [(-2, 0), (-1, 1), (0, 2), (1, 3), (2, 4)]
+        '''
         key = key_or_getter(key)
 
         pcount = pcount or self.ctx.default_pcount
@@ -519,9 +878,11 @@ class Partition(metaclass=abc.ABCMeta):
         # return data
         return data
 
+
     @property
     def cache_loc(self):
         return self.dset._cache_locs.get(self.idx, None)
+
 
     @abc.abstractmethod
     def _materialize(self, ctx):
