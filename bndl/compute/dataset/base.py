@@ -1051,7 +1051,9 @@ class ShuffleWritingPartition(Partition):
     def _materialize(self, ctx):
         worker = self.dset.ctx.node
         buckets = self._ensure_buckets(worker)
-        if len(buckets) > 1:
+        bucket_count = len(buckets)
+
+        if bucket_count:
             key = self.dset.key
             partitioner = self.dset.partitioner
 
@@ -1059,11 +1061,10 @@ class ShuffleWritingPartition(Partition):
                 def select_bucket(element):
                     return partitioner(key(element))
             else:
-                def select_bucket(element):
-                    return partitioner(element)
+                select_bucket = partitioner
 
             for element in self.src.materialize(ctx):
-                buckets[select_bucket(element) % len(buckets)].add(element)
+                buckets[select_bucket(element) % bucket_count].add(element)
 
             if self.dset.comb:
                 for key, bucket in enumerate(buckets):
