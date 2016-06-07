@@ -1,13 +1,13 @@
 from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
+from bisect import bisect_left
+from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap
 from math import sqrt, log
 from operator import add
 import abc
-import bisect
 import collections
-import copy
 import heapq
 import logging
 
@@ -999,8 +999,9 @@ class RangePartitioner():
         self.reverse = reverse
 
     def __call__(self, value):
-        boundary = bisect.bisect_left(self.boundaries, value)
-        return len(self.boundaries) - boundary if self.reverse else boundary
+        boundaries = self.boundaries
+        boundary = bisect_left(boundaries, value)
+        return len(boundaries) - boundary if self.reverse else boundary
 
 
 
@@ -1126,7 +1127,7 @@ class TransformingDataset(Dataset):
         ]
 
     def __getstate__(self):
-        state = copy.copy(self.__dict__)
+        state = copy(self.__dict__)
         del state['transformation']
         return state
 
