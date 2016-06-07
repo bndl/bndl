@@ -1,7 +1,7 @@
 from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
 from functools import partial, total_ordering, reduce
-from itertools import islice, product, chain
+from itertools import islice, product, chain, starmap
 from math import sqrt, log
 from operator import add
 import abc
@@ -76,7 +76,7 @@ class Dataset(metaclass=abc.ABCMeta):
         :param func: callable(element)
             applied to each element of the dataset
         '''
-        return self.map_partitions(partial(map, lambda e: func(*e)))
+        return self.map_partitions(partial(starmap, func))
 
 
     def pluck(self, ind, default=None):
@@ -190,7 +190,7 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(5).key_by(lambda i: string.ascii_lowercase[i]).collect()
             [('a', 0), ('b', 1), ('c', 2), ('d', 3), ('e', 4)]
         '''
-        return self.map(lambda e: (key(e), e))
+        return self.map_partitions(lambda p: ((key(e), e) for e in p))
 
 
     def with_value(self, val):
@@ -209,9 +209,9 @@ class Dataset(metaclass=abc.ABCMeta):
             [('a', 1), ('b', 1), ('c', 1), ('d', 1), ('e', 1), ('f', 1)]
         '''
         if not callable(val):
-            return self.map(lambda e: (e, val))
+            return self.map_partitions(lambda p: ((e, val) for e in p))
         else:
-            return self.map(lambda e: (e, val(e)))
+            return self.map_partitions(lambda p: ((e, val(e)) for e in p))
 
 
     def keys(self):
@@ -245,7 +245,7 @@ class Dataset(metaclass=abc.ABCMeta):
         :param func: callable(key)
             Transformation to apply to the keys
         '''
-        return self.map(lambda kv: (func(kv[0]), kv[1]))
+        return self.map_partitions(lambda p: ((func(k), v) for k, v in p))
 
     def map_values(self, func):
         '''
@@ -254,7 +254,7 @@ class Dataset(metaclass=abc.ABCMeta):
         :param func: callable(value)
             Transformation to apply to the values
         '''
-        return self.map(lambda kv: (kv[0], func(kv[1])))
+        return self.map_partitions(lambda p: ((k, func(v)) for k, v in p))
 
     def flatmap_values(self, func=None):
         '''
@@ -265,7 +265,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.values().flatmap(func)
 
 
-    def filter_bykey(self, func=bool):
+    def filter_bykey(self, func=None):
         '''
         Filter the dataset by testing the keys.
 
@@ -273,10 +273,13 @@ class Dataset(metaclass=abc.ABCMeta):
             The test to apply to the keys. When positive, the key, value tuple
             will be retained.
         '''
-        return self.filter(lambda kv: func(kv[0]))
+        if func:
+            return self.map_partitions(lambda p: (kv for kv in p if func(kv[0])))
+        else:
+            return self.map_partitions(lambda p: (kv for kv in p if kv[0]))
 
 
-    def filter_byvalue(self, func=bool):
+    def filter_byvalue(self, func=None):
         '''
         Filter the dataset by testing the values.
 
@@ -284,7 +287,10 @@ class Dataset(metaclass=abc.ABCMeta):
             The test to apply to the values. When positive, the key, value tuple
             will be retained.
         '''
-        return self.filter(lambda kv: func(kv[1]))
+        if func:
+            return self.map_partitions(lambda p: (kv for kv in p if func(kv[1])))
+        else:
+            return self.map_partitions(lambda p: (kv for kv in p if kv[1]))
 
 
     def first(self):
@@ -466,7 +472,7 @@ class Dataset(metaclass=abc.ABCMeta):
         key = key_or_getter(key)
         return (self.key_by(key)
                     .group_by_key(partitioner=partitioner, pcount=pcount)
-                    .map_values(lambda val: [v for k, v in val]))  # @UnusedVariable
+                    .map_values(lambda val: pluck(1, val)))  # @UnusedVariable
 
 
     def group_by_key(self, partitioner=None, pcount=None):
@@ -578,15 +584,14 @@ class Dataset(metaclass=abc.ABCMeta):
         key = key_or_getter(key)
 
         if key:
-            left = self.key_by(key)
-            right = other.key_by(key)
+            # add a key to keep left from right
+            # also apply the key function
+            left = self.map_partitions(lambda p: ((e, (0, e)) for e in p))
+            right = other.map_partitions(lambda p: ((e, (1, e)) for e in p))
         else:
-            left = self
-            right = other
-
-        # add a key to keep left from right
-        left = left.map_values(lambda v: (0, v))
-        right = right.map_values(lambda v: (1, v))
+            # add a key to keep left from right
+            left = self.map_values(lambda v: (0, v))
+            right = other.map_values(lambda v: (1, v))
 
         both = left.union(right)
         shuffled = both.group_by_key(partitioner=partitioner, pcount=pcount)
@@ -594,17 +599,17 @@ class Dataset(metaclass=abc.ABCMeta):
         def local_join(group):
             key, group = group
             left, right = [], []
+            left_append, right_append = left.append, right.append
             for (idx, value) in pluck(1, group):
-                if idx == 0:
-                    left.append(value)
-                elif idx == 1:
-                    right.append(value)
+                if idx:
+                    right_append(value)
+                else:
+                    left_append(value)
             if left and right:
                 return key, list(product(left, right))
 
         joined = shuffled.map(local_join)
         return joined.filter()
-
 
 
     def distinct(self, pcount=None):
@@ -1051,7 +1056,9 @@ class ShuffleWritingPartition(Partition):
     def _materialize(self, ctx):
         worker = self.dset.ctx.node
         buckets = self._ensure_buckets(worker)
-        if len(buckets) > 1:
+        bucket_count = len(buckets)
+
+        if bucket_count:
             key = self.dset.key
             partitioner = self.dset.partitioner
 
@@ -1059,11 +1066,10 @@ class ShuffleWritingPartition(Partition):
                 def select_bucket(element):
                     return partitioner(key(element))
             else:
-                def select_bucket(element):
-                    return partitioner(element)
+                select_bucket = partitioner
 
             for element in self.src.materialize(ctx):
-                buckets[select_bucket(element) % len(buckets)].add(element)
+                buckets[select_bucket(element) % bucket_count].add(element)
 
             if self.dset.comb:
                 for key, bucket in enumerate(buckets):
