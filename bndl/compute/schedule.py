@@ -41,7 +41,7 @@ def schedule_job(dset, workers=None):
                 branch = schedule_job(src)
 
                 for task in branch.stages[-1].tasks:
-                    task.args[1] = False
+                    task.args = (task.args[0], True)
 
                 for listener in branch.listeners:
                     job.add_listener(listener)

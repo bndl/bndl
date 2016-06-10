@@ -28,20 +28,21 @@ class ZippedPartition(Partition):
 
     def _preferred_workers(self, workers):
         union, intersection = _get_overlapping_workers([
-            (child.preferred_workers(workers) or ())
+            set(child.preferred_workers(workers) or ())
             for child in self.src
         ])
         return intersection if intersection else union
 
     def _allowed_workers(self, workers):
         union, intersection = _get_overlapping_workers([
-            (child.allowed_workers(workers) or ())
+            set(child.allowed_workers(workers) or ())
             for child in self.src
         ])
         if not intersection:
             raise RuntimeError('Allowed workers for partitions %s must overlap'
                                % ', '.join(child.idx for child in self.src))
-        return union
+        else:
+            return union
 
     def _materialize(self, ctx):
         yield from self.dset.comb(*(child.materialize(ctx) for child in self.src))
