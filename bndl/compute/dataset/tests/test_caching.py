@@ -13,14 +13,15 @@ class CachingTest(DatasetTest):
         dset.cache()
         self.assertEqual(dset.collect(), dset.collect())
         self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
-        self.assertEqual(dset.collect(), dset.collect())
 
         dset.cache(False)
         self.assertNotEqual(dset.collect(), dset.collect())
         self.assertEqual(self.get_cachekeys(), [])
 
         dset.cache()
-        self.assertEqual(dset.collect(), dset.collect())
+        # check again, a) to check whether a dataset can be 'recached'
+        # and b) with a transformation to test caching a dataset 'not at the end'
+        self.assertEqual(dset.map(lambda i: i).collect(), dset.map(lambda i: i).collect())
         self.assertEqual(self.get_cachekeys(), [dset.id] * 4)
 
         del dset

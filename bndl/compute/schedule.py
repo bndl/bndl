@@ -1,5 +1,6 @@
-import collections
+from collections import Iterable, Sized
 from functools import partial
+from itertools import chain
 import logging
 import traceback
 
@@ -35,7 +36,7 @@ def schedule_job(dset, workers=None):
     while dset:
         if dset.cleanup:
             job.add_listener(partial(_cleaner, dset))
-        if isinstance(dset.src, collections.Iterable):
+        if isinstance(dset.src, Iterable):
             for src in dset.src:
                 branch = schedule_job(src)
 
@@ -72,7 +73,7 @@ def schedule_job(dset, workers=None):
         stage.id = idx
 
     for task in job.stages[-1].tasks:
-        task.args[1] = True
+        task.args = (task.args[0], True)
 
     return job
 
@@ -88,6 +89,17 @@ def _job_calling_info():
             break
     return name, desc
 
+
+
+def _get_cache_loc(part):
+    loc = part.dset._cache_locs.get(part.idx)
+    if loc:
+        return loc
+    elif part.src:
+        if isinstance(part.src, Iterable):
+            return set(chain.from_iterable(_get_cache_loc(src) for src in part.src))
+        else:
+            return _get_cache_loc(part.src)
 
 
 def schedule_stage(stage, workers, dset):
@@ -115,10 +127,7 @@ def schedule_stage(stage, workers, dset):
         preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
 
         stage.tasks.append(MaterializePartitionTask(
-            part,
-            (part.dset.id, part.idx),
-            stage,
-            materialize_partition, [part, False], None,
+            part, stage,
             preferred_workers, allowed_workers
         ))
 
@@ -127,35 +136,61 @@ def schedule_stage(stage, workers, dset):
 
 
 class MaterializePartitionTask(Task):
-    def __init__(self, part, *args, **kwargs):
+    def __init__(self, part, stage,
+                 preferred_workers, allowed_workers,
+                 name=None, desc=None):
         self.part = part
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            (part.dset.id, part.idx),
+            stage,
+            materialize_partition, (part, False), None,
+            preferred_workers, allowed_workers,
+            name, desc)
 
     def result(self):
         result = super().result()
-        # memorize caching location if any
-        if self.part.dset.cached:
-            self.part.dset._cache_locs[self.part.idx] = self.executed_on[-1]
-        # release resources
+        self._save_cacheloc(self.part)
         self.part = None
         return result
 
+    def _save_cacheloc(self, part):
+        # memorize the cache location for the partition
+        if part.dset.cached:
+            part.dset._cache_locs[part.idx] = self.executed_on[-1]
+        # traverse backup up the DAG
+        if part.src:
+            if isinstance(part.src, Iterable):
+                for src in part.src:
+                    self._save_cacheloc(src)
+            else:
+                self._save_cacheloc(part.src)
+
+
+def is_stable_iterable(obj):
+    '''
+    This rule is supposed to catch generators, islices, map objects and the
+    lot. They aren't serializable unless materialized in e.g. a list are there
+    cases where a) an unserializable type is missed? or b) materializing data
+    into a list is a bad (wrong result, waste of resources, etc.)? numpy arrays
+    are not wrongly cast to a list through this. That's something ...
+    :param obj: The object to test
+    '''
+    return (
+        (isinstance(obj, Iterable) and isinstance(obj, Sized))
+        or isinstance(obj, type({}.items()))
+    )
 
 def materialize_partition(worker, part, return_data):
     try:
         ctx = part.dset.ctx
 
+        # generate data
         data = part.materialize(ctx)
+
+        # return data if requested
         if return_data and data is not None:
-            # TODO This rule is supposed to catch generators, islices, map
-            # objects and the lot. They aren't serializable unless materialized
-            # in e.g. a list are there cases where a) an unserializable type is
-            # missed? or b) materializing data into a list is a bad (wrong
-            # result, waste of resources, etc.)? numpy arrays are not wrongly
-            # cast to a list through this. That's something ...
-            if (isinstance(data, collections.Iterable) and
-                (not isinstance(data, collections.Sized) or
-                 isinstance(data, type({}.items())))):
+            # 'materialize' iterators and such for pickling
+            if is_stable_iterable(data):
                 return list(data)
             else:
                 return data
