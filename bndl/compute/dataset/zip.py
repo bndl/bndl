@@ -18,17 +18,30 @@ class ZippedDataset(Dataset):
                 for i in range(self.pcount)]
 
 
+def _get_overlapping_workers(workers):
+    return set(chain.from_iterable(workers)), reduce(lambda a, b: a.intersection(b), workers)
+
+
 class ZippedPartition(Partition):
     def __init__(self, dset, idx, children):
         super().__init__(dset, idx, children)
 
     def _preferred_workers(self, workers):
-        prefs = [set(child.preferred_workers(workers) or ()) for child in self.src]
-        matches = reduce(lambda a, b: a.intersection(b), prefs)
-        if matches:
-            return matches
-        else:
-            return set(chain.from_iterable(prefs))
+        union, intersection = _get_overlapping_workers([
+            (child.preferred_workers(workers) or ())
+            for child in self.src
+        ])
+        return intersection if intersection else union
+
+    def _allowed_workers(self, workers):
+        union, intersection = _get_overlapping_workers([
+            (child.allowed_workers(workers) or ())
+            for child in self.src
+        ])
+        if not intersection:
+            raise RuntimeError('Allowed workers for partitions %s must overlap'
+                               % ', '.join(child.idx for child in self.src))
+        return union
 
     def _materialize(self, ctx):
         yield from self.dset.comb(*(child.materialize(ctx) for child in self.src))

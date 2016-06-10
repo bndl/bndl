@@ -898,25 +898,31 @@ class Partition(metaclass=abc.ABCMeta):
         if self.cache_loc:
             return [worker for worker in workers if worker.name == self.cache_loc]
         else:
-            return self._preferred_workers(workers)
+            if self.dset._worker_preference:
+                return self.dset._worker_preference(workers)
+            else:
+                return self._preferred_workers(workers)
 
 
     def _preferred_workers(self, workers):
-        if self.dset._worker_preference:
-            return self.dset._worker_preference(workers)
-        elif self.src:
+        if self.src:
             return self.src.preferred_workers(workers)
+        else:
+            return None
 
 
     def allowed_workers(self, workers):
-        return self._allowed_workers(workers)
+        if self.dset._worker_filter:
+            return self.dset._worker_filter(workers)
+        else:
+            return self._allowed_workers(workers)
 
 
     def _allowed_workers(self, workers):
-        if self.dset._worker_filter:
-            return self.dset._worker_filter(workers)
-        elif self.src:
+        if self.src:
             return self.src.allowed_workers(workers)
+        else:
+            return workers
 
 
     def __lt__(self, other):
