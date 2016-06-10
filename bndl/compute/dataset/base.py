@@ -586,8 +586,8 @@ class Dataset(metaclass=abc.ABCMeta):
         if key:
             # add a key to keep left from right
             # also apply the key function
-            left = self.map_partitions(lambda p: ((e, (0, e)) for e in p))
-            right = other.map_partitions(lambda p: ((e, (1, e)) for e in p))
+            left = self.map_partitions(lambda p: ((key(e), (0, e)) for e in p))
+            right = other.map_partitions(lambda p: ((key(e), (1, e)) for e in p))
         else:
             # add a key to keep left from right
             left = self.map_values(lambda v: (0, v))
