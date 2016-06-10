@@ -20,11 +20,10 @@ class ZippedDataset(Dataset):
 
 class ZippedPartition(Partition):
     def __init__(self, dset, idx, children):
-        super().__init__(dset, idx)
-        self.children = children
+        super().__init__(dset, idx, children)
 
     def _preferred_workers(self, workers):
-        prefs = [set(child.preferred_workers(workers) or ()) for child in self.children]
+        prefs = [set(child.preferred_workers(workers) or ()) for child in self.src]
         matches = reduce(lambda a, b: a.intersection(b), prefs)
         if matches:
             return matches
@@ -32,4 +31,4 @@ class ZippedPartition(Partition):
             return set(chain.from_iterable(prefs))
 
     def _materialize(self, ctx):
-        yield from self.dset.comb(*(child.materialize(ctx) for child in self.children))
+        yield from self.dset.comb(*(child.materialize(ctx) for child in self.src))
