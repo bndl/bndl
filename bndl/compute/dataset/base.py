@@ -525,7 +525,7 @@ class Dataset(metaclass=abc.ABCMeta):
                     items[key] = merge_value(items[key], value)
                 else:
                     items[key] = create(value)
-            return items.items()
+            return list(items.items())
 
         def _merge_combs(partition):
             items = {}
@@ -534,7 +534,7 @@ class Dataset(metaclass=abc.ABCMeta):
                     items[k] = merge_combs(items[k], v)
                 else:
                     items[k] = v
-            return items.items()
+            return list(items.items())
 
 
         return self.map_partitions(_merge_vals) \

@@ -177,7 +177,6 @@ def is_stable_iterable(obj):
     '''
     return (
         (isinstance(obj, Iterable) and isinstance(obj, Sized))
-        or isinstance(obj, type({}.items()))
     )
 
 def materialize_partition(worker, part, return_data):
