@@ -26,12 +26,14 @@ class ZippedPartition(Partition):
     def __init__(self, dset, idx, children):
         super().__init__(dset, idx, children)
 
+
     def _preferred_workers(self, workers):
         union, intersection = _get_overlapping_workers([
             set(child.preferred_workers(workers) or ())
             for child in self.src
         ])
         return intersection if intersection else union
+
 
     def _allowed_workers(self, workers):
         union, intersection = _get_overlapping_workers([
@@ -43,6 +45,7 @@ class ZippedPartition(Partition):
                                % ', '.join(child.idx for child in self.src))
         else:
             return union
+
 
     def _materialize(self, ctx):
         yield from self.dset.comb(*(child.materialize(ctx) for child in self.src))
