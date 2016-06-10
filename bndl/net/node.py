@@ -7,7 +7,7 @@ import random
 import socket
 
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
-    gethostbyname, getlocalhostname
+    getlocalhostname
 from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
 from bndl.util.aio import get_loop
 from bndl.util.text import camel_to_snake
