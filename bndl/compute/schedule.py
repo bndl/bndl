@@ -190,7 +190,7 @@ def materialize_partition(worker, part, return_data):
         # return data if requested
         if return_data and data is not None:
             # 'materialize' iterators and such for pickling
-            if is_stable_iterable(data):
+            if not is_stable_iterable(data):
                 return list(data)
             else:
                 return data
