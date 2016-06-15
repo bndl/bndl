@@ -88,7 +88,7 @@ def execute_save(ctx, statement, iterable, contact_points=None):
                 raise failure
             with done:
                 done.wait_for(lambda: pending <= concurrency)
-            pending += 1
+                pending += 1
             exec_async(idx, element)
 
         if failure:
