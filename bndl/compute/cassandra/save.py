@@ -1,16 +1,19 @@
+from collections import defaultdict
 from datetime import timedelta, date, datetime
+from threading import Condition
 import functools
 import logging
-from cassandra.concurrent import execute_concurrent_with_args
 
+from bndl.compute.cassandra import conf
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.util.timestamps import ms_timestamp
-from bndl.compute.cassandra import conf
-from cassandra import ConsistencyLevel
+from cassandra import ConsistencyLevel, Unavailable, OperationTimedOut, \
+    WriteTimeout, CoordinationFailure
 
 
 logger = logging.getLogger(__name__)
 
+TRANSIENT_ERRORS = (Unavailable, WriteTimeout, OperationTimedOut, CoordinationFailure)
 
 INSERT_TEMPLATE = (
     'insert into {keyspace}.{table} '
@@ -19,20 +22,132 @@ INSERT_TEMPLATE = (
 )
 
 
-def _save_part(insert, part, iterable, contact_points=None):
+def execute_save(ctx, statement, iterable, contact_points=None):
+    '''
+    Save elements from an iterable given the insert/update query. Use
+    cassandra_save to save a dataset. This method is useful when saving
+    to multiple tables from a single dataset with map_partitions.
+
+    :param ctx: bndl.compute.context.ComputeContext
+        The BNDL compute context to use for configuration and accessing the
+        cassandra_session.
+    :param statement: str
+        The Cassandra statement to use in saving the iterable.
+    :param iterable: list, tuple, generator, iterable, ...
+        The values to save.
+    :param contact_points: str, tuple, or list
+        A string or tuple/list of strings denoting hostnames (contact points)
+        of the Cassandra cluster to save to. Defaults to using the ip addresses
+        in the BNDL cluster.
+    :return: A count of the records saved.
+    '''
+    consistency_level = ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
+    timeout = ctx.conf.get_int(conf.WRITE_TIMEOUT, defaults=conf.DEFAULTS)
+    retry_count = ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS)
+    concurrency = max(1, ctx.conf.get_int(conf.WRITE_CONCURRENCY, defaults=conf.DEFAULTS))
+
     if logger.isEnabledFor(logging.INFO):
-        logger.info('executing cassandra save on part %s with insert %s', part.idx, insert.replace('\n', ''))
-    with cassandra_session(part.dset.ctx, contact_points=contact_points) as session:
-        session.default_timeout = part.dset.ctx.conf.get_int(conf.WRITE_TIMEOUT, defaults=conf.DEFAULTS)
-        prepared_insert = session.prepare(insert)
-        prepared_insert.consistency_level = part.dset.ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
-        concurrency = part.dset.ctx.conf.get_int(conf.WRITE_CONCURRENCY, defaults=conf.DEFAULTS)
-        results = execute_concurrent_with_args(session, prepared_insert, iterable, concurrency=concurrency)
-    return [len(results)]
+        logger.info('executing cassandra save with statement %s', statement.replace('\n', ''))
+
+    with cassandra_session(ctx, contact_points=contact_points) as session:
+        prepared_statement = session.prepare(statement)
+        prepared_statement.consistency_level = consistency_level
+
+        saved = 0
+        pending = 0
+        done = Condition()
+
+        failure = None
+        failcounts = defaultdict(int)
+
+        def on_done(results, idx):
+            nonlocal saved, pending, done
+            with done:
+                saved += 1
+                pending -= 1
+                done.notify()
+
+        def on_failed(exc, idx, element):
+            nonlocal failcounts
+            if exc in TRANSIENT_ERRORS and failcounts[idx] < retry_count:
+                failcounts[idx] += 1
+                exec_async(idx, element)
+            else:
+                nonlocal failure, done
+                failure = exc
+                with done:
+                    done.notify()
+
+        def exec_async(idx, element):
+            future = session.execute_async(prepared_statement, element, timeout=timeout)
+            future.add_callback(on_done, idx)
+            future.add_errback(on_failed, idx, element)
+
+        for idx, element in enumerate(iterable):
+            if failure:
+                raise failure
+            with done:
+                done.wait_for(lambda: pending <= concurrency)
+            pending += 1
+            exec_async(idx, element)
+
+        if failure:
+            raise failure
+
+        with done:
+            done.wait_for(lambda: pending == 0)
+
+        if failure:
+            raise failure
+
+    return (saved,)
 
 
 def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True,
                    ttl=None, timestamp=None, contact_points=None):
+    '''
+    Performs a Cassandra insert for each element of the dataset.
+
+    :param dataset: bndl.compute.context.ComputationContext
+        As the cassandra_save function is typically bound on ComputationContext
+        this corresponds to self.
+    :param keyspace: str
+        The name of the Cassandra keyspace to save to.
+    :param table:
+        The name of the Cassandra table (column family) to save to.
+    :param columns:
+        The names of the columns to save.
+
+        When the dataset contains tuples, this arguments is the mapping of the
+        tuple elements to the columns of the table saved to. If not provided,
+        all columns are used.
+
+        When the dataset contains dictionaries, this parameter limits the
+        columns save to Cassandra.
+    :param keyed_rows: bool
+        Whether to expect a dataset of dicts (or at least supports the
+        __getitem__ protocol with columns names as key) or positional objects
+        (e.g. tuples or lists).
+    :param ttl: int
+        The time to live to use in saving the records.
+    :param timestamp: int or datetime.date or datetime.datetime
+        The timestamp to use in saving the records.
+    :param contact_points: str, tuple, or list
+        A string or tuple/list of strings denoting hostnames (contact points)
+        of the Cassandra cluster to save to. Defaults to using the ip addresses
+        in the BNDL cluster.
+
+    Example:
+
+        >>> ctx.collection([{'key': 1, 'val': 'a' }, {'key': 2, 'val': 'b' },]) \
+               .cassandra_save('keyspace', 'table') \
+               .execute()
+        >>> ctx.range(100) \
+               .map(lambda i: {'key': i, 'val': str(i) } \
+               .cassandra_save('keyspace', 'table') \
+               .sum()
+        100
+    '''
     if ttl or timestamp:
         using = []
         if ttl:
@@ -66,5 +181,5 @@ def cassandra_save(dataset, keyspace, table, columns=None, keyed_rows=True,
         using=using,
     )
 
-    do_save = functools.partial(_save_part, insert, contact_points=contact_points)
-    return dataset.map_partitions_with_part(do_save)
+    do_save = functools.partial(execute_save, dataset.ctx, insert, contact_points=contact_points)
+    return dataset.map_partitions(do_save)
