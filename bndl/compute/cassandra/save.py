@@ -55,17 +55,17 @@ def execute_save(ctx, statement, iterable, contact_points=None):
 
         saved = 0
         pending = 0
-        done = Condition()
+        cond = Condition()
 
         failure = None
         failcounts = defaultdict(int)
 
         def on_done(results, idx):
-            nonlocal saved, pending, done
-            with done:
+            nonlocal saved, pending, cond
+            with cond:
                 saved += 1
                 pending -= 1
-                done.notify()
+                cond.notify()
 
         def on_failed(exc, idx, element):
             nonlocal failcounts
@@ -73,10 +73,10 @@ def execute_save(ctx, statement, iterable, contact_points=None):
                 failcounts[idx] += 1
                 exec_async(idx, element)
             else:
-                nonlocal failure, done
-                failure = exc
-                with done:
-                    done.notify()
+                nonlocal failure, cond
+                with cond:
+                    failure = exc
+                    cond.notify()
 
         def exec_async(idx, element):
             future = session.execute_async(prepared_statement, element, timeout=timeout)
@@ -84,18 +84,18 @@ def execute_save(ctx, statement, iterable, contact_points=None):
             future.add_errback(on_failed, idx, element)
 
         for idx, element in enumerate(iterable):
-            if failure:
-                raise failure
-            with done:
-                done.wait_for(lambda: pending <= concurrency)
+            with cond:
+                if failure:
+                    raise failure
+                cond.wait_for(lambda: pending < concurrency)
                 pending += 1
             exec_async(idx, element)
 
         if failure:
             raise failure
 
-        with done:
-            done.wait_for(lambda: pending == 0)
+        with cond:
+            cond.wait_for(lambda: pending == 0)
 
         if failure:
             raise failure
