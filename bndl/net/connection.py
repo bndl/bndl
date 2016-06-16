@@ -139,7 +139,7 @@ class Connection(object):
         if not self.is_connected:
             raise NotConnected()
         logger.debug('sending %s', msg)
-        marshalled, serialized, attachments = (yield from self.loop.run_in_executor(None, serialize.dump, msg))
+        marshalled, serialized, attachments = serialize.dump(msg)
         with (yield from self.write_lock):
             # send format header
             fmt = int(marshalled)
