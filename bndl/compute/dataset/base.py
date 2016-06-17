@@ -10,20 +10,24 @@ import abc
 import collections
 import heapq
 import logging
+import struct
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
+from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
 
 
 try:
-    from bndl.compute.dataset.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
+    from bndl.compute.dataset.stats import iterable_size, Stats, \
+        sample_with_replacement, sample_without_replacement
     from bndl.util.hash import portable_hash
 except ImportError as exc:
-    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from exc
+    raise ImportError('Unable to load Cython extensions, '
+                      'install Cython or use a binary distribution') from exc
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +38,26 @@ def _filter_local_workers(workers):
     return [w for w in workers if w.islocal]
 
 
+def _as_bytes(obj):
+    t = type(obj)
+    if t == str:
+        return obj.encode()
+    elif t == tuple:
+        return b''.join(_as_bytes(e) for e in obj)
+    elif t == int:
+        return obj.to_bytes(obj.bit_length(), 'little')
+    elif t == float:
+        obj = struct.pack('>f', obj)
+        obj = struct.unpack('>l', obj)[0]
+        return obj.to_bytes(obj.bit_length(), 'little')
+    else:
+        return bytes(obj)
+
+
 class Dataset(metaclass=abc.ABCMeta):
+    cleanup = None
+    sync_required = False
+
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
         self.src = src
@@ -48,16 +71,6 @@ class Dataset(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def parts(self):
         pass
-
-
-    @property
-    def sync_required(self):
-        return False
-
-
-    @property
-    def cleanup(self):
-        return None
 
 
     def map(self, func):
@@ -367,6 +380,54 @@ class Dataset(metaclass=abc.ABCMeta):
             raise ValueError('dataset is empty')
 
 
+    def combine(self, zero, merge_value, merge_combs):
+        '''
+        Aggregate the dataset by merging element-wise starting with a zero
+        value and finally merge the intermediate results.
+        
+        :param zero: obj
+            The object to merge values into.
+        :param merge_value:
+            The operation to merge an object into intermediate value (which
+            initially is the zero value).
+        :param merge_combs:
+            The operation to pairwise combine the intermediate values into one
+            final value.
+            
+        Example:
+        
+            >>> strings = ctx.range(1000*1000).map(lambda i: i%1000).map(str)
+            >>> sorted(strings.combine(set(), lambda s, e: s.add(e) or s, lambda a, b: a|b)))
+            ['0',
+             '1',
+             ...
+             '998',
+             '999']
+
+        '''
+        def _local(iterable):
+            v = zero
+            for e in iterable:
+                merge_value(v, e)
+            return v
+        return self.aggregate(_local, partial(reduce, merge_combs))
+
+
+    def reduce(self, reduction):
+        '''
+        Reduce the dataset into a final element by applying a pairwise
+        reduction as with functools.reduce(...)
+        
+        :param reduction: The reduction to apply.
+        
+        Example:
+        
+            >>> ctx.range(100).reduce(lambda a,b: a+b)
+            4950
+        '''
+        return self.aggregate(partial(reduce, reduction))
+
+
     def count(self):
         '''
         Count the elements in this dataset.
@@ -626,6 +687,28 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         shuffle = self.shuffle(pcount, bucket=SetBucket, comb=set)
         return shuffle.map_partitions(set)
+
+
+    def count_distinct(self):
+        '''
+        Count the distinct elements in this Dataset.
+        '''
+        return self.distinct().count()
+
+
+    def count_distinct_approx(self, error_rate=.05):
+        '''
+        Approximate the count of distinct elements in this Dataset through
+        the hyperloglog++ algorithm based on https://github.com/svpcom/hyperloglog.
+        
+        :param error_rate: float
+            The absolute error / cardinality
+        '''
+        return self.map(_as_bytes).aggregate(
+            lambda i: HyperLogLog(error_rate).add_all(i),
+            lambda hlls: HyperLogLog(error_rate).merge(*hlls)
+        ).card()
+
 
 
     def sort(self, key=identity, reverse=False, pcount=None):
