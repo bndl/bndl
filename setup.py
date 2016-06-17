@@ -53,9 +53,13 @@ setup(
         'cytoolz',
         'numpy',
         'flask',
+
         'cassandra-driver',
         'lz4',
         'scales',
+
+        'elasticsearch',
+        'netifaces',
     ],
 
     extras_require=dict(

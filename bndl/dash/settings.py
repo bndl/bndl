@@ -5,4 +5,5 @@ BNDL_DASHES = [
     ('execute', 'bndl.execute.dash.Dash'),
     # ('compute', 'bndl.compute.dash.Dash'),
     ('cassandra', 'bndl.compute.cassandra.dash.Dash'),
+    ('elastic', 'bndl.compute.elastic.dash.Dash'),
 ]
