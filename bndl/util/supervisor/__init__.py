@@ -52,17 +52,12 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
     def __init__(self, supervisor):
         self.supervisor = supervisor
         self.transport = None
-        self._cond = Condition()
 
     def connection_made(self, transport):
         self.transport = transport
-        with (yield from self._cond):
-            self._cond.notify_all()
 
     def connection_lost(self, exc):
         print('connection lost, reason:', exc)
-        with (yield from self._cond):
-            self._cond.notify_all()
 
     def process_exited(self):
         pid = self.transport.get_pid()
@@ -70,20 +65,11 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
         print('process', pid, 'exited with return code', returncode)
         if returncode != -signal.SIGTERM:
             aio.run_coroutine_threadsafe(self.supervisor._start(), self.supervisor.loop)
-            with (yield from self._cond):
-                self._cond.notify_all()
 
     def pipe_data_received(self, fd, data):
-        if not self.transport:
-            pid = '????'
-        else:
-            pid = self.transport.get_pid()
+        pid = self.transport.get_pid()
         for line in data.decode('utf-8').strip().split('\n'):
             print(pid, ':', line)
-
-    def join(self):
-        with (yield from self._cond):
-            self._cond.wait_for(lambda: self.transport.get_returncode() != None)
 
 
 SCRIPT = '''
@@ -129,13 +115,6 @@ class Supervisor(object):
 
         self.subprocesses.append((transport, protocol))
 
-        # sleep for at most 500 ms to wait for the connection with the sub process
-        # this eases the join process of the sub processes a bit
-        for _ in range(50):
-            if protocol.transport:
-                break
-            yield from asyncio.sleep(.01)  # @UndefinedVariable
-
         return protocol
 
 
@@ -143,7 +122,6 @@ class Supervisor(object):
     def stop(self):
         for transport, protocol in self.subprocesses:  # @UnusedVariable
             transport.send_signal(signal.SIGTERM)
-            protocol.join()
 
 
 def main():
