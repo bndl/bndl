@@ -8,6 +8,8 @@ import sys
 from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
 from bndl.util import aio
+import signal
+from asyncio.locks import Condition
 
 
 def entry_point(string):
@@ -47,29 +49,52 @@ def split_args():
 
 
 class Monitor(asyncio.protocols.SubprocessProtocol):
-    # TODO implement restart
-
     def __init__(self, supervisor):
         self.supervisor = supervisor
         self.transport = None
+        self._cond = Condition()
 
     def connection_made(self, transport):
         self.transport = transport
+        with (yield from self._cond):
+            self._cond.notify_all()
 
     def connection_lost(self, exc):
         print('connection lost, reason:', exc)
+        with (yield from self._cond):
+            self._cond.notify_all()
 
     def process_exited(self):
         pid = self.transport.get_pid()
         returncode = self.transport.get_returncode()
         print('process', pid, 'exited with return code', returncode)
-        aio.run_coroutine_threadsafe(self.supervisor._start(), self.supervisor.loop)
+        if returncode != -signal.SIGTERM:
+            aio.run_coroutine_threadsafe(self.supervisor._start(), self.supervisor.loop)
+            with (yield from self._cond):
+                self._cond.notify_all()
 
     def pipe_data_received(self, fd, data):
-        pid = self.transport.get_pid()
+        if not self.transport:
+            pid = '????'
+        else:
+            pid = self.transport.get_pid()
         for line in data.decode('utf-8').strip().split('\n'):
             print(pid, ':', line)
 
+    def join(self):
+        with (yield from self._cond):
+            self._cond.wait_for(lambda: self.transport.get_returncode() != None)
+
+
+SCRIPT = '''
+# {mod}.{main} (BNDL supervised process)
+
+import signal
+signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+import {mod}
+{mod}.{main}()
+'''
 
 
 class Supervisor(object):
@@ -90,12 +115,10 @@ class Supervisor(object):
 
     @asyncio.coroutine
     def _start(self):
-        script = 'import {mod} ; {mod}.{main}()'.format(mod=self.module, main=self.main)
-        args = [sys.executable, '-c', script, ] + self.args
+        args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
 
         env = copy.copy(os.environ)
         env['PYTHONHASHSEED'] = '0'
-        env['BNDL_IS_SUPERVISED'] = '1'
 
         transport, protocol = yield from self.loop.subprocess_exec(
             lambda: Monitor(self),
@@ -118,8 +141,9 @@ class Supervisor(object):
 
     @asyncio.coroutine
     def stop(self):
-        for transport, _ in self.subprocesses:  # @UnusedVariable
-            transport.close()
+        for transport, protocol in self.subprocesses:  # @UnusedVariable
+            transport.send_signal(signal.SIGTERM)
+            protocol.join()
 
 
 def main():
