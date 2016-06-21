@@ -8,7 +8,7 @@ class IndexTest(ElasticTest):
         inserts = self.ctx.range(100).with_value(lambda i: {'name': str(i)})
         saved = inserts.elastic_create(refresh=True).sum()
         self.assertEqual(saved, 100)
-        scan = self.ctx.elastic_read()
+        scan = self.ctx.elastic_search()
         self.assertEqual(scan.count(), 100)
 
         # update

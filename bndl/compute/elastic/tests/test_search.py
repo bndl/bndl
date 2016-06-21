@@ -15,7 +15,7 @@ class SearchTest(ElasticTest):
             client.indices.refresh(self.index)
 
     def test_search(self):
-        dset = self.ctx.elastic_read(self.index, self.doc_type)
+        dset = self.ctx.elastic_search(self.index, self.doc_type)
         self.assertEqual(dset.count(), 100)
         hits = dset.collect()
         ids = [hit['_id'] for hit in hits]
@@ -23,7 +23,7 @@ class SearchTest(ElasticTest):
         self.assertEqual(len(set(ids)), 100)
         self.assertSequenceEqual(ids, names)
 
-        read = partial(self.ctx.elastic_read, self.index, self.doc_type)
+        read = partial(self.ctx.elastic_search, self.index, self.doc_type)
         self.assertEqual(read(q='10').count(), 1)
         self.assertEqual(read(query={
             'query': { 'range': { 'number': { 'gte': 20, 'lt': 50 } } }
