@@ -81,6 +81,7 @@ class Monitor(asyncio.protocols.SubprocessProtocol):
         for line in data.decode('utf-8').strip().split('\n'):
             print(pid, ':', line)
 
+    @asyncio.coroutine
     def join(self):
         with (yield from self._cond):
             self._cond.wait_for(lambda: self.transport.get_returncode() != None)
@@ -143,7 +144,7 @@ class Supervisor(object):
     def stop(self):
         for transport, protocol in self.subprocesses:  # @UnusedVariable
             transport.send_signal(signal.SIGTERM)
-            protocol.join()
+            yield from protocol.join()
 
 
 def main():
