@@ -9,19 +9,23 @@ clean:
 	find bndl -name '__pycache__' -exec rm -rf {} +
 	rm -rf build
 	rm -rf dist
+	rm -f .coverage
 
 test:
-	venv/bin/py.test --cov-report html --cov=bndl bndl
+	rm -f .coverage
+	COVERAGE_PROCESS_START=.coveragerc coverage run -m pytest bndl
+	coverage combine
+	coverage html
 
 codestyle:
 	pylint bndl > build/pylint.html
 	flake8 bndl > build/flake8.txt
 
 sdist:
-	venv/bin/python setup.py sdist
+	python setup.py sdist
 
 bdist:
-	venv/bin/python setup.py bdist_egg
+	python setup.py bdist_egg
 
 upload:
 	python2 setup.py sdist upload -r tgho
