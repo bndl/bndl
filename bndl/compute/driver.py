@@ -125,9 +125,10 @@ def main(args=None, daemon=True):
 
     def stop():
         # signal the aio loop can stop and everything can be torn down
-        stopped.set_result(True)
-        # wait for everything to stop
-        bndl_thread.join(timeout=5)
+        if not stopped.done():
+            stopped.set_result(True)
+            # wait for everything to stop
+            bndl_thread.join(timeout=5)
 
     ctx.add_listener(lambda ctx: stop() if isinstance(ctx, ComputeContext) else None)
     atexit.register(stop)
