@@ -77,6 +77,8 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     contact_points = get_contact_points(ctx, contact_points)
     # check if there is a cached session object
     pool = pools.get(contact_points)
+    if not keyspace:
+        keyspace = ctx.conf.get(conf.KEYSPACE, defaults=conf.DEFAULTS)
     # or create one if not
     if not pool:
         def create_cluster():
