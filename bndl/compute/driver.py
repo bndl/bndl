@@ -15,6 +15,7 @@ from bndl.compute.context import ComputeContext
 from bndl.compute.worker import Worker, argparser
 from bndl.net.run import create_node
 from bndl.util.supervisor import Supervisor
+from subprocess import TimeoutExpired
 
 
 logger = logging.getLogger(__name__)
@@ -49,60 +50,36 @@ class Driver(Worker):
 
 argparser = copy.copy(argparser)
 argparser.prog = 'bndl.compute.driver'
-argparser.add_argument('--workers', nargs='?', type=int, default=0, dest='worker_count')
+argparser.add_argument('--workers', nargs='?', type=int, default=None, dest='worker_count')
 argparser.add_argument('--conf', nargs='*', default=())
 argparser.set_defaults(seeds=())
 
 
-def run_bndl(args, conf, started, stopped):
-    if not args.seeds and not args.worker_count:
-        args.worker_count = os.cpu_count()
+def run_driver(args, conf, started, stopped):
+    if not args.seeds:
         args.seeds = args.listen_addresses or ['tcp://%s:5000' % socket.getfqdn()]
 
     driver = create_node(Driver, args)
     loop = driver.loop
 
-    supervisor = Supervisor(loop, 'bndl.compute.worker', 'main', ['--seeds'] + driver.addresses, args.worker_count)
-
-    global ctx
     ctx = ComputeContext(driver, conf)
 
     dash.run(driver, ctx)
 
-    @asyncio.coroutine
-    def wait_for_peers():
-        global ctx
-        worker_count = max(args.worker_count, 1)
-        timeout = int(1 + math.log2(worker_count) * 10)
-        for _ in range(timeout):
-            if ctx.worker_count >= worker_count:
-                break
-            yield from asyncio.sleep(.2)  # @UndefinedVariable
-        if ctx.worker_count < worker_count:
-            raise Exception("can't bootstrap workers")
-
     try:
-        # start driver, supervisor and wait for them to connect
         try:
             loop.run_until_complete(driver.start())
-            loop.run_until_complete(supervisor.start())
-            loop.run_until_complete(wait_for_peers())
         except:
             started.set_result(True)
             return
 
-        # signal the set up is done
-        started.set_result(True)
-        # run the aio loop until the stop signal is given
-        until_stopped = loop.run_in_executor(None, stopped.result)
-        loop.run_until_complete(until_stopped)
+        # signal the set up is done and run the aio loop until the stop signal is given
+        started.set_result((driver, ctx))
+        loop.run_until_complete(loop.run_in_executor(None, stopped.result))
     finally:
+        # stop the driver and close the loop
         loop.run_until_complete(driver.stop())
-        loop.run_until_complete(supervisor.stop())
-
-        # close the loop
         loop.close()
-
 
 
 def main(args=None, daemon=True):
@@ -111,6 +88,9 @@ def main(args=None, daemon=True):
     else:
         args = argparser.parse_args(args)
 
+    if not args.seeds and args.worker_count is None:
+        args.worker_count = os.cpu_count()
+
     conf = dict(c.split('=', 1) for c in args.conf)
 
     # signals for starting and stopping
@@ -118,19 +98,40 @@ def main(args=None, daemon=True):
     stopped = concurrent.futures.Future()
 
     # start the thread to set up the driver etc. and run the aio loop
-    bndl_thread = threading.Thread(target=run_bndl, args=(args, conf, started, stopped), daemon=daemon)
-    bndl_thread.start()
-    # wait for driver, workers etc. to set up
-    started.result()
+    driver_thread = threading.Thread(target=run_driver, args=(args, conf, started, stopped), daemon=daemon)
+    driver_thread.start()
+
+    # wait for driver to set up
+    result = started.result()
+    if not result:
+        return None
+    else:
+        driver, ctx = result
+
+    # start the supervisor
+    supervisor = None
+    if args.worker_count:
+        supervisor = Supervisor('bndl.compute.worker', 'main', ['--seeds'] + driver.addresses, args.worker_count)
+        supervisor.start()
 
     def stop():
         # signal the aio loop can stop and everything can be torn down
         if not stopped.done():
-            stopped.set_result(True)
-            # wait for everything to stop
-            bndl_thread.join(timeout=5)
+            try:
+                if supervisor:
+                    supervisor.stop()
+                    supervisor.wait(timeout=1)
+                stopped.set_result(True)
+                driver_thread.join(timeout=1)
+            except TimeoutExpired:
+                pass
 
     ctx.add_listener(lambda ctx: stop() if isinstance(ctx, ComputeContext) else None)
     atexit.register(stop)
+
+    try:
+        ctx.await_workers()
+    except:
+        pass
 
     return ctx
