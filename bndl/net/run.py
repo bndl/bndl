@@ -34,6 +34,8 @@ def run_node(node):
     loop.run_until_complete(node.start())
     try:
         loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        pass
     finally:
         loop.run_until_complete(node.stop())
         loop.close()
