@@ -4,7 +4,8 @@ import sys
 
 
 def exit_handler(sig, frame):
-    sys.exit(0)
+    assert sig != signal.SIGINT
+    sys.exit(sig)
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal.SIG_IGN)

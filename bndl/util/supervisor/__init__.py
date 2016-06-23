@@ -1,21 +1,22 @@
+from asyncio.futures import Future
+from asyncio.locks import Condition
+from asyncio.subprocess import Process
+from functools import partial
+from subprocess import Popen
 import argparse
 import asyncio
+import atexit
+import collections
 import copy
 import os
+import signal
 import socket
 import sys
 
+from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
-from bndl.util import aio
-import signal
-from asyncio.locks import Condition
-from asyncio.subprocess import Process
-import atexit
-import collections
-from asyncio.futures import Future
-from subprocess import Popen
-from functools import partial
+from threading import Thread
 
 
 def entry_point(string):
@@ -49,14 +50,50 @@ def split_args():
         bndl_args = sys.argv[idx + 2:]
         sys.argv = sys.argv[:1] + prog_args
     else:
-        bndl_args = []  # sys.argv[1:]
-        # sys.argv = sys.argv[:1]
+        bndl_args = []
     return bndl_args
 
 
-def _proc_exit(proc):
-    if proc.returncode is None:
-        proc.send_signal(signal.SIGTERM)
+
+class Child(object):
+    def __init__(self, module, main, args):
+        self.proc = None
+        self.module = module
+        self.main = main
+        self.args = args
+        self.watcher = None
+
+
+    def start(self):
+        if self.running:
+            raise RuntimeError("Can't run a child twice")
+        self.proc = Popen([sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args)
+        atexit.register(self.terminate)
+        self.watcher = Thread(target=self.watch, daemon=True)
+        self.watcher.start()
+
+    def watch(self):
+        assert self.running
+        while True:
+            retcode = self.proc.wait()
+            if retcode not in (0, signal.SIGTERM, signal.SIGKILL):
+                print('restarting process', self.proc.pid, 'which terminated with return code', retcode)
+                self.start()
+
+    @property
+    def running(self):
+        return self.proc and self.proc.returncode is None
+
+
+    def terminate(self):
+        if self.running:
+            self.proc.send_signal(signal.SIGTERM)
+
+
+    def wait(self, timeout):
+        if self.running:
+            self.proc.wait(timeout)
+
 
 
 class Supervisor(object):
@@ -65,7 +102,7 @@ class Supervisor(object):
         self.main = main
         self.args = args
         self.process_count = process_count
-        self.subprocesses = []
+        self.children = []
 
 
     def start(self):
@@ -74,20 +111,19 @@ class Supervisor(object):
 
 
     def _start(self):
-        proc = Popen([sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args)
-        atexit.register(partial(_proc_exit, proc))
-        self.subprocesses.append(proc)
-        return proc
+        child = Child(self.module, self.main, self.args)
+        self.children.append(child)
+        child.start()
 
 
     def stop(self):
-        for proc in self.subprocesses:
-            _proc_exit(proc)
+        for child in self.children:
+            child.terminate()
 
 
     def wait(self, timeout=None):
-        for proc in self.subprocesses:
-            proc.wait(timeout)
+        for child in self.children:
+            child.wait(timeout)
 
 
 def main():
