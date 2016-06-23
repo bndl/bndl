@@ -9,10 +9,10 @@ clean:
 	find bndl -name '__pycache__' -exec rm -rf {} +
 	rm -rf build
 	rm -rf dist
-	rm -f .coverage
+	rm -rf .coverage .coverage.* htmlcov
 
 test:
-	rm -f .coverage
+	rm -fr .coverage .coverage.* htmlcov
 	COVERAGE_PROCESS_START=.coveragerc coverage run -m pytest bndl
 	coverage combine
 	coverage html

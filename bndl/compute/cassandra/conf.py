@@ -1,5 +1,6 @@
 CONTACT_POINTS = 'cassandra.contact_points'
 PORT = 'cassandra.port'
+KEYSPACE = 'cassandra.keyspace'
 COMPRESSION = 'cassandra.compression'
 METRICS_ENABLED = 'cassandra.metrics_enabled'
 
@@ -20,6 +21,7 @@ WRITE_CONSISTENCY_LEVEL = 'cassandra.write_consistency_level'
 DEFAULTS = {
     CONTACT_POINTS: None,
     PORT: 9042,
+    KEYSPACE: None,
     COMPRESSION: True,
     METRICS_ENABLED: True,
 

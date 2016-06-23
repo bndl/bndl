@@ -1,15 +1,22 @@
+from asyncio.futures import Future
+from asyncio.locks import Condition
+from asyncio.subprocess import Process
+from functools import partial
+from subprocess import Popen
 import argparse
 import asyncio
+import atexit
+import collections
 import copy
 import os
+import signal
 import socket
 import sys
 
+from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
-from bndl.util import aio
-import signal
-from asyncio.locks import Condition
+from threading import Thread
 
 
 def entry_point(string):
@@ -43,124 +50,97 @@ def split_args():
         bndl_args = sys.argv[idx + 2:]
         sys.argv = sys.argv[:1] + prog_args
     else:
-        bndl_args = sys.argv[1:]
-        sys.argv = sys.argv[:1]
+        bndl_args = []
     return bndl_args
 
 
-class Monitor(asyncio.protocols.SubprocessProtocol):
-    def __init__(self, supervisor):
-        self.supervisor = supervisor
-        self.transport = None
-        self._cond = Condition()
 
-    def connection_made(self, transport):
-        self.transport = transport
-        with (yield from self._cond):
-            self._cond.notify_all()
-
-    def connection_lost(self, exc):
-        print('connection lost, reason:', exc)
-        with (yield from self._cond):
-            self._cond.notify_all()
-
-    def process_exited(self):
-        pid = self.transport.get_pid()
-        returncode = self.transport.get_returncode()
-        print('process', pid, 'exited with return code', returncode)
-        if returncode != -signal.SIGTERM:
-            aio.run_coroutine_threadsafe(self.supervisor._start(), self.supervisor.loop)
-            with (yield from self._cond):
-                self._cond.notify_all()
-
-    def pipe_data_received(self, fd, data):
-        if not self.transport:
-            pid = '????'
-        else:
-            pid = self.transport.get_pid()
-        for line in data.decode('utf-8').strip().split('\n'):
-            print(pid, ':', line)
-
-    @asyncio.coroutine
-    def join(self):
-        with (yield from self._cond):
-            self._cond.wait_for(lambda: self.transport.get_returncode() != None)
+class Child(object):
+    def __init__(self, module, main, args):
+        self.proc = None
+        self.module = module
+        self.main = main
+        self.args = args
+        self.watcher = None
 
 
-SCRIPT = '''
-# {mod}.{main} (BNDL supervised process)
+    def start(self):
+        if self.running:
+            raise RuntimeError("Can't run a child twice")
+        self.proc = Popen([sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args)
+        atexit.register(self.terminate)
+        self.watcher = Thread(target=self.watch, daemon=True)
+        self.watcher.start()
 
-import signal
-signal.signal(signal.SIGINT, signal.SIG_IGN)
+    def watch(self):
+        assert self.running
+        while True:
+            retcode = self.proc.wait()
+            if retcode not in (0, signal.SIGTERM, signal.SIGKILL):
+                print('restarting process', self.proc.pid, 'which terminated with return code', retcode)
+                self.start()
 
-import {mod}
-{mod}.{main}()
-'''
+    @property
+    def running(self):
+        return self.proc and self.proc.returncode is None
+
+
+    def terminate(self):
+        if self.running:
+            self.proc.send_signal(signal.SIGTERM)
+
+
+    def wait(self, timeout):
+        if self.running:
+            self.proc.wait(timeout)
+
 
 
 class Supervisor(object):
-    def __init__(self, loop, module, main, args, process_count):
-        self.loop = loop
+    def __init__(self, module, main, args, process_count):
         self.module = module
         self.main = main
         self.args = args
         self.process_count = process_count
-        self.subprocesses = []
+        self.children = []
 
 
-    @asyncio.coroutine
     def start(self):
         for _ in range(self.process_count):
-            yield from self._start()
+            self._start()
 
 
-    @asyncio.coroutine
     def _start(self):
-        args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
-
-        env = copy.copy(os.environ)
-        env['PYTHONHASHSEED'] = '0'
-
-        transport, protocol = yield from self.loop.subprocess_exec(
-            lambda: Monitor(self),
-            *args,
-            stderr=asyncio.subprocess.STDOUT,
-            env=env
-        )
-
-        self.subprocesses.append((transport, protocol))
-
-        # sleep for at most 500 ms to wait for the connection with the sub process
-        # this eases the join process of the sub processes a bit
-        for _ in range(50):
-            if protocol.transport:
-                break
-            yield from asyncio.sleep(.01)  # @UndefinedVariable
-
-        return protocol
+        child = Child(self.module, self.main, self.args)
+        self.children.append(child)
+        child.start()
 
 
-    @asyncio.coroutine
     def stop(self):
-        for transport, protocol in self.subprocesses:  # @UnusedVariable
-            transport.send_signal(signal.SIGTERM)
-            yield from protocol.join()
+        for child in self.children:
+            child.terminate()
+
+
+    def wait(self, timeout=None):
+        for child in self.children:
+            child.wait(timeout)
 
 
 def main():
-    args = argparser.parse_args(split_args())
-
-    loop = get_loop()
-
-    supervisor = Supervisor(loop, args.entry_point[0], args.entry_point[1], sys.argv[1:], args.process_count)
     configure_logging('supervisor-' + '.'.join(map(str, (os.getpid(), socket.getfqdn()))))
 
+    args = argparser.parse_args(split_args())
+    supervisor = Supervisor(args.entry_point[0], args.entry_point[1], sys.argv[1:], args.process_count)
+
     try:
-        loop.run_until_complete(supervisor.start())
-        loop.run_forever()
+        supervisor.start()
+        supervisor.wait()
     except KeyboardInterrupt:
-        loop.run_until_complete(supervisor.stop())
-    loop.close()
+        pass
+    finally:
+        supervisor.stop()
+        # supervisor.wait()
+
 
 if __name__ == '__main__':
     main()

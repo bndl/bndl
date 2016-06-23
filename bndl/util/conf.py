@@ -1,8 +1,21 @@
+from configparser import SafeConfigParser
+
+
 _MISSING = object()
 
 class Config(object):
     def __init__(self, values={}):
-        self.values = values
+        self.values = {}
+
+        self.config = SafeConfigParser()
+        self.config.read(['~/.bndl.ini',
+                          './.bndl.ini', ])
+
+        for section in self.config.sections():
+            for key, value in self.config[section].items():
+                self.values['%s.%s' % (section, key)] = value
+
+        self.values.update(values)
 
     def get(self, key, fmt=None, defaults=None):
         value = self.values.get(key, _MISSING)
@@ -36,4 +49,4 @@ class Config(object):
         return self.values[key]
 
     def __repr__(self):
-        return '<Conf %s>' % self.values
+        return '<Conf %r>' % self.values
