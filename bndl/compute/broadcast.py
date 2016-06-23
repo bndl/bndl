@@ -11,25 +11,23 @@ MISSING = 'bndl.broadcast.MISSING'
 
 
 def broadcast(ctx, value):
-    driver = ctx.node
-    key = str(uuid4())
-    driver.broadcast_values[key] = serialize.dumps(value)
-    return BroadcastValue(ctx, key, value)
+    bcval = BroadcastValue(ctx, value)
+    ctx.node.broadcast_values[bcval.key] = serialize.dumps(value)
+    return bcval
 
 
 def broadcast_pickled(ctx, pickled_value):
-    driver = ctx.node
-    key = str(uuid4())
-    driver.broadcast_values[key] = False, pickled_value
-    return BroadcastValue(ctx, key)
+    bcval = BroadcastValue(ctx)
+    ctx.node.broadcast_values[bcval.key] = False, pickled_value
+    return bcval
 
 
 
 class BroadcastValue(object):
-    def __init__(self, ctx, key, value=MISSING):
+    def __init__(self, ctx, value=MISSING):
         self.ctx = ctx
-        self.key = key
         self._value = value
+        self.key = str(uuid4())
 
 
     def __getstate__(self):
@@ -38,7 +36,7 @@ class BroadcastValue(object):
 
     @property
     def value(self):
-        if not getattr(self, '_value', MISSING) == MISSING:
+        if getattr(self, '_value', MISSING) != MISSING:
             return self._value
 
         node = self.ctx.node
