@@ -3,20 +3,31 @@ from asyncio.locks import Condition
 from asyncio.subprocess import Process
 from functools import partial
 from subprocess import Popen
+from threading import Thread
 import argparse
 import asyncio
 import atexit
 import collections
 import copy
+import itertools
 import os
 import signal
 import socket
 import sys
+import time
 
 from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
-from threading import Thread
+
+
+# Environment variable to indicate which child the process is. It's value is
+# formatted as {supervisor.id}.{child.id}
+CHILD_ID = 'BNDL_CHILD_ID'
+
+# If a supervised child fails within MIN_RUN_TIME seconds, the child is
+# considered unstable and isn't rebooted.
+MIN_RUN_TIME = 1
 
 
 def entry_point(string):
@@ -54,31 +65,48 @@ def split_args():
     return bndl_args
 
 
-
 class Child(object):
-    def __init__(self, module, main, args):
-        self.proc = None
+    def __init__(self, child_id, module, main, args):
+        self.id = child_id
         self.module = module
         self.main = main
         self.args = args
+
+        self.proc = None
         self.watcher = None
+        self.started_on = None
 
 
     def start(self):
         if self.running:
             raise RuntimeError("Can't run a child twice")
-        self.proc = Popen([sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args)
+
+        env = {CHILD_ID:str(self.id)}
+        args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
+        self.proc = Popen(args, env=env)
+        self.started_on = time.time()
+
         atexit.register(self.terminate)
         self.watcher = Thread(target=self.watch, daemon=True)
         self.watcher.start()
 
+
     def watch(self):
+        '''
+        Watch the child process and restart it if it stops unexpectedly.
+
+            - if the return code is 0 we assume the child wanted to exit
+            - if the return code is SIGTERM or SIGKILL we assume an operator
+              wants the child to exit or it's parent (the supervisor) sent
+              SIGKILL, see Child.terminate
+            - if the returncode is something else, restart the process
+            - unless it was started < MIN_RUN_TIME (we consider the failure not
+              transient)
+        '''
         assert self.running
-        while True:
-            retcode = self.proc.wait()
-            if retcode not in (0, signal.SIGTERM, signal.SIGKILL):
-                print('restarting process', self.proc.pid, 'which terminated with return code', retcode)
-                self.start()
+        retcode = self.proc.wait()
+        if retcode not in (0, signal.SIGTERM, signal.SIGKILL) and (time.time() - self.started_on) > MIN_RUN_TIME:
+            self.start()
 
     @property
     def running(self):
@@ -97,7 +125,10 @@ class Child(object):
 
 
 class Supervisor(object):
+    _ids = itertools.count()
+
     def __init__(self, module, main, args, process_count):
+        self.id = next(Supervisor._ids)
         self.module = module
         self.main = main
         self.args = args
@@ -111,7 +142,8 @@ class Supervisor(object):
 
 
     def _start(self):
-        child = Child(self.module, self.main, self.args)
+        child_id = '%s.%s' % (self.id, len(self.children))
+        child = Child(child_id, self.module, self.main, self.args)
         self.children.append(child)
         child.start()
 

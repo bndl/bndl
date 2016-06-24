@@ -14,6 +14,7 @@ from bndl.util.text import camel_to_snake
 from bndl.net.watchdog import Watchdog
 from bndl.util import aio
 from bndl.util.exceptions import catch
+from bndl.util.supervisor import CHILD_ID
 
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,13 @@ class Node(object):
             self.name = name
         else:
             self.name = '.'.join(reversed(socket.getfqdn().split('.')))
-            self.name += '.' + str(os.getpid())
-            self.name += '.' + str(next(Node._nodeids))
+            child_id = os.environ.get(CHILD_ID)
+            if child_id:
+                self.name += '.' + str(os.getppid())
+                self.name += '.' + child_id
+            else:
+                self.name += '.' + str(os.getpid())
+                self.name += '.' + str(next(Node._nodeids))
         self.node_type = camel_to_snake(self.__class__.__name__)
         self.servers = {address: None for address in (addresses or ())}
         if not self.servers:
