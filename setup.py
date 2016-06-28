@@ -61,6 +61,8 @@ setup(
 
         'elasticsearch',
         'netifaces',
+
+        'sklearn',
     ],
 
     extras_require=dict(
