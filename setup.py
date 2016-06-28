@@ -53,6 +53,7 @@ setup(
         'cytoolz',
         'numpy',
         'flask',
+        'mmh3',
 
         'cassandra-driver',
         'lz4',
