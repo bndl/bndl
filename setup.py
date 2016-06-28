@@ -62,6 +62,7 @@ setup(
         'elasticsearch',
         'netifaces',
 
+        'scipy',
         'sklearn',
     ],
 
