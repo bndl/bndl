@@ -63,7 +63,7 @@ setup(
         'netifaces',
 
         'scipy',
-        'sklearn',
+        'scikit-learn',
     ],
 
     extras_require=dict(
