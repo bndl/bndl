@@ -23,6 +23,12 @@ class FilesTest(DatasetTest):
         cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1024 * 2, psize_files=None)
 
 
+    @classmethod
+    def setUpClass(cls):
+        for f in cls.files:
+            f.close()
+
+
     def test_pcount(self):
         self.assertEqual(len(self.dset.parts()), round(((128 * 8) * 32) / (1024 * 2)))
 
