@@ -12,7 +12,13 @@ T_MAX = (2 ** 63) - 1
 
 def get_token_ranges(ring):
     ring = [t.value for t in ring]
-    return list(zip([T_MIN] + ring, ring + [T_MAX]))
+
+    if ring[0] != T_MIN:
+        ring = [T_MIN] + ring
+    if ring[-1] != T_MAX:
+        ring = ring + [T_MAX]
+
+    return list(zip(ring[:-1], ring[1:]))
 
 
 def repartition(partitions, min_pcount):
