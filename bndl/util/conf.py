@@ -1,4 +1,4 @@
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 
 
 _MISSING = object()
@@ -7,7 +7,7 @@ class Config(object):
     def __init__(self, values={}):
         self.values = {}
 
-        self.config = SafeConfigParser()
+        self.config = ConfigParser()
         self.config.read(['~/.bndl.ini',
                           './.bndl.ini', ])
 
