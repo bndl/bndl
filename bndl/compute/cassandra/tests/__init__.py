@@ -13,7 +13,7 @@ class CassandraTest(DatasetTest):
                 create keyspace if not exists {keyspace}
                 with replication = {{
                     'class': 'SimpleStrategy',
-                    'replication_factor': '3'
+                    'replication_factor': '1'
                 }};
             '''.format(keyspace=cls.keyspace))
 
