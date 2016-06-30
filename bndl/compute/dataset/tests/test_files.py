@@ -24,7 +24,8 @@ class FilesTest(DatasetTest):
 
 
     @classmethod
-    def setUpClass(cls):
+    def tearDownClass(cls):
+        super().tearDownClass()
         for f in cls.files:
             f.close()
 
