@@ -207,7 +207,7 @@ class Connection(object):
                 msg = yield from asyncio.wait_for(self.reader.readexactly(length), timeout)
                 self.bytes_received += length
             # parse the message and attachments
-            return (yield from self.loop.run_in_executor(None, serialize.load, marshalled, msg, attachments))
+            return serialize.load(marshalled, msg, attachments)
         except BrokenPipeError as exc:
             raise NotConnected() from exc
         except asyncio.streams.IncompleteReadError as exc:
