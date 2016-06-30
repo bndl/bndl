@@ -12,6 +12,10 @@ from werkzeug.utils import import_string
 
 from bndl.dash import status
 import math
+import werkzeug
+import os
+from werkzeug.serving import make_server
+from threading import Event
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +36,7 @@ class StatusPanel(object):
 
 app = Flask(__name__)
 app.config.from_object('bndl.dash.settings')
+_srv = None
 
 # toolbar = DebugToolbarExtension(app)
 
@@ -105,14 +110,26 @@ def run(node=None, ctx=None):
         flask.g.dashes = dashes
 
     logging.getLogger('werkzeug').setLevel(logging.WARN)
-    threading.Thread(target=_run, daemon=True).start()
+    started = Event()
+    threading.Thread(target=_run, args=(started,), daemon=True).start()
+    started.wait()
 
 
-def _run():
+def stop():
+    global _srv
+    if _srv:
+        try:
+            _srv.shutdown()
+        except:
+            pass
+
+def _run(started):
     for port in range(8080, 8100):
         try:
-            app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
-            print('running dash on', port)
+            global _srv
+            _srv = make_server('0.0.0.0', port, app)
+            started.set()
+            _srv.serve_forever()
             break
         except OSError as exc:
             if exc.errno != errno.EADDRINUSE:

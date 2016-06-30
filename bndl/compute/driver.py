@@ -80,6 +80,7 @@ def run_driver(args, conf, started, stopped):
         # stop the driver and close the loop
         loop.run_until_complete(driver.stop())
         loop.close()
+        dash.stop()
 
 
 def main(args=None, daemon=True):
