@@ -154,8 +154,9 @@ class Supervisor(object):
 
 
     def wait(self, timeout=None):
+        start = time.time()
         for child in self.children:
-            child.wait(timeout)
+            child.wait(timeout - (time.time() - start))
 
 
 def main():
