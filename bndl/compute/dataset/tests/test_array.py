@@ -1,3 +1,5 @@
+from statistics import mean
+
 from bndl.compute.dataset.arrays import DistributedArray
 from bndl.compute.dataset.tests import DatasetTest
 import numpy as np
@@ -164,6 +166,20 @@ class ArrayTest(DatasetTest):
             self.ctx.arange(100).reshape((10, 10))
         with self.assertRaises(ValueError):
             self.ctx.arange(110).reshape((11, 10))
+
+
+    def test_cache(self):
+        arr = self.ctx.arange(100)
+        m1 = arr.mean()
+        self.assertEqual(m1, mean(range(100)))
+
+        arr.cache()
+        m2 = arr.mean()
+        self.assertEqual(m1, m2)
+
+        arr.cache(False)
+        m3 = arr.mean()
+        self.assertEqual(m2, m3)
 
 
     def assertEqual(self, first, second, rtol=1.e-5, atol=1.e-8, msg=None):

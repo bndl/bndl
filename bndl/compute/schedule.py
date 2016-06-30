@@ -5,6 +5,7 @@ import logging
 import traceback
 
 from bndl.execute.job import Job, Stage, Task
+from bndl.util.collection import is_stable_iterable
 
 
 logger = logging.getLogger(__name__)
@@ -165,19 +166,6 @@ class MaterializePartitionTask(Task):
             else:
                 self._save_cacheloc(part.src)
 
-
-def is_stable_iterable(obj):
-    '''
-    This rule is supposed to catch generators, islices, map objects and the
-    lot. They aren't serializable unless materialized in e.g. a list are there
-    cases where a) an unserializable type is missed? or b) materializing data
-    into a list is a bad (wrong result, waste of resources, etc.)? numpy arrays
-    are not wrongly cast to a list through this. That's something ...
-    :param obj: The object to test
-    '''
-    return (
-        (isinstance(obj, Iterable) and isinstance(obj, Sized))
-    )
 
 def materialize_partition(worker, part, return_data):
     try:

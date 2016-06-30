@@ -19,6 +19,7 @@ from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
+from bndl.util.collection import is_stable_iterable
 
 
 try:
@@ -958,7 +959,7 @@ class Partition(metaclass=abc.ABCMeta):
 
         # cache if requested
         if self.dset.cached:
-            if not isinstance(data, collections.Sequence):
+            if not is_stable_iterable(data):
                 data = list(data)
             dset_cache = worker.dset_cache.setdefault(self.dset.id, {})
             dset_cache[self.idx] = data
