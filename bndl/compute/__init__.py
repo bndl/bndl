@@ -10,7 +10,7 @@ __all__ = ['ctx']
 
 def create_ctx():
     argparser = copy.copy(driver.argparser)
-    argparser.prog = 'bndl.compute.script'
+    argparser.prog = 'bndl.compute'
     argparser.epilog = 'Use -- before bndl arguments to separate the from' \
                        'arguments to the main program.'
     args = argparser.parse_args(split_args())

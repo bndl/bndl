@@ -1,6 +1,6 @@
 import IPython
 
-from bndl.compute.script import ctx
+from bndl.compute import ctx
 
 
 HEADER = r''' ___ _  _ ___  _    
