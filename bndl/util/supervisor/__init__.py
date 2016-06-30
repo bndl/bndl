@@ -82,6 +82,7 @@ class Child(object):
             raise RuntimeError("Can't run a child twice")
 
         env = {CHILD_ID:str(self.id)}
+        env.update(os.environ)
         args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
         self.proc = Popen(args, env=env)
         self.started_on = time.time()
