@@ -13,7 +13,7 @@ class CountDistinctTest(DatasetTest):
             hll = HyperLogLog(error_rate)
             hll.add_all(map(_as_bytes, values))
 
-            for i in range(5):
+            for _ in range(5):
                 # generate values
                 extra = [random() for _ in range(1000)]
                 values += extra
@@ -21,11 +21,11 @@ class CountDistinctTest(DatasetTest):
                 # check count accuracy
                 count = self.ctx.collection(values).count_distinct_approx(error_rate)
                 exact = len(set(values))
-                delta = exact * error_rate * 2
+                delta = exact * error_rate * 4
                 self.assertAlmostEqual(count, exact,
                                        delta=delta,
                                        msg='delta %s, error_rate %s' %
-                                       (count - i, error_rate))
+                                       (abs(count - exact), error_rate))
 
                 # check with non distributed counting
                 hll.add_all(map(_as_bytes, extra))
