@@ -65,7 +65,7 @@ def execute_save(ctx, statement, iterable, contact_points=None):
             with cond:
                 saved += 1
                 pending -= 1
-                cond.notify()
+                cond.notify_all()
 
         def on_failed(exc, idx, element):
             nonlocal failcounts
@@ -73,10 +73,11 @@ def execute_save(ctx, statement, iterable, contact_points=None):
                 failcounts[idx] += 1
                 exec_async(idx, element)
             else:
-                nonlocal failure, cond
+                nonlocal failure, pending, cond
                 with cond:
                     failure = exc
-                    cond.notify()
+                    pending -= 1
+                    cond.notify_all()
 
         def exec_async(idx, element):
             future = session.execute_async(prepared_statement, element, timeout=timeout)
