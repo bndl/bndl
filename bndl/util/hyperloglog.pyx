@@ -156,7 +156,6 @@ def _reconstruct_hll(error_rate, M):
     hll = HyperLogLog(error_rate)
     if M:
         hll.M = M
-    print(hll.M[:10], '...')
     return hll
 
 
