@@ -20,6 +20,7 @@ def repartition(partitions, min_pcount):
         repartitioned = []
         for replicas, token_ranges in partitions:
             if len(token_ranges) == 1:
+                repartitioned.append((replicas, token_ranges))
                 continue
             mid = len(token_ranges) // 2
             repartitioned.append((replicas, token_ranges[:mid]))
