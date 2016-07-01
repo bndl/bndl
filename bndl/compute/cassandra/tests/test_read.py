@@ -35,3 +35,9 @@ class ReadTest(CassandraTest):
         first = self.ctx.cassandra_table(self.keyspace, self.table).first()
         self.assertIn({k: v for k, v in first._asdict().items() if k in ('key', 'cluster', 'varint_val')}, self.rows)
         self.assertEqual(len(self.ctx.cassandra_table(self.keyspace, self.table).take(3)), 3)
+
+    def test_missing(self):
+        with self.assertRaisesRegex(KeyError, r'Keyspace {test.keyspace}x not found, did you mean {test.keyspace}?' .format(test=self)):
+            self.ctx.cassandra_table(self.keyspace + 'x', self.table).first()
+        with self.assertRaisesRegex(KeyError, r'Table {test.keyspace}.{test.table}x not found, did you mean {test.table}?' .format(test=self)):
+            self.ctx.cassandra_table(self.keyspace, self.table + 'x').first()

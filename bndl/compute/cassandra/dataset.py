@@ -1,4 +1,4 @@
-from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
+import difflib
 import logging
 
 from bndl.compute.cassandra import partitioner, conf
@@ -7,9 +7,32 @@ from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import funcs
 from cassandra import ConsistencyLevel
+from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
 
 logger = logging.getLogger(__name__)
+
+
+def _did_you_mean(msg, word, possibilities):
+    matches = difflib.get_close_matches(word, possibilities, n=2)
+    if matches:
+        msg += ', did you mean ' + ' or '.join(matches) + '?'
+    return msg
+
+
+def get_table_meta(session, keyspace, table):
+    try:
+        keyspace_meta = session.cluster.metadata.keyspaces[keyspace]
+    except KeyError as e:
+        msg = 'Keyspace %s not found' % (keyspace,)
+        msg = _did_you_mean(msg, keyspace, session.cluster.metadata.keyspaces.keys())
+        raise KeyError(msg) from e
+    try:
+        return keyspace_meta.tables[table]
+    except KeyError as e:
+        msg = 'Table %s.%s not found' % (keyspace, table)
+        msg = _did_you_mean(msg, table, keyspace_meta.tables.keys())
+        raise KeyError(msg) from e
 
 
 class CassandraScanDataset(Dataset):
@@ -34,8 +57,7 @@ class CassandraScanDataset(Dataset):
         self._row_factory = named_tuple_factory
 
         with ctx.cassandra_session(contact_points=self.contact_points) as session:
-            keyspace_meta = session.cluster.metadata.keyspaces[self.keyspace]
-            table_meta = keyspace_meta.tables[self.table]
+            table_meta = get_table_meta(session, self.keyspace, self.table)
 
         self._select = None
         self._limit = None
