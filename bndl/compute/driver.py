@@ -16,6 +16,7 @@ from bndl.compute.worker import Worker, argparser
 from bndl.net.run import create_node
 from bndl.util.supervisor import Supervisor
 from subprocess import TimeoutExpired
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -62,15 +63,15 @@ def run_driver(args, conf, started, stopped):
     driver = create_node(Driver, args)
     loop = driver.loop
 
-    ctx = ComputeContext(driver, conf)
-
-    dash.run(driver, ctx)
-
     try:
         try:
+            ctx = ComputeContext(driver, conf)
+
+            dash.run(driver, ctx)
+
             loop.run_until_complete(driver.start())
-        except:
-            started.set_result(True)
+        except Exception as e:
+            started.set_result(e)
             return
 
         # signal the set up is done and run the aio loop until the stop signal is given
@@ -104,8 +105,8 @@ def main(args=None, daemon=True):
 
     # wait for driver to set up
     result = started.result()
-    if not result:
-        return None
+    if isinstance(result, Exception):
+        raise result
     else:
         driver, ctx = result
 
