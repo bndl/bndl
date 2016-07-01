@@ -3,19 +3,22 @@ from configparser import ConfigParser
 
 _MISSING = object()
 
+
 class Config(object):
     def __init__(self, values={}):
         self.values = {}
 
-        self.config = ConfigParser()
-        self.config.read(['~/.bndl.ini',
-                          './.bndl.ini', ])
-
-        for section in self.config.sections():
-            for key, value in self.config[section].items():
+        # read from .bndl.ini files
+        config = ConfigParser()
+        config.read(['~/.bndl.ini',
+                     './.bndl.ini', ])
+        for section in config.sections():
+            for key, value in config[section].items():
                 self.values['%s.%s' % (section, key)] = value
 
+        # override with config provided through the constructor
         self.values.update(values)
+
 
     def get(self, key, fmt=None, defaults=None):
         value = self.values.get(key, _MISSING)
