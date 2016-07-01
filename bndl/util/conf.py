@@ -1,6 +1,9 @@
 from configparser import ConfigParser
+import os
+import shlex
 
 
+BNDL_ENV_KEY = 'BNDL_CONF'
 _MISSING = object()
 
 
@@ -15,6 +18,14 @@ class Config(object):
         for section in config.sections():
             for key, value in config[section].items():
                 self.values['%s.%s' % (section, key)] = value
+
+        # read from BNDL_CONF environment variable
+        env_config = os.environ.get(BNDL_ENV_KEY, '')
+        for option in shlex.split(env_config):
+            option = option.split('=')
+            if len(option) != 2:
+                raise RuntimeError('%s not in key=value format in BNDL_CONFIG environment variable' % option)
+            self[option[0]] = option[1]
 
         # override with config provided through the constructor
         self.values.update(values)
