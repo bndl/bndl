@@ -17,4 +17,4 @@ def create_ctx():
     return driver.main(args, daemon=True)
 
 
-ctx = LazyObject(create_ctx)
+ctx = LazyObject(create_ctx, 'stop')
