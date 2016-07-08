@@ -7,25 +7,26 @@ from itertools import islice, product, chain, starmap
 from math import sqrt, log
 from operator import add
 import abc
-import collections
 import heapq
 import logging
+import os
+import pickle
 import struct
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
+from bndl.util.collection import is_stable_iterable
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
-from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import sortedcontainers.sortedlist
-from bndl.util.collection import is_stable_iterable
 
 
 try:
     from bndl.compute.dataset.stats import iterable_size, Stats, \
         sample_with_replacement, sample_without_replacement
     from bndl.util.hash import portable_hash
+    from bndl.util.hyperloglog import HyperLogLog
 except ImportError as exc:
     raise ImportError('Unable to load Cython extensions, '
                       'install Cython or use a binary distribution') from exc
@@ -850,6 +851,15 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def collect_as_set(self):
         return set(self.icollect())
+
+
+    def collect_as_pickles(self, directory=None):
+        if not directory:
+            directory = os.getcwd()
+        pickled = self.map_partitions(lambda p: (p if is_stable_iterable(p) else list(p),)).map(pickle.dumps)
+        for idx, part in enumerate(pickled.icollect()):
+            with open(os.path.join(directory, '%s-%s.p' % (self.id, idx)), 'wb') as f:
+                f.write(part)
 
 
     def icollect(self, eager=True, parts=False):
