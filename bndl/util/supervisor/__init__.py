@@ -157,13 +157,13 @@ class Supervisor(object):
     def wait(self, timeout=None):
         start = time.time()
         for child in self.children:
-            child.wait(timeout - (time.time() - start))
+            child.wait((timeout - (time.time() - start)) if timeout else None)
 
 
-def main():
+def main(args=None):
     configure_logging('supervisor-' + '.'.join(map(str, (os.getpid(), socket.getfqdn()))))
 
-    args = argparser.parse_args(split_args())
+    args = args or argparser.parse_args(split_args())
     supervisor = Supervisor(args.entry_point[0], args.entry_point[1], sys.argv[1:], args.process_count)
 
     try:
