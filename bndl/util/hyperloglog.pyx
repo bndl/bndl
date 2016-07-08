@@ -108,7 +108,7 @@ bias = [
 ]
 
 
-cdef long maxint = (2 ** (64 - 1)) 
+cdef unsigned long maxint = -(2u ** (64u - 1u))
 
 
 cdef inline int get_threshold(int p):
@@ -173,7 +173,7 @@ class HyperLogLog:
 
     
     def add(self, value):
-        cdef unsigned long x = hash64(value)[0] - maxint
+        cdef unsigned long x = hash64(value)[0] + maxint
         cdef long j = x & self.mask
         cdef long w = x >> self.p
         self.M[j] = max(self.M[j], get_rho(w, self.max_width))
@@ -189,7 +189,7 @@ class HyperLogLog:
         cdef int max_width = self.max_width
         
         for value in values:
-            x = hash64(value)[0] - maxint
+            x = hash64(value)[0] + maxint
             j = x & mask
             w = x >> self.p
             self.M[j] = max(self.M[j], get_rho(w, max_width))
