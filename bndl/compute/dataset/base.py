@@ -106,6 +106,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
             >>> ctx.collection(['abc']*10).pluck(1).collect()
             ['b', 'b', 'b', 'b', 'b', 'b', 'b', 'b', 'b', 'b']
+            >>> ctx.collection(['abc']*10).pluck([1,2]).collect()
+            [('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c'), ('b', 'c')]
 
         '''
         kwargs = {'default': default} if default is not None else {}
