@@ -13,9 +13,7 @@ except ImportError:
     USE_CYTHON = False
 
 
-ext = re.compile(
-    '\.%s$' % ('pyx' if USE_CYTHON else 'c')
-)
+ext = re.compile(r'\.pyx$')
 
 extensions = [
     Extension(
@@ -46,6 +44,10 @@ setup(
 
     include_package_data=True,
     zip_safe=False,
+
+    setup_requires=[
+        'cython'
+    ],
 
     install_requires=[
         'sortedcontainers',

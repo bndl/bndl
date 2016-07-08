@@ -1,1 +1,2 @@
 recursive-include bndl *.html
+recursive-include bndl *.pyx
