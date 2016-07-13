@@ -70,7 +70,7 @@ def getlocalhostname():
             address = option()
             gethostbyname(address)
             return address
-        except:
+        except Exception:
             pass
     return '127.0.0.1'
 

@@ -181,7 +181,7 @@ def materialize_partition(worker, part, return_data):
                 return list(data)
             else:
                 return data
-    except:
+    except Exception:
         logger.info('error while materializing part %s on worker %s',
                     part, worker, exc_info=True)
         raise

@@ -117,7 +117,7 @@ class Watchdog(object):
                     yield from self._check()
                 except CancelledError:
                     raise
-                except:
+                except Exception:
                     logger.exception('unable to check %s', self.node)
         except CancelledError:
             pass
@@ -127,7 +127,7 @@ class Watchdog(object):
     def _ping(self, peer):
         try:
             peer.send(Ping())
-        except:
+        except Exception:
             self.peer_stats(peer).update()
 
 

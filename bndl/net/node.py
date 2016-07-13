@@ -156,7 +156,7 @@ class Node(object):
                     try:
                         peer = self.PeerNode(self.loop, self, addresses=addresses, name=name)
                         yield from peer.connect()
-                    except:
+                    except Exception:
                         logger.warning('unexpected error while connecting to discovered peer %s', name)
 
 
@@ -167,7 +167,7 @@ class Node(object):
             yield from self.PeerNode(self.loop, self)._connected(conn)
         except GeneratorExit:
             conn.close()
-        except:
+        except Exception:
             conn.close()
             logger.exception('unable to accept connection from %s', conn.peername())
 
@@ -222,7 +222,7 @@ class Node(object):
                     new_peer._notify_discovery(peer_list),
                     timeout=HELLO_TIMEOUT * 3
                 )
-        except:
+        except Exception:
             logger.exception('discovery notification failed')
 
         for peer in peers:
@@ -232,7 +232,7 @@ class Node(object):
                         peer._notify_discovery([(new_peer.name, new_peer.addresses)]),
                         timeout=HELLO_TIMEOUT * 3
                     )
-                except:
+                except Exception:
                     logger.debug('discovery notification failed', exc_info=True)
 
 

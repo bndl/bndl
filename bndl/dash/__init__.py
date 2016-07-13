@@ -120,7 +120,7 @@ def stop():
     if _srv:
         try:
             _srv.shutdown()
-        except:
+        except Exception:
             pass
 
 def _run(started):

@@ -1128,7 +1128,7 @@ class ShuffleWritingDataset(Dataset):
             for future in futures:
                 try:
                     future.result()
-                except:
+                except Exception:
                     logger.warning('unable to cleanup after job for shuffle writing dataset %s', self.id, exc_info=True)
 
         return _cleanup

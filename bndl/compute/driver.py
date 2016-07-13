@@ -42,7 +42,7 @@ class Driver(Worker):
         for worker in self.peers.filter(node_type='worker'):
             try:
                 futures.append(worker.unpersist_broadcast_value(key))
-            except:
+            except Exception:
                 pass
         # wait for all to be done
         [future.result() for future in futures]
@@ -133,7 +133,7 @@ def main(args=None, daemon=True):
 
     try:
         ctx.await_workers()
-    except:
+    except Exception:
         pass
 
     return ctx

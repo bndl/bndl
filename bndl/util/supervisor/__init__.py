@@ -34,7 +34,7 @@ def entry_point(string):
     try:
         module, main_method = string.split(':')
         return module, main_method
-    except:
+    except Exception:
         raise ValueError()
 
 

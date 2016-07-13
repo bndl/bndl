@@ -216,7 +216,7 @@ class PeerNode(object):
                 yield from self._send_hello()
             except NotConnected:
                 return
-            except:
+            except Exception:
                 logger.exception('unable to complete handshake with %s', hello.name)
                 connection.close()
 
@@ -310,7 +310,7 @@ class PeerNode(object):
                 pass
             else:
                 logger.warning('message of unsupported type %s %s', type(msg), self)
-        except:
+        except Exception:
             logger.exception('unable to dispatch message %s', type(msg))
 
 

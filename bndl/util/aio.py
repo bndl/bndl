@@ -81,7 +81,7 @@ def run_coroutine_threadsafe(coro, loop):
         try:
             schedule_task_handle.cancel()
             loop.call_soon_threadsafe(cancel_task)
-        except:
+        except Exception:
             logger.exception('canceling future failed')
     future.add_done_callback(future_done)
 

@@ -43,7 +43,7 @@ class Job(Lifecycle):
                 logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
                 stage.add_listener(self._stage_done)
                 yield stage.execute(workers, stage != self.stages[-1] or eager)
-        except:
+        except Exception:
             self.signal_stop()
             raise
         finally:
@@ -157,7 +157,7 @@ class Stage(Lifecycle):
                     next_task_idx += 1
                 else:
                     scheduled.acquire()
-            except:
+            except Exception:
                 workers_available.put(sentinel)
                 raise
 
