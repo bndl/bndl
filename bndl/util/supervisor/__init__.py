@@ -34,8 +34,9 @@ def entry_point(string):
     try:
         module, main_method = string.split(':')
         return module, main_method
-    except Exception:
-        raise ValueError()
+    except Exception as e:
+        raise ValueError('Unable to parse entry point "%s". Entry points must be formatted as'
+                         ' module:method (e.g. your.module:main)' % string) from e
 
 
 argparser = argparse.ArgumentParser()
