@@ -98,8 +98,8 @@ class Node(object):
             self._watchdog = None
 
         # disconnect from the peers
-        for peer in list(self.peers.values()):
-            yield from peer.disconnect('stopping node')
+        disconnects = [peer.disconnect('stopping node') for peer in list(self.peers.values())]
+        yield from asyncio.gather(*disconnects, return_exceptions=True)
         self.peers.clear()
 
         # close the servers
