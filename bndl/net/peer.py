@@ -267,7 +267,7 @@ class PeerNode(object):
                 yield from self.disconnect('connection cancelled', active=False)
                 break
             except ConnectionResetError:
-                logger.warning('connection with %s closed unexpectedly', self.name)
+                logger.debug('connection with %s closed unexpectedly', self.name)
                 yield from self.disconnect('connection reset', active=False)
                 break
             except asyncio.streams.IncompleteReadError:
