@@ -93,8 +93,6 @@ class ExecutionContext(Lifecycle):
                 # and wait twice as long
                 stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
 
-            # print(count, min_connected_since, stable_time)
-
             if min_connected_since < max(stable_time, timedelta(seconds=.5)):
                 return False
 
@@ -102,7 +100,6 @@ class ExecutionContext(Lifecycle):
             tasks = [w.run_task(lambda w:sum(1 for w in w.peers.filter(node_type='worker') if w.is_connected)) for w in self.workers]
             actual = sum(t.result() for t in tasks)
 
-            # print(count, '(step 2)', expected, actual, expected == actual)
             return expected == actual
 
         if self.workers and connections_stable():
