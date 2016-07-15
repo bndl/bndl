@@ -1,6 +1,8 @@
-from bndl.compute.cassandra.session import cassandra_session
-import math
 import copy
+import math
+
+from bndl.compute.cassandra.session import cassandra_session
+
 
 def get_cassandra_metrics(worker):
     try:

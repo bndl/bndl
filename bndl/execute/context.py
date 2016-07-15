@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import time
 
@@ -12,11 +12,10 @@ logger = logging.getLogger(__name__)
 
 class ExecutionContext(Lifecycle):
 
-    def __init__(self, driver, conf={}):
+    def __init__(self, node, config=Config()):
         super().__init__()
-        self._driver = driver
-        self._node = driver
-        self.conf = Config(conf)
+        self._node = node
+        self.conf = config
         self.jobs = []
         self.signal_start()
 
@@ -32,8 +31,9 @@ class ExecutionContext(Lifecycle):
     def execute(self, job, workers=None, eager=True):
         # TODO what if not everything is consumed?
         assert self.running, 'context is not running'
-        self.await_workers()
-        workers = workers or self.workers[:]
+        if workers is None:
+            self.await_workers()
+            workers = self.workers[:]
 
         try:
             for listener in self.listeners:
@@ -63,13 +63,53 @@ class ExecutionContext(Lifecycle):
         :param stable_timeout: int or float
             Maximum time in seconds waited until no more workers are discovered.
         '''
-        step_sleep = .1
 
-        if self.workers and (datetime.now() - max(worker.connected_on for worker in self.workers)).total_seconds() > step_sleep:
+        if not isinstance(connect_timeout, timedelta):
+            connect_timeout = timedelta(seconds=connect_timeout)
+        if not isinstance(stable_timeout, timedelta):
+            stable_timeout = timedelta(seconds=stable_timeout)
+
+        step_sleep = .1
+        wait_started = datetime.now()
+
+        def connections_stable():
+            count = self.worker_count
+            # not 'stable' until at least one worker found
+            if count == 0:
+                return False
+
+            # calculate a sorted list of when workers have connected
+            connected_on = sorted(worker.connected_on for worker in self.workers)
+            min_connected_since = datetime.now() - connected_on[-1]
+
+            if min_connected_since > stable_timeout:
+                return True
+
+            if count == 1:
+                # if only one worker found, wait at least connect_timeout seconds
+                stable_time = connect_timeout
+            else:
+                # otherwise, find out the max time between connects
+                # and wait twice as long
+                stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
+
+            # print(count, min_connected_since, stable_time)
+
+            if min_connected_since < max(stable_time, timedelta(seconds=.5)):
+                return False
+
+            expected = self.worker_count ** 2 - self.worker_count
+            tasks = [w.run_task(lambda w:sum(1 for w in w.peers.filter(node_type='worker') if w.is_connected)) for w in self.workers]
+            actual = sum(t.result() for t in tasks)
+
+            # print(count, '(step 2)', expected, actual, expected == actual)
+            return expected == actual
+
+        if self.workers and connections_stable():
             return
 
-        # wait connect_timeout seconds to find first worker
-        for _ in range(int(connect_timeout // step_sleep)):
+        # wait connect_timeout to find first worker
+        while datetime.now() - wait_started < connect_timeout:
             if self.workers:
                 break
             time.sleep(step_sleep)
@@ -77,12 +117,14 @@ class ExecutionContext(Lifecycle):
             raise RuntimeError('no workers available')
 
         # wait stable_timeout to let the discovery complete
-        for _ in range(int(stable_timeout // step_sleep)):
-            count = self.worker_count
-            time.sleep(step_sleep)
-            if self.worker_count == count:
+        while datetime.now() - wait_started < stable_timeout:
+            if connections_stable():
                 break
-            step_sleep = min(step_sleep * 3, 5)
+            time.sleep(step_sleep)
+            if step_sleep < 1:
+                step_sleep *= 2
+
+        return self.worker_count
 
 
     @property
@@ -101,6 +143,6 @@ class ExecutionContext(Lifecycle):
 
     def __getstate__(self):
         state = super().__getstate__()
-        for attr in ('_driver', '_node', 'jobs'):
+        for attr in ('_node', 'jobs'):
             state.pop(attr, None)
         return state

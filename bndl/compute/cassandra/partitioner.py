@@ -2,7 +2,6 @@ import copy
 from operator import itemgetter
 
 from bndl.util.collection import sortgroupby
-from bndl.compute.cassandra import conf
 
 
 T_COUNT = 2 ** 64
@@ -37,9 +36,19 @@ def repartition(partitions, min_pcount):
     return partitions
 
 
-def partition_ranges(session, keyspace, table=None, size_estimates=None, min_pcount=None,
-                     part_size_keys=conf.DEFAULTS[conf.PART_SIZE_KEYS],
-                     part_size_mb=conf.DEFAULTS[conf.PART_SIZE_MB]):
+def partition_ranges(ctx, session, keyspace, table=None, size_estimates=None):
+    min_pcount = ctx.default_pcount
+    part_size_keys = ctx.conf.get('bndl.compute.cassandra.part_size_mb')
+    part_size_mb = ctx.conf.get('bndl.compute.cassandra.part_size_mb')
+
+    # fall back to default size bounds
+    if part_size_keys is None:
+        from bndl.compute.cassandra import part_size_keys as psk
+        part_size_keys = psk.default,
+    if part_size_mb is None:
+        from bndl.compute.cassandra import part_size_keys as psm
+        part_size_mb = psm.default
+
     # estimate size of table
     size_estimate = size_estimates or estimate_size(session, keyspace, table)
 

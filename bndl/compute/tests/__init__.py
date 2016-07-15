@@ -1,6 +1,7 @@
 import unittest
 
-from bndl.compute.driver import main
+from bndl.compute import create_ctx
+from bndl.util.conf import Config
 
 
 class ComputeTest(unittest.TestCase):
@@ -8,7 +9,11 @@ class ComputeTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.ctx = main(['--workers', str(cls.worker_count)])
+        config = Config()
+        config['bndl.compute.workers'] = cls.worker_count
+        cls.ctx = create_ctx(config, daemon=True)
+        if cls.ctx.worker_count < cls.worker_count:
+            cls.ctx.await_workers()
 
     @classmethod
     def tearDownClass(cls):

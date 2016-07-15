@@ -10,8 +10,8 @@ from bndl.util.funcs import as_method
 
 
 class ComputeContext(ExecutionContext):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, driver, *args, **kwargs):
+        super().__init__(driver, *args, **kwargs)
         self._dataset_ids = itertools.count()
 
     @property

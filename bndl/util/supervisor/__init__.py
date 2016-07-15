@@ -1,14 +1,7 @@
-from asyncio.futures import Future
-from asyncio.locks import Condition
-from asyncio.subprocess import Process
-from functools import partial
 from subprocess import Popen
 from threading import Thread
 import argparse
-import asyncio
 import atexit
-import collections
-import copy
 import itertools
 import os
 import signal
@@ -16,14 +9,12 @@ import socket
 import sys
 import time
 
-from bndl.util import aio
-from bndl.util.aio import get_loop
 from bndl.util.log import configure_logging
 
 
 # Environment variable to indicate which child the process is. It's value is
 # formatted as {supervisor.id}.{child.id}
-CHILD_ID = 'BNDL_CHILD_ID'
+CHILD_ID = 'BNDL_SUPERVISOR_CHILD'
 
 # If a supervised child fails within MIN_RUN_TIME seconds, the child is
 # considered unstable and isn't rebooted.
@@ -40,30 +31,19 @@ def entry_point(string):
 
 
 argparser = argparse.ArgumentParser()
-argparser.epilog = 'Use -- before bndl arguments to separate the from' \
+argparser.epilog = 'Use -- after the supervisor arguments to separate them from' \
                    'arguments to the main program.'
 argparser.add_argument('entry_point', type=entry_point)
 argparser.add_argument('--process_count', nargs='?', type=int, default=os.cpu_count())
 
 
 def split_args():
-    prog_args = []
-
     idx = -1
-    split = False
-    for idx, val in enumerate(sys.argv[1:]):
+    for idx, val in enumerate(sys.argv):
         if val == '--':
-            split = True
             break
-        else:
-            prog_args.append(val)
 
-    if split:
-        bndl_args = sys.argv[idx + 2:]
-        sys.argv = sys.argv[:1] + prog_args
-    else:
-        bndl_args = []
-    return bndl_args
+    return sys.argv[1:idx + 1], sys.argv[idx + 1:]
 
 
 class Child(object):
@@ -107,7 +87,8 @@ class Child(object):
         '''
         assert self.running
         retcode = self.proc.wait()
-        if retcode not in (0, signal.SIGTERM, signal.SIGKILL) and (time.time() - self.started_on) > MIN_RUN_TIME:
+        if retcode not in (0, signal.SIGTERM, signal.SIGKILL, -signal.SIGTERM, -signal.SIGKILL) \
+           and (time.time() - self.started_on) > MIN_RUN_TIME:
             self.start()
 
     @property
@@ -129,7 +110,7 @@ class Child(object):
 class Supervisor(object):
     _ids = itertools.count()
 
-    def __init__(self, module, main, args, process_count):
+    def __init__(self, module, main, args, process_count=None):
         self.id = next(Supervisor._ids)
         self.module = module
         self.main = main
@@ -141,6 +122,7 @@ class Supervisor(object):
     def start(self):
         for _ in range(self.process_count):
             self._start()
+
 
 
     def _start(self):
@@ -161,20 +143,30 @@ class Supervisor(object):
             child.wait((timeout - (time.time() - start)) if timeout else None)
 
 
-def main(args=None):
+def main(supervisor_args=None, child_args=None):
     configure_logging('supervisor-' + '.'.join(map(str, (os.getpid(), socket.getfqdn()))))
 
-    args = args or argparser.parse_args(split_args())
-    supervisor = Supervisor(args.entry_point[0], args.entry_point[1], sys.argv[1:], args.process_count)
+    # parse arguments
+    if supervisor_args is None:
+        supervisor_args, prog_args = split_args()
+        supervisor_args = argparser.parse_args(supervisor_args)
+    else:
+        prog_args = child_args or []
 
+    # create the supervisor
+    supervisor = Supervisor(supervisor_args.entry_point[0], supervisor_args.entry_point[1], prog_args, supervisor_args.process_count)
+
+    # and run until CTRL-C / SIGTERM
     try:
+        entry_point = ':'.join(supervisor_args.entry_point)
+        print('supervisor is starting', supervisor_args.process_count, entry_point, 'child processes ...')
         supervisor.start()
         supervisor.wait()
     except KeyboardInterrupt:
-        pass
+        print('supervisor interrupted')
     finally:
+        print('supervisor is stopping', supervisor_args.process_count, entry_point, 'child processes')
         supervisor.stop()
-        # supervisor.wait()
 
 
 if __name__ == '__main__':

@@ -2,11 +2,14 @@ from datetime import datetime
 import asyncio
 import errno
 import logging
+import weakref
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util.exceptions import catch
+from asyncio.futures import CancelledError
+from bndl.util import aio
 
 
 logger = logging.getLogger(__name__)
@@ -35,11 +38,12 @@ class PeerNode(object):
         self.addresses = addresses
         self.name = name
         self.node_type = node_type
-        self.handshake_lock = asyncio.Lock()
+        self.handshake_lock = asyncio.Lock(loop=self.loop)
         self.conn = None
         self.server = None
         self.connected_on = None
         self.disconnected_on = None
+        self._iotasks = weakref.WeakSet()
 
 
     @property
@@ -89,6 +93,20 @@ class PeerNode(object):
                 break
 
 
+    def disconnect_async(self, reason='', active=True):
+        return aio.run_coroutine_threadsafe(self.disconnect(reason, active), self.loop)
+
+
+    def _stop_tasks(self):
+        # close any running dispatch tasks
+        for task in self._iotasks:
+            task.cancel()
+        self._iotasks.clear()
+        # close the server task
+        with catch():
+            self.server.cancel()
+
+
     @asyncio.coroutine
     def disconnect(self, reason='', active=True):
         logger.log(logging.INFO if active and self.is_connected else logging.DEBUG,
@@ -99,9 +117,10 @@ class PeerNode(object):
         if active and self.is_connected:
             with catch():
                 yield from self.send(Disconnect(reason=reason), drain=True)
-        # close the server task
-        with catch():
-            self.server.cancel()
+
+        # close the io tasks and the server
+        self._stop_tasks()
+
         # close the connection
         with catch():
             yield from self.conn.close()
@@ -123,7 +142,7 @@ class PeerNode(object):
                 if address.scheme != 'tcp':
                     raise ValueError('unsupported scheme in %s', url)
 
-                reader, writer = yield from asyncio.open_connection(address.hostname, address.port)
+                reader, writer = yield from asyncio.open_connection(address.hostname, address.port, loop=self.loop)
                 self.conn = Connection(self.loop, reader, writer)
                 logger.debug('%s connected', self.conn)
 
@@ -225,6 +244,7 @@ class PeerNode(object):
             self.addresses = hello.addresses
 
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
+
             self.server = self.loop.create_task(self._serve())
 
 
@@ -279,7 +299,8 @@ class PeerNode(object):
                 yield from self.disconnect('unexpected error: ' + str(exc), active=False)
                 break
 
-            self.loop.create_task(self._dispatch(msg))
+            task = self.loop.create_task(self._dispatch(msg))
+            self._iotasks.add(task)
 
         logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()
@@ -310,6 +331,8 @@ class PeerNode(object):
                 pass
             else:
                 logger.warning('message of unsupported type %s %s', type(msg), self)
+        except CancelledError:
+            pass
         except Exception:
             logger.exception('unable to dispatch message %s', type(msg))
 

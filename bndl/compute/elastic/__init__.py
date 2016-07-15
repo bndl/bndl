@@ -7,6 +7,15 @@ from bndl.compute.elastic.bulk import elastic_bulk, elastic_create, \
     elastic_index, elastic_update, elastic_delete, elastic_upsert
 
 
+from bndl.util.conf import CSV, String
+
+# Configuration
+hosts = CSV()
+index = String()
+doc_type = String()
+
+
+# Bndl API extensions
 ComputeContext.elastic_client = elastic_client
 ComputeContext.elastic_search = as_method(ElasticSearchDataset)
 

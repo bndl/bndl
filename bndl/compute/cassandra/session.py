@@ -8,7 +8,6 @@ from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy, RetryPolicy, WriteType
-from bndl.compute.cassandra import conf
 
 
 class MultipleRetryPolicy(RetryPolicy):
@@ -53,7 +52,7 @@ def get_contact_points(ctx, contact_points):
 @lru_cache()
 def _get_contact_points(ctx, *contact_points):
     if not contact_points:
-        contact_points = ctx.conf.get(conf.CONTACT_POINTS, defaults=conf.DEFAULTS)
+        contact_points = ctx.conf.get('bndl.compute.cassandra.contact_points')
     if not contact_points:
         contact_points = set()
         for worker in ctx.workers:
@@ -73,24 +72,24 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     pools = getattr(cassandra_session, 'pools', None)
     if not pools:
         cassandra_session.pools = pools = {}
-    # determine contact points, either given or ip addresses of the workers
+    # determine contact points, either given or IP addresses of the workers
     contact_points = get_contact_points(ctx, contact_points)
     # check if there is a cached session object
     pool = pools.get(contact_points)
     if not keyspace:
-        keyspace = ctx.conf.get(conf.KEYSPACE, defaults=conf.DEFAULTS)
+        keyspace = ctx.conf.get('bndl.compute.cassandra.keyspace')
     # or create one if not
     if not pool:
         def create_cluster():
-            retry_policy = MultipleRetryPolicy(ctx.conf.get_int(conf.READ_RETRY_COUNT, defaults=conf.DEFAULTS),
-                                               ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS))
+            retry_policy = MultipleRetryPolicy(ctx.conf.get('bndl.compute.cassandra.read_retry_count'),
+                                               ctx.conf.get('bndl.compute.cassandra.write_retry_count'))
             return Cluster(
                 contact_points,
-                port=ctx.conf.get_int(conf.PORT, defaults=conf.DEFAULTS),
-                compression=ctx.conf.get_bool(conf.COMPRESSION, defaults=conf.DEFAULTS),
+                port=ctx.conf.get('bndl.compute.cassandra.port'),
+                compression=ctx.conf.get('bndl.compute.cassandra.compression'),
                 load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
                 default_retry_policy=retry_policy,
-                metrics_enabled=ctx.conf.get_bool(conf.METRICS_ENABLED, defaults=conf.DEFAULTS),
+                metrics_enabled=ctx.conf.get('bndl.compute.cassandra.metrics_enabled'),
             )
 
         def create():
@@ -101,7 +100,7 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
                 pool.cluster = cluster = create_cluster()
             session = cluster.connect(keyspace)
             session.prepare = partial(prepare, session)
-            session.default_fetch_size = ctx.conf.get_int(conf.FETCH_SIZE_ROWS, defaults=conf.DEFAULTS)
+            session.default_fetch_size = ctx.conf.get('bndl.compute.cassandra.fetch_size_rows')
 
             return session
 

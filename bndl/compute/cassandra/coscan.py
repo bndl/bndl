@@ -2,7 +2,7 @@ from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
 import logging
 
-from bndl.compute.cassandra import partitioner, conf
+from bndl.compute.cassandra import partitioner
 from bndl.compute.cassandra.partitioner import estimate_size, SizeEstimate
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
@@ -91,10 +91,7 @@ class CassandraCoScanDataset(Dataset):
             size_estimates = sum((estimate_size(session, self.keyspace, src.table) for src in self.src),
                                  SizeEstimate(0, 0, 0))
 
-            partitions = partitioner.partition_ranges(session, self.keyspace, size_estimates=size_estimates,
-                                                      min_pcount=self.ctx.default_pcount,
-                                                      part_size_keys=self.ctx.conf.get_int(conf.PART_SIZE_KEYS, defaults=conf.DEFAULTS),
-                                                      part_size_mb=self.ctx.conf.get_int(conf.PART_SIZE_MB, defaults=conf.DEFAULTS))
+            partitions = partitioner.partition_ranges(self.ctx, session, self.keyspace, size_estimates=size_estimates)
 
             return [
                 CassandraCoScanPartition(self, idx, [CassandraScanPartition(scan, idx, replicas, token_ranges)

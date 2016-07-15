@@ -1,7 +1,6 @@
 from functools import partial
 
-from bndl.compute.elastic.client import elastic_client
-from bndl.compute.elastic.conf import resource_from_conf
+from bndl.compute.elastic.client import elastic_client, resource_from_conf
 from elasticsearch.helpers import bulk
 
 
@@ -64,7 +63,7 @@ def elastic_index(self, index=None, doc_type=None, refresh=False, hosts=None):
     :param hosts: str or iterable (optional)
         Hosts which serve as contact points for the Elastic client.
     '''
-    index, doc_type = resource_from_conf(self.ctx, index, doc_type)
+    index, doc_type = resource_from_conf(self.ctx.conf, index, doc_type)
     return _elastic_bulk(self.map(lambda doc: {
         '_op_type': 'index',
         '_index': index,
@@ -88,7 +87,7 @@ def elastic_create(self, index=None, doc_type=None, refresh=False, hosts=None):
     :param hosts: str or iterable (optional)
         Hosts which serve as contact points for the Elastic client.
     '''
-    index, doc_type = resource_from_conf(self.ctx, index, doc_type)
+    index, doc_type = resource_from_conf(self.ctx.conf, index, doc_type)
     return _elastic_bulk(self.starmap(lambda doc_id, doc: {
         '_op_type': 'create',
         '_index': index,
@@ -112,7 +111,7 @@ def elastic_update(self, index=None, doc_type=None, refresh=False, hosts=None):
     :param hosts: str or iterable (optional)
         Hosts which serve as contact points for the Elastic client.
     '''
-    index, doc_type = resource_from_conf(self.ctx, index, doc_type)
+    index, doc_type = resource_from_conf(self.ctx.conf, index, doc_type)
     return _elastic_bulk(self.starmap(lambda doc_id, doc: {
         '_op_type': 'update',
         '_index': index,
@@ -136,7 +135,7 @@ def elastic_upsert(self, index=None, doc_type=None, refresh=False, hosts=None):
     :param hosts: str or iterable (optional)
         Hosts which serve as contact points for the Elastic client.
     '''
-    index, doc_type = resource_from_conf(self.ctx, index, doc_type)
+    index, doc_type = resource_from_conf(self.ctx.conf, index, doc_type)
     return _elastic_bulk(self.starmap(lambda doc_id, doc: {
         '_op_type': 'update',
         '_index': index,
@@ -160,7 +159,7 @@ def elastic_delete(self, index=None, doc_type=None, refresh=False, hosts=None):
     :param hosts: str or iterable (optional)
         Hosts which serve as contact points for the Elastic client.
     '''
-    index, doc_type = resource_from_conf(self.ctx, index, doc_type)
+    index, doc_type = resource_from_conf(self.ctx.conf, index, doc_type)
     return _elastic_bulk(self.map(lambda doc_id: {
         '_op_type': 'delete',
         '_index': index,

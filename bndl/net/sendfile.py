@@ -59,7 +59,6 @@ def _getfd(file):
 def sendfile(outf, inf, offset, nbytes, loop=None):
     out_fd = _getfd(outf)
     in_fd = _getfd(inf)
-    loop = loop or asyncio.get_event_loop()
     fut = asyncio.Future(loop=loop)
     if hasattr(os, "sendfile"):
         _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
