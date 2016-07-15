@@ -4,7 +4,6 @@ import abc
 import logging
 import threading
 
-from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
 
 

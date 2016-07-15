@@ -40,14 +40,14 @@ class Invocation(object):
     @asyncio.coroutine
     def _request(self, *args, **kwargs):
         request = Request(req_id=next(self.peer._request_ids), method=self.name, args=args, kwargs=kwargs)
-        response_queue = asyncio.queues.Queue()
+        response_queue = asyncio.queues.Queue(loop=self.peer.loop)
         self.peer.handlers[request.req_id] = response_queue.put
 
         logger.debug('remote invocation of %s on %s', self.name, self.peer.name)
         yield from self.peer.send(request)
 
         try:
-            response = (yield from asyncio.wait_for(response_queue.get(), self._timeout))
+            response = (yield from asyncio.wait_for(response_queue.get(), self._timeout, loop=self.peer.loop))
         except asyncio.futures.CancelledError:
             logger.debug('remote invocation cancelled')
             return None

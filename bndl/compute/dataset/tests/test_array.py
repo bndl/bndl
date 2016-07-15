@@ -97,8 +97,7 @@ class ArrayTest(DatasetTest):
         ]
 
         for dset, arange in ranges:
-            dset_arange = dset.collect()
-            self.assertEqual(dset_arange, arange)
+            self.assertEqual(dset.collect(), arange)
 
 
     def test_sum(self):

@@ -1,6 +1,5 @@
 from bndl.compute.dataset.tests import DatasetTest
 from elasticsearch.client import Elasticsearch
-from bndl.compute.elastic import conf
 
 
 class ElasticTest(DatasetTest):
@@ -9,8 +8,8 @@ class ElasticTest(DatasetTest):
 
     def setUp(self):
         super().setUp()
-        self.ctx.conf[conf.INDEX] = self.index
-        self.ctx.conf[conf.DOC_TYPE] = self.doc_type
+        self.ctx.conf['bndl.compute.elastic.index'] = self.index
+        self.ctx.conf['bndl.compute.elastic.doc_type'] = self.doc_type
 
         with self.ctx.elastic_client() as client:
             client.indices.delete(self.index, ignore=404)

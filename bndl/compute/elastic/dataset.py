@@ -1,7 +1,6 @@
 from bndl.compute.dataset.base import Dataset, Partition
-from bndl.compute.elastic.client import elastic_client, parse_hostname
+from bndl.compute.elastic.client import elastic_client, parse_hostname, resource_from_conf
 from elasticsearch.helpers import scan
-from bndl.compute.elastic.conf import resource_from_conf
 
 
 class ElasticSearchDataset(Dataset):
@@ -33,7 +32,7 @@ class ElasticSearchDataset(Dataset):
             Keyword arguments passed to elasticsearch.helpers.scan.
         '''
         super().__init__(ctx)
-        index, doc_type = resource_from_conf(ctx, index, doc_type)
+        index, doc_type = resource_from_conf(ctx.conf, index, doc_type)
         self.index = index
         self.doc_type = doc_type
         self.hosts = hosts

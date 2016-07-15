@@ -4,7 +4,7 @@ import logging
 import os
 
 from bndl.execute.worker import Worker as ExecutionWorker
-from bndl.net.run import argparser, run_nodecls
+from bndl.net.run import run_nodes, argparser
 from bndl.util.log import configure_console_logging
 
 
@@ -54,7 +54,7 @@ class Worker(ExecutionWorker):
 def main():
     configure_console_logging()
     args = argparser.parse_args()
-    run_nodecls(Worker, args)
+    run_nodes(Worker(addresses=args.listen_addresses, seeds=args.seeds))
 
 
 if __name__ == '__main__':

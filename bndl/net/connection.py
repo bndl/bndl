@@ -9,52 +9,37 @@ import urllib.parse
 from bndl.net import serialize
 from bndl.util import aio
 from bndl.util.aio import async_call
+from Cython.Shadow import address
 
 
 logger = logging.getLogger(__name__)
 
 
-
 def urlparse(address):
     '''
-    Parse an address urllib.parse.urlparse and checking validity in the context
-    of bndl.
+    Parse an address with urllib.parse.urlparse and checking validity in the
+    context of bndl.
     :param address: str
     '''
     parsed = urllib.parse.urlparse(address)
 
+#     if not parsed.scheme:
+#         parsed.scheme = 'tcp'
+
     if parsed.scheme == 'tcp':
         if parsed.path:
-            raise ValueError("Path not supported in tcp address: " + address)
+            raise ValueError('Illegal url: "%s", path not supported in tcp address (%s)' % (address, parsed.path))
         elif not parsed.hostname:
-            raise ValueError("No hostname in tcp address: " + address)
-
+            raise ValueError('Illegal url: "%s", no hostname in tcp address: ' % address)
     else:
-        raise ValueError("Unsupported scheme in: " + address)
+        raise ValueError('Illegal url: "%s", unsupported scheme "%s"' % (address, parsed.scheme))
 
     return parsed
 
 
-def check_addresses(addresses, exit_on_fail=True,
-                    exit_msg='ill-formatted addresses {{addresses}}: {{error}}'):
-    '''
-    Check the validity of addresses.
-    :param addresses: iterable of str
-        Addresses to check
-    :param exit_on_fail: boolean
-        Whether to exit when encountering an ill-formatted address
-    :param exit_msg: str
-        The message to print when exiting
-    '''
-    try:
-        return [urlparse(address) for address in addresses]
-    except ValueError as exc:
-        if exit_on_fail:
-            if exit_msg:
-                print(exit_msg.format(addresses=addresses, error=str(exc)))
-            sys.exit(1)
-        else:
-            raise
+def urlcheck(address):
+    urlparse(address)
+    return address
 
 
 @functools.lru_cache(maxsize=1024)
@@ -107,8 +92,8 @@ class Connection(object):
         self.loop = loop
         self.reader = reader
         self.writer = writer
-        self.read_lock = asyncio.Lock()
-        self.write_lock = asyncio.Lock()
+        self.read_lock = asyncio.Lock(loop=self.loop)
+        self.write_lock = asyncio.Lock(loop=self.loop)
         self.bytes_received = 0
         self.bytes_sent = 0
 
@@ -167,7 +152,7 @@ class Connection(object):
 
     def _recv_unpack(self, fmt, timeout=None):
         size = struct.calcsize(fmt)
-        buffer = yield from asyncio.wait_for(self.reader.readexactly(size), timeout)
+        buffer = yield from asyncio.wait_for(self.reader.readexactly(size), timeout, loop=self.loop)
         return struct.unpack(fmt, buffer)[0]
 
 
@@ -183,7 +168,7 @@ class Connection(object):
         try:
             with (yield from self.read_lock):
                 # read and unpackformat
-                fmt = yield from asyncio.wait_for(self.reader.readexactly(1), timeout)
+                fmt = yield from asyncio.wait_for(self.reader.readexactly(1), timeout, loop=self.loop)
                 fmt = int.from_bytes(fmt, sys.byteorder)
                 marshalled = fmt & 1
                 has_attachments = fmt & 2
@@ -195,16 +180,16 @@ class Connection(object):
                     for _ in range(att_count):
                         # read key
                         keylen = yield from self._recv_unpack('I', timeout)
-                        key = yield from asyncio.wait_for(self.reader.readexactly(keylen), timeout)
+                        key = yield from asyncio.wait_for(self.reader.readexactly(keylen), timeout, loop=self.loop)
                         # read attachment
                         size = yield from self._recv_unpack('I', timeout)
-                        attachment = yield from asyncio.wait_for(self.reader.readexactly(size), timeout)
+                        attachment = yield from asyncio.wait_for(self.reader.readexactly(size), timeout, loop=self.loop)
                         attachments[key] = attachment
                         self.bytes_received += size
 
                 # read message len and message
                 length = yield from self._recv_unpack('I', timeout)
-                msg = yield from asyncio.wait_for(self.reader.readexactly(length), timeout)
+                msg = yield from asyncio.wait_for(self.reader.readexactly(length), timeout, loop=self.loop)
                 self.bytes_received += length
             # parse the message and attachments
             return serialize.load(marshalled, msg, attachments)

@@ -1,3 +1,4 @@
+from asyncio.futures import CancelledError
 import asyncio
 import errno
 import itertools
@@ -5,16 +6,17 @@ import logging
 import os
 import random
 import socket
+import weakref
 
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
     getlocalhostname
 from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
-from bndl.util.aio import get_loop
-from bndl.util.text import camel_to_snake
 from bndl.net.watchdog import Watchdog
 from bndl.util import aio
+from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
 from bndl.util.supervisor import CHILD_ID
+from bndl.util.text import camel_to_snake
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ class Node(object):
 
     _nodeids = itertools.count()
 
-    def __init__(self, loop, name=None, addresses=None, seeds=None):
+    def __init__(self, name=None, addresses=None, seeds=None, loop=None):
         self.loop = loop or get_loop()
         if name:
             self.name = name
@@ -47,9 +49,9 @@ class Node(object):
         # TODO ensure that if a seed can't be connected to, it is retried
         self.seeds = seeds or ()
         self.peers = PeerTable()
-        self._peer_table_lock = asyncio.Lock()
+        self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
-        self._iotasks = []
+        self._iotasks = weakref.WeakSet()
 
 
     @property
@@ -90,27 +92,34 @@ class Node(object):
         return aio.run_coroutine_threadsafe(self.stop(), self.loop)
 
 
-    @asyncio.coroutine
-    def stop(self):
+    def _stop_tasks(self):
         # stop watching
         with catch():
             self._watchdog.stop()
             self._watchdog = None
 
-        # disconnect from the peers
-        disconnects = [peer.disconnect('stopping node') for peer in list(self.peers.values())]
-        yield from asyncio.gather(*disconnects, return_exceptions=True)
-        self.peers.clear()
-
         # close the servers
         for server in self.servers.values():
             with catch():
                 server.close()
-                yield from server.wait_closed()
 
         # cancel any pending io work
-        for task in self._iotasks[:]:
-            task.cancel()
+        for task in self._iotasks:
+            with catch():
+                task.cancel()
+        self._iotasks.clear()
+
+
+    @asyncio.coroutine
+    def stop(self):
+        # close the watch dog, tasks and the servers
+        self._stop_tasks()
+
+        # disconnect from the peers
+        if self.peers:
+            disconnects = [peer.disconnect('stopping node') for peer in list(self.peers.values())]
+            yield from asyncio.wait(disconnects, loop=self.loop)
+            self.peers.clear()
 
 
     @property
@@ -129,7 +138,7 @@ class Node(object):
 
         for port in range(port, port + 1000):
             try:
-                server = yield from asyncio.start_server(self._serve, host, port)
+                server = yield from asyncio.start_server(self._serve, host, port, loop=self.loop)
                 break
             except OSError as exc:
                 if exc.errno == errno.EADDRINUSE:
@@ -168,8 +177,9 @@ class Node(object):
         except GeneratorExit:
             conn.close()
         except Exception:
-            conn.close()
-            logger.exception('unable to accept connection from %s', conn.peername())
+            with catch():
+                conn.close()
+                logger.exception('unable to accept connection from %s', conn.peername())
 
 
     @asyncio.coroutine
@@ -198,8 +208,7 @@ class Node(object):
 
         # notify others of the new peer
         task = self.loop.create_task(self._notifiy_peers(peer))
-        self._iotasks.append(task)
-        task.add_done_callback(self._iotasks.remove)
+        self._iotasks.add(task)
 
         return True
 
@@ -220,18 +229,26 @@ class Node(object):
             if peer_list:
                 yield from asyncio.wait_for(
                     new_peer._notify_discovery(peer_list),
-                    timeout=HELLO_TIMEOUT * 3
+                    timeout=HELLO_TIMEOUT * 3,
+                    loop=self.loop
                 )
+        except CancelledError:
+            return
         except Exception:
             logger.exception('discovery notification failed')
+
+        yield from asyncio.sleep(HELLO_TIMEOUT * 3, loop=self.loop)
 
         for peer in peers:
             if peer.name != new_peer.name:
                 try:
                     yield from asyncio.wait_for(
                         peer._notify_discovery([(new_peer.name, new_peer.addresses)]),
-                        timeout=HELLO_TIMEOUT * 3
+                        timeout=HELLO_TIMEOUT * 3,
+                        loop=self.loop
                     )
+                except CancelledError:
+                    return
                 except Exception:
                     logger.debug('discovery notification failed', exc_info=True)
 

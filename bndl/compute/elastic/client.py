@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 import contextlib
 import queue
 
-from bndl.compute.elastic import conf
 from bndl.net.connection import gethostbyname
 from bndl.util.pool import ObjectPool
 from elasticsearch.client import Elasticsearch
@@ -12,10 +11,19 @@ from elasticsearch.connection_pool import ConnectionPool, RoundRobinSelector
 import netifaces  # @UnresolvedImport
 
 
+
+def resource_from_conf(conf, index=None, doc_type=None):
+    if index is None:
+        index = conf.get('bndl.compute.elastic.index')
+    if doc_type is None:
+        doc_type = conf.get('bndl.compute.elastic.doc_type')
+    return index, doc_type
+
+
 @lru_cache()
 def _get_hosts(ctx, *hosts):
     if not hosts:
-        hosts = ctx.conf.get(conf.HOSTS, defaults=conf.DEFAULTS)
+        hosts = ctx.conf.get('bndl.compute.elastic.hosts')
     if not hosts:
         hosts = set()
         for worker in ctx.workers:

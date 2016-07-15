@@ -4,11 +4,9 @@ from threading import Condition
 import functools
 import logging
 
-from bndl.compute.cassandra import conf
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.util.timestamps import ms_timestamp
-from cassandra import ConsistencyLevel, Unavailable, OperationTimedOut, \
-    WriteTimeout, CoordinationFailure
+from cassandra import Unavailable, OperationTimedOut, WriteTimeout, CoordinationFailure
 
 
 logger = logging.getLogger(__name__)
@@ -41,10 +39,10 @@ def execute_save(ctx, statement, iterable, contact_points=None):
         in the BNDL cluster.
     :return: A count of the records saved.
     '''
-    consistency_level = ctx.conf.get_attr(conf.WRITE_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
-    timeout = ctx.conf.get_int(conf.WRITE_TIMEOUT, defaults=conf.DEFAULTS)
-    retry_count = ctx.conf.get_int(conf.WRITE_RETRY_COUNT, defaults=conf.DEFAULTS)
-    concurrency = max(1, ctx.conf.get_int(conf.WRITE_CONCURRENCY, defaults=conf.DEFAULTS))
+    consistency_level = ctx.conf.get('bndl.compute.cassandra.write_consistency_level')
+    timeout = ctx.conf.get('bndl.compute.cassandra.write_timeout')
+    retry_count = ctx.conf.get('bndl.compute.cassandra.write_retry_count')
+    concurrency = max(1, ctx.conf.get('bndl.compute.cassandra.write_concurrency'))
 
     if logger.isEnabledFor(logging.INFO):
         logger.info('executing cassandra save with statement %s', statement.replace('\n', ''))

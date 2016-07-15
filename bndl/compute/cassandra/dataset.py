@@ -1,7 +1,7 @@
 import difflib
 import logging
 
-from bndl.compute.cassandra import partitioner, conf
+from bndl.compute.cassandra import partitioner
 from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
@@ -105,10 +105,7 @@ class CassandraScanDataset(Dataset):
 
     def parts(self):
         with cassandra_session(self.ctx, contact_points=self.contact_points) as session:
-            partitions = partitioner.partition_ranges(session, self.keyspace, self.table,
-                                                      min_pcount=self.ctx.default_pcount,
-                                                      part_size_keys=self.ctx.conf.get_int(conf.PART_SIZE_KEYS, defaults=conf.DEFAULTS),
-                                                      part_size_mb=self.ctx.conf.get_int(conf.PART_SIZE_MB, defaults=conf.DEFAULTS))
+            partitions = partitioner.partition_ranges(self.ctx, session, self.keyspace, self.table)
 
         return [
             CassandraScanPartition(self, i, replicas, token_ranges)
@@ -149,8 +146,8 @@ class CassandraScanPartition(Partition):
             logger.debug('scanning %s token ranges with query %s',
                          len(self.token_ranges), query.query_string.replace('\n', ''))
 
-            query.consistency_level = ctx.conf.get_attr(conf.READ_CONSISTENCY_LEVEL, obj=ConsistencyLevel, defaults=conf.DEFAULTS)
-            timeout = ctx.conf.get_int(conf.READ_TIMEOUT, defaults=conf.DEFAULTS)
+            query.consistency_level = ctx.conf.get('bndl.compute.cassandra..read_consistency_level')
+            timeout = ctx.conf.get('bndl.compute.cassandra.read_timeout')
             next_rs = session.execute_async(query, self.token_ranges[0], timeout=timeout)
             resultset = None
 
