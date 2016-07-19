@@ -6,6 +6,8 @@ https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a097020
 import asyncio
 import os
 
+from bndl.util import aio
+
 
 def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):
     if registered:
@@ -59,6 +61,7 @@ def _getfd(file):
 def sendfile(outf, inf, offset, nbytes, loop=None):
     out_fd = _getfd(outf)
     in_fd = _getfd(inf)
+    loop = loop or aio.get_loop()
     fut = asyncio.Future(loop=loop)
     if hasattr(os, "sendfile"):
         _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
