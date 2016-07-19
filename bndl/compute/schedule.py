@@ -1,4 +1,4 @@
-from collections import Iterable, Sized
+from collections import Iterable
 from functools import partial
 from itertools import chain
 import logging
@@ -142,7 +142,7 @@ class MaterializePartitionTask(Task):
                  name=None, desc=None):
         self.part = part
         super().__init__(
-            (part.dset.id, part.idx),
+            part.idx,
             stage,
             materialize_partition, (part, False), None,
             preferred_workers, allowed_workers,
