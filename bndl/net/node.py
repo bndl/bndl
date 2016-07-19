@@ -229,7 +229,7 @@ class Node(object):
             if peer_list:
                 yield from asyncio.wait_for(
                     new_peer._notify_discovery(peer_list),
-                    timeout=HELLO_TIMEOUT * 3,
+                    timeout=HELLO_TIMEOUT,
                     loop=self.loop
                 )
         except CancelledError:
@@ -237,14 +237,14 @@ class Node(object):
         except Exception:
             logger.exception('discovery notification failed')
 
-        yield from asyncio.sleep(HELLO_TIMEOUT * 3, loop=self.loop)
+        yield from asyncio.sleep(HELLO_TIMEOUT, loop=self.loop)
 
         for peer in peers:
             if peer.name != new_peer.name:
                 try:
                     yield from asyncio.wait_for(
                         peer._notify_discovery([(new_peer.name, new_peer.addresses)]),
-                        timeout=HELLO_TIMEOUT * 3,
+                        timeout=HELLO_TIMEOUT,
                         loop=self.loop
                     )
                 except CancelledError:
