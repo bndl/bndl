@@ -16,6 +16,8 @@ class ComputeContext(ExecutionContext):
 
     @property
     def default_pcount(self):
+        if self.worker_count == 0:
+            self.await_workers()
         return self.worker_count * 2
 
     def collection(self, collection, pcount=None, psize=None):
