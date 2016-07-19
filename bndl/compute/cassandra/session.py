@@ -8,6 +8,7 @@ from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import TokenAwarePolicy, RetryPolicy, WriteType
+from bndl.util.collection import is_stable_iterable
 
 
 class MultipleRetryPolicy(RetryPolicy):
@@ -44,6 +45,8 @@ def prepare(self, query, custom_payload=None):
 
 
 def get_contact_points(ctx, contact_points):
+    if not contact_points:
+        contact_points = ctx.conf.get('bndl.compute.cassandra.contact_points')
     if isinstance(contact_points, str):
         contact_points = (contact_points,)
     return _get_contact_points(ctx, *(contact_points or ()))
@@ -51,8 +54,6 @@ def get_contact_points(ctx, contact_points):
 
 @lru_cache()
 def _get_contact_points(ctx, *contact_points):
-    if not contact_points:
-        contact_points = ctx.conf.get('bndl.compute.cassandra.contact_points')
     if not contact_points:
         contact_points = set()
         for worker in ctx.workers:
