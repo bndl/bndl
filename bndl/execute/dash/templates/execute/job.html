@@ -44,8 +44,8 @@ Job {{ job.id }}: {{ job.name }}
 		</thead>
 		<tbody>
 		{% for stage in job.stages|reverse %}
-		<tr class="{{ 'active' if stage.running else '' }}">
-			<td>{{ stage.id + 1 }}</td>
+		<tr class="clickable {{ ' active' if stage.running_on else '' }}" data-href='stage/{{ stage.id }}'>
+			<td>{{ stage.id }}</td>
 			<td>{{ stage.name }}</td>
 			
 			{{ stats_row.stats_row(stage, stage|task_stats) }}			

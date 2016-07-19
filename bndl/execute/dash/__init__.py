@@ -48,11 +48,27 @@ def job_by_id(job_id):
         if job.id == job_id:
             return job
 
+def stage_by_id(job, stage_id):
+    stage_id = int(stage_id)
+    for stage in job.stages:
+        if stage.id == stage_id:
+            return stage
 
-@blueprint.route('/job/<job_id>')
+
+@blueprint.route('/job/<job_id>/')
 def job(job_id):
     job = job_by_id(job_id)
     if job:
         return render_template('execute/job.html', job=job)
     else:
         return NotFound()
+
+
+@blueprint.route('/job/<job_id>/stage/<stage_id>')
+def stage(job_id, stage_id):
+    job = job_by_id(job_id)
+    if job:
+        stage = stage_by_id(job, stage_id)
+        if stage:
+            return render_template('execute/stage.html', job=job, stage=stage)
+    return NotFound()
