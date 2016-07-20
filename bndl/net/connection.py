@@ -9,7 +9,6 @@ import urllib.parse
 from bndl.net import serialize
 from bndl.util import aio
 from bndl.util.aio import async_call
-from Cython.Shadow import address
 
 
 logger = logging.getLogger(__name__)
