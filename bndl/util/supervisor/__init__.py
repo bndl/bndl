@@ -98,7 +98,10 @@ class Child(object):
 
     def terminate(self):
         if self.running:
-            self.proc.send_signal(signal.SIGTERM)
+            try:
+                self.proc.send_signal(signal.SIGTERM)
+            except ProcessLookupError:
+                pass  # already terminated
 
 
     def wait(self, timeout):
