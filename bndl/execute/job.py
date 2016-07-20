@@ -149,17 +149,17 @@ class Stage(Lifecycle):
         task_driver.start()
 
         next_task_idx = 0
-        while next_task_idx < len(self.tasks):
-            try:
+        try:
+            while next_task_idx < len(self.tasks):
                 next_task = self.tasks[next_task_idx]
                 if next_task.started():
                     yield next_task.result()
                     next_task_idx += 1
                 else:
                     scheduled.acquire()
-            except Exception:
-                workers_available.put(sentinel)
-                raise
+        except Exception:
+            workers_available.put(sentinel)
+            raise
 
         task_driver.join()
 
