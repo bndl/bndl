@@ -9,7 +9,6 @@ import threading
 import concurrent.futures
 
 from bndl import dash, net
-from bndl.compute import driver
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
 from bndl.net.connection import urlparse
