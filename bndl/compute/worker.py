@@ -6,6 +6,7 @@ import os
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net.run import run_nodes, argparser
 from bndl.util.log import configure_console_logging
+from bndl.net.connection import getlocalhostname
 
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 argparser = copy.copy(argparser)
 argparser.prog = 'bndl.compute.worker'
+argparser.set_defaults(seeds=['tcp://%s:5000' % getlocalhostname()])
 
 
 class Worker(ExecutionWorker):
