@@ -22,12 +22,15 @@ MIN_RUN_TIME = 1
 
 
 def entry_point(string):
-    try:
-        module, main_method = string.split(':')
-        return module, main_method
-    except Exception as e:
-        raise ValueError('Unable to parse entry point "%s". Entry points must be formatted as'
-                         ' module:method (e.g. your.module:main)' % string) from e
+    if ':' in string:
+        try:
+            module, main_method = string.split(':')
+            return module, main_method
+        except Exception as e:
+            raise ValueError('Unable to parse entry point "%s". Entry points must be formatted as'
+                             ' module:method (e.g. your.module[:main])' % string) from e
+    else:
+        return string, 'main'
 
 
 argparser = argparse.ArgumentParser()
@@ -126,7 +129,6 @@ class Supervisor(object):
     def start(self):
         for _ in range(self.process_count):
             self._start()
-
 
 
     def _start(self):
