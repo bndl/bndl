@@ -12,13 +12,13 @@ MISSING = 'bndl.broadcast.MISSING'
 
 def broadcast(ctx, value):
     bcval = BroadcastValue(ctx, value)
-    ctx.node.broadcast_values[bcval.key] = serialize.dumps(value)
+    ctx.node.hosted_values[bcval.key] = serialize.dumps(value)
     return bcval
 
 
 def broadcast_pickled(ctx, pickled_value):
     bcval = BroadcastValue(ctx)
-    ctx.node.broadcast_values[bcval.key] = False, pickled_value
+    ctx.node.hosted_values[bcval.key] = False, pickled_value
     return bcval
 
 
@@ -40,14 +40,14 @@ class BroadcastValue(object):
             return self._value
 
         node = self.ctx.node
-        val = node.broadcast_values.get(self.key, MISSING)
+        val = node.broadcast_values_cache.get(self.key, MISSING)
 
         if val == MISSING:
             driver = node.peers.filter(node_type='driver')[0]
             logger.debug('retrieving broadcast value with key %s from %s', self.key, driver)
-            marshalled, payload = driver.get_broadcast_value(self.key).result()
+            marshalled, payload = driver.get_hosted_value(self.key).result()
             val = serialize.loads(marshalled, payload)
-            node.broadcast_values[self.key] = val
+            node.broadcast_values_cache[self.key] = val
             self._value = val
 
         return val

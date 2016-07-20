@@ -35,14 +35,14 @@ class BroadcastTest(DatasetTest):
         one = self.ctx.broadcast(1)
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
         # would normally use unpersist, but this will trip up the worker if it wasn't cached
-        self.ctx.node.broadcast_values.clear()
+        self.ctx.node.hosted_values.clear()
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
 
     def test_missing(self):
         one = self.ctx.broadcast(1)
         # would normally use unpersist, but this will trip up the worker
         # just to make sure workers don't invent broadcast values out of thin air or something ...
-        self.ctx.node.broadcast_values.clear()
+        self.ctx.node.hosted_values.clear()
         with self.assertRaises(Exception):
             self.ctx.range(1).map(lambda i: one.value).collect()
 

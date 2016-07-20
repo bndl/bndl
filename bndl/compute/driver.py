@@ -7,24 +7,29 @@ logger = logging.getLogger(__name__)
 
 
 class Driver(Worker):
-    broadcast_values = {}
+    hosted_values = {}
 
 
-    def get_broadcast_value(self, src, key):
+    def get_hosted_value(self, src, key):
         logger.debug('sending broadcast value with key %s to %s', key, src)
-        return self.broadcast_values[key]
+        return self.hosted_values[key]
 
 
     def unpersist_broadcast_value(self, key):
         logger.debug('removing broadcast value with key %s to', key)
-        if key in self.broadcast_values:
-            del self.broadcast_values[key]
-        # TODO better error handling
+        if key in self.hosted_values:
+            del self.hosted_values[key]
+
         futures = []
         for worker in self.peers.filter(node_type='worker'):
             try:
                 futures.append(worker.unpersist_broadcast_value(key))
             except Exception:
-                pass
+                logger.debug('failed to unpersist broadcast value %r', key, exc_info=True)
+
         # wait for all to be done
-        [future.result() for future in futures]
+        for future in futures:
+            try:
+                future.result()
+            except Exception:
+                logger.debug('failed to unpersist broadcast value %r', key, exc_info=True)

@@ -16,12 +16,13 @@ argparser.prog = 'bndl.compute.worker'
 
 
 class Worker(ExecutionWorker):
+    buckets = {}
+    broadcast_values_cache = {}
+    dset_cache = {}
+
     def __init__(self, *args, **kwargs):
         os.environ['PYTHONHASHSEED'] = '0'
         super().__init__(*args, **kwargs)
-        self.buckets = {}
-        self.broadcast_values = {}
-        self.dset_cache = {}
 
 
     def get_bucket(self, src, dset_id, part_idx):
@@ -42,8 +43,8 @@ class Worker(ExecutionWorker):
 
 
     def unpersist_broadcast_value(self, src, key):
-        if key in self.broadcast_values:
-            del self.broadcast_values[key]
+        if key in self.broadcast_values_cache:
+            del self.broadcast_values_cache[key]
 
 
     def uncache_dset(self, src, dset_id):
