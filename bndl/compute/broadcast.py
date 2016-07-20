@@ -27,7 +27,7 @@ class BroadcastValue(object):
     def __init__(self, ctx, value=MISSING):
         self.ctx = ctx
         self._value = value
-        self.key = str(uuid4())
+        self.key = str(self.__class__), str(uuid4())
 
 
     def __getstate__(self):
