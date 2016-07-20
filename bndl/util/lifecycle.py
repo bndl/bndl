@@ -38,6 +38,14 @@ class Lifecycle(object):
     def stopped(self):
         return bool(self.stopped_on)
 
+    @property
+    def duration(self):
+        if self.started_on:
+            if self.stopped_on:
+                return self.stopped_on - self.started_on
+            else:
+                return datetime.now() - self.started_on
+
 
     def __getstate__(self):
         state = dict(self.__dict__)
