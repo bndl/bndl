@@ -75,7 +75,7 @@ def run_coroutine_threadsafe(coro, loop):
     schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
 
     def cancel_task():
-        scheduled.cancel()
+        return scheduled.cancel()
 
     def future_done(future):
         try:
