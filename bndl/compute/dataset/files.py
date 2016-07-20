@@ -1,7 +1,8 @@
-import asyncio
 from collections import OrderedDict
+from functools import partial, lru_cache
+import asyncio
 import contextlib
-from functools import partial
+import logging
 import os.path
 import sys
 
@@ -10,7 +11,11 @@ from bndl.net.sendfile import sendfile
 from bndl.net.serialize import attach, attachment
 from bndl.util import aio
 from bndl.util.collection import batch
-from bndl.util.fs import filenames, read_file
+from bndl.util.exceptions import catch
+from bndl.util.fs import filenames
+
+
+logger = logging.getLogger(__name__)
 
 
 def _decode(encoding, errors, blob):
@@ -22,13 +27,13 @@ def _splitlines(keepends, blob):
 
 
 class DistributedFiles(Dataset):
-    def __init__(self, ctx, root, recursive=False, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None):
+    def __init__(self, ctx, root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None):
         super().__init__(ctx)
-        self.filenames = (
-            list(filenames(root, recursive, dfilter, ffilter))
-            if isinstance(root, str)
-            else list(root)
-        )
+
+        self._root = root
+        self._recursive = recursive
+        self._dfilter = dfilter
+        self._ffilter = ffilter
 
         if psize_bytes is not None and psize_bytes <= 0:
             raise ValueError("psize_bytes can't be negative or zero")
@@ -52,15 +57,33 @@ class DistributedFiles(Dataset):
 
     def parts(self):
         if self.psize_bytes:
-            parts = self._sliceby_psize()
+            batches = self._sliceby_psize()
         else:
-            parts = batch(self.filenames, self.psize_files)
+            batches = batch(self.filenames, self.psize_files)
 
-        return [
-            FilesPartition(self, idx, filenames)
-            for idx, filenames in enumerate(parts)
-            if filenames
-        ]
+        node = self.ctx.node
+        assert node.node_type == 'driver'
+
+        parts = []
+        for idx, filenames in enumerate(batches):
+            if filenames:
+                part = FilesPartition(self, idx)
+                parts.append(part)
+                node.hosted_values[part.key] = FilesValue(filenames)
+
+        return parts
+
+
+    @property
+    def cleanup(self):
+        def _cleanup(job):
+            node = job.ctx.node
+            assert node.node_type == 'driver'
+            hosted_values = node.hosted_values
+            for part in self.parts():
+                del hosted_values[part.key]
+
+        return _cleanup
 
 
     def _sliceby_psize(self):
@@ -71,24 +94,44 @@ class DistributedFiles(Dataset):
         # for start in range(0, len(file), 64):
         #     file[start:start+64]
 
-        part = []
-        parts = [part]
+        batch = []
+        batches = [batch]
         size = 0
 
         for filename in self.filenames:
-            part.append(filename)
+            batch.append(filename)
             size += os.path.getsize(filename)
-            if size >= psize_bytes or len(part) >= psize_files:
-                part = []
-                parts.append(part)
+            if size >= psize_bytes or len(batch) >= psize_files:
+                batch = []
+                batches.append(batch)
                 size = 0
 
-        return parts
+        return batches
+
+
+    @property
+    @lru_cache()
+    def filenames(self):
+        if isinstance(self._root, str):
+            return list(filenames(self._root, self._recursive, self._dfilter, self._ffilter))
+
+        assert self._recursive == None
+        assert self._dfilter == None
+        assert self._ffilter == None
+
+        if isinstance(self._root, (list, tuple)):
+            return self._root
+        else:
+            return list(self._root)
 
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        del state['filenames']
+        for attr in ('_root', '_recursive', '_dfilter', '_ffilter '):
+            try:
+                del state[attr]
+            except KeyError:
+                pass
         return state
 
 
@@ -113,43 +156,45 @@ def _file_attachment(filename):
         try:
             yield size, sender
         finally:
-            file.close()
+            with catch():
+                file.close()
 
     return filename.encode('utf-8'), _attacher
 
 
-class FilesPartition(Partition):
-    def __init__(self, dset, idx, filenames):
-        super().__init__(dset, idx)
+class FilesValue(object):
+    def __init__(self, filenames):
         self.filenames = filenames
-        self._data = None
 
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        if not state.get('_data'):
-            for filename in self.filenames:
-                attach(*_file_attachment(filename))
+        for filename in self.filenames:
+            attach(*_file_attachment(filename))
         return state
 
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        if not self._data:
-            self._data = OrderedDict()
-            for filename in self.filenames:
-                att = attachment(filename.encode('utf-8'))
-                self._data[filename] = att
+        self.files = OrderedDict(
+            (filename, attachment(filename.encode('utf-8')))
+            for filename in self.filenames
+        )
+
+
+
+class FilesPartition(Partition):
+    def __init__(self, dset, idx):
+        super().__init__(dset, idx)
+
+    @property
+    def key(self):
+        return str(self.__class__), self.dset.id, self.idx
 
 
     def _materialize(self, ctx):
-        data = getattr(self, '_data', {})
-        if data:
-            return iter(data.items())
-        else:
-            data = OrderedDict(zip(self.filenames, self._read()))
-
-
-    def _read(self):
-        for filename in self.filenames:
-            yield read_file(filename, 'rb')
+        driver = ctx.node.peers.filter(node_type='driver')[0]
+        logger.debug('retrieving files from driver for part %r of data set %r',
+                     self.idx, self.dset.id)
+        val = driver.get_hosted_value(self.key).result()
+        return iter(val.files.items())

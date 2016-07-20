@@ -31,7 +31,12 @@ class FilesTest(DatasetTest):
 
 
     def test_pcount(self):
-        self.assertEqual(len(self.dset.parts()), round(((128 * 8) * 32) / (1024 * 2)))
+        file_size = 128 * 8
+        file_count = 32
+        total_size = file_size * file_count
+        part_size = 1024 * 2
+        count = round(total_size / part_size)
+        self.assertEqual(len(self.dset.parts()), count)
 
 
     def test_count(self):
