@@ -5,7 +5,6 @@ import os
 import shlex
 import sys
 from _collections_abc import Iterable
-from bndl.util.collection import is_stable_iterable
 
 
 BNDL_ENV_KEY = 'BNDL_CONF'
@@ -124,7 +123,7 @@ class Int(Setting):
 
 class CSV(String):
     def fmt(self, v):
-        if isinstance(v, Iterable):
+        if isinstance(v, Iterable) and not isinstance(v, str):
             return v
         return list(e.strip() for e in v.split(','))
 
