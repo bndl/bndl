@@ -24,7 +24,15 @@ Stage {{ stage.id }}: {{ stage.name }}
 			{% for task in stage.tasks|reverse %}
 			<tr>
 				<td>{{ task.id }} {{ task.name or '' }}</td>
-				<td>{{ (task.stopped_on - task.started_on)|fmt_timedelta if task.stopped_on and task.started_on else '' }}</td>
+				<td>
+					{% if task.started_on %}
+						{% if task.stopped_on %}
+							{{ (task.stopped_on - task.started_on)|fmt_timedelta }}
+						{% else %}
+							{{ (now() - task.started_on)|fmt_timedelta }}
+						{% endif %}
+					{% endif %}
+				</td>
 				<td>{{ task.started_on.strftime('%Y-%m-%d %H:%M:%S') if task.started_on else '' }}</td>
 				<td>{{ task.stopped_on.strftime('%Y-%m-%d %H:%M:%S') if task.stopped_on else '' }}</td>
 				<td>{{ task.executed_on[-1] }}</td>
