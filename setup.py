@@ -56,6 +56,7 @@ setup(
         'numpy',
         'flask',
         'mmh3',
+        'scandir',
 
         'cassandra-driver',
         'lz4',

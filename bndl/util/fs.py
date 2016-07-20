@@ -1,6 +1,8 @@
 import glob
 import os.path
 
+import scandir
+
 
 def filenames(root, recursive=False, dfilter=None, ffilter=None):
     '''
@@ -17,20 +19,16 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
         otherwise.
     '''
     for name in glob.glob(root):
-        if os.path.isfile(name) and (not ffilter or ffilter(name)):
-            yield name
-        elif recursive:
-            for directory, _, fnames in os.walk(name):
-                if not dfilter or dfilter(directory):
-                    for fname in fnames:
-                        fpath = os.path.join(directory, fname)
-                        if not ffilter or ffilter(fpath):
-                            yield fpath
+        if os.path.isfile(name):
+            if not ffilter or ffilter(name):
+                yield name
         else:
-            for fname in os.listdir(name):
-                fpath = os.path.join(name, fname)
-                if os.path.isfile(fpath) and (not ffilter or ffilter(fpath)):
-                    yield fpath
+            for entry in scandir.scandir(name):
+                epath = os.path.join(name, entry.name)
+                if recursive and entry.is_dir() and (not dfilter or dfilter(epath)):
+                    yield from filenames(epath, True, dfilter, ffilter)
+                elif entry.is_file() and (not ffilter or ffilter(epath)):
+                    yield epath
 
 
 def listdirabs(path):
