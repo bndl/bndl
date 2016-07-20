@@ -69,7 +69,8 @@ class Child(object):
         self.started_on = time.time()
 
         atexit.register(self.terminate)
-        self.watcher = Thread(target=self.watch, daemon=True)
+        self.watcher = Thread(target=self.watch, daemon=True,
+                              name='bndl-supervisor-watcher-%s' % self.id)
         self.watcher.start()
 
 

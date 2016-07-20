@@ -41,7 +41,8 @@ def create_ctx(config=Config(), daemon=True):
     loop = get_loop()
     driver = Driver(addresses=listen_addresses, seeds=seeds, loop=loop)
     driver_thread = threading.Thread(target=run_nodes, daemon=daemon, args=(driver,),
-                                     kwargs=dict(started_signal=started, stop_signal=stopped))
+                                     kwargs=dict(started_signal=started, stop_signal=stopped),
+                                     name='bndl-driver-thread')
     driver_thread.start()
 
     # start the supervisor

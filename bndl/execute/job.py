@@ -144,7 +144,8 @@ class Stage(Lifecycle):
                     future.add_done_callback(lambda future, task=task, worker=worker: task_done(task, worker))
                     scheduled.release()
 
-        task_driver = threading.Thread(target=schedule_tasks, daemon=True)
+        task_driver = threading.Thread(target=schedule_tasks, daemon=True,
+                                       name='bndl-task-driver-%s-%s' % (self.job.id, self.id))
         task_driver.start()
 
         next_task_idx = 0

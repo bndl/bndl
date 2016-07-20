@@ -111,7 +111,8 @@ def run(node=None, ctx=None):
 
     logging.getLogger('werkzeug').setLevel(logging.WARN)
     started = Event()
-    threading.Thread(target=_run, args=(started,), daemon=True).start()
+    threading.Thread(target=_run, args=(started,),
+                     daemon=True, name='bndl-dash-thread').start()
     started.wait()
 
 
