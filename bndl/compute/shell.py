@@ -6,6 +6,7 @@ from bndl import compute
 from bndl.net.run import argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
+from bndl.util.log import configure_logging
 
 
 HEADER = r''' ___ _  _ ___  _    
