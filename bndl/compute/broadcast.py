@@ -40,7 +40,12 @@ class BroadcastValue(object):
             return self._value
 
         node = self.ctx.node
-        val = node.broadcast_values_cache.get(self.key, MISSING)
+        if node.node_type == 'driver':
+            val = node.hosted_values.get(self.key, MISSING)
+            self._value = val
+        else:
+            val = node.broadcast_values_cache.get(self.key, MISSING)
+            self._value = val
 
         if val == MISSING:
             driver = node.peers.filter(node_type='driver')[0]
