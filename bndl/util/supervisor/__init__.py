@@ -3,6 +3,7 @@ from threading import Thread
 import argparse
 import atexit
 import itertools
+import logging
 import os
 import signal
 import socket
@@ -10,6 +11,9 @@ import sys
 import time
 
 from bndl.util.log import configure_logging
+
+
+logger = logging.getLogger(__name__)
 
 
 # Environment variable to indicate which child the process is. It's value is
@@ -65,6 +69,8 @@ class Child(object):
         if self.running:
             raise RuntimeError("Can't run a child twice")
 
+        logger.info('Starting child %s (%s:%s)', self.id , self.module, self.main)
+
         env = {CHILD_ID:str(self.id)}
         env.update(os.environ)
         args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
@@ -91,6 +97,8 @@ class Child(object):
         '''
         assert self.running
         retcode = self.proc.wait()
+        logger.info('Child %s (%s:%s) exited with code %s', self.id , self.module, self.main, retcode)
+
         if retcode not in (0, signal.SIGTERM, signal.SIGKILL, -signal.SIGTERM, -signal.SIGKILL) \
            and (time.time() - self.started_on) > MIN_RUN_TIME:
             self.start()
@@ -103,6 +111,7 @@ class Child(object):
     def terminate(self):
         if self.running:
             try:
+                logger.info('Terminating child %s (%s:%s) with SIGTERM', self.id , self.module, self.main)
                 self.proc.send_signal(signal.SIGTERM)
             except ProcessLookupError:
                 pass  # already terminated

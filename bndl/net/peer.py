@@ -66,6 +66,7 @@ class PeerNode(object):
         '''
         if not self.is_connected:
             raise NotConnected()
+        logger.debug('sending %s to %s', msg.__class__.__name__, self.name)
         yield from self.conn.send(msg.__msgdict__(), drain)
 
 

@@ -34,11 +34,8 @@ def configure_logging(log_dir='/tmp'):
                 'level': 'DEBUG',
                 'handlers': ['file'],
             },
-            'bndl.compute': {
-                'level': 'DEBUG',
-            },
-            'bndl.execute': {
-                'level': 'DEBUG',
+            'bndl.util': {
+                'level': 'INFO',
             },
         },
     })

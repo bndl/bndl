@@ -122,7 +122,6 @@ class Connection(object):
         '''
         if not self.is_connected:
             raise NotConnected()
-        logger.debug('sending %s', msg)
         marshalled, serialized, attachments = serialize.dump(msg)
         with (yield from self.write_lock):
             # send format header
@@ -146,7 +145,6 @@ class Connection(object):
 
             if drain:
                 yield from aio.drain(self.writer)
-        logger.debug('sent %s', msg)
 
 
     def _recv_unpack(self, fmt, timeout=None):

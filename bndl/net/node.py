@@ -161,10 +161,10 @@ class Node(object):
     @asyncio.coroutine
     def _discovered(self, src, discovery):
         for name, addresses in discovery.peers:
-            logger.debug('%s: %s discovered %s', self.name, src.name, name)
             with(yield from self._peer_table_lock):
                 if name not in self.peers:
                     try:
+                        logger.debug('%s: %s discovered %s', self.name, src.name, name)
                         peer = self.PeerNode(self.loop, self, addresses=addresses, name=name)
                         yield from peer.connect()
                     except Exception:
