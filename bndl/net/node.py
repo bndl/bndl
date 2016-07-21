@@ -22,6 +22,8 @@ from bndl.util.text import camel_to_snake
 logger = logging.getLogger(__name__)
 
 
+NOTIFY_KNOWN_PEERS_TIMEOUT = 3
+
 
 class Node(object):
     PeerNode = PeerNode
@@ -227,26 +229,18 @@ class Node(object):
 
         try:
             if peer_list:
-                yield from asyncio.wait_for(
-                    new_peer._notify_discovery(peer_list),
-                    timeout=HELLO_TIMEOUT,
-                    loop=self.loop
-                )
+                yield from new_peer._notify_discovery(peer_list)
         except CancelledError:
             return
         except Exception:
             logger.exception('discovery notification failed')
 
-        yield from asyncio.sleep(HELLO_TIMEOUT, loop=self.loop)
+        yield from asyncio.sleep(NOTIFY_KNOWN_PEERS_TIMEOUT, loop=self.loop)
 
         for peer in peers:
             if peer.name != new_peer.name:
                 try:
-                    yield from asyncio.wait_for(
-                        peer._notify_discovery([(new_peer.name, new_peer.addresses)]),
-                        timeout=HELLO_TIMEOUT,
-                        loop=self.loop
-                    )
+                    yield from peer._notify_discovery([(new_peer.name, new_peer.addresses)])
                 except CancelledError:
                     return
                 except Exception:
