@@ -17,11 +17,6 @@ def configure_logging(log_dir='/tmp'):
             }
         },
         'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-                'level': 'WARNING',
-                'formatter': 'simple',
-            },
             'file': {
                 'class': 'logging.FileHandler',
                 'level': 'DEBUG',
@@ -33,11 +28,11 @@ def configure_logging(log_dir='/tmp'):
         'loggers': {
             'asyncio': {
                 'level': 'ERROR',
-                'handlers': ['console'],
+                'handlers': ['file'],
             },
             'bndl': {
                 'level': 'DEBUG',
-                'handlers': ['console', 'file'],
+                'handlers': ['file'],
             },
             'bndl.compute': {
                 'level': 'DEBUG',
