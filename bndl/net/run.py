@@ -42,9 +42,9 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
     except Exception as e:
         if started_signal:
             started_signal.set_result(e)
+            return
         else:
             raise e
-        return
 
     try:
         if stop_signal:
@@ -54,4 +54,3 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
     finally:
         stops = [node.stop() for node in nodes]
         loop.run_until_complete(asyncio.wait(stops, loop=loop))
-        # loop.close()
