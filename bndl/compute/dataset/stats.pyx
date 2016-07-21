@@ -137,11 +137,15 @@ cdef class Stats:
          
     @property
     def skew(self):
-        return math.sqrt(self._n) * self._m3 / pow(self._m2, 1.5);
+        if not self._m2:
+            return float('nan')
+        return math.sqrt(self._n) * self._m3 / pow(self._m2, 1.5)
          
     @property
     def kurtosis(self):
-        return self._n * self._m4 / (self._m2 * self._m2) - 3.0;
+        if not self._m2:
+            return float('nan')
+        return self._n * self._m4 / (self._m2 * self._m2) - 3.0
     
     def __add__(self, b):
         return self.add(b)
