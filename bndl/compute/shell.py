@@ -33,6 +33,7 @@ def main():
             config['bndl.net.seeds'] = args.seeds
         if args.worker_count:
             config['bndl.compute.worker_count'] = args.worker_count
+        configure_logging(log_dir=config.get('bndl.util.log.dir'))
         ctx = compute.create_ctx(config)
         IPython.embed(header=HEADER, user_ns=dict(ctx=ctx))
     finally:

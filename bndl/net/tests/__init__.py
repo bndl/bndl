@@ -8,7 +8,6 @@ from unittest.case import TestCase
 
 from bndl.net.node import Node
 from bndl.util.aio import get_loop
-from bndl.util.log import configure_console_logging
 
 
 class NetTest(TestCase):
@@ -18,9 +17,6 @@ class NetTest(TestCase):
     seeds = []
     nodes = []
 
-    @classmethod
-    def setUpClass(cls):
-        configure_console_logging()
 
     def setUp(self):
         self._started = Future()

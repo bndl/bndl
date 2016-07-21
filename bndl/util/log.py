@@ -1,73 +1,49 @@
 import logging.config
 import os.path
 
+from bndl.util.conf import String
 
-def configure_logging(node_name, log_dir='/tmp'):
+
+dir = String(os.getcwd())  # @ReservedAssignment
+
+
+def configure_logging(log_dir='/tmp'):
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': True,
         'formatters': {
             'simple': {
-                'format': "%(process)d: %(asctime)s - %(name)30s - %(levelname)8s - %(message)s"
+                'format': '%(process)d: %(asctime)s   %(name)-20s  l#%(lineno)-3s  %(levelname)-8s  %(message)s'
             }
         },
         'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': 'WARNING',
+                'formatter': 'simple',
+            },
             'file': {
-                'class': "logging.FileHandler",
-                'level': "DEBUG",
-                'formatter': "simple",
-                'filename': os.path.join(log_dir, 'bndl-' + node_name + ".log"),
-                'encoding': "utf8"
-            },
-            'console': {
-                'class': "logging.StreamHandler",
-                'level': "DEBUG",
-                'formatter': "simple",
+                'class': 'logging.FileHandler',
+                'level': 'DEBUG',
+                'formatter': 'simple',
+                'filename': os.path.join(log_dir, 'bndl-%s.log' % os.getpid()),
+                'encoding': 'utf8'
             },
         },
         'loggers': {
             'asyncio': {
-                'level': "DEBUG",
-                'handlers': ["file", "console"],
+                'level': 'ERROR',
+                'handlers': ['console'],
             },
             'bndl': {
-                'level': "DEBUG",
-                'handlers': ["file", "console"],
-            },
-        },
-    })
-
-
-def configure_console_logging():
-    logging.config.dictConfig({
-        'version': 1,
-        'disable_existing_loggers': True,
-        'formatters': {
-            'simple': {
-                'format': "%(process)d: %(asctime)s   %(name)-20s  l#%(lineno)-3s  %(levelname)-8s  %(message)s"
-            }
-        },
-        'handlers': {
-            'console': {
-                'class': "logging.StreamHandler",
-                'level': "WARNING",
-                'formatter': "simple",
-            },
-        },
-        'loggers': {
-            'asyncio': {
-                'level': "ERROR",
-                'handlers': ["console"],
-            },
-            'bndl': {
-                'level': "INFO",
-                'handlers': ["console"],
+                'level': 'DEBUG',
+                'handlers': ['console', 'file'],
             },
             'bndl.compute': {
-                'level': "DEBUG",
+                'level': 'DEBUG',
             },
             'bndl.execute': {
-                'level': "DEBUG",
+                'level': 'DEBUG',
             },
         },
     })

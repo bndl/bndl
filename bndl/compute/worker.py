@@ -4,10 +4,10 @@ import logging
 import os
 
 from bndl.execute.worker import Worker as ExecutionWorker
-from bndl.net.run import run_nodes, argparser
-from bndl.util.log import configure_console_logging
 from bndl.net.connection import getlocalhostname
+from bndl.net.run import run_nodes, argparser
 from bndl.util.conf import Config
+from bndl.util.log import configure_logging
 
 
 logger = logging.getLogger(__name__)
@@ -55,9 +55,9 @@ class Worker(ExecutionWorker):
 
 
 def main():
-    configure_console_logging()
-
     conf = Config()
+    configure_logging(log_dir=conf.get('bndl.util.log.dir'))
+
     args = argparser.parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
