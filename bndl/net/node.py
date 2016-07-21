@@ -10,7 +10,7 @@ import weakref
 
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
     getlocalhostname
-from bndl.net.peer import PeerNode, PeerTable, HELLO_TIMEOUT
+from bndl.net.peer import PeerNode, PeerTable
 from bndl.net.watchdog import Watchdog
 from bndl.util import aio
 from bndl.util.aio import get_loop
@@ -22,7 +22,7 @@ from bndl.util.text import camel_to_snake
 logger = logging.getLogger(__name__)
 
 
-NOTIFY_KNOWN_PEERS_TIMEOUT = 3
+NOTIFY_KNOWN_PEERS_WAIT = 1
 
 
 class Node(object):
@@ -235,11 +235,11 @@ class Node(object):
         except Exception:
             logger.exception('discovery notification failed')
 
-        yield from asyncio.sleep(NOTIFY_KNOWN_PEERS_TIMEOUT, loop=self.loop)
 
         for peer in peers:
             if peer.name != new_peer.name:
                 try:
+                    yield from asyncio.sleep(NOTIFY_KNOWN_PEERS_WAIT, loop=self.loop)
                     yield from peer._notify_discovery([(new_peer.name, new_peer.addresses)])
                 except CancelledError:
                     return
