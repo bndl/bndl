@@ -1,14 +1,11 @@
 import time
 
 from bndl.net.tests import NetTest
-from bndl.net.watchdog import WATCHDOG_INTERVAL
 from bndl.util import aio
+from bndl.net.watchdog import WATCHDOG_INTERVAL
 
 
-class ReconnectTest(NetTest):
-    node_count = 4
-
-
+class ReconnectTestBase(NetTest):
     def all_connected(self):
         for node in self.nodes:
             for peer in node.peers.values():
@@ -17,10 +14,14 @@ class ReconnectTest(NetTest):
         return True
 
     def wait_connected(self):
-        for _ in range(30):
+        for _ in range(50):
             time.sleep(WATCHDOG_INTERVAL / 10)
             if self.all_connected():
                 break
+
+
+class ReconnectTest(ReconnectTestBase):
+    node_count = 4
 
     def test_disconnect(self):
         self.assertTrue(self.all_connected())

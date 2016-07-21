@@ -151,8 +151,26 @@ class PeerNode(object):
 
                 # wait for hello back
                 logger.debug('waiting for hello from %s', url)
-                rep = yield from self.recv(HELLO_TIMEOUT)
-                yield from self._check_hello(rep, url)
+                hello = yield from self.recv(HELLO_TIMEOUT)
+
+                # check the hello
+                if isinstance(hello, Disconnect):
+                    logger.debug("received Disconnect from %s, disconnecting", url)
+                    yield from self.disconnect(reason="received disconnect", active=False)
+                elif not isinstance(hello, Hello):
+                    logger.error("didn't receive Hello back from %s, disconnecting", url)
+                    yield from self.disconnect(reason="didn't receive hello")
+                elif hello.name == self.local.name:
+                    logger.debug('self connect attempt of %s', hello.name)
+                    yield from self.disconnect(reason='self connect')
+                elif self.name is not None and self.name != hello.name:
+                    logger.debug('node %s at %s changed name to %s', self.name, self.addresses, hello.name)
+                    try:
+                        del self.local.peers[self.name]
+                    except KeyError:
+                        pass
+                    self.local.peers[hello.name] = self
+
             except (asyncio.futures.CancelledError, GeneratorExit):
                 logger.info('connection with %s cancelled', url)
                 self.disconnect(reason='connection cancelled')
@@ -175,32 +193,15 @@ class PeerNode(object):
                 return False
 
             # take info from hello
-            self.name = rep.name
-            self.node_type = rep.node_type
-            self.addresses = rep.addresses
+            self.name = hello.name
+            self.node_type = hello.node_type
+            self.addresses = hello.addresses
 
             # notify local node that connection was established and start a server task
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
+
             self.server = self.loop.create_task(self._serve())
             return True
-
-
-    @asyncio.coroutine
-    def _check_hello(self, hello, url):
-        if isinstance(hello, Disconnect):
-            logger.debug("received Disconnect from %s, disconnecting", url)
-            yield from self.disconnect(reason="received disconnect", active=False)
-        elif not isinstance(hello, Hello):
-            logger.error("didn't receive Hello back from %s, disconnecting", url)
-            yield from self.disconnect(reason="didn't receive hello")
-        elif self.name and self.name != hello.name:
-            # check if reported name and expected name (if any) agree
-            logger.error('shaking hands with peer at %s but claims to have the name %s instead of %s, '
-                         'disconnecting ...', self.addresses, hello.name, self.name)
-            yield from self.disconnect(reason='name mismatch')
-        elif hello.name == self.local.name:
-            logger.debug('self connect attempt of %s', hello.name)
-            yield from self.disconnect(reason='self connect')
 
 
     @asyncio.coroutine
