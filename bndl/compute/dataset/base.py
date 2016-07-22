@@ -1,6 +1,7 @@
 from bndl.util.cython import try_pyximport_install; try_pyximport_install()
 
 from bisect import bisect_left
+from collections import Counter
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap
@@ -764,6 +765,13 @@ class Dataset(metaclass=abc.ABCMeta):
             lambda i: HyperLogLog(error_rate).add_all(i),
             lambda hlls: HyperLogLog(error_rate).merge(*hlls)
         ).card()
+
+
+    def count_by_value(self):
+        '''
+        Count the occurrence of each distinct value in the data set.
+        '''
+        return self.aggregate(Counter, lambda counters: sum(counters, Counter()))
 
 
 
