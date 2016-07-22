@@ -19,6 +19,7 @@ from bndl.util.collection import is_stable_iterable
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
+import numpy as np
 import sortedcontainers.sortedlist
 
 
@@ -346,6 +347,7 @@ class Dataset(metaclass=abc.ABCMeta):
             return self.max(key)
         return self._take_ordered(num, key, heapq.nlargest)
 
+
     def nsmallest(self, num, key=None):
         '''
         Take the num smallest elements from this dataset.
@@ -364,6 +366,56 @@ class Dataset(metaclass=abc.ABCMeta):
         key = key_or_getter(key)
         func = partial(taker, num, key=key)
         return func(self.map_partitions(func).icollect())
+
+
+    def histogram(self, bins=10):
+        '''
+        Compute the histogram of a data set.
+
+        :param bins: int or sequence
+            The bins to use in computing the histogram; either an int to indicate the number of
+            bins between the minimum and maximum of this data set, or a sorted sequence of unique
+            numbers to be used as edges of the bins.
+        :return: A (np.array, np.array) tuple where the first array is the histogram and the
+            second array the (edges of the) bins.
+
+        The function behaves similarly to numpy.histogram, but only supports counts per bin (no
+        weights or density/normalization). The resulting histogram and bins should match
+        numpy.histogram very closely.
+
+        Example:
+
+            >>> ctx.collection([1, 2, 1]).histogram([0, 1, 2, 3])
+            (array([0, 2, 1]), array([0, 1, 2, 3]))
+            >>> ctx.range(4).histogram(np.arange(5))
+            (array([1, 1, 1, 1]), array([0, 1, 2, 3, 4]))
+
+            >>> ctx.range(4).histogram(5)
+            (array([1, 1, 0, 1, 1]), array([ 0. ,  0.6,  1.2,  1.8,  2.4,  3. ]))
+            >>> ctx.range(4).histogram()
+            (array([1, 0, 0, 1, 0, 0, 1, 0, 0, 1]),
+             array([ 0. ,  0.3,  0.6,  0.9,  1.2,  1.5,  1.8,  2.1,  2.4,  2.7,  3. ]))
+
+            >>> dset = ctx.collection([1,2,1,3,2,4])
+            >>> hist, bins = dset.histogram()
+            >>> hist
+            array([2, 0, 0, 2, 0, 0, 1, 0, 0, 1])
+            >>> hist.sum() == dset.count()
+            True
+
+        '''
+        if isinstance(bins, int):
+            assert bins >= 1
+            stats = self.stats()
+            if stats.min == stats.max or bins == 1:
+                return np.array([stats.count]), np.array([stats.min, stats.max])
+            step = (stats.max - stats.min) / bins
+            bins = [stats.min + i * step for i in range(bins)] + [stats.max]
+        else:
+            bins = sorted(set(bins))
+
+        bins = np.array(bins)
+        return self.map_partitions(lambda part: (np.histogram(list(part), bins)[0],)).reduce(add), bins
 
 
     def aggregate(self, local, comb=None):
