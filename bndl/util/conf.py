@@ -97,9 +97,11 @@ class Config(object):
 class Setting(object):
     default = None
     fmt = None
+    desc = None
 
-    def __init__(self, default=_NOT_SET, fmt=None):
+    def __init__(self, default=_NOT_SET, fmt=None, desc=None):
         self.default = default
+        self.desc = desc
         if fmt is not None:
             assert callable(fmt)
             self.fmt = fmt
