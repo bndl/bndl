@@ -118,12 +118,7 @@ class Watchdog(object):
         try:
             while self.node.running:
                 yield from asyncio.sleep(WATCHDOG_INTERVAL, loop=self.node.loop)  # @UndefinedVariable
-                try:
-                    yield from self._check()
-                except CancelledError:
-                    raise
-                except Exception:
-                    logger.exception('unable to check %s', self.node)
+                yield from self._check()
         except CancelledError:
             pass
 
@@ -139,38 +134,56 @@ class Watchdog(object):
 
     @asyncio.coroutine
     def _check(self):
-        peers = list(self.node.peers.values())
-
-        # check if a connection with a peer was dropped
-        for peer in peers:
-            stats = self.peer_stats(peer)
-            now = datetime.now()
-            stats.update()
-
-            if stats.connection_attempts > MAX_CONNECTION_ATTEMPT:
-                popped = self.node.peers.pop(peer.name)
-                if popped != peer:
-                    self.node.peers[peer.name] = popped
-                peer.disconnect('disconnected by watchdog after %s failed connection attempts',
-                                stats.connection_attempts)
-                continue
-            if stats.error_since:
-                # max reconnect interval is:
-                # - twice the watch_dog interval (maybe something was missed)
-                # - exponentially to the connection attempts (exponentially back off)
-                # - with a random factor between 1 +/- .25
-                connect_wait = WATCHDOG_INTERVAL * 2 ** stats.connection_attempts * (.75 + random() / 2)
-                if (now - stats.error_since).total_seconds() > WATCHDOG_INTERVAL * 2 and \
-                   (not stats.last_reconnect or (now - stats.last_reconnect).total_seconds() > connect_wait):
-                    stats.connection_attempts += 1
-                    stats.last_reconnect = now
-                    yield from peer.connect()
-            elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:
-                self.node.loop.create_task(self._ping(peer))
+        for name in list(self.node.peers.keys()):
+            try:
+                # check a connection with a peer
+                yield from self._check_peer(name)
+            except CancelledError:
+                raise
+            except Exception:
+                logger.exception('unable to check peer %s of %s', self.node.name, name)
 
         # if no nodes are connected, attempt to connect with the seeds
-        if not any(peer.is_connected for peer in peers):
+        if not any(peer.is_connected for peer in self.node.peers.values()):
             yield from self.node._connect_seeds()
+
+
+    @asyncio.coroutine
+    def _check_peer(self, name):
+        try:
+            peer = self.node.peers.get(name)
+        except KeyError:
+            return
+
+        if peer.name != name:
+            logger.warning('Peer %s of node %s registered under %s, updating registration',
+                           peer.name, self.node.name, name)
+            peer = self.node.peers.pop(name)
+            self.node.peers[name] = peer
+
+        stats = self.peer_stats(peer)
+        stats.update()
+
+        if stats.connection_attempts > MAX_CONNECTION_ATTEMPT:
+            popped = self.node.peers.pop(name)
+            if popped != peer:
+                self.node.peers[name] = popped
+            peer.disconnect('disconnected by watchdog after %s failed connection attempts',
+                            stats.connection_attempts)
+        elif stats.connection_attempts > 0:
+            # max reconnect interval is:
+            # - twice the watch_dog interval (maybe something was missed)
+            # - exponentially to the connection attempts (exponentially back off)
+            # - with a random factor between 1 +/- .25
+            now = datetime.now()
+            connect_wait = WATCHDOG_INTERVAL * 2 ** stats.connection_attempts * (.75 + random() / 2)
+            if (now - stats.error_since).total_seconds() > WATCHDOG_INTERVAL * 2 and \
+               (not stats.last_reconnect or (now - stats.last_reconnect).total_seconds() > connect_wait):
+                stats.connection_attempts += 1
+                stats.last_reconnect = now
+                yield from peer.connect()
+        elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:
+            self.node.loop.create_task(self._ping(peer))
 
 
     def rxtx_stats(self):
