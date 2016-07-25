@@ -123,6 +123,10 @@ class Int(Setting):
     fmt = int
 
 
+class Float(Setting):
+    fmt = float
+
+
 class CSV(String):
     def fmt(self, v):
         if isinstance(v, Iterable) and not isinstance(v, str):
