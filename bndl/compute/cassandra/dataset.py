@@ -6,7 +6,6 @@ from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import funcs
-from cassandra import ConsistencyLevel
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
 

@@ -1,14 +1,26 @@
 from collections import Sequence
-import contextlib
 from functools import lru_cache, partial
-import queue
 from threading import Lock
+import contextlib
+import queue
 
-from bndl.compute.cassandra.loadbalancing import LocalNodeFirstPolicy
 from bndl.util.pool import ObjectPool
 from cassandra.cluster import Cluster, Session
+from cassandra.policies import DCAwareRoundRobinPolicy, HostDistance
 from cassandra.policies import TokenAwarePolicy, RetryPolicy, WriteType
-from bndl.util.collection import is_stable_iterable
+
+
+class LocalNodeFirstPolicy(DCAwareRoundRobinPolicy):
+    def __init__(self, local_hosts):
+        super().__init__()
+        self._local_hosts = local_hosts
+
+    def distance(self, host):
+        if host.address in self._local_hosts:
+            return HostDistance.LOCAL
+        else:
+            return HostDistance.REMOTE
+
 
 
 class MultipleRetryPolicy(RetryPolicy):
