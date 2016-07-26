@@ -90,7 +90,9 @@ def fmt_timedelta(tdelta):
         else:
             tdelta = timedelta(seconds=tdelta)
     parts = str(tdelta).split('.')
-    if tdelta < timedelta(seconds=0.01):
+    if tdelta.total_seconds() == 0:
+        return '0 µs'
+    elif tdelta < timedelta(seconds=0.01):
         return parts[1].strip('0') + ' µs'
     elif tdelta < timedelta(seconds=1):
         return parts[1][:3].strip('0') + ' ms'
