@@ -1,17 +1,17 @@
 from collections import defaultdict
 from datetime import timedelta, date, datetime
+from functools import partial
 from threading import Condition
 import functools
 import logging
 
-from bndl.compute.cassandra.session import cassandra_session
+from bndl.compute.cassandra.session import cassandra_session, TRANSIENT_ERRORS
+from bndl.util.retry import retry_delay
 from bndl.util.timestamps import ms_timestamp
-from cassandra import Unavailable, OperationTimedOut, WriteTimeout, CoordinationFailure
 
 
 logger = logging.getLogger(__name__)
 
-TRANSIENT_ERRORS = (Unavailable, WriteTimeout, OperationTimedOut, CoordinationFailure)
 
 INSERT_TEMPLATE = (
     'insert into {keyspace}.{table} '
@@ -42,6 +42,7 @@ def execute_save(ctx, statement, iterable, contact_points=None):
     consistency_level = ctx.conf.get('bndl.compute.cassandra.write_consistency_level')
     timeout = ctx.conf.get('bndl.compute.cassandra.write_timeout')
     retry_count = ctx.conf.get('bndl.compute.cassandra.write_retry_count')
+    retry_backoff = ctx.conf.get('bndl.compute.cassandra.write_retry_backoff')
     concurrency = max(1, ctx.conf.get('bndl.compute.cassandra.write_concurrency'))
 
     if logger.isEnabledFor(logging.INFO):
@@ -66,10 +67,14 @@ def execute_save(ctx, statement, iterable, contact_points=None):
                 cond.notify_all()
 
         def on_failed(exc, idx, element):
-            nonlocal failcounts
-            if exc in TRANSIENT_ERRORS and failcounts[idx] < retry_count:
+            nonlocal failcounts, session
+            if type(exc) in TRANSIENT_ERRORS and failcounts[idx] < retry_count:
                 failcounts[idx] += 1
-                exec_async(idx, element)
+                if retry_backoff:
+                    sleep = retry_delay(retry_backoff, failcounts[idx])
+                    session.cluster.scheduler.schedule(sleep, partial(exec_async, idx, element))
+                else:
+                    exec_async(idx, element)
             else:
                 nonlocal failure, pending, cond
                 with cond:
@@ -78,6 +83,7 @@ def execute_save(ctx, statement, iterable, contact_points=None):
                     cond.notify_all()
 
         def exec_async(idx, element):
+            nonlocal session
             future = session.execute_async(prepared_statement, element, timeout=timeout)
             future.add_callback(on_done, idx)
             future.add_errback(on_failed, idx, element)
@@ -94,7 +100,7 @@ def execute_save(ctx, statement, iterable, contact_points=None):
             raise failure
 
         with cond:
-            cond.wait_for(lambda: pending == 0)
+            cond.wait_for(lambda: pending <= 0)
 
         if failure:
             raise failure

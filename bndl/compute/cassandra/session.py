@@ -5,9 +5,13 @@ import contextlib
 import queue
 
 from bndl.util.pool import ObjectPool
+from cassandra import OperationTimedOut, ReadTimeout, WriteTimeout, CoordinationFailure, Unavailable
 from cassandra.cluster import Cluster, Session
 from cassandra.policies import DCAwareRoundRobinPolicy, HostDistance
-from cassandra.policies import TokenAwarePolicy, RetryPolicy, WriteType
+from cassandra.policies import TokenAwarePolicy
+
+
+TRANSIENT_ERRORS = (Unavailable, ReadTimeout, WriteTimeout, OperationTimedOut, CoordinationFailure)
 
 
 class LocalNodeFirstPolicy(DCAwareRoundRobinPolicy):
@@ -20,27 +24,6 @@ class LocalNodeFirstPolicy(DCAwareRoundRobinPolicy):
             return HostDistance.LOCAL
         else:
             return HostDistance.REMOTE
-
-
-
-class MultipleRetryPolicy(RetryPolicy):
-    def __init__(self, read_retries=0, write_retries=0):
-        self.read_retries = read_retries
-        self.write_retries = write_retries
-
-    def on_read_timeout(self, query, consistency, required_responses,
-        received_responses, data_retrieved, retry_num):
-        if retry_num < self.read_retries or received_responses >= required_responses and not data_retrieved:
-            return (self.RETRY, consistency)
-        else:
-            return (self.RETHROW, None)
-
-    def on_write_timeout(self, query, consistency, write_type,
-        required_responses, received_responses, retry_num):
-        if retry_num < self.write_retries or write_type in (WriteType.SIMPLE, WriteType.BATCH_LOG):
-            return (self.RETRY, consistency)
-        else:
-            return (self.RETHROW, None)
 
 
 _PREPARE_LOCK = Lock()
@@ -94,14 +77,11 @@ def cassandra_session(ctx, keyspace=None, contact_points=None):
     # or create one if not
     if not pool:
         def create_cluster():
-            retry_policy = MultipleRetryPolicy(ctx.conf.get('bndl.compute.cassandra.read_retry_count'),
-                                               ctx.conf.get('bndl.compute.cassandra.write_retry_count'))
             return Cluster(
                 contact_points,
                 port=ctx.conf.get('bndl.compute.cassandra.port'),
                 compression=ctx.conf.get('bndl.compute.cassandra.compression'),
                 load_balancing_policy=TokenAwarePolicy(LocalNodeFirstPolicy(ctx.node.ip_addresses)),
-                default_retry_policy=retry_policy,
                 metrics_enabled=ctx.conf.get('bndl.compute.cassandra.metrics_enabled'),
             )
 

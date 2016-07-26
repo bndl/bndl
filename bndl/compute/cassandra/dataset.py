@@ -3,10 +3,13 @@ import logging
 
 from bndl.compute.cassandra import partitioner
 from bndl.compute.cassandra.coscan import CassandraCoScanDataset
-from bndl.compute.cassandra.session import cassandra_session
+from bndl.compute.cassandra.session import cassandra_session, TRANSIENT_ERRORS
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import funcs
 from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
+import time
+from bndl.util.retry import do_with_retry
+from functools import partial
 
 
 logger = logging.getLogger(__name__)
@@ -137,33 +140,44 @@ class CassandraScanPartition(Partition):
         self.token_ranges = token_ranges
 
 
+    def _fetch_token_range(self, session, token_range):
+        query = self.dset.query(session)
+        query.consistency_level = self.dset.ctx.conf.get('bndl.compute.cassandra.read_consistency_level')
+
+        if logger.isEnabledFor(logging.INFO):
+            logger.info('executing query %s for token_range %s', query.query_string.replace('\n', ''), token_range)
+
+        timeout = self.dset.ctx.conf.get('bndl.compute.cassandra.read_timeout')
+        resultset = session.execute(query, token_range, timeout=timeout)
+
+        results = []
+        while True:
+            has_more = resultset.response_future.has_more_pages
+            if has_more:
+                resultset.response_future.start_fetching_next_page()
+            results.extend(resultset.current_rows)
+            if has_more:
+                resultset = resultset.response_future.result()
+            else:
+                break
+
+        return results
+
+
     def _materialize(self, ctx):
+        retry_count = max(0, ctx.conf.get('bndl.compute.cassandra.read_retry_count'))
+        retry_backoff = ctx.conf.get('bndl.compute.cassandra.read_retry_backoff')
+
         with ctx.cassandra_session(contact_points=self.dset.contact_points) as session:
-
-            session.row_factory = self.dset._row_factory
-            query = self.dset.query(session)
-            logger.debug('scanning %s token ranges with query %s',
-                         len(self.token_ranges), query.query_string.replace('\n', ''))
-
-            query.consistency_level = ctx.conf.get('bndl.compute.cassandra..read_consistency_level')
-            timeout = ctx.conf.get('bndl.compute.cassandra.read_timeout')
-            next_rs = session.execute_async(query, self.token_ranges[0], timeout=timeout)
-            resultset = None
-
-            for next_tr in self.token_ranges[1:] + [None]:
-                resultset = next_rs.result()
-
-                while True:
-                    has_more = resultset.response_future.has_more_pages
-                    if has_more:
-                        resultset.response_future.start_fetching_next_page()
-                    elif next_tr:
-                        next_rs = session.execute_async(query, next_tr)
-                    yield from resultset.current_rows
-                    if has_more:
-                        resultset = resultset.response_future.result()
-                    else:
-                        break
+            try:
+                old_row_factory = session.row_factory
+                session.row_factory = self.dset._row_factory
+                logger.debug('scanning %s token ranges with query %s', len(self.token_ranges))
+                for token_range in self.token_ranges:
+                    yield from do_with_retry(partial(self._fetch_token_range, session, token_range),
+                                             retry_count, retry_backoff, TRANSIENT_ERRORS)
+            finally:
+                session.row_factory = old_row_factory
 
 
     def _preferred_workers(self, workers):
