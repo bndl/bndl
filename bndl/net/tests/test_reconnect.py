@@ -7,6 +7,13 @@ from bndl.net.watchdog import WATCHDOG_INTERVAL
 
 class ReconnectTestBase(NetTest):
     def all_connected(self):
+        con_count = sum(1
+                        for node in self.nodes
+                        for peer in node.peers.values())
+        n = len(self.nodes)
+        if con_count != n * (n - 1):
+            return False
+
         for node in self.nodes:
             for peer in node.peers.values():
                 if not peer.is_connected:
