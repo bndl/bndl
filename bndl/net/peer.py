@@ -87,7 +87,7 @@ class PeerNode(object):
             return
 
         connected = False
-        for address in sorted(self.addresses, key=lambda a: urlparse(a).scheme, reverse=True):
+        for address in self.addresses:
             connected = (yield from self._connect(address))
             if connected:
                 break
