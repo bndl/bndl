@@ -2,7 +2,7 @@ import copy
 
 import IPython
 
-from bndl import compute
+from bndl.compute.run import create_ctx
 from bndl.net.run import argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
@@ -41,7 +41,7 @@ def main():
         if args.worker_count:
             config['bndl.compute.worker_count'] = args.worker_count
 
-        ctx = compute.create_ctx(config)
+        ctx = create_ctx(config)
         IPython.embed(header=HEADER, user_ns=dict(ctx=ctx))
     finally:
         with catch():
