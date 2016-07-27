@@ -23,12 +23,15 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
             if not ffilter or ffilter(name):
                 yield name
         else:
-            for entry in scandir.scandir(name):
-                epath = os.path.join(name, entry.name)
-                if recursive and entry.is_dir() and (not dfilter or dfilter(epath)):
-                    yield from filenames(epath, True, dfilter, ffilter)
-                elif entry.is_file() and (not ffilter or ffilter(epath)):
-                    yield epath
+            try:
+                for entry in scandir.scandir(name):
+                    epath = os.path.join(name, entry.name)
+                    if recursive and entry.is_dir() and (not dfilter or dfilter(epath)):
+                        yield from filenames(epath, True, dfilter, ffilter)
+                    elif entry.is_file() and (not ffilter or ffilter(epath)):
+                        yield epath
+            except PermissionError:
+                pass
 
 
 def listdirabs(path):
