@@ -22,7 +22,7 @@ CHILD_ID = 'BNDL_SUPERVISOR_CHILD'
 
 # If a supervised child fails within MIN_RUN_TIME seconds, the child is
 # considered unstable and isn't rebooted.
-MIN_RUN_TIME = 1
+MIN_RUN_TIME = 10
 
 
 def entry_point(string):
