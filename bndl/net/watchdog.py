@@ -48,7 +48,7 @@ class PeerStats(object):
         interval = (now - self.last_update).total_seconds()
         self.last_update = now
 
-        if not self.peer.is_connected:
+        if not self.peer.is_connected and self.peer.connected_on is not None:
             if not self.error_since:
                 logger.warning('Peer %r is in error', self.peer)
             self.error_since = self.error_since or now
