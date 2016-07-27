@@ -173,21 +173,20 @@ class PeerNode(object):
 
             except (asyncio.futures.CancelledError, GeneratorExit):
                 logger.info('connection with %s cancelled', url)
-                self.disconnect(reason='connection cancelled')
+                yield from self.disconnect(reason='connection cancelled')
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
                 logger.info('%s %s', type(exc).__name__, url)
-                self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
+                yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except OSError as exc:
                 logger.info('unable to connect with %s on %s', url, self.conn,
                             exc_info=bool(exc.errno in (errno.ECONNREFUSED, errno.ECONNRESET)))
-                self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
+                yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except TimeoutError:
                 logger.warning('hello not received in time from %s on %s', url, self.conn)
                 yield from self.disconnect(reason='hello timed out')
             except Exception as exc:
                 logger.exception('unable to connect with %s on %s', url, self.conn)
                 yield from self.disconnect(reason=str(type(exc)))
-
 
             if not self.is_connected:
                 return False
@@ -215,13 +214,13 @@ class PeerNode(object):
                 hello = yield from self.recv(HELLO_TIMEOUT)
             except TimeoutError:
                 logger.warning('receiving hello timed out from %s', self.conn.peername())
-                self.disconnect(reason='hello timed out')
+                yield from self.disconnect(reason='hello timed out')
             except NotConnected:
                 logger.warning('connection closed before receiving hello from %s', self.conn.peername())
-                self.disconnect(reason='connection closed')
+                yield from self.disconnect(reason='connection closed')
             except Exception as exc:
                 logger.exception('unable to read hello from %s', self.conn.peername())
-                self.disconnect(reason=str(type(exc)))
+                yield from self.disconnect(reason=str(type(exc)))
 
             if not self.is_connected:
                 return
