@@ -51,14 +51,15 @@ def create_ctx(config=Config(), daemon=True):
     def stop():
         # signal the aio loop can stop and everything can be torn down
         if not stopped.done():
-            try:
-                if supervisor:
-                    supervisor.stop()
-                stopped.set_result(True)
-                driver_thread.join()
-                dash.stop()
-            except TimeoutExpired:
-                pass
+            if supervisor:
+                supervisor.stop()
+                try:
+                    supervisor.wait(timeout=1)
+                except TimeoutExpired:
+                    pass
+            stopped.set_result(True)
+            driver_thread.join(timeout=1)
+            dash.stop()
 
     try:
         # wait for driver to set up
