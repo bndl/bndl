@@ -222,7 +222,7 @@ class Dataset(metaclass=abc.ABCMeta):
             dataset and the return values will be the values. If val is a plain
             object, it will be used as a constant value for each element.
 
-        Example::
+        Example:
 
             >>> ctx.collection('abcdef').with_value(1).collect()
             [('a', 1), ('b', 1), ('c', 1), ('d', 1), ('e', 1), ('f', 1)]
@@ -231,6 +231,43 @@ class Dataset(metaclass=abc.ABCMeta):
             return self.map_partitions(lambda p: ((e, val) for e in p))
         else:
             return self.map_partitions(lambda p: ((e, val(e)) for e in p))
+
+
+    def key_by_id(self):
+        '''
+        Key the elements of this data set with a unique integer id.
+        
+        Example:
+        
+            >>> ctx.collection(['a', 'b', 'c', 'd', 'e'], pcount=2).key_by_id().collect()
+            [(0, 'a'), (2, 'b'), (4, 'c'), (1, 'd'), (3, 'e')]
+        '''
+        n = len(self.parts())
+        def with_id(idx, part):
+            return ((idx + i * n, e) for i, e in enumerate(part))
+        return self.map_partitions_with_index(with_id)
+
+
+    def key_by_idx(self):
+        '''
+        Key the elements of this data set with their index.
+        
+        This operation starts a job when the data set contains more than 1
+        partition to calculate offsets for each of the partitions. Use
+        key_by_id or cache the data set to speed up processing.
+        
+        Example:
+        
+            >>> ctx.collection(['a', 'b', 'c', 'd', 'e']).key_by_idx().collect()
+            [(0, 'a'), (1, 'b'), (2, 'c'), (3, 'd'), (4, 'e')]
+        '''
+        offsets = [0]
+        if len(self.parts()) > 1:
+            for size in self.map_partitions(lambda p: (iterable_size(p),)).collect():
+                offsets.append(offsets[-1] + size)
+        def with_idx(idx, part):
+            return enumerate(part, offsets[idx])
+        return self.map_partitions_with_index(with_idx)
 
 
     def keys(self):
