@@ -170,7 +170,7 @@ class Watchdog(object):
                 self.node.peers[name] = popped
             yield from peer.disconnect('disconnected by watchdog after %s failed connection attempts',
                                        stats.connection_attempts)
-        elif stats.connection_attempts > 0:
+        elif stats.error_since:
             # max reconnect interval is:
             # - twice the watch_dog interval (maybe something was missed)
             # - exponentially to the connection attempts (exponentially back off)
