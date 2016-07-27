@@ -44,7 +44,7 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
             started_signal.set_result(e)
             return
         else:
-            raise e
+            raise
 
     try:
         if stop_signal:
