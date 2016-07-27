@@ -129,7 +129,7 @@ class Watchdog(object):
             yield from peer.send(Ping())
         except Exception:
             self.peer_stats(peer).update()
-            logger.warning('Unable to send ping to peer %r', peer)
+            logger.warning('Unable to send ping to peer %r', peer, exc_info=True)
 
 
     @asyncio.coroutine
