@@ -192,20 +192,37 @@ class Node(object):
                 logger.debug('self connect attempt of %s', peer.name)
                 yield from peer.disconnect(reason='self connect')
                 return
+
             known_peer = self.peers.get(peer.name)
-            if known_peer and known_peer.is_connected and peer is not known_peer:
-                # perform a 'tie brake' between the two connections with the peer
-                # this is to prevent situations where two nodes 'call each other'
-                # at the same time
-                if known_peer < peer:
-                    # existing connection wins
-                    logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
-                    yield from peer.disconnect(reason='already connected, old connection wins')
-                    return
-                else:
-                    # new connection wins
-                    logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
-                    yield from known_peer.disconnect(reason='already connected, new connection wins')
+            if not known_peer:
+                for address in peer.addresses:
+                    matches = self.peers.filter(address=address, connected=None)
+                    if matches:
+                        known_peer = matches[0]
+                        if known_peer.is_connected:
+                            logger.warning('Peers %s and %s (of %s) share addresses (%s) and are both connected',
+                                           known_peer.name, peer.name, self.name,
+                                           list(known_peer.addresses) + list(peer.addresses))
+                        break
+
+            if known_peer:
+                if known_peer.is_connected and peer is not known_peer:
+                    # perform a 'tie brake' between the two connections with the peer
+                    # this is to prevent situations where two nodes 'call each other'
+                    # at the same time
+                    if known_peer < peer:
+                        # existing connection wins
+                        logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
+                        yield from peer.disconnect(reason='already connected, old connection wins')
+                        return
+                    else:
+                        # new connection wins
+                        logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
+                        yield from known_peer.disconnect(reason='already connected, new connection wins')
+
+                if known_peer.name != peer.name:
+                    del self.peers[known_peer.name]
+
             self.peers[peer.name] = peer
 
         # notify others of the new peer
