@@ -147,10 +147,42 @@ class Connection(object):
                 yield from aio.drain(self.writer)
 
 
-    def _recv_unpack(self, fmt, timeout=None):
+    @asyncio.coroutine
+    def _recv_unpack(self, fmt):
         size = struct.calcsize(fmt)
-        buffer = yield from asyncio.wait_for(self.reader.readexactly(size), timeout, loop=self.loop)
+        buffer = yield from self.reader.readexactly(size)
+        self.bytes_received += size
         return struct.unpack(fmt, buffer)[0]
+
+
+    @asyncio.coroutine
+    def _recv_field(self):
+        frame_len = yield from self._recv_unpack('I')
+        self.bytes_received += frame_len
+        return (yield from self.reader.readexactly(frame_len))
+
+
+    @asyncio.coroutine
+    def _recv(self):
+        with (yield from self.read_lock):
+            # read and unpack format
+            fmt = yield from self.reader.readexactly(1)
+            fmt = int.from_bytes(fmt, sys.byteorder)
+            marshalled = fmt & 1
+            has_attachments = fmt & 2
+
+            # read in attachments if any
+            attachments = {}
+            if has_attachments:
+                att_count = yield from self._recv_unpack('I')
+                for _ in range(att_count):
+                    key = yield from self._recv_field()
+                    attachments[key] = yield from self._recv_field()
+
+            # read message itself
+            msg = yield from self._recv_field()
+
+        return marshalled, msg, attachments
 
 
     @asyncio.coroutine
@@ -163,33 +195,8 @@ class Connection(object):
         if not self.is_connected:
             raise NotConnected()
         try:
-            with (yield from self.read_lock):
-                # read and unpackformat
-                fmt = yield from asyncio.wait_for(self.reader.readexactly(1), timeout, loop=self.loop)
-                fmt = int.from_bytes(fmt, sys.byteorder)
-                marshalled = fmt & 1
-                has_attachments = fmt & 2
-
-                # read in attachments if any
-                attachments = {}
-                if has_attachments:
-                    att_count = yield from self._recv_unpack('I', timeout)
-                    for _ in range(att_count):
-                        # read key
-                        keylen = yield from self._recv_unpack('I', timeout)
-                        key = yield from asyncio.wait_for(self.reader.readexactly(keylen), timeout, loop=self.loop)
-                        # read attachment
-                        size = yield from self._recv_unpack('I', timeout)
-                        attachment = yield from asyncio.wait_for(self.reader.readexactly(size), timeout, loop=self.loop)
-                        attachments[key] = attachment
-                        self.bytes_received += size
-
-                # read message len and message
-                length = yield from self._recv_unpack('I', timeout)
-                msg = yield from asyncio.wait_for(self.reader.readexactly(length), timeout, loop=self.loop)
-                self.bytes_received += length
-            # parse the message and attachments
-            return serialize.load(marshalled, msg, attachments)
+            payload = yield from asyncio.wait_for(self._recv(), timeout, loop=self.loop)
+            return serialize.load(*payload)
         except BrokenPipeError as exc:
             raise NotConnected() from exc
         except asyncio.streams.IncompleteReadError as exc:
