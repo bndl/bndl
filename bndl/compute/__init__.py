@@ -18,6 +18,7 @@ from bndl.util.aio import get_loop
 from bndl.util.conf import Config
 from bndl.util.objects import LazyObject
 from bndl.util.supervisor import Supervisor
+from bndl.util.exceptions import catch
 
 
 worker_count = conf.Int()
@@ -81,10 +82,11 @@ def create_ctx(config=Config(), daemon=True):
         # register stop as 'exit' listeners
         ctx.add_listener(lambda obj: stop() if ctx is obj else None)
         atexit.register(stop)
+        return ctx
     except Exception:
-        stop()
-
-    return ctx
+        with catch():
+            stop()
+        raise
 
 
 ctx = LazyObject(lambda: create_ctx(daemon=True), 'stop')
