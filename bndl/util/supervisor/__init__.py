@@ -95,10 +95,8 @@ class Child(object):
             - unless it was started < MIN_RUN_TIME (we consider the failure not
               transient)
         '''
-        assert self.running
-        retcode = self.proc.wait()
+        retcode = self.wait()
         logger.info('Child %s (%s:%s) exited with code %s', self.id , self.module, self.main, retcode)
-
         if retcode not in (0, signal.SIGTERM, signal.SIGKILL, -signal.SIGTERM, -signal.SIGKILL) \
            and (time.time() - self.started_on) > MIN_RUN_TIME:
             self.start()
@@ -117,9 +115,10 @@ class Child(object):
                 pass  # already terminated
 
 
-    def wait(self, timeout):
+    def wait(self, timeout=None):
         if self.running:
             self.proc.wait(timeout)
+            return self.proc.returncode
 
 
 
