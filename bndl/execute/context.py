@@ -50,7 +50,7 @@ class ExecutionContext(Lifecycle):
                 job.remove_listener(listener)
 
 
-    def await_workers(self, connect_timeout=5, stable_timeout=60):
+    def await_workers(self, worker_count=4, connect_timeout=5, stable_timeout=60):
         '''
         await_workers waits for workers to be available. If not in
         connect_timeout a RuntimeError is raised. Once a worker is found, at
@@ -77,6 +77,9 @@ class ExecutionContext(Lifecycle):
             # not 'stable' until at least one worker found
             if count == 0:
                 return False
+
+            if count == worker_count:
+                return True
 
             # calculate a sorted list of when workers have connected
             connected_on = sorted(worker.connected_on for worker in self.workers)
