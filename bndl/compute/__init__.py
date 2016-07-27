@@ -66,7 +66,10 @@ def create_ctx(config=Config(), daemon=True):
             raise result
 
         if worker_count:
-            supervisor = Supervisor('bndl.compute.worker', 'main', ['--seeds'] + (seeds or driver.addresses), worker_count)
+            args = ['--seeds'] + list((seeds or driver.addresses))
+            if listen_addresses:
+                args += ['--listen_addresses'] + listen_addresses
+            supervisor = Supervisor('bndl.compute.worker', 'main', args, worker_count)
             supervisor.start()
 
         # create compute context
