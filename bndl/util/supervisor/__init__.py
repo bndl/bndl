@@ -157,6 +157,11 @@ class Supervisor(object):
             child.wait((timeout - (time.time() - start)) if timeout else None)
 
 
+def echo(*args):
+    if __name__ == '__main__':
+        print(*args)
+
+
 def main(supervisor_args=None, child_args=None):
     configure_logging('supervisor-' + '.'.join(map(str, (os.getpid(), socket.getfqdn()))))
 
@@ -173,13 +178,13 @@ def main(supervisor_args=None, child_args=None):
     # and run until CTRL-C / SIGTERM
     try:
         entry_point = ':'.join(supervisor_args.entry_point)
-        print('supervisor is starting', supervisor_args.process_count, entry_point, 'child processes ...')
+        echo('supervisor is starting', supervisor_args.process_count, entry_point, 'child processes ...')
         supervisor.start()
         supervisor.wait()
     except KeyboardInterrupt:
-        print('supervisor interrupted')
+        echo('supervisor interrupted')
     finally:
-        print('supervisor is stopping', supervisor_args.process_count, entry_point, 'child processes')
+        echo('supervisor is stopping', supervisor_args.process_count, entry_point, 'child processes')
         supervisor.stop()
 
 
