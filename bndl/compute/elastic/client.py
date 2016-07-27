@@ -76,7 +76,7 @@ def elastic_client(ctx, hosts=None):
     if not pools:
         elastic_client.pools = pools = {}
     # determine contact points, either given or ip addresses of the workers
-    hosts = _get_hosts(ctx, *(hosts or ctx.conf.get('bndl.compute.elastic.hosts')))
+    hosts = _get_hosts(ctx, *(hosts or ctx.conf.get('bndl.compute.elastic.hosts') or ()))
     # check if there is a cached client object
     pool = pools.get(hosts)
     # or create one if not
