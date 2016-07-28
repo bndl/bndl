@@ -872,10 +872,35 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def zip(self, other):
+        '''
+        Zip the elements of another data set with the elements of this data set.
+
+        :param other: bndl.compute.base.Dataset
+            The other data set to zip with.
+
+        Example:
+
+            >>> ctx.range(0,10).zip(ctx.range(10,20)).collect()
+            [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14), (5, 15), (6, 16), (7, 17), (8, 18), (9, 19)]
+        '''
         # TODO what if some partition is shorter/longer than another?
         return self.zip_partitions(other, zip)
 
     def zip_partitions(self, other, comb):
+        '''
+        Zip the partitions of another data set with the partitions of this data set.
+
+        :param other: bndl.compute.base.Dataset
+            The other data set to zip the partitions of with the partitions of this data set.
+        :param comb: func(iterable, iterable)
+            The function which combines the data of the partitions from this
+            and the other data sets.
+
+        Example:
+
+            >>> ctx.range(0,10).zip_partitions(ctx.range(10,20), lambda a, b: zip(a,b)).collect()
+            [(0, 10), (1, 11), (2, 12), (3, 13), (4, 14), (5, 15), (6, 16), (7, 17), (8, 18), (9, 19)]
+        '''
         from .zip import ZippedDataset
         return ZippedDataset(self, other, comb=comb)
 
