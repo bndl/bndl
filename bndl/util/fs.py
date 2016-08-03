@@ -8,7 +8,7 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
     '''
     Filter file names from a root directory.
     :param root: str
-        A root directory. May be a glob pattern as supported by glob.glob
+        A root directory name or glob pattern as supported by glob.glob
     :param recursive: bool
         Whether to recurse into sub directories.
     :param dfilter: callable
@@ -23,15 +23,21 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
             if not ffilter or ffilter(name):
                 yield name
         else:
-            try:
-                for entry in scandir.scandir(name):
-                    epath = os.path.join(name, entry.name)
-                    if recursive and entry.is_dir() and (not dfilter or dfilter(epath)):
-                        yield from filenames(epath, True, dfilter, ffilter)
-                    elif entry.is_file() and (not ffilter or ffilter(epath)):
-                        yield epath
-            except PermissionError:
-                pass
+            yield from _filenames(root, recursive, dfilter, ffilter)
+
+
+def _filenames(directory, recursive=False, dfilter=None, ffilter=None):
+    try:
+        scan = scandir.scandir(directory)
+    except PermissionError:
+        pass
+    else:
+        for entry in scan:
+            epath = os.path.join(directory, entry.name)
+            if entry.is_dir() and recursive and (not dfilter or dfilter(epath)):
+                yield from _filenames(epath, True, dfilter, ffilter)
+            elif entry.is_file() and (not ffilter or ffilter(epath)):
+                yield epath
 
 
 def listdirabs(path):
