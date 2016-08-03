@@ -33,7 +33,7 @@ bdist:
 	python setup.py bdist_egg
 
 upload:
-	python2 setup.py sdist upload -r tgho
+	python setup.py sdist upload -r http://localshop.priv.tgho.nl/repo/tgho
 
 
 
