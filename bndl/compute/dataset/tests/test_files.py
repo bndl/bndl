@@ -59,7 +59,7 @@ class FilesTest(DatasetTest):
 
     def test_recursive(self):
         dirname = os.path.dirname(self.filenames[0])
-        dset = self.ctx.files(dirname, True, lambda d: True, filter_test_files)
+        dset = self.ctx.files(dirname, True, None, filter_test_files)
         self.assertEqual(dset.count(), 32)
         self.assertEqual(
             sum(1 for _ in filter(

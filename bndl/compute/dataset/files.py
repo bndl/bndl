@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import Iterable, OrderedDict
 from functools import partial, lru_cache
 import asyncio
 import contextlib
@@ -13,6 +13,8 @@ from bndl.util import aio
 from bndl.util.collection import batch
 from bndl.util.exceptions import catch
 from bndl.util.fs import filenames
+from os.path import getsize
+from toolz.itertoolz import pluck
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,7 @@ class DistributedFiles(Dataset):
             raise ValueError("psize_bytes can't be negative or zero")
         elif psize_bytes is None and psize_files is None:
             psize_bytes = 16 * 1024 * 1024
-            psize_files = 1000
+            psize_files = 10 * 1000
 
         self.psize_bytes = psize_bytes
         self.psize_files = psize_files
@@ -56,13 +58,13 @@ class DistributedFiles(Dataset):
 
 
     def parts(self):
+        node = self.ctx.node
+        assert node.node_type == 'driver'
+
         if self.psize_bytes:
             batches = self._sliceby_psize()
         else:
             batches = batch(self.filenames, self.psize_files)
-
-        node = self.ctx.node
-        assert node.node_type == 'driver'
 
         parts = []
         for idx, filenames in enumerate(batches):
@@ -79,9 +81,11 @@ class DistributedFiles(Dataset):
         def _cleanup(job):
             node = job.ctx.node
             assert node.node_type == 'driver'
-            hosted_values = node.hosted_values
             for part in self.parts():
-                del hosted_values[part.key]
+                try:
+                    del node.hosted_values[part.key]
+                except KeyError:
+                    pass
 
         return _cleanup
 
@@ -98,9 +102,9 @@ class DistributedFiles(Dataset):
         batches = [batch]
         size = 0
 
-        for filename in self.filenames:
+        for filename, filesize in self.filenames_and_sizes:
             batch.append(filename)
-            size += os.path.getsize(filename)
+            size += filesize
             if size >= psize_bytes or len(batch) >= psize_files:
                 batch = []
                 batches.append(batch)
@@ -110,8 +114,13 @@ class DistributedFiles(Dataset):
 
 
     @property
-    @lru_cache()
     def filenames(self):
+        return list(pluck(0, self.filenames_and_sizes))
+
+
+    @property
+    @lru_cache()
+    def filenames_and_sizes(self):
         if isinstance(self._root, str):
             return list(filenames(self._root, self._recursive, self._dfilter, self._ffilter))
 
@@ -119,10 +128,12 @@ class DistributedFiles(Dataset):
         assert self._dfilter == None
         assert self._ffilter == None
 
-        if isinstance(self._root, (list, tuple)):
-            return self._root
+        if not isinstance(self._root, (list, tuple)):
+            root = list(self._root)
         else:
-            return list(self._root)
+            root = self._root
+        return [(filename, getsize(filename))
+                for filename in root]
 
 
     def __getstate__(self):
