@@ -20,7 +20,7 @@ def dumps(obj):
             pass
     try:
         return False, pickle.dumps(obj, protocol=4)
-    except pickle.PicklingError:
+    except (pickle.PicklingError, AttributeError):
         return False, cloudpickle.dumps(obj, protocol=4)
 
 
