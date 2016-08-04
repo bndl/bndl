@@ -48,16 +48,14 @@ def attachment(key):
 
 def dump(obj):
     marshalled, serialized = serialize.dumps(obj)
-    attachments = getattr(_ATTACHMENTS, 'v', {})
-    try:
-        return marshalled, serialized, attachments
-    finally:
-        _ATTACHMENTS.v = {}
+    attachments = getattr(_ATTACHMENTS, 'v', None)
+    if attachments:
+        del _ATTACHMENTS.v
+    return marshalled, serialized, attachments
 
 
 def load(marshalled, msg, attachments):
     setattr(_ATTACHMENTS, 'v', attachments)
-    try:
-        return serialize.loads(marshalled, msg)
-    finally:
-        _ATTACHMENTS.v = {}
+    value = serialize.loads(marshalled, msg)
+    del _ATTACHMENTS.v
+    return value
