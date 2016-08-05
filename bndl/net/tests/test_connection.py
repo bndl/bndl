@@ -15,7 +15,7 @@ class WithAttachment(object):
 
     def __getstate__(self):
         body = self.body.encode('utf-8')
-        def write(writer):
+        def write(loop, writer):
             writer.write(body)
         serialize.attach(self.name.encode('utf-8'),
                          contextlib.contextmanager(lambda: (yield (len(body), write))))

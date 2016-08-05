@@ -15,6 +15,7 @@ from bndl.util.exceptions import catch
 from bndl.util.fs import filenames
 from os.path import getsize
 from toolz.itertoolz import pluck
+from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)
@@ -154,7 +155,7 @@ def _file_attachment(filename):
         size = os.fstat(file.fileno()).st_size
 
         @asyncio.coroutine
-        def sender(writer):
+        def sender(loop, writer):
             '''
             make sure there is no data pending in the writer's buffer
             get the socket from the writer
@@ -162,7 +163,7 @@ def _file_attachment(filename):
             '''
             yield from aio.drain(writer)
             socket = writer.get_extra_info('socket')
-            yield from sendfile(socket.fileno(), file.fileno(), 0, size)
+            yield from sendfile(socket.fileno(), file.fileno(), 0, size, loop)
 
         try:
             yield size, sender

@@ -21,10 +21,12 @@ def attach(key, att):
     :param att: obj
         The object to attach.
         When used in the context of bndl.net obj should be a contextmanager
-        yielding (size:int, sender:func(asyncio.streams.StreamWriter)) where
-        size is the size of the attachment in bytes and sender is a function
-        which is called with the writer to which the attachment must be
-        written.
+        yielding (
+            size:int,
+            sender:func(asyncio.BaseEventLoop, asyncio.streams.StreamWriter)
+        ) where size is the size of the attachment in bytes and sender is a
+        function which is called with the event loop and the writer to which
+        the attachment must be written.
         This construct can be used to e.g. use sendfile to more efficiently
         send data outside of pickle (in the sendfile case, without a bunch of
         system calls for reading the file and writing to the socket and without
