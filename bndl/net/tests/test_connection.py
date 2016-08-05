@@ -89,7 +89,7 @@ class ConnectionTest(TestCase):
 
 
     def test_attachment(self):
-        obj = WithAttachment('test', 'body')
+        obj = WithAttachment('test', 'body' * 1000 * 1000)
         hello = Hello(name=obj)
         self.send(self.conns[0], hello)
         obj2 = self.recv(self.conns[1]).name
