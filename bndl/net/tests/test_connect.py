@@ -1,4 +1,4 @@
-from socket import AF_INET
+from socket import AF_INET, AF_INET6
 
 from bndl.net.node import Node
 from bndl.net.tests import NetTest
@@ -16,4 +16,4 @@ class TCPTest(NetTest):
     def test_connectivity(self):
         for node in self.nodes:
             for peer in node.peers.values():
-                self.assertEqual(peer.conn.socket_family(), AF_INET)
+                self.assertIn(peer.conn.socket_family(), (AF_INET, AF_INET6))
