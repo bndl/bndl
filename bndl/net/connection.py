@@ -137,13 +137,13 @@ class Connection(object):
                 self.writer.writelines((struct.pack('c', fmt), struct.pack('I', len(attachments))))
                 for key, attachment in attachments.items():
                     with attachment() as (size, sender):
-                        self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('I', size)))
+                        self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('Q', size)))
                         yield from async_call(self.loop, sender, self.writer)
                         self.bytes_sent += size
-                self.writer.writelines((struct.pack('I', len(serialized)), serialized))
+                self.writer.writelines((struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)
             else:
-                self.writer.writelines((struct.pack('c', fmt), struct.pack('I', len(serialized)), serialized))
+                self.writer.writelines((struct.pack('c', fmt), struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)
 
             if drain:
@@ -159,8 +159,8 @@ class Connection(object):
 
 
     @asyncio.coroutine
-    def _recv_field(self):
-        frame_len = yield from self._recv_unpack('I')
+    def _recv_field(self, size_fmt='I'):
+        frame_len = yield from self._recv_unpack(size_fmt)
         frame = yield from self.readexactly(frame_len)
         self.bytes_received += frame_len
         return frame
@@ -181,10 +181,10 @@ class Connection(object):
                 att_count = yield from self._recv_unpack('I')
                 for _ in range(att_count):
                     key = bytes((yield from self._recv_field()))
-                    attachments[key] = yield from self._recv_field()
+                    attachments[key] = yield from self._recv_field('Q')
 
             # read message itself
-            msg = yield from self._recv_field()
+            msg = yield from self._recv_field('Q')
 
         return marshalled, msg, attachments
 
