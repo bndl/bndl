@@ -90,6 +90,10 @@ def run_coroutine_threadsafe(coro, loop):
 
 @asyncio.coroutine
 def drain(writer):
+    '''
+    StreamWriter.drain only drains when there is more data buffered than the
+    low_water mark. This method performs a full drain.
+    '''
     if writer.transport.get_write_buffer_size():
         low, high = writer.transport.get_write_buffer_limits()
         writer.transport.set_write_buffer_limits(low=0)
