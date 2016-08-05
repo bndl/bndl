@@ -2,6 +2,7 @@ import argparse
 import asyncio
 
 from bndl.net.connection import urlcheck
+from bndl.util import aio
 
 
 argparser = argparse.ArgumentParser()
@@ -22,7 +23,7 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
     assert all(node.loop == loop for node in nodes)
 
     try:
-        current_loop = asyncio.get_event_loop()
+        current_loop = aio.get_loop()
     except:
         # set the event loop for this thread if not set yet
         asyncio.set_event_loop(loop)
