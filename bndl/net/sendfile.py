@@ -9,6 +9,9 @@ import os
 from bndl.util import aio
 
 
+CHUNK_SIZE = 8 * 1024
+
+
 def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):
     if registered:
         loop.remove_writer(out_fd)
@@ -29,16 +32,16 @@ def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):
         fut.set_result(None)
 
 
+
 def _sendfile_cb_fallback(loop, fut, out_fd, in_fd, buffered, registered):
     if registered:
         loop.remove_writer(out_fd)
-    chunk_size = 8 * 1024
     if buffered:
         written = os.write(out_fd, buffered)
         buffered = buffered[written:]
     while True:
         if not buffered:
-            buffered = os.read(in_fd, chunk_size)
+            buffered = os.read(in_fd, CHUNK_SIZE)
         if not buffered:
             fut.set_result(None)
             return
