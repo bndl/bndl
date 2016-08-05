@@ -99,3 +99,49 @@ def drain(writer):
         writer.transport.set_write_buffer_limits(low=0)
         yield from writer.drain()
         writer.transport.set_write_buffer_limits(high, low)
+
+
+
+@asyncio.coroutine
+def readexactly(self, n):
+    '''
+    Implementation of StreamReader.readexactly which has an O(n) instead of
+    O(2n) memory footprint (as is the case for asyncio in python 3.5.2). Also
+    it is 25% to 35% faster in terms of throughput. See also
+    https://github.com/python/asyncio/issues/394.
+    '''
+    if self._exception is not None:
+        raise self._exception
+
+    if not n:
+        return b''
+
+    if len(self._buffer) >= n and not self._eof:
+        data = self._buffer[:n]
+        del self._buffer[:n]
+        self._maybe_resume_transport()
+        return data
+
+    data = bytearray(n)
+    pos = 0
+
+    while n:
+        if not self._buffer:
+            yield from self._wait_for_data('read')
+
+        if self._eof or not self._buffer:
+            raise asyncio.IncompleteReadError(data[:pos], pos + n)
+
+        available = len(self._buffer)
+        if available <= n:
+            data[pos:pos + available] = self._buffer
+            self._buffer.clear()
+            n -= available
+            pos += available
+        else:
+            data[pos:pos + n] = self._buffer[:n]
+            del self._buffer[:n]
+            n = 0
+        self._maybe_resume_transport()
+
+    return data

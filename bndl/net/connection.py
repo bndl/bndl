@@ -4,14 +4,16 @@ import logging
 import socket
 import struct
 import sys
+import types
 import urllib.parse
 
 from bndl.net import serialize
 from bndl.util import aio
-from bndl.util.aio import async_call
+from bndl.util.aio import async_call, readexactly
 
 
 logger = logging.getLogger(__name__)
+
 
 
 def urlparse(address):
@@ -90,6 +92,7 @@ class Connection(object):
     def __init__(self, loop, reader, writer):
         self.loop = loop
         self.reader = reader
+        self.readexactly = types.MethodType(readexactly, self.reader)
         self.writer = writer
         self.read_lock = asyncio.Lock(loop=self.loop)
         self.write_lock = asyncio.Lock(loop=self.loop)
@@ -150,7 +153,7 @@ class Connection(object):
     @asyncio.coroutine
     def _recv_unpack(self, fmt):
         size = struct.calcsize(fmt)
-        buffer = yield from self.reader.readexactly(size)
+        buffer = yield from self.readexactly(size)
         self.bytes_received += size
         return struct.unpack(fmt, buffer)[0]
 
@@ -158,15 +161,16 @@ class Connection(object):
     @asyncio.coroutine
     def _recv_field(self):
         frame_len = yield from self._recv_unpack('I')
+        frame = yield from self.readexactly(frame_len)
         self.bytes_received += frame_len
-        return (yield from self.reader.readexactly(frame_len))
+        return frame
 
 
     @asyncio.coroutine
     def _recv(self):
         with (yield from self.read_lock):
             # read and unpack format
-            fmt = yield from self.reader.readexactly(1)
+            fmt = yield from self.readexactly(1)
             fmt = int.from_bytes(fmt, sys.byteorder)
             marshalled = fmt & 1
             has_attachments = fmt & 2
@@ -176,7 +180,7 @@ class Connection(object):
             if has_attachments:
                 att_count = yield from self._recv_unpack('I')
                 for _ in range(att_count):
-                    key = yield from self._recv_field()
+                    key = bytes((yield from self._recv_field()))
                     attachments[key] = yield from self._recv_field()
 
             # read message itself
