@@ -88,7 +88,7 @@ class Config(object):
         return self
 
     def __getitem__(self, key):
-        return self.values[key]
+        return self.get(key)
 
     def __repr__(self):
         return '<Conf %r>' % self.values
