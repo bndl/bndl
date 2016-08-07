@@ -1,33 +1,35 @@
 from itertools import chain
 import os.path
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 
 from bndl.compute.dataset.tests import DatasetTest
 from bndl.util.text import random_string
-
-
-def filter_test_files(filename):
-    return os.path.basename(filename).startswith('bndl_unit_test_') and filename.endswith('.tmp')
 
 
 class FilesTest(DatasetTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.tmpdir = TemporaryDirectory('bndl_unit_test')
+        for idx in range(10):
+            with open(os.path.join(cls.tmpdir.name, 'decoy_file_%s.tmp'%idx), 'w') as f:
+                print('decoy', file=f)
         cls.contents = [('\n'.join(random_string(127) for _ in range(8)) + '\n').encode() for _ in range(32)]
-        cls.files = [NamedTemporaryFile(prefix='bndl_unit_test_', suffix='.tmp') for _ in cls.contents]
+        cls.files = [
+            open(os.path.join(cls.tmpdir.name, 'test_file_%s.tmp' % idx), 'wb')
+            for idx in range(len(cls.contents))
+        ]
         cls.filenames = [file.name for file in cls.files]
         for contents, file in zip(cls.contents, cls.files):
-            file.file.write(contents)
-            file.file.flush()
+            file.write(contents)
+            file.flush()
         cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1024 * 2, psize_files=None)
 
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in cls.files:
-            f.close()
+        cls.tmpdir.cleanup()
 
 
     def test_pcount(self):
@@ -44,12 +46,12 @@ class FilesTest(DatasetTest):
 
 
     def test_listings(self):
-        dirname = os.path.dirname(self.filenames[0])
-        filename_pattern = os.path.join(dirname, 'bndl_unit_test_*.tmp')
+        dirname = self.tmpdir.name
+        filename_pattern = os.path.join(dirname, 'test_file_*.tmp')
         dset = self.ctx.files(filename_pattern)
         self.assertEqual(dset.count(), 32)
         file_count = sum(1 for _ in filter(
-                lambda f: os.path.basename(f).startswith('bndl_unit_test_') and f.endswith('.tmp'),
+                lambda f: os.path.basename(f).startswith('test_file_') and f.endswith('.tmp'),
                 self.ctx.files(dirname).filenames
             )
         )
@@ -58,6 +60,7 @@ class FilesTest(DatasetTest):
 
 
     def test_recursive(self):
+        filter_test_files = lambda filename: os.path.basename(filename).startswith('test_file_') and filename.endswith('.tmp')
         dirname = os.path.dirname(self.filenames[0])
         dset = self.ctx.files(dirname, True, None, filter_test_files)
         self.assertEqual(dset.count(), 32)

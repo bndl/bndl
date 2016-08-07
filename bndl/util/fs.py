@@ -1,14 +1,13 @@
+from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 import glob
-from itertools import chain
-import multiprocessing
 from os import stat
 from os.path import getsize, join
 import os.path
-
-import scandir
-from concurrent.futures.process import ProcessPoolExecutor
 from queue import Queue, Empty
+
+from bndl.util import serialize
+import scandir
 
 
 def filenames(root, recursive=False, dfilter=None, ffilter=None):
@@ -35,8 +34,14 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
         else:
             subdirs.append(name)
     # scan sub-directories concurrently if > 1
+    if dfilter:
+        dfilter = serialize.dumps(dfilter)
+    if ffilter:
+        ffilter = serialize.dumps(ffilter)
+
     pool_size = max(4, os.cpu_count())
     with ProcessPoolExecutor(pool_size) as executor:
+
         scan_func = partial(_scan_dir, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
         scans = Queue()
         for subdir in subdirs:
@@ -54,6 +59,11 @@ def filenames(root, recursive=False, dfilter=None, ffilter=None):
 
 
 def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
+    if dfilter:
+        dfilter = serialize.loads(*dfilter)
+    if ffilter:
+        ffilter = serialize.loads(*ffilter)
+
     subdirs = [directory]
     fnames = []
     while len(fnames) < 10000:
@@ -75,7 +85,7 @@ def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
                 if entry.is_dir() and recursive and (not dfilter or dfilter(epath)):
                     subdirs.append(epath)
                 elif entry.is_file() and (not ffilter or ffilter(epath)):
-                    fnames.append( (epath, stat(entry.name, dir_fd=dir_fd).st_size))
+                    fnames.append((epath, stat(entry.name, dir_fd=dir_fd).st_size))
         finally:
             os.close(dir_fd)
 
