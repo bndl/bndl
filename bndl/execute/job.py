@@ -21,7 +21,7 @@ class Job(Lifecycle):
         self.stages = []
 
 
-    def execute(self, workers, eager=True):
+    def execute(self, workers, eager=True, ordered=True, concurrency=1):
         required_workers_available = all(
             worker in workers
             for stage in self.stages
@@ -41,7 +41,10 @@ class Job(Lifecycle):
                     break
                 logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
                 stage.add_listener(self._stage_done)
-                yield stage.execute(workers, stage != self.stages[-1] or eager)
+                yield stage.execute(workers,
+                                    eager=stage != self.stages[-1] or eager,
+                                    ordered=ordered,
+                                    concurrency=concurrency)
         except Exception:
             self.signal_stop()
             raise
@@ -77,7 +80,7 @@ class Stage(Lifecycle):
         self.tasks = []
 
 
-    def execute(self, workers, eager=True):
+    def execute(self, workers, eager=True, ordered=True, concurrency=1):
         self.signal_start()
 
         for task in self.tasks:
@@ -88,7 +91,7 @@ class Stage(Lifecycle):
 
         try:
             if eager:
-                yield from self._execute_eagerly(workers)
+                yield from self._execute_eagerly(workers, ordered=ordered, concurrency=concurrency)
             else:
                 yield from self._execute_onebyone(workers)
         except (Exception, KeyboardInterrupt):
@@ -101,22 +104,25 @@ class Stage(Lifecycle):
             self.signal_stop()
 
 
-    def _execute_eagerly(self, workers):
+    def _execute_eagerly(self, workers, ordered, concurrency):
         workers_available = Queue()
-        for worker in workers:
-            workers_available.put(worker)
+        for _ in range(concurrency):
+            for worker in workers:
+                workers_available.put(worker)
+
         to_schedule = self.tasks[:]
+        done = Queue()
         sentinel = object()
         scheduled = threading.Semaphore(0)
 
         def task_done(task, worker):
             workers_available.put(worker)
+            done.put(task)
 
         def schedule_tasks():
             while to_schedule:
                 # only step if there is a worker available
                 worker = workers_available.get()
-                # print('searching for task on worker', worker.name)
                 # break if sentinel received
                 if worker == sentinel:
                     break
@@ -148,15 +154,19 @@ class Stage(Lifecycle):
                                        name='bndl-task-driver-%s-%s' % (self.job.id, self.id))
         task_driver.start()
 
-        next_task_idx = 0
         try:
-            while next_task_idx < len(self.tasks):
-                next_task = self.tasks[next_task_idx]
-                if next_task.started():
-                    yield next_task.result()
-                    next_task_idx += 1
-                else:
-                    scheduled.acquire()
+            if ordered:
+                next_task_idx = 0
+                while next_task_idx < len(self.tasks):
+                    next_task = self.tasks[next_task_idx]
+                    if next_task.started():
+                        yield next_task.result()
+                        next_task_idx += 1
+                    else:
+                        scheduled.acquire()
+            else:
+                for _ in range(len(self.tasks)):
+                    yield done.get().result()
         except Exception:
             workers_available.put(sentinel)
             raise

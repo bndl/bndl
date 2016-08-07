@@ -28,19 +28,21 @@ class ExecutionContext(Lifecycle):
             self._node = current_worker()
             return self._node
 
-    def execute(self, job, workers=None, eager=True):
+    def execute(self, job, workers=None, eager=True, ordered=True):
         # TODO what if not everything is consumed?
         assert self.running, 'context is not running'
         if workers is None:
             self.await_workers()
             workers = self.workers[:]
 
+        concurrency = self.conf.get('bndl.execute.concurrency')
+
         try:
             for listener in self.listeners:
                 job.add_listener(listener)
 
             self.jobs.append(job)
-            execution = job.execute(workers=workers, eager=eager)
+            execution = job.execute(workers, eager, ordered, concurrency)
             for stage, stage_execution in zip(job.stages, execution):
                 for result in stage_execution:
                     if stage == job.stages[-1]:
@@ -50,7 +52,7 @@ class ExecutionContext(Lifecycle):
                 job.remove_listener(listener)
 
 
-    def await_workers(self, worker_count=4, connect_timeout=5, stable_timeout=60):
+    def await_workers(self, worker_count=None, connect_timeout=5, stable_timeout=60):
         '''
         await_workers waits for workers to be available. If not in
         connect_timeout a RuntimeError is raised. Once a worker is found, at

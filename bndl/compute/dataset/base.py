@@ -22,6 +22,9 @@ from bndl.util.funcs import identity, getter, key_or_getter
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import numpy as np
 import sortedcontainers.sortedlist
+import json
+from os import linesep
+import sys
 
 
 try:
@@ -173,6 +176,22 @@ class Dataset(metaclass=abc.ABCMeta):
             over the partition's elements.
         '''
         return TransformingDataset(self.ctx, self, func)
+    
+    
+    def glom(self):
+        '''
+        Transforms each partition into a partition with one element being the
+        contents of the partition as a 'stable iterable' (e.g. a list).
+        
+        See the bndl.util.collection.is_stable_iterable function for details on
+        what constitutes a stable iterable.
+        
+        Example::
+        
+            >>> ctx.range(10, pcount=4).map_partitions(list).glom().collect()
+            [[0, 1], [2, 3, 4], [5, 6], [7, 8, 9]]
+        '''
+        return self.map_partitions(lambda p: (p if is_stable_iterable(p) else list(p),))
 
 
     def filter(self, func=None):
@@ -976,16 +995,38 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def collect_as_pickles(self, directory=None):
+        '''
+        Collect each partition as a pickle file into directory
+        '''
+        self.glom().map(pickle.dumps).map_partitions(tuple).collect_as_files(directory, 'p')
+
+    
+    def collect_as_json(self, directory=None):
+        '''
+        Collect each partition as a line separated json file into directory.
+        '''
+        encoding = sys.getdefaultencoding()
+        def dumps(part):
+            encoded = linesep.join(json.dumps(e) for e in part).encode(encoding)
+            return (encoded,)
+        self.map_partitions(dumps).collect_as_files(directory, 'json')
+
+
+    def collect_as_files(self, directory=None, ext=''):
+        '''
+        Collect each element or part in this data set into a file into
+        directory.
+        '''
         if not directory:
             directory = os.getcwd()
-        pickled = self.map_partitions(lambda p: (p if is_stable_iterable(p) else list(p),)).map(pickle.dumps)
-        for idx, part in enumerate(pickled.icollect()):
-            with open(os.path.join(directory, '%s-%s.p' % (self.id, idx)), 'wb') as f:
-                f.write(part)
+        with_idx = self.map_partitions_with_index(lambda idx, part: ((idx, part),))
+        for idx, part in with_idx.icollect(ordered=False):
+            with open(os.path.join(directory, '%s.%s' % (idx, ext)), 'wb') as f:
+                f.writelines(part)
 
 
-    def icollect(self, eager=True, parts=False):
-        result = self._execute(eager)
+    def icollect(self, eager=True, parts=False, ordered=True):
+        result = self._execute(eager, ordered)
         result = filter(lambda p: p is not None, result)  # filter out empty parts
         if not parts:
             result = chain.from_iterable(result)  # chain the parts into a big iterable
@@ -1001,8 +1042,8 @@ class Dataset(metaclass=abc.ABCMeta):
         for _ in self._execute():
             pass
 
-    def _execute(self, eager=True):
-        yield from self.ctx.execute(self._schedule(), eager=eager)
+    def _execute(self, eager=True, ordered=True):
+        yield from self.ctx.execute(self._schedule(), eager=eager, ordered=ordered)
 
     def _schedule(self):
         return schedule_job(self)

@@ -18,7 +18,7 @@ class ComputeContext(ExecutionContext):
     def default_pcount(self):
         if self.worker_count == 0:
             self.await_workers()
-        return self.worker_count * 2
+        return self.worker_count * self.conf['bndl.execute.concurrency'] * 2
 
     def collection(self, collection, pcount=None, psize=None):
         if isinstance(collection, range):
