@@ -151,7 +151,7 @@ class Watchdog(object):
     @asyncio.coroutine
     def _check_peer(self, name):
         try:
-            peer = self.node.peers.get(name)
+            peer = self.node.peers[name]
         except KeyError:
             return
 
