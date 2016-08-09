@@ -32,10 +32,11 @@ class Node(object):
 
     def __init__(self, name=None, addresses=None, seeds=None, loop=None):
         self.loop = loop or get_loop()
+        self.node_type = camel_to_snake(self.__class__.__name__)
         if name:
             self.name = name
         else:
-            self.name = '.'.join(reversed(socket.getfqdn().split('.')))
+            self.name = '.'.join(reversed(socket.getfqdn().split('.'))) + '.' + self.node_type
             child_id = os.environ.get(CHILD_ID)
             if child_id:
                 self.name += '.' + str(os.getppid())
@@ -43,7 +44,6 @@ class Node(object):
             else:
                 self.name += '.' + str(os.getpid())
                 self.name += '.' + str(next(Node._nodeids))
-        self.node_type = camel_to_snake(self.__class__.__name__)
         self.servers = {address: None for address in (addresses or ())}
         if not self.servers:
             self.servers = {'tcp://%s:%s' % (getlocalhostname(), 5000): None}
