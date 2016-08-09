@@ -127,7 +127,7 @@ def readexactly(self, n):
 
     while n:
         if not self._buffer:
-            yield from self._wait_for_data('read')
+            yield from self._wait_for_data('readexactly')
 
         if self._eof or not self._buffer:
             raise asyncio.IncompleteReadError(data[:pos], pos + n)
