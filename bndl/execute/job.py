@@ -231,6 +231,7 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         result = self.future.result()
         # release resources if successful
         # (otherwise an exception is raised)
+        self.future = None
         self.args = None
         self.kwargs = None
         self.preferred_workers = None
