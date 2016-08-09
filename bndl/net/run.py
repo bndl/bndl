@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import concurrent.futures
+import os
 
 from bndl.net.connection import urlcheck
 
@@ -23,7 +24,7 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
     assert all(node.loop == loop for node in nodes)
     asyncio.set_event_loop(loop)
     loop.set_exception_handler(exception_handler)
-    executor = concurrent.futures.ThreadPoolExecutor()
+    executor = concurrent.futures.ThreadPoolExecutor((os.cpu_count() or 1) * 5)
     loop.set_default_executor(executor)
 
     try:
