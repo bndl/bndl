@@ -73,6 +73,8 @@ class PeerStats(object):
                 logger.warning('Peer %r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
             self.error_since = self.error_since or now
         else:
+            if self.error_since:
+                logger.warning('Peer %s recovered', self.peer)
             # clear error stats
             self.connection_attempts = 0
             self.error_since = None
