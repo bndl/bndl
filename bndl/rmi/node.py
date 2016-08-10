@@ -27,7 +27,7 @@ class RMIPeerNode(PeerNode):
         if isinstance(msg, Request):
             yield from self._handle_request(msg)
         elif isinstance(msg, Response):
-            yield from self._handle_response(msg)
+            self._handle_response(msg)
         else:
             yield from super()._dispatch(msg)
 
@@ -85,14 +85,13 @@ class RMIPeerNode(PeerNode):
                 logger.exception('unable to send exception')
 
 
-    @asyncio.coroutine
     def _handle_response(self, response):
         try:
             handler = self.handlers.pop(response.req_id)
         except KeyError:
             logger.debug('Response received for unknown request id %s', response)
             return
-        yield from handler(response)
+        handler(response)
 
 
     def __getattr__(self, name):
