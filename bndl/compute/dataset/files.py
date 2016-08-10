@@ -1,21 +1,21 @@
-from collections import Iterable, OrderedDict
+from collections import OrderedDict
 from functools import partial, lru_cache
+from os.path import getsize
+from os import fstat
 import asyncio
 import contextlib
+import gzip
 import logging
-import os.path
 import sys
 
-from bndl.compute.dataset.base import Dataset, Partition
+from bndl.compute.dataset.base import Dataset, Partition, TransformingDataset
 from bndl.net.sendfile import sendfile
 from bndl.net.serialize import attach, attachment
 from bndl.util import aio
 from bndl.util.collection import batch
 from bndl.util.exceptions import catch
 from bndl.util.fs import filenames
-from os.path import getsize
 from toolz.itertoolz import pluck
-from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,22 @@ def _splitlines(keepends, blob):
     return blob.splitlines(keepends)
 
 
-class DistributedFiles(Dataset):
+
+class DistributedFilesOps:
+    def decode(self, encoding='utf-8', errors='strict'):
+        return self.map_values(partial(_decode, encoding, errors))
+
+    def lines(self, encoding='utf-8', keepends=False, errors='strict'):
+        return self.decode(encoding, errors).values().flatmap(partial(_splitlines, keepends))
+
+
+
+class DecodedDistributedFiles(TransformingDataset, DistributedFilesOps):
+    pass
+
+
+
+class DistributedFiles(Dataset, DistributedFilesOps):
     def __init__(self, ctx, root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None):
         super().__init__(ctx)
 
@@ -50,12 +65,10 @@ class DistributedFiles(Dataset):
         self.psize_files = psize_files
 
 
-    def decode(self, encoding='utf-8', errors='strict'):
-        return self.map_values(partial(_decode, encoding, errors))
-
-
-    def lines(self, encoding='utf-8', keepends=False, errors='strict'):
-        return self.decode(encoding, errors).values().flatmap(partial(_splitlines, keepends))
+    def decompress(self):
+        decompressed = self.map_values(gzip.decompress)
+        decompressed.__class__ = DecodedDistributedFiles
+        return decompressed
 
 
     def parts(self):
@@ -152,7 +165,7 @@ def _file_attachment(filename):
     @contextlib.contextmanager
     def _attacher():
         file = open(filename, 'rb')
-        size = os.fstat(file.fileno()).st_size
+        size = fstat(file.fileno()).st_size
 
         @asyncio.coroutine
         def sender(loop, writer):

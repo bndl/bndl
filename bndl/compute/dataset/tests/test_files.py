@@ -1,6 +1,7 @@
 from itertools import chain
-import os.path
 from tempfile import TemporaryDirectory
+import gzip
+import os.path
 
 from bndl.compute.dataset.tests import DatasetTest
 from bndl.util.text import random_string
@@ -12,7 +13,7 @@ class FilesTest(DatasetTest):
         super().setUpClass()
         cls.tmpdir = TemporaryDirectory('bndl_unit_test')
         for idx in range(10):
-            with open(os.path.join(cls.tmpdir.name, 'decoy_file_%s.tmp'%idx), 'w') as f:
+            with open(os.path.join(cls.tmpdir.name, 'decoy_file_%s.tmp' % idx), 'w') as f:
                 print('decoy', file=f)
         cls.contents = [('\n'.join(random_string(127) for _ in range(8)) + '\n').encode() for _ in range(32)]
         cls.files = [
@@ -86,3 +87,13 @@ class FilesTest(DatasetTest):
         self.assertEqual(self.dset.lines().map(len).collect(), [127] * 8 * 32)
         self.assertEqual(self.dset.lines().collect(),
                          list(chain.from_iterable(c.decode().splitlines() for c in self.contents)))
+
+
+    def test_decompress(self):
+        dset = self.ctx.range(10)
+        with TemporaryDirectory() as d:
+            strings = dset.map(str)
+            gzipped = strings.map_partitions(lambda p: gzip.compress('\n'.join(p).encode()))
+            gzipped.collect_as_files(d)
+            self.assertEqual(dset.collect(),
+                             self.ctx.files(d).decompress().lines().map(int).sort().collect())
