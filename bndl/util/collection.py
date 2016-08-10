@@ -34,3 +34,7 @@ def is_stable_iterable(obj):
     return (
         (isinstance(obj, Iterable) and isinstance(obj, Sized))
     ) and not isinstance(obj, (str, bytes, bytearray))
+
+
+def ensure_collection(obj):
+    return obj if is_stable_iterable(obj) else list(obj)

@@ -7,24 +7,25 @@ from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap
 from math import sqrt, log
 from operator import add
+from os import linesep
 import abc
+import gzip
 import heapq
+import json
 import logging
 import os
 import pickle
 import struct
+import sys
 
 from bndl.compute.schedule import schedule_job
 from bndl.util import serialize, cycloudpickle
-from bndl.util.collection import is_stable_iterable
+from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from cytoolz.itertoolz import pluck, take  # @UnresolvedImport
 import numpy as np
 import sortedcontainers.sortedlist
-import json
-from os import linesep
-import sys
 
 
 try:
@@ -176,8 +177,8 @@ class Dataset(metaclass=abc.ABCMeta):
             over the partition's elements.
         '''
         return TransformingDataset(self.ctx, self, func)
-    
-    
+
+
     def glom(self):
         '''
         Transforms each partition into a partition with one element being the
@@ -191,7 +192,7 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(10, pcount=4).map_partitions(list).glom().collect()
             [[0, 1], [2, 3, 4], [5, 6], [7, 8, 9]]
         '''
-        return self.map_partitions(lambda p: (p if is_stable_iterable(p) else list(p),))
+        return self.map_partitions(lambda p: (ensure_collection(p),))
 
 
     def filter(self, func=None):
@@ -994,35 +995,56 @@ class Dataset(metaclass=abc.ABCMeta):
         return set(self.icollect())
 
 
-    def collect_as_pickles(self, directory=None):
+    def collect_as_pickles(self, directory=None, compress=None):
         '''
         Collect each partition as a pickle file into directory
         '''
-        self.glom().map(pickle.dumps).map_partitions(tuple).collect_as_files(directory, 'p')
+        self.map_partitions(ensure_collection).map_partitions(pickle.dumps).collect_as_files(directory, 'p', compress)
 
-    
-    def collect_as_json(self, directory=None):
+
+    def collect_as_json(self, directory=None, compress=None):
         '''
         Collect each partition as a line separated json file into directory.
         '''
         encoding = sys.getdefaultencoding()
         def dumps(part):
-            encoded = linesep.join(json.dumps(e) for e in part).encode(encoding)
-            return (encoded,)
-        self.map_partitions(dumps).collect_as_files(directory, 'json')
+            sep = linesep.encode(encoding)
+            buffer = bytearray()
+            for e in part:
+                buffer.extend(json.dumps(e).encode(encoding))
+                buffer.extend(sep)
+            return buffer
+        self.map_partitions(dumps).collect_as_files(directory, 'json', compress)
 
 
-    def collect_as_files(self, directory=None, ext=''):
+    def collect_as_files(self, directory=None, ext='', compress=None):
         '''
         Collect each element or part in this data set into a file into
         directory.
+        
+        :param directory: str
+            The directory to save this data set to.
+        :param ext:
+            The extenion of the files.
+        :param compress: None or 'gzip'
+            Whether to compress.
         '''
         if not directory:
             directory = os.getcwd()
-        with_idx = self.map_partitions_with_index(lambda idx, part: ((idx, part),))
-        for idx, part in with_idx.icollect(ordered=False):
-            with open(os.path.join(directory, '%s.%s' % (idx, ext)), 'wb') as f:
-                f.writelines(part)
+        # start with self as data set of blobs
+        blobs = self
+        # compress if necessary
+        if compress == 'gzip':
+            ext += '.gz'
+            blobs = blobs.map_partitions(gzip.compress)
+        elif compress is not None:
+            raise ValueError('Only gzip compression is supported')
+        # add an index to the partitions (for in the filename)
+        with_idx = blobs.map_partitions_with_index(lambda idx, part: (idx, part))
+        # save each partition to a file
+        for idx, part in with_idx.icollect(ordered=False, parts=True):
+            with open(os.path.join(directory, '%s.%s' % (idx, ext)), 'wb', buffering=0) as f:
+                f.write(part)
 
 
     def icollect(self, eager=True, parts=False, ordered=True):
