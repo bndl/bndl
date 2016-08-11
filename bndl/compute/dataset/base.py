@@ -11,6 +11,7 @@ from os import linesep
 import abc
 import gzip
 import heapq
+import io
 import json
 import logging
 import os
@@ -339,6 +340,32 @@ class Dataset(metaclass=abc.ABCMeta):
             order to use the values as iterables to flatten.
         '''
         return self.values().flatmap(func)
+
+
+    def encode(self, encoding=None):
+        encoding = encoding or sys.getdefaultencoding()
+        return self.map(lambda e: e.encode(encoding))
+
+
+    def concat(self, sep):
+        if isinstance(sep, str):
+            def f(part):
+                out = io.StringIO()
+                # TODO write = out.write
+                for e in part:
+                    out.write(e)
+                    out.write(sep)
+                return out.getvalue()
+        elif isinstance(sep, (bytes, bytearray)):
+            def f(part):
+                buffer = bytearray()
+                for e in part:
+                    buffer.extend(e)
+                    buffer.extend(sep)
+                return buffer
+        else:
+            raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
+        return self.map_partitions(f)
 
 
     def filter_bykey(self, func=None):
@@ -999,28 +1026,19 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         Collect each partition as a pickle file into directory
         '''
-        self.map_partitions(ensure_collection).map_partitions(pickle.dumps).collect_as_files(directory, 'p', compress)
+        self.glom().map(pickle.dumps).collect_as_files(directory, 'p', compress)
 
 
     def collect_as_json(self, directory=None, compress=None):
         '''
         Collect each partition as a line separated json file into directory.
         '''
-        encoding = sys.getdefaultencoding()
-        def dumps(part):
-            sep = linesep.encode(encoding)
-            buffer = bytearray()
-            for e in part:
-                buffer.extend(json.dumps(e).encode(encoding))
-                buffer.extend(sep)
-            return buffer
-        self.map_partitions(dumps).collect_as_files(directory, 'json', compress)
+        self.map(json.dumps).concat(linesep).encode().collect_as_files(directory, 'json', compress)
 
 
     def collect_as_files(self, directory=None, ext='', compress=None):
         '''
-        Collect each element or part in this data set into a file into
-        directory.
+        Collect each element in this data set into a file into directory.
         
         :param directory: str
             The directory to save this data set to.
@@ -1036,15 +1054,15 @@ class Dataset(metaclass=abc.ABCMeta):
         # compress if necessary
         if compress == 'gzip':
             ext += '.gz'
-            blobs = blobs.map_partitions(gzip.compress)
+            blobs = blobs.map(gzip.compress)
         elif compress is not None:
             raise ValueError('Only gzip compression is supported')
         # add an index to the partitions (for in the filename)
-        with_idx = blobs.map_partitions_with_index(lambda idx, part: (idx, part))
+        with_idx = blobs.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
         # save each partition to a file
         for idx, part in with_idx.icollect(ordered=False, parts=True):
             with open(os.path.join(directory, '%s.%s' % (idx, ext)), 'wb', buffering=0) as f:
-                f.write(part)
+                f.writelines(part)
 
 
     def icollect(self, eager=True, parts=False, ordered=True):
