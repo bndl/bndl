@@ -351,17 +351,18 @@ class Dataset(metaclass=abc.ABCMeta):
         if isinstance(sep, str):
             def f(part):
                 out = io.StringIO()
-                # TODO write = out.write
+                write = out.write
                 for e in part:
-                    out.write(e)
-                    out.write(sep)
+                    write(e)
+                    write(sep)
                 return out.getvalue()
         elif isinstance(sep, (bytes, bytearray)):
             def f(part):
                 buffer = bytearray()
+                extend = buffer.extend
                 for e in part:
-                    buffer.extend(e)
-                    buffer.extend(sep)
+                    extend(e)
+                    extend(sep)
                 return buffer
         else:
             raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
