@@ -22,10 +22,10 @@ def urlparse(address):
     context of bndl.
     :param address: str
     '''
-    parsed = urllib.parse.urlparse(address)
+    if '://' not in address:
+        address = 'tcp://' + address
 
-#     if not parsed.scheme:
-#         parsed.scheme = 'tcp'
+    parsed = urllib.parse.urlparse(address)
 
     if parsed.scheme == 'tcp':
         if parsed.path:
@@ -35,12 +35,17 @@ def urlparse(address):
     else:
         raise ValueError('Illegal url: "%s", unsupported scheme "%s"' % (address, parsed.scheme))
 
+    if not parsed.port:
+        components = list(parsed)
+        components[1] += ":5000"
+        with_port = urllib.parse.urlunparse(components)
+        return urllib.parse.urlparse(with_port)
+
     return parsed
 
 
 def urlcheck(address):
-    urlparse(address)
-    return address
+    return urlparse(address).geturl()
 
 
 @functools.lru_cache(maxsize=1024)
