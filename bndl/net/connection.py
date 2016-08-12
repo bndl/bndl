@@ -143,7 +143,7 @@ class Connection(object):
                 for key, attachment in attachments.items():
                     with attachment() as (size, sender):
                         self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('Q', size)))
-                        yield from async_call(self.loop, sender, self.loop, self.writer)
+                        yield from async_call(self.loop, None, sender, self.loop, self.writer)
                         self.bytes_sent += size
                 self.writer.writelines((struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)
