@@ -20,9 +20,25 @@ logger = logging.getLogger(__name__)
 # formatted as {supervisor.id}.{child.id}
 CHILD_ID = 'BNDL_SUPERVISOR_CHILD'
 
+# Every CHECK_INTERVAL seconds supervised children are checked for exit codes
+# and restarted if necessary.
+CHECK_INTERVAL = 1
+
+
 # If a supervised child fails within MIN_RUN_TIME seconds, the child is
 # considered unstable and isn't rebooted.
 MIN_RUN_TIME = 10
+
+# When a child exits with one of the following return codes, it is not revived.
+# 0 indicates the process exited 'normally'
+# A process may be killed with SIGTERM or SIGKILL, and exit with -SIGTERM /
+# -SIGKILL, this is considered an action by a parent process and/or
+# administrator.
+# The convention is maintained that if a child wants to perform cleanup (e.g.
+# run atexit functionality) it exists with the SIGTERM or SIGKILL codes.
+# Note that also the time between exit and the last start is also taken into
+# account, see Supervisor._watch.
+DNR_CODES = 0, -signal.SIGTERM, -signal.SIGKILL, signal.SIGTERM, signal.SIGKILL
 
 
 def entry_point(string):
@@ -78,32 +94,16 @@ class Child(object):
         self.started_on = time.time()
 
         atexit.register(self.terminate)
-        self.watcher = Thread(target=self.watch, daemon=True,
-                              name='bndl-supervisor-watcher-%s' % self.id)
-        self.watcher.start()
 
 
-    def watch(self):
-        '''
-        Watch the child process and restart it if it stops unexpectedly.
+    @property
+    def returncode(self):
+        return self.proc.poll() if self.proc else None
 
-            - if the return code is 0 we assume the child wanted to exit
-            - if the return code is SIGTERM or SIGKILL we assume an operator
-              wants the child to exit or it's parent (the supervisor) sent
-              SIGKILL, see Child.terminate
-            - if the returncode is something else, restart the process
-            - unless it was started < MIN_RUN_TIME (we consider the failure not
-              transient)
-        '''
-        retcode = self.wait()
-        logger.info('Child %s (%s:%s) exited with code %s', self.id , self.module, self.main, retcode)
-        if retcode not in (0, signal.SIGTERM, signal.SIGKILL, -signal.SIGTERM, -signal.SIGKILL) \
-           and (time.time() - self.started_on) > MIN_RUN_TIME:
-            self.start()
 
     @property
     def running(self):
-        return self.proc and self.proc.returncode is None
+        return self.proc and self.returncode is None
 
 
     def terminate(self):
@@ -132,9 +132,11 @@ class Supervisor(object):
         self.args = args
         self.process_count = process_count
         self.children = []
-
+        self._watcher = Thread(target=self._watch, daemon=True,
+                              name='bndl-supervisor-watcher-%s' % self.id)
 
     def start(self):
+        self._watcher.start()
         for _ in range(self.process_count):
             self._start()
 
@@ -155,6 +157,33 @@ class Supervisor(object):
         start = time.time()
         for child in self.children:
             child.wait((timeout - (time.time() - start)) if timeout else None)
+
+
+    def _watch(self):
+        '''
+        Watch the child processes and restart if one stops unexpectedly.
+
+            - if the return code is 0 we assume the child wanted to exit
+            - if the return code is SIGTERM or SIGKILL we assume an operator
+              wants the child to exit or it's parent (the supervisor) sent
+              SIGKILL, see Child.terminate
+            - if the return code is something else, restart the process
+            - unless it was started < MIN_RUN_TIME (we consider the failure not
+              transient)
+        '''
+        while True:
+            if self.children:
+                check_interval = CHECK_INTERVAL / len(self.children)
+                for child in self.children:
+                    returncode = child.returncode
+                    if returncode is not None:
+                        logger.info('Child %s (%s:%s) exited with code %s', child.id , child.module, child.main, returncode)
+                        if returncode not in DNR_CODES and (time.time() - child.started_on) > MIN_RUN_TIME:
+                            child.start()
+                    else:
+                        time.sleep(check_interval)
+            else:
+                time.sleep(CHECK_INTERVAL)
 
 
 def echo(*args):
