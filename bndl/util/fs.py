@@ -1,10 +1,11 @@
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
-import glob
 from os import stat
 from os.path import getsize, join
-import os.path
 from queue import Queue, Empty
+import glob
+import os.path
+import sys
 
 from bndl.util import serialize
 import scandir
@@ -27,7 +28,11 @@ def filenames(root, recursive=True, dfilter=None, ffilter=None):
     '''
     # scan for files and sub-directories given the root directory / glob pattern
     subdirs = []
-    for name in glob.glob(root):
+    if sys.version_info >= (3, 5):
+        names = glob.glob(root, recursive=recursive)
+    else:
+        names = glob.glob(root)
+    for name in names:
         if os.path.isfile(name):
             if not ffilter or ffilter(name):
                 yield name, getsize(name)

@@ -136,7 +136,7 @@ class DistributedFiles(Dataset, DistributedFilesOps):
     @lru_cache()
     def filenames_and_sizes(self):
         if isinstance(self._root, str):
-            return list(filenames(self._root, self._recursive, self._dfilter, self._ffilter))
+            return list(filenames(self._root, self._recursive or True, self._dfilter, self._ffilter))
 
         assert self._recursive == None
         assert self._dfilter == None
