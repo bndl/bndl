@@ -28,12 +28,13 @@ def get_loop(stop_on=()):
     return loop
 
 
-def async_call(loop, method, *args, **kwargs):
+def async_call(loop, executor, method, *args, **kwargs):
     '''
     Provide a coroutine which can be yielded from, be it from a coroutine
     function or from a plain function / method. In the later case it is executed
-    on the default executor of the asyncio loop.
+    on the executor provided.
     :param loop: asyncio event loop
+    :param executor: concurrent.futures.Executor
     :param method: coroutine function, function or method
     '''
     if asyncio.iscoroutinefunction(method):
@@ -41,7 +42,7 @@ def async_call(loop, method, *args, **kwargs):
     else:
         if kwargs:
             method = functools.partial(method, **kwargs)
-        return loop.run_in_executor(None, method, *args)
+        return loop.run_in_executor(executor, method, *args)
 
 
 def run_coroutine_threadsafe(coro, loop):

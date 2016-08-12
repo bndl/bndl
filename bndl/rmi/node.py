@@ -5,11 +5,12 @@ import sys
 import traceback
 
 from bndl.net.connection import NotConnected
+from bndl.net.node import Node
 from bndl.net.peer import PeerNode
 from bndl.rmi.invocation import Invocation
 from bndl.rmi.messages import Response, Request
 from bndl.util.aio import async_call
-from bndl.net.node import Node
+from bndl.util.threads import OnDemandThreadedExecutor
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class RMIPeerNode(PeerNode):
         super().__init__(*args, **kwargs)
         self._request_ids = itertools.count()
         self.handlers = {}
+        self.executor = OnDemandThreadedExecutor()
 
 
     @asyncio.coroutine
@@ -27,7 +29,7 @@ class RMIPeerNode(PeerNode):
         if isinstance(msg, Request):
             yield from self._handle_request(msg)
         elif isinstance(msg, Response):
-            self._handle_response(msg)
+            yield from self._handle_response(msg)
         else:
             yield from super()._dispatch(msg)
 
@@ -47,7 +49,7 @@ class RMIPeerNode(PeerNode):
         if method:
             try:
                 args = (self,) + request.args
-                result = yield from async_call(self.loop, method, *(args or ()), **(request.kwargs or {}))
+                result = yield from async_call(self.loop, self.executor, method, *(args or ()), **(request.kwargs or {}))
             except asyncio.futures.CancelledError:
                 logger.debug('handling message from %s cancelled: %s', self, request)
                 return
@@ -85,13 +87,13 @@ class RMIPeerNode(PeerNode):
                 logger.exception('unable to send exception')
 
 
+    @asyncio.coroutine
     def _handle_response(self, response):
         try:
             handler = self.handlers.pop(response.req_id)
+            yield from async_call(self.loop, self.executor, handler, response)
         except KeyError:
             logger.debug('Response received for unknown request id %s', response)
-            return
-        handler(response)
 
 
     def __getattr__(self, name):
