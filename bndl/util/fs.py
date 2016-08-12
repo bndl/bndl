@@ -10,7 +10,7 @@ from bndl.util import serialize
 import scandir
 
 
-def filenames(root, recursive=False, dfilter=None, ffilter=None):
+def filenames(root, recursive=True, dfilter=None, ffilter=None):
     '''
     Filter file names from a root directory and yield their paths and size as tuples.
 
