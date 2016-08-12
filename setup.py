@@ -86,7 +86,8 @@ setup(
 
     entry_points=dict(
         console_scripts=[
-            'bndl-shell = bndl.compute.shell:main [shell]',
+            'bndl-compute-shell = bndl.compute.shell:main [shell]',
+            'bndl-compute-workers = bndl.compute.worker:run_workers',
             'bndl-supervisor = bndl.util.supervisor:main',
         ],
     ),

@@ -1,3 +1,4 @@
+import argparse
 import copy
 import gc
 import logging
@@ -7,7 +8,9 @@ from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net.connection import getlocalhostname
 from bndl.net.run import run_nodes, argparser
 from bndl.util.conf import Config
+from bndl.util.exceptions import catch
 from bndl.util.log import configure_logging
+from bndl.util.supervisor import split_args, Supervisor
 
 
 logger = logging.getLogger(__name__)
@@ -63,6 +66,20 @@ def main():
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
 
     run_nodes(Worker(addresses=listen_addresses, seeds=seeds))
+
+
+def run_workers():
+    supervisor_args, worker_args = split_args()
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('worker_count', nargs='?', type=int, default=os.cpu_count() or 1)
+    args = argparser.parse_args(supervisor_args)
+    supervisor = Supervisor('bndl.compute.worker', 'main', worker_args, args.worker_count)
+    supervisor.start()
+    try:
+        supervisor.wait()
+    except KeyboardInterrupt:
+        with catch():
+            supervisor.stop()
 
 
 if __name__ == '__main__':
