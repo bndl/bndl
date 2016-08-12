@@ -93,7 +93,7 @@ class FilesTest(DatasetTest):
         dset = self.ctx.range(10)
         with TemporaryDirectory() as d:
             strings = dset.map(str)
-            gzipped = strings.map_partitions(lambda p: gzip.compress('\n'.join(p).encode()))
+            gzipped = strings.glom().map(lambda p: gzip.compress('\n'.join(p).encode()))
             gzipped.collect_as_files(d)
             self.assertEqual(dset.collect(),
                              self.ctx.files(d).decompress().lines().map(int).sort().collect())
