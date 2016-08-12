@@ -6,7 +6,6 @@ from bndl.compute.run import create_ctx
 from bndl.net.run import argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from bndl.util.log import configure_logging
 
 
 HEADER = r''' ___ _  _ ___  _    
@@ -31,8 +30,6 @@ def main():
             k.strip() : v.strip()
             for k, v in (c.split('=', 1) for c in args.conf)
         })
-
-        configure_logging(log_dir=config.get('bndl.util.log.dir'))
 
         if args.listen_addresses:
             config['bndl.net.listen_addresses'] = args.listen_addresses

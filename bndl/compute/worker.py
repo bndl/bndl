@@ -9,7 +9,6 @@ from bndl.net.connection import getlocalhostname
 from bndl.net.run import run_nodes, argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from bndl.util.log import configure_logging
 from bndl.util.supervisor import split_args, Supervisor
 
 
@@ -59,7 +58,6 @@ class Worker(ExecutionWorker):
 
 def main():
     conf = Config()
-    configure_logging(log_dir=conf.get('bndl.util.log.dir'))
 
     args = argparser.parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')

@@ -10,8 +10,6 @@ import socket
 import sys
 import time
 
-from bndl.util.log import configure_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -192,8 +190,6 @@ def echo(*args):
 
 
 def main(supervisor_args=None, child_args=None):
-    configure_logging('supervisor-' + '.'.join(map(str, (os.getpid(), socket.getfqdn()))))
-
     # parse arguments
     if supervisor_args is None:
         supervisor_args, prog_args = split_args()
