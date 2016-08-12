@@ -115,11 +115,6 @@ Implement checkpointing
  - perform cleanup of stages before the stage of the checkpointed dset 
  
  
- 
-Be more carefull in base.py with [task.result() for task in tasks]
- - try except around each task.result()
- 
- 
 add pickle options to broadcast_pickle
  
  
@@ -132,3 +127,94 @@ Prevent occurences of:
  27158 : OpenBLAS blas_thread_init: RLIMIT_NPROC 4096 current, 4127376 max
 27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
  
+ 
+make ctx.files scan dir faster
+make ctx.files read files faster
+
+ 
+ctx.shuffle isn't cached ?
+ 
+ 
+ 
+CTRL+C in bndl-shell causes hangs
+ 
+ 
+ 
+Sometimes a job/stage doesn't complete without errors ...
+- Is there a race condition somewhere in job/stage execution?
+
+PeerTable.filter is not threadsafe!
+
+canceling a job with two+ stages only cancels the current stage? 
+
+
+
+support cassandra.coscan with _asdicts
+
+try to implement read retry in cassandra scan without materializing an entire token range
+
+implement collect_as_json
+
+
+implement drop function to drop columns / fields
+
+
+implement icollect_unordered
+use icollect_unordered for collect_as_pickles / collect_as_json
+
+
+
+check partition sizes for cassandra scan
+
+
+cassandra scan .parts() is not stable
+
+
+show cancelled state of job, stage and task
+show amount cancelled in status bar for job and stage
+
+
+check dependency graph for dependencies going packages down/up in wrong places
+ - e.g. bndl.compute.schedule to .base
+move caching aspect of datasets to one module (not spread over .schedule and .base)
+
+consider driving the tasks from another process / do something about liveness of the driver during jobs
+
+
+check for a possibility to cancel jobs
+
+
+make run_task async (return a handle)
+
+
+support caching also for cancelled jobs / stages / tasks
+
+nodes are 'in error' very quickly after starting a job
+(irresponsive due to task deserialization?)
+
+
+
+allow for easier debugging by reporting the failed partition (or more)
+
+
+don't animate progress bar in dash, costs cpu cycles
+
+
+Sort cassandra scan parts from larger to smaller
+ - what about performance of .first()
+
+ 
+add psize for ctx.range
+
+
+add max pcount / psize for ctx.range / ctx.connection
+
+why stage.tasks.sort(key=lambda t: t.id) ? costs time for a large numer of tasksc
+
+
+stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
+ ... is killing when nodes join late!
+ 
+ 
+add protocol version in hello
+
