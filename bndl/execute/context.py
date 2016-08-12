@@ -60,6 +60,9 @@ class ExecutionContext(Lifecycle):
         That is, until no new workers are discovered / the worker count is
         stable.
 
+        :param worker_count: int or None
+            The expected worker count. When connected to exactly worker_count
+            workers, this method will return faster.
         :param connect_timeout: int or float
             Maximum time in seconds waited until the first worker is discovered.
         :param stable_timeout: int or float
