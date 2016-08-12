@@ -50,7 +50,7 @@ class PeerStats(object):
 
         if not self.peer.is_connected and self.peer.connected_on is not None:
             if not self.error_since:
-                logger.warning('Peer %r is in error', self.peer)
+                logger.warning('%r disconnected', self.peer)
             self.error_since = self.error_since or now
             self.bytes_sent_rate = 0
             self.bytes_received_rate = 0
@@ -70,11 +70,11 @@ class PeerStats(object):
 
         if self.last_rx and (now - self.last_rx).total_seconds() > DT_MAX_INACTIVE:
             if not self.error_since:
-                logger.warning('Peer %r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
+                logger.warning('%r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
             self.error_since = self.error_since or now
         else:
             if self.error_since:
-                logger.warning('Peer %s recovered', self.peer)
+                logger.warning('%s recovered', self.peer)
             # clear error stats
             self.connection_attempts = 0
             self.error_since = None
