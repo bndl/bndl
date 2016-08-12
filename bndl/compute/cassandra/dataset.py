@@ -1,3 +1,4 @@
+from functools import partial
 import difflib
 import logging
 
@@ -6,10 +7,8 @@ from bndl.compute.cassandra.coscan import CassandraCoScanDataset
 from bndl.compute.cassandra.session import cassandra_session, TRANSIENT_ERRORS
 from bndl.compute.dataset.base import Dataset, Partition
 from bndl.util import funcs
-from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
-import time
 from bndl.util.retry import do_with_retry
-from functools import partial
+from cassandra.query import tuple_factory, named_tuple_factory, dict_factory
 
 
 logger = logging.getLogger(__name__)
