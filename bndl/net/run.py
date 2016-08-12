@@ -7,7 +7,7 @@ from bndl.net.connection import urlcheck
 
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument('--listen_addresses', nargs='*', type=urlcheck)
+argparser.add_argument('--listen-addresses', nargs='*', type=urlcheck, dest='listen_addresses')
 argparser.add_argument('--seeds', nargs='*', type=urlcheck)
 
 

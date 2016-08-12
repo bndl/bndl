@@ -20,7 +20,7 @@ HEADER = r''' ___ _  _ ___  _
 
 argparser = copy.copy(argparser)
 argparser.prog = 'bndl.compute.shell'
-argparser.add_argument('--workers', nargs='?', type=int, default=None, dest='worker_count')
+argparser.add_argument('--worker-count', nargs='?', type=int, default=None, dest='worker_count')
 argparser.add_argument('--conf', nargs='*', default=())
 
 
@@ -38,7 +38,7 @@ def main():
             config['bndl.net.listen_addresses'] = args.listen_addresses
         if args.seeds:
             config['bndl.net.seeds'] = args.seeds
-        if args.worker_count:
+        if args.worker_count is not None:
             config['bndl.compute.worker_count'] = args.worker_count
 
         ctx = create_ctx(config)

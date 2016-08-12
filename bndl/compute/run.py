@@ -1,9 +1,8 @@
 from subprocess import TimeoutExpired
 import atexit
+import concurrent.futures
 import os
 import threading
-
-import concurrent.futures
 
 from bndl import dash
 from bndl.compute.context import ComputeContext
@@ -61,7 +60,7 @@ def create_ctx(config=Config(), daemon=True):
         if worker_count:
             args = ['--seeds'] + list((seeds or driver.addresses))
             if listen_addresses:
-                args += ['--listen_addresses'] + listen_addresses
+                args += ['--listen-addresses'] + listen_addresses
             supervisor = Supervisor('bndl.compute.worker', 'main', args, worker_count)
             supervisor.start()
 
