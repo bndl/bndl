@@ -1057,7 +1057,10 @@ class Dataset(metaclass=abc.ABCMeta):
         if compress == 'gzip':
             ext += '.gz'
             # compress concatenation of partition, not just each element
-            data = data.concat('' if mode == 't' else b'').map(gzip.compress)
+            if mode == 't':
+                data = data.encode()
+            mode = 'b'
+            data = data.concat(b'').map(gzip.compress)
         elif compress is not None:
             raise ValueError('Only gzip compression is supported')
         # add an index to the partitions (for in the filename)
