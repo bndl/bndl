@@ -355,7 +355,7 @@ class Dataset(metaclass=abc.ABCMeta):
                 for e in part:
                     write(e)
                     write(sep)
-                return out.getvalue()
+                return (out.getvalue(),)
         elif isinstance(sep, (bytes, bytearray)):
             def f(part):
                 buffer = bytearray()
@@ -363,7 +363,7 @@ class Dataset(metaclass=abc.ABCMeta):
                 for e in part:
                     extend(e)
                     extend(sep)
-                return buffer
+                return (buffer,)
         else:
             raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
         return self.map_partitions(f)
