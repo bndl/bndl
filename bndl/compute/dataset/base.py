@@ -1027,14 +1027,14 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         Collect each partition as a pickle file into directory
         '''
-        self.glom().map(pickle.dumps).collect_as_files(directory, 'p', compress)
+        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', compress)
 
 
     def collect_as_json(self, directory=None, compress=None):
         '''
         Collect each partition as a line separated json file into directory.
         '''
-        self.map(json.dumps).concat(linesep).encode().collect_as_files(directory, 'json', compress)
+        self.map(json.dumps).concat(linesep).encode().collect_as_files(directory, '.json', compress)
 
 
     def collect_as_files(self, directory=None, ext='', compress=None):
@@ -1062,7 +1062,7 @@ class Dataset(metaclass=abc.ABCMeta):
         with_idx = blobs.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
         # save each partition to a file
         for idx, part in with_idx.icollect(ordered=False, parts=True):
-            with open(os.path.join(directory, '%s.%s' % (idx, ext)), 'wb', buffering=0) as f:
+            with open(os.path.join(directory, '%s%s' % (idx, ext)), 'wb', buffering=0) as f:
                 f.writelines(part)
 
 
