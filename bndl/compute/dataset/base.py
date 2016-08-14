@@ -1027,17 +1027,17 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         Collect each partition as a pickle file into directory
         '''
-        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', compress)
+        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', 'b', compress)
 
 
     def collect_as_json(self, directory=None, compress=None):
         '''
         Collect each partition as a line separated json file into directory.
         '''
-        self.map(json.dumps).concat(linesep).encode().collect_as_files(directory, '.json', compress)
+        self.map(json.dumps).concat(linesep).collect_as_files(directory, '.json', 't', compress)
 
 
-    def collect_as_files(self, directory=None, ext='', compress=None):
+    def collect_as_files(self, directory=None, ext='', mode='b', compress=None):
         '''
         Collect each element in this data set into a file into directory.
         
@@ -1050,19 +1050,21 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         if not directory:
             directory = os.getcwd()
-        # start with self as data set of blobs
-        blobs = self
+        if mode not in ('t', 'b'):
+            raise ValueError('mode should be t(ext) or b(inary)')
+        data = self
         # compress if necessary
         if compress == 'gzip':
             ext += '.gz'
-            blobs = blobs.map(gzip.compress)
+            # compress concatenation of partition, not just each element
+            data = data.concat('' if mode == 't' else b'').map(gzip.compress)
         elif compress is not None:
             raise ValueError('Only gzip compression is supported')
         # add an index to the partitions (for in the filename)
-        with_idx = blobs.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
+        with_idx = data.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
         # save each partition to a file
         for idx, part in with_idx.icollect(ordered=False, parts=True):
-            with open(os.path.join(directory, '%s%s' % (idx, ext)), 'wb', buffering=0) as f:
+            with open(os.path.join(directory, '%s%s' % (idx, ext)), 'w' + mode) as f:
                 f.writelines(part)
 
 
