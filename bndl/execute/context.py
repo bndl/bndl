@@ -3,8 +3,9 @@ import logging
 import time
 
 from bndl.execute.worker import current_worker
-from bndl.util.lifecycle import Lifecycle
+from bndl.util import plugins
 from bndl.util.conf import Config
+from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -13,6 +14,9 @@ logger = logging.getLogger(__name__)
 class ExecutionContext(Lifecycle):
 
     def __init__(self, node, config=Config()):
+        # Make sure the BNDL plugins are loaded
+        plugins.load_plugins()
+
         super().__init__()
         self._node = node
         self.conf = config
