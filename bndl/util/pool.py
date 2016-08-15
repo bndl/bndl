@@ -140,14 +140,15 @@ class ObjectPool(object):
                         break
             self._ensure_size()
         if not self.closed:
-            self.timer = threading.Timer(self.max_idle, self._clean)
-            self.timer.daemon = True
-            self.timer.start()
+            self.monitor = threading.Timer(self.max_idle, self._clean)
+            self.monitor.daemon = True
+            self.monitor.start()
 
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        state['objects'] = list(self.objects.queue)
+        state['objects'] = self.objects.queue
+        state['monitor'] = None
         return state
 
 
