@@ -2,7 +2,7 @@ import time
 
 from bndl.net.tests import NetTest
 from bndl.util import aio
-from bndl.net.watchdog import WATCHDOG_INTERVAL
+from bndl.net import watchdog
 
 
 class ReconnectTestBase(NetTest):
@@ -22,7 +22,7 @@ class ReconnectTestBase(NetTest):
 
     def wait_connected(self):
         for _ in range(50):
-            time.sleep(WATCHDOG_INTERVAL / 10)
+            time.sleep(watchdog.WATCHDOG_INTERVAL / 10)
             if self.all_connected():
                 break
 
@@ -31,22 +31,27 @@ class ReconnectTest(ReconnectTestBase):
     node_count = 4
 
     def test_disconnect(self):
-        self.assertTrue(self.all_connected())
+        wdog_interval = watchdog.WATCHDOG_INTERVAL
+        watchdog.WATCHDOG_INTERVAL = .5
+        try:
+            self.assertTrue(self.all_connected())
 
-        node = self.nodes[0]
-        peer = next(iter(node.peers.values()))
-        aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
-
-        self.wait_connected()
-        self.assertTrue(self.all_connected())
-
-        node = self.nodes[1]
-        for server in node.servers.values():
-            server.close()
-
-        for peer in node.peers.values():
+            node = self.nodes[0]
+            peer = next(iter(node.peers.values()))
             aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
 
-        self.wait_connected()
-        self.assertTrue(self.all_connected())
+            self.wait_connected()
+            self.assertTrue(self.all_connected())
+
+            node = self.nodes[1]
+            for server in node.servers.values():
+                server.close()
+
+            for peer in node.peers.values():
+                aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
+
+            self.wait_connected()
+            self.assertTrue(self.all_connected())
+        finally:
+            watchdog.WATCHDOG_INTERVAL = wdog_interval
 
