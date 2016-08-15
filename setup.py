@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-from distutils.extension import Extension
 import os
 import re
 
 from Cython.Build.Dependencies import cythonize
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 
 ext = re.compile(r'\.pyx$')
@@ -27,11 +26,12 @@ setup(
     version='0.1.0',
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
+    long_description=open('README.md').read(),
     author='Frens Jan Rumph',
     author_email='mail@frensjan.nl',
 
     packages=(
-        find_packages()
+        find_packages(exclude=["*.tests", "*.tests.*"])
     ),
 
     include_package_data=True,
@@ -73,4 +73,13 @@ setup(
             'bndl-supervisor = bndl.util.supervisor:main',
         ],
     ),
+
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+    ],
 )
