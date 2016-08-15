@@ -4,12 +4,8 @@ import pickle
 import sys
 import types
 
-try:
-    from bndl.util.cython import try_pyximport_install; try_pyximport_install()
-    from . import cycloudpickle as cloudpickle
-    from .marshalable import marshalable
-except ImportError as exc:
-    raise ImportError('Unable to load Cython extensions, install Cython or use a binary distribution') from exc
+from . import cycloudpickle as cloudpickle
+from .marshalable import marshalable
 
 
 def dumps(obj):

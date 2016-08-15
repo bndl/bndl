@@ -1,10 +1,10 @@
 import itertools
 
 from bndl.compute.broadcast import broadcast, broadcast_pickled
-from bndl.compute.dataset.arrays import SourceDistributedArray, DistributedArray
-from bndl.compute.dataset.collections import DistributedCollection
-from bndl.compute.dataset.files import DistributedFiles
-from bndl.compute.dataset.ranges import DistributedRange
+from bndl.compute.arrays import SourceDistributedArray, DistributedArray
+from bndl.compute.collections import DistributedCollection
+from bndl.compute.files import DistributedFiles
+from bndl.compute.ranges import DistributedRange
 from bndl.execute.context import ExecutionContext
 from bndl.util.funcs import as_method
 

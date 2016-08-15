@@ -5,7 +5,7 @@ from flask.blueprints import Blueprint
 from flask.templating import render_template
 from werkzeug.exceptions import NotFound
 
-from bndl import dash
+from bndl.util import dash
 
 
 blueprint = Blueprint('execute', __name__,

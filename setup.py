@@ -1,21 +1,16 @@
 #!/usr/bin/env python
 
-import os
-
-from setuptools import setup, find_packages
 from distutils.extension import Extension
+import os
 import re
 
-try:
-    from Cython.Build.Dependencies import cythonize
-    USE_CYTHON = True
-except ImportError:
-    USE_CYTHON = False
+from Cython.Build.Dependencies import cythonize
+from setuptools import setup, find_packages
 
 
 ext = re.compile(r'\.pyx$')
 
-extensions = [
+extensions = cythonize([
     Extension(
         '.'.join((root.replace(os.sep, '.'), ext.sub('', f))),
         [os.path.join(root, f)]
@@ -24,15 +19,12 @@ extensions = [
     for f in files
     if not root.endswith('tests')
     if ext.search(f)
-]
+])
 
-
-if USE_CYTHON:
-    extensions = cythonize(extensions)
 
 setup(
     name='bndl',
-    version='0.0.1',
+    version='0.1.0',
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
     author='Frens Jan Rumph',
@@ -57,16 +49,6 @@ setup(
         'flask',
         'mmh3',
         'scandir',
-
-        'cassandra-driver',
-        'lz4',
-        'scales',
-
-        'elasticsearch',
-        'netifaces',
-
-        'scipy',
-        'scikit-learn',
     ],
 
     extras_require=dict(
@@ -91,6 +73,4 @@ setup(
             'bndl-supervisor = bndl.util.supervisor:main',
         ],
     ),
-
-    test_suite='bndl'
 )

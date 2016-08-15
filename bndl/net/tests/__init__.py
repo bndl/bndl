@@ -51,10 +51,10 @@ class NetTest(TestCase):
 
             @asyncio.coroutine
             def wait_for_discovery(node, peer_count):
-                while True:
+                for _ in range(20):
                     if len(node.peers) >= peer_count and all(peer.conn for peer in node.peers.values()):
                         break
-                    yield from sleep(.01)
+                    yield from sleep(.1)
 
             try:
                 # start the nodes
@@ -66,7 +66,7 @@ class NetTest(TestCase):
                 # give the nodes a final shot to connect
                 for node in self.nodes:
                     self.loop.run_until_complete(wait_for_discovery(node, self.node_count - 1))
-                    self.loop.run_until_complete(sleep(.1))
+                    self.loop.run_until_complete(sleep(.25))
                 # notify started
                 self._started.set_result(True)
                 # wait for stopped notification
@@ -76,7 +76,7 @@ class NetTest(TestCase):
             finally:
                 for node in self.nodes:
                     self.loop.run_until_complete(node.stop())
-                    self.loop.run_until_complete(sleep(.01))
+                    self.loop.run_until_complete(sleep(.1))
 
                 self.loop.close()
         finally:

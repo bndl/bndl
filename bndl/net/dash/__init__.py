@@ -2,7 +2,7 @@ from flask import g
 from flask.blueprints import Blueprint
 from flask.templating import render_template
 
-from bndl import dash
+from bndl.util import dash
 
 
 blueprint = Blueprint('net', __name__,
