@@ -34,16 +34,11 @@ class TestSupervisor(TestCase):
         # really make sure the temp file is empty before the test is started
         with open(self.pidfile_name, 'r') as f:
             self.assertEqual(len(f.read()), 0)
-        # shorten the test duration a bit ...
-        self.old_min_run_time = supervisor.MIN_RUN_TIME
-        supervisor.MIN_RUN_TIME = MIN_RUN_TIME
 
 
     def tearDown(self):
         # close the 'pidfile'
         os.close(self.pidfile_fd)
-        # restore module 'const'
-        supervisor.MIN_RUN_TIME = self.old_min_run_time
 
 
     def get_pids(self):
@@ -61,7 +56,8 @@ class TestSupervisor(TestCase):
         os.environ['TestSupervisor.exitcode'] = '1'
 
         # run the supervisor
-        sup = Supervisor('bndl.util.tests.test_supervisor', 'test_entry_point', [], 1)
+        sup = Supervisor('bndl.util.tests.test_supervisor', 'test_entry_point', [], 1,
+                         min_run_time=.1, check_interval=.01)
         sup.start()
         # and wait at least three times
         for _ in range(3):
@@ -75,5 +71,5 @@ class TestSupervisor(TestCase):
         # and that the last pid of the first and only child
         # matches the last pid in the pidfile
         pids = self.get_pids()
-        self.assertTrue(len(pids) >= 3)
+        self.assertTrue(len(pids) >= 3, 'Only started %s times' % len(pids))
         self.assertEqual(pids[-1], sup.children[0].proc.pid)

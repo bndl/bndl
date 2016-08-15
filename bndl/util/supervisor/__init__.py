@@ -123,13 +123,16 @@ class Child(object):
 class Supervisor(object):
     _ids = itertools.count()
 
-    def __init__(self, module, main, args, process_count=None):
+    def __init__(self, module, main, args, process_count=None,
+                 min_run_time=MIN_RUN_TIME, check_interval=CHECK_INTERVAL):
         self.id = next(Supervisor._ids)
         self.module = module
         self.main = main
         self.args = args
         self.process_count = process_count
         self.children = []
+        self.min_run_time = min_run_time
+        self.check_interval = check_interval
         self._watcher = Thread(target=self._watch, daemon=True,
                               name='bndl-supervisor-watcher-%s' % self.id)
 
@@ -171,17 +174,17 @@ class Supervisor(object):
         '''
         while True:
             if self.children:
-                check_interval = CHECK_INTERVAL / len(self.children)
+                check_interval = self.check_interval / len(self.children)
                 for child in self.children:
                     returncode = child.returncode
                     if returncode is not None:
                         logger.info('Child %s (%s:%s) exited with code %s', child.id , child.module, child.main, returncode)
-                        if returncode not in DNR_CODES and (time.time() - child.started_on) > MIN_RUN_TIME:
+                        if returncode not in DNR_CODES and (time.time() - child.started_on) > self.min_run_time:
                             child.start()
                     else:
                         time.sleep(check_interval)
             else:
-                time.sleep(CHECK_INTERVAL)
+                time.sleep(self.check_interval)
 
 
 def echo(*args):
