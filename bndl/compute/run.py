@@ -4,7 +4,7 @@ import concurrent.futures
 import os
 import threading
 
-from bndl import dash
+from bndl.util import dash
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
 from bndl.net.run import run_nodes
@@ -44,11 +44,11 @@ def create_ctx(config=Config(), daemon=True):
             if supervisor:
                 supervisor.stop()
                 try:
-                    supervisor.wait(timeout=1)
+                    supervisor.wait(timeout=5)
                 except TimeoutExpired:
                     pass
             stopped.set_result(True)
-            driver_thread.join(timeout=1)
+            driver_thread.join(timeout=5)
             dash.stop()
 
     try:
@@ -71,7 +71,7 @@ def create_ctx(config=Config(), daemon=True):
         dash.run(driver, ctx)
 
         # register stop as 'exit' listeners
-        ctx.add_listener(lambda obj: stop() if ctx is obj else None)
+        ctx.add_listener(lambda obj: stop() if obj is ctx else None)
         atexit.register(stop)
         return ctx
     except Exception:
