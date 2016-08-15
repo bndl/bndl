@@ -1,5 +1,4 @@
 from subprocess import Popen
-from threading import Thread
 import argparse
 import atexit
 import itertools
@@ -8,6 +7,7 @@ import os
 import signal
 import socket
 import sys
+import threading
 import time
 
 
@@ -133,8 +133,9 @@ class Supervisor(object):
         self.children = []
         self.min_run_time = min_run_time
         self.check_interval = check_interval
-        self._watcher = Thread(target=self._watch, daemon=True,
-                              name='bndl-supervisor-watcher-%s' % self.id)
+        self._watcher = threading.Thread(target=self._watch, daemon=True,
+                                         name='bndl-supervisor-watcher-%s'
+                                         % self.id)
 
     def start(self):
         self._watcher.start()
@@ -150,6 +151,7 @@ class Supervisor(object):
 
 
     def stop(self):
+        self._watcher = None  # signals watcher to stop
         for child in self.children:
             child.terminate()
 
@@ -172,7 +174,7 @@ class Supervisor(object):
             - unless it was started < MIN_RUN_TIME (we consider the failure not
               transient)
         '''
-        while True:
+        while self._watcher == threading.current_thread():
             if self.children:
                 check_interval = self.check_interval / len(self.children)
                 for child in self.children:
