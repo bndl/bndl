@@ -1,31 +1,18 @@
 BNDL
 ====
 
-Bundle compute resources in Python.
+Bundle compute resources in Python across cores and machines.
 
-Dependencies
+Install
 ------------
 
-Using BNDL requires:
- * sortedcontainers
- * cloudpickle
- * cytoolz
- * numpy
- * flask
- * cassandra-driver
- 
-These dependencies are installed when you install BNDL.
- 
-Developing BNDL requires:
- * cython
- * pytest
- * pytest-cov
- * pylint
- * flake8
- * sphinx
- * sphinx-autobuild
- 
-The development dependencies are installed when installing the dev dependencies, e.g. with:
+BNDL can be installed through pip:
+
+```python
+pip install bndl
+```
+
+Install dependencies with:
 
 ```python
 pip install bndl[dev]
@@ -39,14 +26,14 @@ Usage
 
 The main commands to use BNDL are:
 
- * `bndl-shell` and
- * `bndl-supervisor`
+ * `bndl-compute-shell` and
+ * `bndl-compute-workers`
 
 
 ### Script
-Python scripts use `bndl.compute.script`, e.g.:
+Python scripts use `bndl.compute.run`, e.g.:
 
 ```python
-from bndl.compute.script import ctx
+from bndl.compute.run import ctx
 print(ctx.range(1000).map(str).map(len).stats())
 ```
