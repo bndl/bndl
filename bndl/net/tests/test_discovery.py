@@ -10,6 +10,8 @@ class DiscoveryTestMixin:
 
 
 class DiscoveryTest(NetTest, DiscoveryTestMixin):
+    node_count = 4
+    
     def test_discovery(self):
         super().test_discovery()
 
