@@ -109,6 +109,6 @@ class ObjectPoolTest(TestCase):
 
         created_last = self.created
         for _ in range(3):
-            time.sleep(.15)
+            time.sleep(.2)
             self.assertTrue(self.created > created_last)
             created_last = self.created
