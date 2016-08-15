@@ -91,7 +91,11 @@ class RMIPeerNode(PeerNode):
     def _handle_response(self, response):
         try:
             handler = self.handlers.pop(response.req_id)
-            yield from async_call(self.loop, self.executor, handler, response)
+            coro = handler(response)
+            if asyncio.iscoroutine(coro):
+                yield from coro
+        except Exception:
+            import traceback;traceback.print_exc()
         except KeyError:
             logger.debug('Response received for unknown request id %s', response)
 
