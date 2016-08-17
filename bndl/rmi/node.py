@@ -94,10 +94,10 @@ class RMIPeerNode(PeerNode):
             coro = handler(response)
             if asyncio.iscoroutine(coro):
                 yield from coro
-        except Exception:
-            import traceback;traceback.print_exc()
         except KeyError:
-            logger.debug('Response received for unknown request id %s', response)
+            logger.warning('Response %r received for unknown request id %r', response, response.req_id)
+        except Exception:
+            logger.warning('Unable to handle response %r with id %r', response, response.req_id)
 
 
     def __getattr__(self, name):
