@@ -10,7 +10,7 @@ class ComputeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         config = Config()
-        config['bndl.compute.workers'] = cls.worker_count
+        config['bndl.compute.worker_count'] = cls.worker_count
         cls.ctx = create_ctx(config, daemon=True)
         cls.ctx.await_workers(cls.worker_count)
 
