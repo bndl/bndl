@@ -53,7 +53,6 @@ setup(
     ],
 
     extras_require=dict(
-        shell=['ipython'],
         dev=[
             'cython',
             'pytest',
@@ -69,7 +68,7 @@ setup(
 
     entry_points=dict(
         console_scripts=[
-            'bndl-compute-shell = bndl.compute.shell:main [shell]',
+            'bndl-compute-shell = bndl.compute.shell:main',
             'bndl-compute-workers = bndl.compute.worker:run_workers',
         ],
     ),

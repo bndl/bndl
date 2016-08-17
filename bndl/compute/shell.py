@@ -1,7 +1,5 @@
 import copy
 
-import IPython
-
 from bndl.compute.run import create_ctx
 from bndl.net.run import argparser
 from bndl.util.conf import Config
@@ -39,7 +37,14 @@ def main():
             config['bndl.compute.worker_count'] = args.worker_count
 
         ctx = create_ctx(config)
-        IPython.embed(header=HEADER, user_ns=dict(ctx=ctx))
+        ns = dict(ctx=ctx)
+
+        try:
+            import IPython
+            IPython.embed(header=HEADER, user_ns=ns)
+        except ImportError:
+            import code
+            code.interact(HEADER, local=ns)
     finally:
         with catch():
             ctx.stop()
