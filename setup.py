@@ -3,13 +3,12 @@
 import os
 import re
 
-from Cython.Build.Dependencies import cythonize
 from setuptools import setup, find_packages, Extension
 
 
 ext = re.compile(r'\.pyx$')
 
-extensions = cythonize([
+extensions = [
     Extension(
         '.'.join((root.replace(os.sep, '.'), ext.sub('', f))),
         [os.path.join(root, f)]
@@ -18,7 +17,13 @@ extensions = cythonize([
     for f in files
     if not root.endswith('tests')
     if ext.search(f)
-])
+]
+
+try:
+    from Cython.Build.Dependencies import cythonize
+    extensions = cythonize(extensions)
+except ImportError:
+    pass
 
 
 setup(
@@ -36,10 +41,6 @@ setup(
 
     include_package_data=True,
     zip_safe=False,
-
-    setup_requires=[
-        'cython'
-    ],
 
     install_requires=[
         'sortedcontainers',
@@ -70,7 +71,6 @@ setup(
         console_scripts=[
             'bndl-compute-shell = bndl.compute.shell:main [shell]',
             'bndl-compute-workers = bndl.compute.worker:run_workers',
-            'bndl-supervisor = bndl.util.supervisor:main',
         ],
     ),
 
