@@ -5,6 +5,7 @@ import time
 from bndl.execute.worker import current_worker
 from bndl.util import plugins
 from bndl.util.conf import Config
+from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
 
 
@@ -25,12 +26,10 @@ class ExecutionContext(Lifecycle):
 
     @property
     def node(self):
-        node = getattr(self, '_node', None)
-        if node:
-            return node
-        else:
-            self._node = current_worker()
-            return self._node
+        if self._node is None:
+            with catch():
+                self._node = current_worker()
+        return self._node
 
     def execute(self, job, workers=None, eager=True, ordered=True):
         # TODO what if not everything is consumed?
@@ -153,5 +152,5 @@ class ExecutionContext(Lifecycle):
     def __getstate__(self):
         state = super().__getstate__()
         for attr in ('_node', 'jobs'):
-            state.pop(attr, None)
+            state[attr] = None
         return state
