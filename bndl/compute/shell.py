@@ -6,13 +6,12 @@ from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 
 
-HEADER = r''' ___ _  _ ___  _    
-| _ ) \| |   \| |
-| _ \ .` | |) | |__
-|___/_|\_|___/|____|
-                    '''
+HEADER = r'''         ___ _  _ ___  _
+Welcome | _ ) \| |   \| |
+to the  | _ \ .` | |) | |__
+        |___/_|\_|___/|____| shell.
 
-
+ComputeContext available as ctx.'''
 
 
 argparser = copy.copy(argparser)
