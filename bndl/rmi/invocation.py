@@ -51,6 +51,8 @@ class Invocation(object):
         except asyncio.futures.CancelledError:
             logger.debug('remote invocation cancelled')
             return None
+        except TimeoutError:
+            raise
         except Exception:
             logger.exception('unable to perform remote invocation')
             raise
