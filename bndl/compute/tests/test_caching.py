@@ -1,46 +1,41 @@
 import gc
+import itertools
 import random
 
 from bndl.compute import cache
 from bndl.compute.cache import InMemory, SerializedInMemory, OnDisk
 from bndl.compute.tests import DatasetTest
 from bndl.util.funcs import identity
+import copy
 
 
 class CachingTest(DatasetTest):
     worker_count = 3
 
     def test_caching(self):
-        for location in ('memory', 'disk'):
-            for serialization in (None, 'marshal', 'pickle', 'json'):
-                for compression in (None, 'gzip'):
-                    if not serialization and (location == 'disk' or compression):
-                        continue
-                    self.caching_subtest(location, serialization, compression)
+        dset = self.ctx.range(10).map(lambda i: random.randint(1, 1000)).map(str)
 
-    def caching_subtest(self, location, serialization, compression):
+        locations = ('memory', 'disk')
+        serializations = (None, 'marshal', 'pickle', 'json', 'text', 'binary')
+        compressions = (None, 'gzip')
+
+        options = itertools.product(locations, serializations, compressions)
+        for location, serialization, compression in options:
+            if not serialization and (location == 'disk' or compression):
+                continue
+            self.caching_subtest(dset, location, serialization, compression)
+
+
+    def caching_subtest(self, dset, location, serialization, compression):
+        dset = copy.copy(dset)
+        if serialization == 'binary':
+            dset = dset.map(str.encode)
         params = dict(location=location, serialization=serialization, compression=compression)
-        dset = self.ctx.range(1000).map(lambda i: random.randint(1, 1000))
         with self.subTest('Caching subtest', **params):
             self.assertNotEqual(dset.collect(), dset.collect())
             self.assertEqual(self.get_cachekeys(), [])
 
             dset.cache(**params)
-
-            provider = dset._cache_provider
-            if not serialization:
-                self.assertEqual(provider.serialize, None)
-            else:
-                self.assertTrue(serialization in provider.serialize.__module__,
-                                '%r not in %r' % (serialization, provider.serialize.__module__))
-            if compression:
-                self.assertIsNotNone(provider.io_wrapper)
-            else:
-                self.assertEqual(provider.io_wrapper, identity)
-            if location == 'memory':
-                self.assertIn(provider.holder_cls, (InMemory, SerializedInMemory))
-            else:
-                self.assertEqual(provider.holder_cls, (OnDisk))
 
             self.assertEqual(dset.collect(), dset.collect())
             self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)

@@ -3,14 +3,19 @@ import atexit
 import gzip
 import io
 import json
+import logging
 import marshal
 import os
 import pickle
+import struct
 import tempfile
 
 from bndl.execute.worker import current_worker
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
+
+
+logger = logging.getLogger(__name__)
 
 
 _caches = {}
@@ -25,6 +30,42 @@ def clear_all():
             dset_cache.clear()
         cache.clear()
     _caches.clear()
+
+
+_LENGTH_FIELD_FMT = 'I'
+_LENGTH_FIELD_SIZE = struct.calcsize(_LENGTH_FIELD_FMT)
+
+
+def _text_dump(lines, fileobj):
+    chunks = (line.encode() for line in lines)
+    _binary_dump(chunks, fileobj)
+
+def _text_load(fileobj):
+    chunks = _binary_load_gen(fileobj)
+    return [chunk.decode() for chunk in chunks]
+
+def _binary_dump(chunks, fileobj):
+    len_fmt = _LENGTH_FIELD_FMT
+    pack = struct.pack
+    write = fileobj.write
+    for chunk in chunks:
+        write(pack(len_fmt, len(chunk)))
+        write(chunk)
+
+def _binary_load(fileobj):
+    return list(_binary_load_gen(fileobj))
+
+def _binary_load_gen(fileobj):
+    len_fmt = _LENGTH_FIELD_FMT
+    len_buffer = bytearray(_LENGTH_FIELD_SIZE)
+    read = fileobj.read
+    readinto = fileobj.readinto
+    unpack = struct.unpack
+    while True:
+        if not readinto(len_buffer):
+            break
+        chunk_len = unpack(len_fmt, len_buffer)[0]
+        yield read(chunk_len)
 
 
 class _GzipIOWrapper(gzip.GzipFile):
@@ -55,6 +96,14 @@ class CacheProvider(object):
             elif serialization == 'pickle':
                 self.serialize = pickle.dump
                 self.deserialize = pickle.load
+                self.mode = 'b'
+            elif serialization == 'text':
+                self.serialize = _text_dump
+                self.deserialize = _text_load
+                self.mode = 'b'
+            elif serialization == 'binary':
+                self.serialize = _binary_dump
+                self.deserialize = _binary_load
                 self.mode = 'b'
             elif isinstance(serialization, (list, tuple)) \
                 and len(serialization) != 3 \
