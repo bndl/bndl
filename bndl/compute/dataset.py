@@ -30,6 +30,7 @@ from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
 import sortedcontainers.sortedlist
+import uuid
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class Dataset(metaclass=abc.ABCMeta):
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
         self.src = src
-        self.id = dset_id or next(ctx._dataset_ids)
+        self.id = dset_id or uuid.uuid1()
         self._cache_provider = False
         self._cache_locs = {}
         self._worker_preference = None
@@ -1142,7 +1143,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def __hash__(self):
-        return self.id
+        return int(self.id)
 
 
     def __eq__(self, other):

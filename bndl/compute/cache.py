@@ -111,7 +111,7 @@ class CacheProvider(object):
         return data
 
     def write(self, part, data):
-        key = current_worker().name, str(part.dset.id), str(part.idx)
+        key = str(part.dset.id), str(part.idx)
         holder = self.holder_cls(key, self)
         holder.write(data)
         cache = self._get_cache()
