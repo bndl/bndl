@@ -6,7 +6,7 @@ import os
 from bndl.net.connection import urlcheck
 
 
-argparser = argparse.ArgumentParser()
+argparser = argparse.ArgumentParser(add_help=False)
 argparser.add_argument('--listen-addresses', nargs='*', type=urlcheck, dest='listen_addresses')
 argparser.add_argument('--seeds', nargs='*', type=urlcheck)
 

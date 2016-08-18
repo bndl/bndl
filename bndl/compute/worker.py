@@ -4,19 +4,16 @@ import gc
 import logging
 import os
 
+from bndl.execute import worker
 from bndl.execute.worker import Worker as ExecutionWorker
+from bndl.net import run
 from bndl.net.connection import getlocalhostname
-from bndl.net.run import run_nodes, argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.supervisor import split_args, Supervisor
 
 
 logger = logging.getLogger(__name__)
-
-
-argparser = copy.copy(argparser)
-argparser.prog = 'bndl.compute.worker'
 
 
 class Worker(ExecutionWorker):
@@ -53,18 +50,27 @@ class Worker(ExecutionWorker):
 def main():
     conf = Config()
 
-    args = argparser.parse_args()
+    args = argparse.ArgumentParser(parents=[run.argparser]).parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
 
-    run_nodes(Worker(addresses=listen_addresses, seeds=seeds))
+    run.run_nodes(Worker(addresses=listen_addresses, seeds=seeds))
 
 
 def run_workers():
-    supervisor_args, worker_args = split_args()
+    def add_worker_count(parser):
+        parser.add_argument('worker_count', nargs='?', type=int, default=os.cpu_count() or 1)
+     # use a parser with run.argparser as parent to get correct argument parsing / help message
+    argparser = argparse.ArgumentParser(parents=[run.argparser])
+    add_worker_count(argparser)
+    argparser.parse_args()
+
+    # use a parser without the parent to strip of worker_count correctly
+    # so that worker_args are passed on to the supervisor correctly
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('worker_count', nargs='?', type=int, default=os.cpu_count() or 1)
-    args = argparser.parse_args(supervisor_args)
+    add_worker_count(argparser)
+    args, worker_args = argparser.parse_known_args()
+
     supervisor = Supervisor('bndl.compute.worker', 'main', worker_args, args.worker_count)
     supervisor.start()
     try:
