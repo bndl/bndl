@@ -22,7 +22,6 @@ argparser.prog = 'bndl.compute.worker'
 class Worker(ExecutionWorker):
     buckets = {}
     broadcast_values_cache = {}
-    dset_cache = {}
 
     def __init__(self, *args, **kwargs):
         os.environ['PYTHONHASHSEED'] = '0'
@@ -49,11 +48,6 @@ class Worker(ExecutionWorker):
     def unpersist_broadcast_value(self, src, key):
         if key in self.broadcast_values_cache:
             del self.broadcast_values_cache[key]
-
-
-    def uncache_dset(self, src, dset_id):
-        if dset_id in self.dset_cache:
-            del self.dset_cache[dset_id]
 
 
 def main():

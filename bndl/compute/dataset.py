@@ -1,5 +1,5 @@
 from bisect import bisect_left
-from collections import Counter
+from collections import Counter, Iterable
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap
@@ -16,10 +16,11 @@ import os
 import pickle
 import struct
 import sys
+import traceback
 
-from bndl.compute.schedule import schedule_job
-from bndl.compute.stats import iterable_size, Stats, \
-    sample_with_replacement, sample_without_replacement
+from bndl.compute import cache
+from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
+from bndl.execute.job import Job, Stage, Task
 from bndl.util import serialize, cycloudpickle
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
@@ -63,7 +64,7 @@ class Dataset(metaclass=abc.ABCMeta):
         self.ctx = ctx
         self.src = src
         self.id = dset_id or next(ctx._dataset_ids)
-        self._cache = False
+        self._cache_provider = False
         self._cache_locs = {}
         self._worker_preference = None
         self._worker_filter = None
@@ -1100,36 +1101,44 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.allow_workers(None)
 
 
-    def cache(self, cached=True):
+    def cache(self, location='memory', serialization=None, compression=None, provider=None):
         assert self.ctx.node.node_type == 'driver'
-        # set mark
-        self._cache = cached
-        # cleanup on 'uncache'
-        if not cached:
-            # issue uncache tasks
-            cache_loc_names = set(self._cache_locs.values())
-            tasks = [
-                worker.uncache_dset.with_timeout(1)(self.id)
-                for worker in self.ctx.workers
-                if worker.name in cache_loc_names]
-            # wait for them to finish
-            for task in tasks:
-                with catch(Exception):
-                    task.result()
-            # clear cache locations
-            self._cache_locs = {}
-
+        if not location:
+            self.uncache()
+        else:
+            assert not self._cache_provider
+            if location == 'disk' and not serialization:
+                serialization = 'pickle'
+            self._cache_provider = cache.CacheProvider(location, serialization, compression)
         return self
 
     @property
     def cached(self):
-        return self._cache
+        return bool(self._cache_provider)
 
+    def uncache(self):
+        # issue uncache tasks
+        def clear(worker, provider=self._cache_provider, dset_id=self.id):
+            provider.clear(dset_id)
+        cache_loc_names = set(self._cache_locs.values())
+        tasks = [
+            worker.run_task.with_timeout(1)(clear)
+            for worker in self.ctx.workers
+            if worker.name in cache_loc_names]
+        # wait for them to finish
+        for task in tasks:
+            with catch(Exception):
+                task.result()
+        # clear cache locations
+        self._cache_locs = {}
+        self._cache_provider = None
+        return self
 
     def __del__(self):
-        if hasattr(self, '_cache') and self._cache:
-            if self.ctx.node.node_type == 'driver':
-                self.cache(False)
+        if self._cache_provider:
+            node = self.ctx.node
+            if node and node.node_type == 'driver':
+                self.uncache()
 
 
     def __hash__(self):
@@ -1160,23 +1169,18 @@ class Partition(metaclass=abc.ABCMeta):
         self.src = src
 
     def materialize(self, ctx):
-        worker = ctx.node
-
         # check cache
-        if self.dset.cached and self.dset.id in worker.dset_cache:
-            dset_cache = worker.dset_cache[self.dset.id]
-            if self.idx in dset_cache:
-                return dset_cache[self.idx]
-
+        if self.dset.cached:
+            try:
+                return self.dset._cache_provider.read(self)
+            except KeyError:
+                pass
+        # compute if not cached
         data = self._materialize(ctx)
-
         # cache if requested
         if self.dset.cached:
-            if not is_stable_iterable(data):
-                data = list(data)
-            dset_cache = worker.dset_cache.setdefault(self.dset.id, {})
-            dset_cache[self.idx] = data
-
+            data = ensure_collection(data)
+            self.dset._cache_provider.write(self, data)
         # return data
         return data
 
@@ -1443,3 +1447,182 @@ class TransformingPartition(Partition):
     def _materialize(self, ctx):
         data = self.src.materialize(ctx)
         return self.dset.transformation(self.src, data if data is not None else ())
+
+
+logger = logging.getLogger(__name__)
+
+
+def schedule_job(dset, workers=None):
+    '''
+    Schedule a job for a data set
+    :param dset:
+        The data set to schedule
+    '''
+
+    ctx = dset.ctx
+    assert ctx.running, 'context of dataset is not running'
+
+    ctx.await_workers()
+    workers = ctx.workers[:]
+
+    job = Job(ctx, *_job_calling_info())
+
+    stage = Stage(None, job)
+    schedule_stage(stage, workers, dset)
+    job.stages.insert(0, stage)
+
+    def _cleaner(dset, job):
+        if job.stopped:
+            dset.cleanup(job)
+
+    while dset:
+        if dset.cleanup:
+            job.add_listener(partial(_cleaner, dset))
+        if isinstance(dset.src, Iterable):
+            for src in dset.src:
+                branch = schedule_job(src)
+
+                for task in branch.stages[-1].tasks:
+                    task.args = (task.args[0], True)
+
+                for listener in branch.listeners:
+                    job.add_listener(listener)
+
+                if dset.sync_required:
+                    branch_stages = branch.stages
+                elif len(branch.stages) > 1:
+                    branch_stages = branch.stages[:-1]
+                else:
+                    continue
+
+                for stage in reversed(branch_stages):
+                    stage.job = job
+                    stage.is_last = False
+                    job.stages.insert(0, stage)
+
+            break
+
+        elif dset.sync_required:
+            stage = stage.prev_stage = Stage(None, job)
+            schedule_stage(stage, workers, dset)
+            job.stages.insert(0, stage)
+
+        dset = dset.src
+
+    # Since stages are added in reverse, setting the ids in execution order
+    # later in execution order gives a clearer picture to users
+    for idx, stage in enumerate(job.stages):
+        stage.id = idx
+
+    for task in job.stages[-1].tasks:
+        task.args = (task.args[0], True)
+
+    return job
+
+
+def _job_calling_info():
+    name = None
+    desc = None
+    for file, lineno, func, text in reversed(traceback.extract_stack()):
+        if 'bndl/' in file and func[0] != '_':
+            name = func
+        desc = file, lineno, func, text
+        if 'bndl/' not in file:
+            break
+    return name, desc
+
+
+
+def _get_cache_loc(part):
+    loc = part.dset._cache_locs.get(part.idx)
+    if loc:
+        return loc
+    elif part.src:
+        if isinstance(part.src, Iterable):
+            return set(chain.from_iterable(_get_cache_loc(src) for src in part.src))
+        else:
+            return _get_cache_loc(part.src)
+
+
+def schedule_stage(stage, workers, dset):
+    '''
+    Schedule a stage for a data set.
+
+    It is assumed that all source data sets (and their parts) are materialized when
+    this data set is materialized. (i.e. parts call materialize on their sources,
+    if any).
+
+    Also it is assumed that stages are scheduled backwards. Specifically if
+    stage.is_last when this function is called it will remain that way ...
+
+    :param stage: Stage
+        stage to add tasks to
+    :param workers: list or set
+        Workers to schedule the data set on
+    :param dset:
+        The data set to schedule
+    '''
+    stage.name = dset.__class__.__name__
+
+    for part in dset.parts():
+        allowed_workers = list(part.allowed_workers(workers) or [])
+        preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
+
+        stage.tasks.append(MaterializePartitionTask(
+            part, stage,
+            preferred_workers, allowed_workers
+        ))
+
+    # sort the tasks by their id
+    stage.tasks.sort(key=lambda t: t.id)
+
+
+class MaterializePartitionTask(Task):
+    def __init__(self, part, stage,
+                 preferred_workers, allowed_workers,
+                 name=None, desc=None):
+        self.part = part
+        super().__init__(
+            part.idx,
+            stage,
+            materialize_partition, (part, False), None,
+            preferred_workers, allowed_workers,
+            name, desc)
+
+    def result(self):
+        result = super().result()
+        self._save_cacheloc(self.part)
+        self.part = None
+        return result
+
+    def _save_cacheloc(self, part):
+        # memorize the cache location for the partition
+        if part.dset.cached:
+            part.dset._cache_locs[part.idx] = self.executed_on[-1]
+        # traverse backup up the DAG
+        if part.src:
+            if isinstance(part.src, Iterable):
+                for src in part.src:
+                    self._save_cacheloc(src)
+            else:
+                self._save_cacheloc(part.src)
+
+
+def materialize_partition(worker, part, return_data):
+    try:
+        ctx = part.dset.ctx
+
+        # generate data
+        data = part.materialize(ctx)
+
+        # return data if requested
+        if return_data and data is not None:
+            # 'materialize' iterators and such for pickling
+            if not is_stable_iterable(data):
+                return list(data)
+            else:
+                return data
+    except Exception:
+        logger.info('error while materializing part %s on worker %s',
+                    part, worker, exc_info=True)
+        raise
