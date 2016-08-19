@@ -30,7 +30,7 @@ class LazyObject(object):
         self_orig = self
         self.__class__ = obj.__class__
         for k in dir(obj):
-            v = getattr(obj, k)
+            v = obj.__getattribute__(k)
             self.__dict__[k] = v
 
         if destructor_key:
