@@ -1154,6 +1154,7 @@ class Dataset(metaclass=abc.ABCMeta):
         clone = type(self).__new__(type(self))
         clone.__dict__ = dict(self.__dict__)
         setattr(clone, attribute, value)
+        clone.id = uuid.uuid1()
         return clone
 
 
