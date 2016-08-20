@@ -60,16 +60,18 @@ def main():
 def run_workers():
     def add_worker_count(parser):
         parser.add_argument('worker_count', nargs='?', type=int, default=os.cpu_count() or 1)
-     # use a parser with run.argparser as parent to get correct argument parsing / help message
+    # use a parser with run.argparser as parent to get correct argument parsing / help message
     argparser = argparse.ArgumentParser(parents=[run.argparser])
     add_worker_count(argparser)
-    argparser.parse_args()
+    args = argparser.parse_args()
 
-    # use a parser without the parent to strip of worker_count correctly
-    # so that worker_args are passed on to the supervisor correctly
-    argparser = argparse.ArgumentParser()
-    add_worker_count(argparser)
-    args, worker_args = argparser.parse_known_args()
+    # reconstruct the arguments for the worker
+    # parse_known_args doesn't take out the worker_count positional argument correctly
+    worker_args = []
+    if args.listen_addresses:
+        worker_args += ['--listen-addresses'] + args.listen_addresses
+    if args.seeds:
+        worker_args += ['--seeds'] + args.seeds
 
     supervisor = Supervisor('bndl.compute.worker', 'main', worker_args, args.worker_count)
     supervisor.start()
