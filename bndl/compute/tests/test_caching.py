@@ -1,12 +1,10 @@
+import copy
 import gc
 import itertools
 import random
 
 from bndl.compute import cache
-from bndl.compute.cache import InMemory, SerializedInMemory, OnDisk
 from bndl.compute.tests import DatasetTest
-from bndl.util.funcs import identity
-import copy
 
 
 class CachingTest(DatasetTest):
@@ -59,7 +57,7 @@ class CachingTest(DatasetTest):
     def get_cachekeys(self):
         def get_keys(p, i):
             try:
-                return list(cache._caches[p.dset.ctx.node.name].keys())
+                return list(cache._caches.keys())
             except KeyError:
                 return []
         return self.ctx.range(self.worker_count) \

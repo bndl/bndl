@@ -24,10 +24,8 @@ _caches = {}
 @atexit.register
 def clear_all():
     for cache in _caches.values():
-        for dset_cache in cache.values():
-            for holder in dset_cache.values():
-                holder.clear()
-            dset_cache.clear()
+        for holder in cache.values():
+            holder.clear()
         cache.clear()
     _caches.clear()
 
@@ -145,14 +143,8 @@ class CacheProvider(object):
             raise ValueError('location must be "memory" or "disk" or a class which conforms to'
                              ' bndl.compute.cache.Holder')
 
-    def _get_cache(self):
-        worker = current_worker()
-        cache = _caches.setdefault(worker.name, {})
-        return cache
-
     def read(self, part):
-        cache = self._get_cache()
-        holder = cache[part.dset.id][part.idx]
+        holder = _caches[part.dset.id][part.idx]
         try:
             data = holder.read()
         except FileNotFoundError as e:
@@ -163,19 +155,17 @@ class CacheProvider(object):
         key = str(part.dset.id), str(part.idx)
         holder = self.holder_cls(key, self)
         holder.write(data)
-        cache = self._get_cache()
-        cache.setdefault(part.dset.id, {})[part.idx] = holder
+        _caches.setdefault(part.dset.id, {})[part.idx] = holder
 
     def clear(self, dset_id, part_idx=None):
-        cache = self._get_cache()
         if part_idx:
-            cache[dset_id][part_idx].clear()
-            del cache[dset_id][part_idx]
+            _caches[dset_id][part_idx].clear()
+            del _caches[dset_id][part_idx]
         else:
-            for holder in cache[dset_id].values():
+            for holder in _caches[dset_id].values():
                 holder.clear()
-            cache[dset_id].clear()
-            del cache[dset_id]
+            _caches[dset_id].clear()
+            del _caches[dset_id]
 
 
 class Holder(object):
