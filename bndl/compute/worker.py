@@ -1,16 +1,14 @@
 import argparse
-import copy
 import gc
 import logging
 import os
 
-from bndl.execute import worker
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from bndl.util.supervisor import split_args, Supervisor
+from bndl.util.supervisor import Supervisor
 
 
 logger = logging.getLogger(__name__)
