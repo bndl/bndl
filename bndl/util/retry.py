@@ -7,7 +7,10 @@ def retry_delay(timeout_backoff, retry_round):
     return timeout_backoff ** retry_round - 1
 
 
-def do_with_retry(action, retry_limit=1, retry_backoff=None, transients=(Exception,)):
+def do_with_retry(action, limit=1, backoff=None, transients=(Exception,)):
+    assert backoff > 1
+    assert limit >= 0
+
     fails = 0
 
     while True:
@@ -15,8 +18,8 @@ def do_with_retry(action, retry_limit=1, retry_backoff=None, transients=(Excepti
             return action()
         except transients:
             fails += 1
-            if not retry_limit or fails > retry_limit:
+            if not limit or fails > limit:
                 raise
-            elif retry_backoff:
-                sleep = retry_delay(retry_backoff, fails)
+            elif backoff:
+                sleep = retry_delay(backoff, fails)
                 time.sleep(sleep)
