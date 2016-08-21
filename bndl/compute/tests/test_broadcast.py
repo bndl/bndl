@@ -3,6 +3,7 @@ import pickle
 import string
 
 from bndl.compute.tests import DatasetTest
+from bndl.compute import broadcast
 
 
 class BroadcastTest(DatasetTest):
@@ -30,19 +31,20 @@ class BroadcastTest(DatasetTest):
     def test_local_access(self):
         lowercase = self.ctx.broadcast(string.ascii_lowercase)
         self.assertEqual(lowercase.value, string.ascii_lowercase)
-
+#
     def test_cached(self):
         one = self.ctx.broadcast(1)
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
         # would normally use unpersist, but this will trip up the worker if it wasn't cached
-        self.ctx.node.hosted_values.clear()
+        self.ctx.node._blocks_cache.clear()
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
-
+#
     def test_missing(self):
         one = self.ctx.broadcast(1)
         # would normally use unpersist, but this will trip up the worker
         # just to make sure workers don't invent broadcast values out of thin air or something ...
-        self.ctx.node.hosted_values.clear()
+        self.ctx.node._blocks_cache.clear()
+        broadcast.download_coordinator.clear(one.block_spec.name)
         with self.assertRaises(Exception):
             self.ctx.range(1).map(lambda i: one.value).collect()
 
@@ -60,3 +62,16 @@ class BroadcastTest(DatasetTest):
         pickled = pickle.dumps(lst)
         bc_list = self.ctx.broadcast_pickled(pickled)
         self.assertEqual(self.ctx.range(len(lst)).map(lambda i: bc_list.value[i]).collect(), lst)
+
+    def test_multiblock(self):
+        self.ctx.conf['bndl.compute.broadcast.block_size'] = .5  # 100kb
+        # test if threads at a worker play nicely
+        self.ctx.conf['bndl.execute.concurrency'] = 8
+        lst = list(range(1024 * 1024))  # 10+ blocks
+        pickled = pickle.dumps(lst)
+
+        bc_list = self.ctx.broadcast_pickled(pickled)
+        pcount = self.ctx.worker_count * 16
+        dset = self.ctx.range(pcount).map(lambda _: bc_list.value)
+        for e in dset.icollect():
+            self.assertEqual(e, lst)

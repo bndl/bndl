@@ -3,9 +3,11 @@ import gc
 import logging
 import os
 
+from bndl.compute import broadcast
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
+from bndl.rmi.blocks import BlockManager
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.supervisor import Supervisor
@@ -14,13 +16,13 @@ from bndl.util.supervisor import Supervisor
 logger = logging.getLogger(__name__)
 
 
-class Worker(ExecutionWorker):
+class Worker(ExecutionWorker, BlockManager):
     buckets = {}
-    broadcast_values_cache = {}
 
     def __init__(self, *args, **kwargs):
         os.environ['PYTHONHASHSEED'] = '0'
-        super().__init__(*args, **kwargs)
+        ExecutionWorker.__init__(self, *args, **kwargs)
+        BlockManager.__init__(self)
 
 
     def get_bucket(self, src, dset_id, part_idx):
@@ -39,10 +41,9 @@ class Worker(ExecutionWorker):
         except KeyError:
             pass
 
-
-    def unpersist_broadcast_value(self, src, key):
-        if key in self.broadcast_values_cache:
-            del self.broadcast_values_cache[key]
+    def unpersist_broadcast_values(self, src, name):
+        self._remove_blocks(self, name)
+        del broadcast.download_coordinator[name]
 
 
 def main():

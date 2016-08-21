@@ -1,5 +1,5 @@
+from collections import defaultdict, Iterable, Sized
 from itertools import islice, groupby
-from collections import Iterable, Sized
 
 
 def batch(iterable, size):
@@ -13,6 +13,13 @@ def batch(iterable, size):
     else:
         while True:
             yield list(islice(iterable, size))
+
+
+def split(iterable, key):
+    splits = defaultdict(list)
+    for e in iterable:
+        splits[key(e)].append(e)
+    return splits
 
 
 def sortgroupby(iterable, key):
