@@ -5,7 +5,7 @@ import pickle
 from tempfile import TemporaryDirectory
 
 from bndl.compute.tests import DatasetTest
-from bndl.rmi.invocation import InvocationException
+from bndl.rmi import InvocationException
 from bndl.util.fs import listdirabs, read_file
 import gzip
 

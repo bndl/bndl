@@ -7,38 +7,41 @@ from bndl.compute import broadcast
 
 
 class BroadcastTest(DatasetTest):
+    serializations = ['auto', 'pickle', 'marshal', 'json', 'text', 'binary']
 
-    def test_broadcast_scalar(self):
-        one = self.ctx.broadcast(1)
-        dset = self.ctx.range(1).map(lambda i: one.value)
-        self.assertEqual(dset.collect(), [1])
+    def test_broadcast_python_types(self):
+        for serialization in self.serializations[:-2]:
+            one = self.ctx.broadcast(1, serialization)
+            dset = self.ctx.range(1).map(lambda i: one.value)
+            self.assertEqual(dset.collect(), [1])
 
-    def test_broadcast_list(self):
-        lst = self.ctx.broadcast([1, 2, 3, 4, 5])
-        dset = self.ctx.range(1).map(lambda i: lst.value)
-        self.assertEqual(dset.collect(), [[1, 2, 3, 4, 5]])
+            lst = self.ctx.broadcast([1, 2, 3, 4, 5], serialization)
+            dset = self.ctx.range(1).map(lambda i: lst.value)
+            self.assertEqual(dset.collect(), [[1, 2, 3, 4, 5]])
 
     def test_broadcast_string(self):
-        lowercase = self.ctx.broadcast(string.ascii_lowercase)
-        dset = self.ctx.range(1).map(lambda i: lowercase.value)
-        self.assertEqual(dset.collect(), [string.ascii_lowercase])
+        for serialization in self.serializations[:-1]:
+            lowercase = self.ctx.broadcast(string.ascii_lowercase, serialization)
+            dset = self.ctx.range(1).map(lambda i: lowercase.value)
+            self.assertEqual(dset.collect(), [string.ascii_lowercase])
 
     def test_broadcast_ndarray(self):
-        arr = self.ctx.broadcast(np.arange(10))
-        dset = self.ctx.range(1).map(lambda i: arr.value)
-        self.assertEqual(dset.first().tolist(), np.arange(10).tolist())
+        for serialization in self.serializations[:2]:
+            arr = self.ctx.broadcast(np.arange(10), serialization)
+            dset = self.ctx.range(1).map(lambda i: arr.value)
+            self.assertEqual(dset.first().tolist(), np.arange(10).tolist())
 
     def test_local_access(self):
         lowercase = self.ctx.broadcast(string.ascii_lowercase)
         self.assertEqual(lowercase.value, string.ascii_lowercase)
-#
+
     def test_cached(self):
         one = self.ctx.broadcast(1)
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
         # would normally use unpersist, but this will trip up the worker if it wasn't cached
         self.ctx.node._blocks_cache.clear()
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
-#
+
     def test_missing(self):
         one = self.ctx.broadcast(1)
         # would normally use unpersist, but this will trip up the worker

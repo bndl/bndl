@@ -7,6 +7,7 @@ import traceback
 from bndl.net.connection import NotConnected
 from bndl.net.node import Node
 from bndl.net.peer import PeerNode
+from bndl.rmi import InvocationException
 from bndl.rmi.messages import Response, Request
 from bndl.util.aio import async_call
 from bndl.util.aio import run_coroutine_threadsafe
@@ -14,13 +15,6 @@ from bndl.util.threads import OnDemandThreadedExecutor
 
 
 logger = logging.getLogger(__name__)
-
-
-class InvocationException(Exception):
-    '''
-    Exception indicating a RMI failed. This exception is 'raised from' a 'reconstructed'
-    exception as raised in the remote method
-    '''
 
 
 class Invocation(object):

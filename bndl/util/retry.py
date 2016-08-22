@@ -8,8 +8,8 @@ def retry_delay(timeout_backoff, retry_round):
 
 
 def do_with_retry(action, limit=1, backoff=None, transients=(Exception,)):
-    assert backoff > 1
-    assert limit >= 0
+    assert not backoff or backoff > 1
+    assert not limit or limit >= 0
 
     fails = 0
 

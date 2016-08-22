@@ -42,7 +42,7 @@ class Worker(ExecutionWorker, BlockManager):
             pass
 
     def unpersist_broadcast_values(self, src, name):
-        self._remove_blocks(self, name)
+        self.remove_blocks(name)
         del broadcast.download_coordinator[name]
 
 

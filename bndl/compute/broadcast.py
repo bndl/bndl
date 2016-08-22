@@ -1,8 +1,15 @@
 from uuid import uuid4
+import io
+import json
 import logging
+import marshal
+import pickle
 
+from bndl.compute.cache import BytearrayIO
 from bndl.util import serialize, threads
 from bndl.util.conf import Float
+from bndl.util.funcs import identity
+from toolz.functoolz import compose
 
 
 block_size = Float(16)  # MB
@@ -25,31 +32,61 @@ MISSING = 'bndl.compute.broadcast.MISSING'
 download_coordinator = threads.Coordinator()
 
 
-def broadcast(ctx, value):
-    fmt, body = serialize.dumps(value)
-    bcval = _broadcast(ctx, fmt, body)
-    return bcval
+def broadcast(ctx, value, serialization='auto', deserialization=None):
+    '''
+    Broadcast data to workers
+    :param value: The value to broadcast
+    :param serialization: auto, pickle, marshal, json, binary or text
+        The format to serialize the broadcast value into
+    :param deserialization: None or function(fileobj)
+    '''
+    if serialization is not None:
+        if deserialization is not None:
+            raise ValueError("Can't specify both serialization and deserialization")
+        elif serialization == 'auto':
+            marshalled, data = serialize.dumps(value)
+            deserialization = marshal.loads if marshalled else pickle.loads
+        elif serialization == 'pickle':
+            data = pickle.dumps(value)
+            deserialization = pickle.loads
+        elif serialization == 'marshal':
+            data = marshal.dumps(value)
+            deserialization = marshal.loads
+        elif serialization == 'json':
+            data = json.dumps(value).encode()
+            deserialization = compose(json.loads, bytes.decode)
+        elif serialization == 'binary':
+            data = value
+            deserialization = identity
+        elif serialization == 'text':
+            data = value.encode()
+            deserialization = bytes.decode
+        else:
+            raise ValueError('Unsupported serialization %s' % serialization)
+    elif not deserialization:
+        raise ValueError('Must specify either serialization or deserialization')
+    else:
+        data = value
 
-
-def broadcast_pickled(ctx, pickled_value):
-    return _broadcast(ctx, 0, pickled_value)
-
-
-def _broadcast(ctx, fmt, body):
-    data = bytearray()
-    data.append(fmt)
-    data.extend(body)
     key = str(uuid4())
     block_size = ctx.conf.get('bndl.compute.broadcast.block_size') * 1024 * 1024
     block_spec = ctx.node.serve_data(key, data, block_size)
-    return BroadcastValue(ctx, ctx.node.name, block_spec)
+    return BroadcastValue(ctx, ctx.node.name, block_spec, deserialization)
+
+
+def broadcast_pickled(ctx, pickled_value):
+    '''
+    Broadcast data which is already pickled.
+    '''
+    return broadcast(ctx, pickled_value, serialization=None, deserialization=pickle.loads)
 
 
 class BroadcastValue(object):
-    def __init__(self, ctx, seeder, block_spec):
+    def __init__(self, ctx, seeder, block_spec, deserialize):
         self.ctx = ctx
         self.seeder = seeder
         self.block_spec = block_spec
+        self.deserialize = deserialize
 
 
     @property
@@ -61,9 +98,7 @@ class BroadcastValue(object):
         node = self.ctx.node
         blocks = node.get_blocks(self.block_spec)
 
-        fmt = blocks[0][0]
-        blocks[0] = memoryview(blocks[0])[1:]
-        val = serialize.loads(fmt, b''.join(blocks))
+        val = self.deserialize(b''.join(blocks))
 
         if node.name != self.block_spec.seeder:
             node.remove_blocks(self.block_spec.name, from_peers=False)
