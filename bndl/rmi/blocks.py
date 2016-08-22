@@ -8,6 +8,7 @@ import threading
 
 from bndl.util.collection import split
 from bndl.util.exceptions import catch
+from asyncio.futures import TimeoutError
 
 
 logger = logging.getLogger(__name__)
