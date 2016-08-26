@@ -1,18 +1,17 @@
 from uuid import uuid4
-import io
 import json
 import logging
 import marshal
 import pickle
 
-from bndl.compute.cache import BytearrayIO
 from bndl.util import serialize, threads
 from bndl.util.conf import Float
 from bndl.util.funcs import identity
 from toolz.functoolz import compose
 
 
-block_size = Float(16)  # MB
+min_block_size = Float(4)  # MB
+max_block_size = Float(16)  # MB
 
 
 logger = logging.getLogger(__name__)
@@ -69,8 +68,12 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
         data = value
 
     key = str(uuid4())
-    block_size = ctx.conf.get('bndl.compute.broadcast.block_size') * 1024 * 1024
-    block_spec = ctx.node.serve_data(key, data, block_size)
+    min_block_size = int(ctx.conf.get('bndl.compute.broadcast.min_block_size') * 1024 * 1024)
+    max_block_size = int(ctx.conf.get('bndl.compute.broadcast.max_block_size') * 1024 * 1024)
+    if min_block_size == max_block_size:
+        block_spec = ctx.node.serve_data(key, data, max_block_size)
+    else:
+        block_spec = ctx.node.serve_data(key, data, (ctx.worker_count * 2, min_block_size, max_block_size))
     return BroadcastValue(ctx, ctx.node.name, block_spec, deserialization)
 
 

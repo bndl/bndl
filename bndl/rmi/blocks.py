@@ -55,6 +55,37 @@ class _Block(object):
         self.block = attachment(str(self.idx).encode())
 
 
+def _batch_blocks(data, block_size):
+    length = len(data)
+    if isinstance(block_size, tuple):
+        block_count, min_block_size, max_block_size = block_size
+        assert block_count > 0
+        assert min_block_size >= 0
+        assert max_block_size > 0
+        block_size = math.ceil(length / block_count)
+        if block_size > max_block_size:
+            block_size = max_block_size
+        elif block_size < min_block_size:
+            block_size = min_block_size
+        return _batch_blocks(data, block_size)
+    else:
+        assert block_size > 0
+        if length > block_size:
+            # TODOdata = memoryview(data)
+            num_blocks = int((length - 1) / block_size) + 1  # will be 1 short
+            blocks = []
+            step = math.ceil(length / num_blocks)
+            offset = 0
+            for _ in range(num_blocks - 1):
+                blocks.append(data[offset:offset + step])
+                offset += step
+            # add remainder
+            blocks.append(data[offset:])
+            return blocks
+        else:
+            return [data]
+
+
 class BlockManager:
     '''
     Block management functionality to be mixed in with RMINode.
@@ -81,26 +112,16 @@ class BlockManager:
 
     def serve_data(self, name, data, block_size):
         '''
-        Serve data from this node (it'll be the seeder).
+        Serve data from this node (it'll be the seeder). The method is a
+        convenience method to split data into blocks.
+
         :param name: Name of the data / blocks.
         :param data: The bytes to be split into blocks.
-        :param block_size: Maximum size of the blocks.
+        :param block_size: int or tuple
+            If int: maximum size of the blocks.
+            If tuple: ideal number of blocks, minimum and maximum size of the blocks.
         '''
-        assert block_size > 0
-        length = len(data)
-        if length > block_size:
-            data = memoryview(data)
-            blocks = []
-            parts = int((length - 1) / block_size)  # will be 1 short
-            step = math.ceil(length / (parts + 1))
-            offset = 0
-            for _ in range(parts):
-                blocks.append(data[offset:offset + step])
-                offset += step
-            # add remainder
-            blocks.append(data[offset:])
-        else:
-            blocks = [data]
+        blocks = _batch_blocks(data, block_size)
         return self.serve_blocks(name, blocks)
 
 
