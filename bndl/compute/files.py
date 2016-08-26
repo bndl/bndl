@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from functools import partial, lru_cache
 from os.path import getsize
-from os import fstat
 import asyncio
 import contextlib
 import gzip
@@ -13,7 +12,6 @@ from bndl.net.sendfile import sendfile
 from bndl.net.serialize import attach, attachment
 from bndl.util import aio
 from bndl.util.collection import batch
-from bndl.util.exceptions import catch
 from bndl.util.fs import filenames
 from toolz.itertoolz import pluck
 
