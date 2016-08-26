@@ -78,14 +78,14 @@ class DistributedFiles(Dataset, DistributedFilesOps):
         if self.psize_bytes:
             batches = self._sliceby_psize()
         else:
-            batches = batch(self.filenames, self.psize_files)
+            batches = batch(self.filenames_and_sizes, self.psize_files)
 
         parts = []
-        for idx, filenames in enumerate(batches):
-            if filenames:
+        for idx, files in enumerate(batches):
+            if files:
                 part = FilesPartition(self, idx)
                 parts.append(part)
-                node.hosted_values[part.key] = FilesValue(filenames)
+                node.hosted_values[part.key] = FilesValue(files)
 
         return parts
 
@@ -117,7 +117,7 @@ class DistributedFiles(Dataset, DistributedFilesOps):
         size = 0
 
         for filename, filesize in self.filenames_and_sizes:
-            batch.append(filename)
+            batch.append((filename, filesize))
             size += filesize
             if size >= psize_bytes or len(batch) >= psize_files:
                 batch = []
@@ -161,12 +161,9 @@ class DistributedFiles(Dataset, DistributedFilesOps):
 
 
 
-def _file_attachment(filename):
+def _file_attachment(filename, size):
     @contextlib.contextmanager
     def _attacher():
-        file = open(filename, 'rb')
-        size = fstat(file.fileno()).st_size
-
         @asyncio.coroutine
         def sender(loop, writer):
             '''
@@ -174,36 +171,32 @@ def _file_attachment(filename):
             get the socket from the writer
             use sendfile to send file to socket
             '''
-            yield from aio.drain(writer)
-            socket = writer.get_extra_info('socket')
-            yield from sendfile(socket.fileno(), file.fileno(), 0, size, loop)
-
-        try:
-            yield size, sender
-        finally:
-            with catch():
-                file.close()
+            with open(filename, 'rb') as file:
+                yield from aio.drain(writer)
+                socket = writer.get_extra_info('socket')
+                yield from sendfile(socket.fileno(), file.fileno(), 0, size, loop)
+        yield size, sender
 
     return filename.encode('utf-8'), _attacher
 
 
 class FilesValue(object):
-    def __init__(self, filenames):
-        self.filenames = filenames
+    def __init__(self, files):
+        self.files = files
 
 
     def __getstate__(self):
-        state = dict(self.__dict__)
-        for filename in self.filenames:
-            attach(*_file_attachment(filename))
-        return state
+        for file in self.files:
+            attach(*_file_attachment(*file))
+        return {'files': list(pluck(0, self.files))}
 
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # transform list of filenames into ordered dict of filenames and data
         self.files = OrderedDict(
             (filename, attachment(filename.encode('utf-8')))
-            for filename in self.filenames
+            for filename in self.files
         )
 
 
