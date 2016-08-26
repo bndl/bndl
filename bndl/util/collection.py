@@ -12,7 +12,11 @@ def batch(iterable, size):
             yield iterable[start:start + size]
     else:
         while True:
-            yield list(islice(iterable, size))
+            l = list(islice(iterable, size))
+            if len(l) == 0:
+                raise StopIteration()
+            else:
+                yield l
 
 
 def split(iterable, key):
