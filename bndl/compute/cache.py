@@ -10,7 +10,6 @@ import pickle
 import struct
 import tempfile
 
-from bndl.execute.worker import current_worker
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
 
@@ -222,12 +221,13 @@ class SerializedHolder(Holder):
 
 
 class BytearrayIO(io.RawIOBase):
-    def __init__(self, buffer, mode):
+    def __init__(self, buffer, mode='rb'):
         self.buffer = buffer
         self.mode = mode
         self.pos = 0
 
     def read(self, size=-1):
+        # TODO investigate use of memoryview
         if size == -1 or not size:
             b = self.buffer[self.pos:]
             self.pos = len(self.buffer)
@@ -255,6 +255,7 @@ class SerializedInMemory(SerializedHolder):
             self.data = bytearray()
             baio = BytearrayIO(self.data, mode)
         else:
+            # TODO use BytearrayIO, this costs a memory copy
             baio = io.BytesIO(self.data)
             baio.mode = mode
         return baio
