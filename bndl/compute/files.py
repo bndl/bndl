@@ -5,7 +5,8 @@ import asyncio
 import contextlib
 import gzip
 import logging
-import sys
+import mmap
+import os
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset
 from bndl.net.sendfile import sendfile
@@ -27,7 +28,6 @@ def _splitlines(keepends, blob):
     return blob.splitlines(keepends)
 
 
-
 class DistributedFilesOps:
     def decode(self, encoding='utf-8', errors='strict'):
         return self.map_values(partial(_decode, encoding, errors))
@@ -43,7 +43,34 @@ class DecodedDistributedFiles(TransformingDataset, DistributedFilesOps):
 
 
 class DistributedFiles(Dataset, DistributedFilesOps):
-    def __init__(self, ctx, root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None):
+    def __init__(self, ctx, root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
+        '''
+        Create a Dataset out of files.
+
+        :param ctx: The ComputeContext
+        :param root: str, list
+            If str, root is considered to be a file or directory name or a glob pattern (see glob.glob).
+            If list, root is considered a list of filenames.
+        :param recursive: bool
+            Whether to recursively search a (root) directory for files
+        :param dfilter: function(dir_name)
+            A function to filter out directories by name, return a trueish or falsy
+            value to indicate whether to use or the directory or not. 
+        :param ffilter: function(file_name)
+            A function to filter out files by name, return a trueish or falsy
+            value to indicate whether to use or the file or not.
+        :param psize_bytes: int or None
+            The maximum number of bytes in a partition.
+        :param psize_files: int or None
+            The maximum number of files in a partition.
+        :param split: bool or bytes
+            If False, files will not be split to achieve partitions of max.
+            size psize_bytes.
+            If True, files will be split to achieve partitions of size
+            psize_bytes; files will be split to fill each partition.
+            If bytes, files will be split just after an occurrence of the given
+            string, e.g. a newline.
+        '''
         super().__init__(ctx)
 
         self._root = root
@@ -59,8 +86,14 @@ class DistributedFiles(Dataset, DistributedFilesOps):
             psize_bytes = 16 * 1024 * 1024
             psize_files = 10 * 1000
 
+        if split and not psize_bytes:
+            raise ValueError("sep can't be set without psize_bytes")
+        elif isinstance(split, str):
+            split = split.encode()
+
         self.psize_bytes = psize_bytes
         self.psize_files = psize_files
+        self.split = split
 
 
     def decompress(self):
@@ -76,7 +109,7 @@ class DistributedFiles(Dataset, DistributedFilesOps):
         if self.psize_bytes:
             batches = self._sliceby_psize()
         else:
-            batches = batch(self.filenames_and_sizes, self.psize_files)
+            batches = batch(self._files, self.psize_files)
 
         parts = []
         for idx, files in enumerate(batches):
@@ -104,35 +137,91 @@ class DistributedFiles(Dataset, DistributedFilesOps):
 
     def _sliceby_psize(self):
         psize_bytes = self.psize_bytes
-        psize_files = self.psize_files or sys.maxsize
+        psize_files = self.psize_files
+        split = self.split
 
-        # TODO split within files
-        # for start in range(0, len(file), 64):
-        #     file[start:start+64]
+        if isinstance(split, str):
+            sep = split.encode()
+        elif isinstance(split, bytes):
+            sep = split
+        elif split is True:
+            sep = None
+        if sep:
+            sep_len = len(sep)
 
         batch = []
         batches = [batch]
-        size = 0
+        space = psize_bytes
 
-        for filename, filesize in self.filenames_and_sizes:
-            batch.append((filename, filesize))
-            size += filesize
-            if size >= psize_bytes or len(batch) >= psize_files:
-                batch = []
-                batches.append(batch)
-                size = 0
+        def new_batch():
+            nonlocal space, batch, batches
+            batch = []
+            batches.append(batch)
+            space = psize_bytes
+
+        for filename, filesize in self._files:
+            if psize_files and len(batch) >= psize_files:
+                new_batch()
+            if psize_bytes:
+                if space < filesize:
+                    if split and space > 0:
+                        if sep:
+                            # split files at sep
+                            offset = 0
+                            fd = os.open(filename, os.O_RDONLY)
+                            try:
+                                with mmap.mmap(fd, filesize, access=mmap.ACCESS_READ) as mm:
+                                    while offset < filesize:
+                                        split = mm.rfind(sep, offset, offset + space) + 1
+                                        if split == 0:
+                                            if batch:
+                                                new_batch()
+                                                continue
+                                            else:
+                                                split = mm.find(sep, offset) + 1
+                                                if split == 0:
+                                                    split = filesize
+                                        length = split - offset
+                                        batch.append((filename, offset, length))
+                                        offset = split
+                                        space -= length
+                                        if space < sep_len:
+                                            new_batch()
+                            finally:
+                                os.close(fd)
+                        else:
+                            # split files anywhere
+                            offset = 0
+                            remaining = filesize
+                            while True:
+                                if remaining == 0:
+                                    break
+                                elif remaining < space:
+                                    batch.append((filename, offset, remaining))
+                                    space -= remaining
+                                    break
+                                else:  # remaining > space
+                                    batch.append((filename, offset, offset + space))
+                                    offset += space
+                                    remaining -= space
+                                    new_batch()
+                        continue
+                    else:
+                        new_batch()
+            batch.append((filename, 0, filesize))
+            space -= filesize
 
         return batches
 
 
     @property
     def filenames(self):
-        return list(pluck(0, self.filenames_and_sizes))
+        return list(pluck(0, self._files))
 
 
     @property
     @lru_cache()
-    def filenames_and_sizes(self):
+    def _files(self):
         if isinstance(self._root, str):
             return list(filenames(self._root, self._recursive or True, self._dfilter, self._ffilter))
 
@@ -144,8 +233,11 @@ class DistributedFiles(Dataset, DistributedFilesOps):
             root = list(self._root)
         else:
             root = self._root
-        return [(filename, getsize(filename))
-                for filename in root]
+
+        return [
+            (filename, getsize(filename))
+            for filename in root
+        ]
 
 
     def __getstate__(self):
@@ -159,7 +251,7 @@ class DistributedFiles(Dataset, DistributedFilesOps):
 
 
 
-def _file_attachment(filename, size):
+def _file_attachment(filename, offset, size):
     @contextlib.contextmanager
     def _attacher():
         @asyncio.coroutine
@@ -172,7 +264,7 @@ def _file_attachment(filename, size):
             with open(filename, 'rb') as file:
                 yield from aio.drain(writer)
                 socket = writer.get_extra_info('socket')
-                yield from sendfile(socket.fileno(), file.fileno(), 0, size, loop)
+                yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
         yield size, sender
 
     return filename.encode('utf-8'), _attacher

@@ -5,6 +5,7 @@ import os.path
 
 from bndl.compute.tests import DatasetTest
 from bndl.util.text import random_string
+import math
 
 
 class FilesTest(DatasetTest):
@@ -15,7 +16,15 @@ class FilesTest(DatasetTest):
         for idx in range(10):
             with open(os.path.join(cls.tmpdir.name, 'decoy_file_%s.tmp' % idx), 'w') as f:
                 print('decoy', file=f)
-        cls.contents = [('\n'.join(random_string(127) for _ in range(8)) + '\n').encode() for _ in range(32)]
+        cls.line_size = 128
+        cls.line_count = 8
+        cls.file_size = cls.line_size * cls.line_count
+        cls.file_count = 32
+        cls.total_size = cls.file_size * cls.file_count
+        cls.contents = [
+            ('\n'.join(random_string(cls.line_size - 1) for _ in range(cls.line_count)) + '\n').encode()
+            for _ in range(cls.file_count)
+        ]
         cls.files = [
             open(os.path.join(cls.tmpdir.name, 'test_file_%s.tmp' % idx), 'wb')
             for idx in range(len(cls.contents))
@@ -24,7 +33,7 @@ class FilesTest(DatasetTest):
         for contents, file in zip(cls.contents, cls.files):
             file.write(contents)
             file.flush()
-        cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1024 * 2, psize_files=None)
+        cls.dset = cls.ctx.files(cls.filenames, psize_bytes=1024 * 2, psize_files=None).cache()
 
 
     @classmethod
@@ -34,11 +43,7 @@ class FilesTest(DatasetTest):
 
 
     def test_pcount(self):
-        file_size = 128 * 8
-        file_count = 32
-        total_size = file_size * file_count
-        part_size = 1024 * 2
-        count = round(total_size / part_size)
+        count = round(self.total_size / self.dset.psize_bytes)
         self.assertEqual(len(self.dset.parts()), count)
 
 
@@ -97,3 +102,24 @@ class FilesTest(DatasetTest):
             gzipped.collect_as_files(d)
             self.assertEqual(dset.collect(),
                              self.ctx.files(d).decompress().lines().map(int).sort().collect())
+
+
+    def test_split_files(self):
+        for factor in (1.9, 2.0, 2.1):
+            psize_bytes = int(1024 * factor)
+            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=True).cache()
+            for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
+                self.assertLessEqual(psize, psize_bytes)
+            self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
+            self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+
+
+    def test_split_fileslines(self):
+        sep = '\n'
+        for factor in (1.8, 1.95, 2.0, 2.2):
+            psize_bytes = int(1024 * factor)
+            max_lines_per_part = psize_bytes // self.line_size
+            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
+            self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+            for part in dset.values().collect(parts=True)[:-1]:
+                self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)
