@@ -1090,10 +1090,10 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def prefer_workers(self, fltr):
-        return self._with('_worker_preference', fltr)
+        return self._with(_worker_preference=fltr)
 
     def allow_workers(self, fltr):
-        return self._with('_worker_filter', fltr)
+        return self._with(_worker_filter=fltr)
 
     def require_local_workers(self):
         return self.allow_workers(_filter_local_workers)
@@ -1150,10 +1150,13 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.id == other.id
 
 
-    def _with(self, attribute, value):
+    def _with(self, *args, **kwargs):
         clone = type(self).__new__(type(self))
         clone.__dict__ = dict(self.__dict__)
-        setattr(clone, attribute, value)
+        if args:
+            for attribute, value in zip(args[0::2], args[1::2]):
+                setattr(clone, attribute, value)
+        clone.__dict__.update(kwargs)
         clone.id = uuid.uuid1()
         return clone
 
