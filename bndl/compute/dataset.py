@@ -15,8 +15,8 @@ import logging
 import os
 import pickle
 import struct
-import sys
 import traceback
+import uuid
 
 from bndl.compute import cache
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
@@ -30,7 +30,6 @@ from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
 import sortedcontainers.sortedlist
-import uuid
 
 
 logger = logging.getLogger(__name__)
