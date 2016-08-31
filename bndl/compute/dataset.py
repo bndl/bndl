@@ -336,11 +336,6 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.values().flatmap(func)
 
 
-    def encode(self, encoding=None):
-        encoding = encoding or sys.getdefaultencoding()
-        return self.map(lambda e: e.encode(encoding))
-
-
     def concat(self, sep):
         if isinstance(sep, str):
             def f(part):
@@ -1050,9 +1045,9 @@ class Dataset(metaclass=abc.ABCMeta):
         # compress if necessary
         if compress == 'gzip':
             ext += '.gz'
-            # compress concatenation of partition, not just each element
             if mode == 't':
-                data = data.encode()
+                data = data.map(lambda e: e.encode())
+            # compress concatenation of partition, not just each element
             mode = 'b'
             data = data.concat(b'').map(gzip.compress)
         elif compress is not None:
