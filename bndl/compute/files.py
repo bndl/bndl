@@ -15,6 +15,7 @@ from bndl.util import aio
 from bndl.util.collection import batch
 from bndl.util.fs import filenames
 from toolz.itertoolz import pluck
+import io
 
 
 logger = logging.getLogger(__name__)
@@ -35,14 +36,17 @@ class DistributedFilesOps:
     def lines(self, encoding='utf-8', keepends=False, errors='strict'):
         return self.decode(encoding, errors).values().flatmap(partial(_splitlines, keepends))
 
+    def parse_csv(self, **kwargs):
+        return self.decode().values().parse_csv(**kwargs)
 
 
-class DecodedDistributedFiles(TransformingDataset, DistributedFilesOps):
+
+class DecompressedDistributedFiles(DistributedFilesOps, TransformingDataset):
     pass
 
 
 
-class DistributedFiles(Dataset, DistributedFilesOps):
+class DistributedFiles(DistributedFilesOps, Dataset):
     def __init__(self, ctx, root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
         '''
         Create a Dataset out of files.
@@ -98,8 +102,17 @@ class DistributedFiles(Dataset, DistributedFilesOps):
 
     def decompress(self):
         decompressed = self.map_values(gzip.decompress)
-        decompressed.__class__ = DecodedDistributedFiles
+        decompressed.__class__ = DecompressedDistributedFiles
         return decompressed
+
+
+    def parse_csv(self, **kwargs):
+        file0 = self.filenames[0]
+        import pandas as pd
+        with open(file0) as f:
+            sample = ''.join(f.readline() for _ in range(10))
+            kwargs['sample'] = pd.read_csv(io.StringIO(sample), **kwargs)
+        return super().parse_csv(**kwargs)
 
 
     def parts(self):
@@ -144,7 +157,7 @@ class DistributedFiles(Dataset, DistributedFilesOps):
             sep = split.encode()
         elif isinstance(split, bytes):
             sep = split
-        elif split is True:
+        else:
             sep = None
         if sep:
             sep_len = len(sep)
@@ -294,6 +307,7 @@ class FilesValue(object):
 class FilesPartition(Partition):
     def __init__(self, dset, idx):
         super().__init__(dset, idx)
+
 
     @property
     def key(self):

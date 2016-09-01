@@ -189,6 +189,44 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.map_partitions(lambda p: (ensure_collection(p),))
 
 
+    def concat(self, sep):
+        if isinstance(sep, str):
+            def f(part):
+                out = io.StringIO()
+                write = out.write
+                for e in part:
+                    write(e)
+                    write(sep)
+                return (out.getvalue(),)
+        elif isinstance(sep, (bytes, bytearray)):
+            def f(part):
+                buffer = bytearray()
+                extend = buffer.extend
+                for e in part:
+                    extend(e)
+                    extend(sep)
+                return (buffer,)
+        else:
+            raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
+        return self.map_partitions(f)
+
+
+
+    def parse_csv(self, sample=None, **kwargs):
+        import pandas as pd
+        from bndl.compute import dataframes
+        if sample is None:
+            sample = pd.read_csv(io.StringIO(self.first()), **kwargs)
+        if 'names' not in kwargs:
+            kwargs['names'] = sample.columns
+        def as_df(part):
+            dfs = (pd.read_csv(io.StringIO(e), **kwargs) for e in part)
+            return dataframes.combine_dataframes(dfs)
+        dsets = self.map_partitions(as_df)
+        return dataframes.DistributedDataFrame.from_sample(dsets, sample)
+
+
+
     def filter(self, func=None):
         '''
         Filter out elements from this dataset
@@ -333,28 +371,6 @@ class Dataset(metaclass=abc.ABCMeta):
             order to use the values as iterables to flatten.
         '''
         return self.values().flatmap(func)
-
-
-    def concat(self, sep):
-        if isinstance(sep, str):
-            def f(part):
-                out = io.StringIO()
-                write = out.write
-                for e in part:
-                    write(e)
-                    write(sep)
-                return (out.getvalue(),)
-        elif isinstance(sep, (bytes, bytearray)):
-            def f(part):
-                buffer = bytearray()
-                extend = buffer.extend
-                for e in part:
-                    extend(e)
-                    extend(sep)
-                return (buffer,)
-        else:
-            raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
-        return self.map_partitions(f)
 
 
     def filter_bykey(self, func=None):
