@@ -218,3 +218,8 @@ stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
  
 add protocol version in hello
 
+
+Support ctx.files for tar files
+Support for ctx.files(split=str) for gzipped files
+	- gzip has seek, but no rfind
+
