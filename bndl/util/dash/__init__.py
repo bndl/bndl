@@ -8,7 +8,7 @@ import threading
 from flask import Flask
 import flask
 from flask.templating import render_template
-from werkzeug.utils import import_string
+from werkzeug.utils import import_string, ImportStringError
 
 from bndl.util.dash import status
 import math
@@ -16,6 +16,7 @@ import werkzeug
 import os
 from werkzeug.serving import make_server
 from threading import Event
+from bndl.util.plugins import load_plugins
 
 
 logger = logging.getLogger(__name__)
@@ -44,15 +45,28 @@ _srv = None
 dashes = OrderedDict()
 
 
+def register_dash(key, dash):
+    dashes[key] = dash
+    if dash.blueprint:
+        app.register_blueprint(dash.blueprint, url_prefix='/' + key)
+
+
 def _load_dashes():
     for key, dash in app.config['BNDL_DASHES']:
         dash = import_string(dash)
         if not dash:
             logger.warning('unable to load bndl dash %s', dash)
             continue
-        dashes[key] = dash
-        if dash.blueprint:
-            app.register_blueprint(dash.blueprint, url_prefix='/' + key)
+        register_dash(key, dash)
+
+    for plugin in load_plugins():
+        try:
+            dash = import_string('%s.dash' % plugin.__package__)
+        except (ImportError, ImportStringError):
+            pass
+        else:
+            key = plugin.__name__.replace('bndl_', '')
+            register_dash(key, dash)
 
 
 @lru_cache()
