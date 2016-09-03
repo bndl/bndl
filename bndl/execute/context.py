@@ -103,6 +103,8 @@ class ExecutionContext(Lifecycle):
                 # otherwise, find out the max time between connects
                 # and wait twice as long
                 stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
+                # but for no longer than connect_timeout
+                stable_time = min(connect_timeout, stable_time)
 
             if min_connected_since < max(stable_time, timedelta(seconds=.5)):
                 return False
