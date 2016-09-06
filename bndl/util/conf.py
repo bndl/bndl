@@ -142,3 +142,15 @@ class Attr(Setting):
 
     def fmt(self, v):
         return getattr(self.obj, str(v), self.default)
+
+
+class Enum(Setting):
+    def __init__(self, *args, choices=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.choices = choices
+
+    def fmt(self, v):
+        if v in self.choices:
+            return v
+        else:
+            raise ValueError('Unsupported value %s (must be one of %r)' % (v, self.choices))
