@@ -48,4 +48,4 @@ class ZippedPartition(Partition):
 
 
     def _materialize(self, ctx):
-        yield from self.dset.comb(*(child.materialize(ctx) for child in self.src))
+        return self.dset.comb(*(child.materialize(ctx) for child in self.src))
