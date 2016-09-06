@@ -14,8 +14,11 @@ class NetTest(TestCase):
     node_class = Node
     node_count = 4
     ease_discovery = True
-    seeds = []
-    nodes = []
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seeds = []
+        self.nodes = []
 
 
     def setUp(self):
