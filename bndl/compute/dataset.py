@@ -1146,7 +1146,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self
 
     def __del__(self):
-        if self._cache_provider:
+        if getattr(self, '_cache_provider', None):
             node = self.ctx.node
             if node and node.node_type == 'driver':
                 self.uncache()
