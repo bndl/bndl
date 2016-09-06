@@ -1,6 +1,13 @@
 from functools import reduce
+from itertools import chain
+from operator import itemgetter
+import collections
 
 from bndl.compute.dataset import Dataset, Partition
+from bndl.util.collection import ensure_collection
+from cytoolz.itertoolz import partition
+from pandas.indexes.range import RangeIndex
+import numpy as np
 import pandas as pd
 
 
@@ -13,28 +20,43 @@ def combine_dataframes(dfs):
 
 
 
-class DataFrame(pd.DataFrame):
-    def __iter__(self):
-        return self.itertuples(name='Row')
+class DistributedNDFrame(Dataset):
+    def take(self, num):
+        heads = self.map_partitions(lambda frame: frame.head(num)).icollect(eager=False, parts=True)
+        try:
+            frame = next(heads)
+            while len(frame) < num:
+                try:
+                    frame = frame.append(next(heads))
+                except StopIteration:
+                    break
+            if len(frame) > num:
+                frame = frame.head(num)
+        finally:
+            heads.close()
+        return frame
+
+
+    def collect(self, parts=False):
+        frames = super().collect(True)
+        if parts:
+            return frames
+        def has_range_idx(frame):
+            return isinstance(frame.index, RangeIndex) and frame.index[0] == 0 and frame.index[-1] == len(frame) - 1
+        frame = reduce(_pairwise_append, frames)
+        if all(map(has_range_idx, frames)):
+            frame.index = RangeIndex(len(frame))
+        return frame
 
 
 
-class Columns(pd.Series):
-    def __init__(self, ddf, cols):
-        cols = [Column(ddf, *col) if isinstance(col, tuple) else col for col in cols]
-        super().__init__(cols, (col.name for col in cols))
+class DistributedSeries(DistributedNDFrame):
+    def __init__(self, src):
+        super().__init__(src.ctx, src)
 
 
 
-class Column(object):
-    def __init__(self, ddf, name, dtype):
-        self.ddf = ddf
-        self.name = name
-        self.dtype = dtype
-
-
-
-class DistributedDataFrame(Dataset):
+class DistributedDataFrame(DistributedNDFrame):
     def __init__(self, src, index, columns):
         super().__init__(src.ctx, src)
         self.index = Columns(self, index)
@@ -42,13 +64,30 @@ class DistributedDataFrame(Dataset):
 
 
     @classmethod
+    def from_dataset(cls, src, columns=None, samples=10):
+        if columns:
+            index = []
+        else:
+            sample = DataFrame(src.take(samples), columns=columns)
+            index = [sample.index.name]
+            columns = sample.columns
+        def to_df(part):
+            if isinstance(part, range):
+                part = np.arange(part.start, part.stop, part.step)
+            if isinstance(part, collections.Iterator):
+                part = list(part)
+            return  DataFrame(part, columns=columns)
+        return cls(src.map_partitions(to_df), index, columns)
+
+
+    @classmethod
     def from_sample(cls, src, sample):
         index = sample.index
         if isinstance(index, pd.MultiIndex):
-            index = [(level.name, level.dtype) for level in index.levels]
+            index = [level.name for level in index.levels]
         else:
-            index = [(index.name, index.dtype)]
-        return cls(src, index, sample.dtypes.items())
+            index = [index.name]
+        return cls(src, index, sample.columns)
 
 
     def parts(self):
@@ -56,6 +95,33 @@ class DistributedDataFrame(Dataset):
             DistributedDataFramePartition(self, i, part)
             for i, part in enumerate(self.src.parts())
         ]
+
+
+    def __getitem__(self, name):
+        if name in self.columns:
+            return self.columns.get(name)
+        elif name in self.index:
+            return self.index.get(name)
+        else:
+            raise KeyError('No column %s' % name)
+
+
+    def assign(self, *args, **kwargs):
+        df = self
+        for name, value in sorted(chain(partition(2, args), kwargs.items()), key=itemgetter(0)):
+            if isinstance(value, np.ndarray):
+                value = self.ctx.array(value)
+            # TODO elif isinstance(value, pd.DataFrame):
+            # ...
+            elif not isinstance(value, Dataset):
+                value = self.ctx.collection(value)
+            def assign_values(part, values):
+                extended = part.assign(**{name:ensure_collection(values)})
+                return extended
+            src = df.zip_partitions(value, assign_values)
+            df = DistributedDataFrame(src, df.index.copy(), df.columns.copy())
+            df.columns.append(pd.Series([Column(df, name)], [name]))
+        return df
 
 
     def take(self, num):
@@ -75,9 +141,36 @@ class DistributedDataFrame(Dataset):
 
 
     def collect(self, parts=False):
+        dfs = super().collect(True)
         if parts:
-            return super().collect(True)
-        return super().glom().reduce(_pairwise_append)
+            return dfs
+        def has_range_idx(df):
+            return isinstance(df.index, RangeIndex)
+        df = reduce(_pairwise_append, dfs)
+        if all(map(has_range_idx, dfs)):
+            df.index = RangeIndex(len(df))
+        return df
+
+
+
+class Columns(pd.Series):
+    def __init__(self, ddf, cols):
+        cols = [Column(ddf, col) if col is None or isinstance(col, str) else col for col in cols]
+        super().__init__(cols, (col.name for col in cols))
+
+
+
+class Column(DistributedDataFrame):
+    def __init__(self, ddf, name):
+        self.ddf = ddf
+        self.name = name
+        # TODO fix this up for indices
+        src = ddf.map_partitions(lambda part: part[name])
+        super().__init__(src, [], [self])
+
+    def __repr__(self, *args, **kwargs):
+        return '<Column {c.name} of DDF {c.ddf.id}>'.format(c=self)
+
 
 
 class DistributedDataFramePartition(Partition):
@@ -86,3 +179,8 @@ class DistributedDataFramePartition(Partition):
         if isinstance(data, pd.DataFrame):
             data.__class__ = DataFrame
         return data
+
+
+class DataFrame(pd.DataFrame):
+    def __iter__(self):
+        return self.itertuples(name='Row')
