@@ -1021,14 +1021,20 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def collect_as_map(self, parts=False):
+        dicts = self.map_partitions(dict).icollect(parts=True)
         if parts:
-            return list(map(dict, self.icollect(parts=True)))
+            return list(dicts)
         else:
-            return dict(self.icollect())
+            combined = {}
+            for d in dicts:
+                combined.update(d)
+            return combined
 
 
     def collect_as_set(self):
-        return set(self.icollect())
+        s = set()
+        s.update(*self.map_partitions(set).icollect(parts=True))
+        return s
 
 
     def collect_as_pickles(self, directory=None, compress=None):
