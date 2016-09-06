@@ -226,6 +226,10 @@ class Dataset(metaclass=abc.ABCMeta):
         return dataframes.DistributedDataFrame.from_sample(dsets, sample)
 
 
+    def as_dataframe(self, *args, **kwargs):
+        from bndl.compute import dataframes
+        return dataframes.DistributedDataFrame.from_dataset(self, *args, **kwargs)
+
 
     def filter(self, func=None):
         '''
