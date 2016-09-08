@@ -3,7 +3,7 @@ from collections import Counter, Iterable
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap
-from math import sqrt, log
+from math import sqrt, log, ceil
 from operator import add
 from os import linesep
 import abc
@@ -556,10 +556,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
         '''
         def _local(iterable):
-            v = zero
-            for e in iterable:
-                merge_value(v, e)
-            return v
+            return reduce(merge_value, iterable, zero)
         return self.aggregate(_local, partial(reduce, merge_combs))
 
 
@@ -576,6 +573,62 @@ class Dataset(metaclass=abc.ABCMeta):
             4950
         '''
         return self.aggregate(partial(reduce, reduction))
+
+
+    def tree_aggregate(self, local, comb=None, depth=2, scale=None):
+        '''
+        Tree-wise aggregation by first applying local on each partition and
+        subsequently shuffling the data across workers in depth rounds and for
+        each round aggregating the data by applying comb.
+
+        :param local: func(iterable)
+            The aggregation function to apply to each partition.
+        :param comb:
+            The function to apply in order to combine aggregated partitions.
+        :param depth:
+            The number of iterations to apply the aggregation in.
+        :param scale: int or None (default)
+            The factor by which to reduce the partition count in each round. If
+            None, the step is chosen such that each reduction of intermediary
+            results is roughly of the same size (the branching factor in the
+            tree is the same across the entire tree).
+        '''
+        if not comb:
+            comb = local
+
+        if not scale:
+            pcount = len(self.parts())
+            scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
+
+        agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
+
+        for _ in range(depth):
+            agg = agg.group_by_key(pcount=pcount).map_values(lambda v: comb(pluck(1, v)))
+            pcount //= scale
+            if pcount < 2:
+                break
+            agg = agg.map_keys(lambda idx, : idx % pcount)
+
+        try:
+            return comb(agg.values().icollect())
+        except StopIteration:
+            raise ValueError('dataset is empty')
+
+
+    def tree_combine(self, zero, merge_value, merge_combs, **kwargs):
+        '''
+        Tree-wise version of Dataset.combine. See Dataset.tree_aggregate for details.
+        '''
+        def _local(iterable):
+            return reduce(merge_value, iterable, zero)
+        return self.tree_aggregate(_local, partial(reduce, merge_combs), **kwargs)
+
+
+    def tree_reduce(self, reduction, **kwargs):
+        '''
+        Tree-wise version of Dataset.reduce. See Dataset.tree_aggregate for details.
+        '''
+        return self.tree_aggregate(partial(reduce, reduction), **kwargs)
 
 
     def count(self):
@@ -746,7 +799,6 @@ class Dataset(metaclass=abc.ABCMeta):
                 else:
                     items[k] = v
             return list(items.items())
-
 
         return self.map_partitions(_merge_vals) \
                    .shuffle(pcount, partitioner, key=getter(0)) \
