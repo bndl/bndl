@@ -223,3 +223,46 @@ Support ctx.files for tar files
 Support for ctx.files(split=str) for gzipped files
 	- gzip has seek, but no rfind
 
+
+
+Crash task on driver side exceptions (e.g. in sending files which are read protected)
+
+
+ctx.files.cleanup creates its own garbage in node.hosted_values
+
+
+broadcast actual files without loading in the driver
+
+
+cache_loc not filled when using first() ???
+
+
+Whooops:
+
+	In [86]: texts.uncache()
+	ERROR:bndl.rmi.node:unable to perform remote invocation
+	Traceback (most recent call last):
+	  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/rmi/node.py", line 51, in _request
+	    response = (yield from asyncio.wait_for(response_future, self._timeout, loop=self.peer.loop))
+	  File "/usr/lib64/python3.4/asyncio/tasks.py", line 381, in wait_for
+	    raise futures.TimeoutError()
+	concurrent.futures._base.TimeoutError
+	ERROR:bndl.rmi.node:unable to perform remote invocation
+	Traceback (most recent call last):
+	  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/rmi/node.py", line 51, in _request
+	    response = (yield from asyncio.wait_for(response_future, self._timeout, loop=self.peer.loop))
+	  File "/usr/lib64/python3.4/asyncio/tasks.py", line 381, in wait_for
+	    raise futures.TimeoutError()
+	concurrent.futures._base.TimeoutError
+	ERROR:bndl.rmi.node:unable to perform remote invocation
+	Traceback (most recent call last):
+	  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/rmi/node.py", line 51, in _request
+	    response = (yield from asyncio.wait_for(response_future, self._timeout, loop=self.peer.loop))
+	  File "/usr/lib64/python3.4/asyncio/tasks.py", line 381, in wait_for
+	    raise futures.TimeoutError()
+	concurrent.futures._base.TimeoutError
+	WARNING:bndl.rmi.node:Response <Response exception=None, req_id=48, value=None> received for unknown request id 48
+	WARNING:bndl.rmi.node:Response <Response exception=None, req_id=48, value=None> received for unknown request id 48
+	WARNING:bndl.rmi.node:Response <Response exception=None, req_id=45, value=None> received for unknown request id 45
+
+
