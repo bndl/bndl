@@ -1502,7 +1502,10 @@ class TransformingDataset(Dataset):
     def __init__(self, ctx, src, transformation):
         super().__init__(ctx, src)
         self.transformation = transformation
-        self._transformation = cycloudpickle.dumps(self.transformation)  # @UndefinedVariable
+        try:
+            self._transformation = pickle.dumps(transformation, protocol=4)
+        except (pickle.PicklingError, AttributeError):
+            self._transformation = cycloudpickle.dumps(transformation, protocol=4)
 
     def parts(self):
         return [
