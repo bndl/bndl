@@ -111,12 +111,12 @@ class DistributedDataFrame(DistributedNDFrame):
     def assign(self, *args, **kwargs):
         df = self
         for name, value in sorted(chain(partition(2, args), kwargs.items()), key=itemgetter(0)):
-            if isinstance(value, np.ndarray):
-                value = self.ctx.array(value)
+            # TODO if isinstance(value, np.ndarray):
+            #     value = self.ctx.array(value)
             # TODO elif isinstance(value, pd.DataFrame):
             # ...
-            elif not isinstance(value, Dataset):
-                value = self.ctx.collection(value)
+            # TODO elif not isinstance(value, Dataset):
+            #     value = self.ctx.collection(value)
             def assign_values(part, values):
                 extended = part.assign(**{name:ensure_collection(values)})
                 return extended
