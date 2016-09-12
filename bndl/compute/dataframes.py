@@ -11,42 +11,44 @@ import numpy as np
 import pandas as pd
 
 
-def _pairwise_append(a, b):
-    return a.append(b)
+def _has_range_idx(frame):
+    return isinstance(frame.index, RangeIndex) and frame.index[0] == 0 and frame.index[-1] == len(frame) - 1
 
 
-def combine_dataframes(dfs):
-    return reduce(_pairwise_append, dfs)
-
+def _concat(frames):
+    frame = pd.concat(frames)
+    if all(map(_has_range_idx, frames)):
+        frame.index = RangeIndex(len(frame))
+    return frame
 
 
 class DistributedNDFrame(Dataset):
     def take(self, num):
         heads = self.map_partitions(lambda frame: frame.head(num)).icollect(eager=False, parts=True)
         try:
-            frame = next(heads)
-            while len(frame) < num:
+            rows = 0
+            frames = []
+            while rows < num:
                 try:
-                    frame = frame.append(next(heads))
+                    head = next(heads)
                 except StopIteration:
                     break
-            if len(frame) > num:
-                frame = frame.head(num)
+                if rows + len(head) > num:
+                    head = head.head(num)
+                frames.append(head)
+                rows += len(head)
+                if rows >= num:
+                    break
         finally:
             heads.close()
-        return frame
+        return _concat(frames)
 
 
     def collect(self, parts=False):
         frames = super().collect(True)
         if parts:
             return frames
-        def has_range_idx(frame):
-            return isinstance(frame.index, RangeIndex) and frame.index[0] == 0 and frame.index[-1] == len(frame) - 1
-        frame = reduce(_pairwise_append, frames)
-        if all(map(has_range_idx, frames)):
-            frame.index = RangeIndex(len(frame))
-        return frame
+        return _concat(frames)
 
 
 
@@ -121,34 +123,6 @@ class DistributedDataFrame(DistributedNDFrame):
             src = df.zip_partitions(value, assign_values)
             df = DistributedDataFrame(src, df.index.copy(), df.columns.copy())
             df.columns.append(pd.Series([Column(df, name)], [name]))
-        return df
-
-
-    def take(self, num):
-        heads = self.map_partitions(lambda df: df.head(num)).icollect(eager=False, parts=True)
-        try:
-            df = next(heads)
-            while len(df) < num:
-                try:
-                    df = df.append(next(heads))
-                except StopIteration:
-                    break
-            if len(df) > num:
-                df = df.head(num)
-        finally:
-            heads.close()
-        return df
-
-
-    def collect(self, parts=False):
-        dfs = super().collect(True)
-        if parts:
-            return dfs
-        def has_range_idx(df):
-            return isinstance(df.index, RangeIndex)
-        df = reduce(_pairwise_append, dfs)
-        if all(map(has_range_idx, dfs)):
-            df.index = RangeIndex(len(df))
         return df
 
 
