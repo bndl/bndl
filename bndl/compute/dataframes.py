@@ -6,13 +6,20 @@ import collections
 from bndl.compute.dataset import Dataset, Partition
 from bndl.util.collection import ensure_collection
 from cytoolz.itertoolz import partition
+from pandas.indexes.numeric import NumericIndex
 from pandas.indexes.range import RangeIndex
 import numpy as np
 import pandas as pd
 
 
 def _has_range_idx(frame):
-    return isinstance(frame.index, RangeIndex) and frame.index[0] == 0 and frame.index[-1] == len(frame) - 1
+    index = frame.index
+    if isinstance(index, RangeIndex):
+        return  index[0] == 0 and index[-1] == len(frame) - 1
+    elif isinstance(index, NumericIndex):
+        return (index.values == range(len(index))).all()
+    else:
+        return False
 
 
 def _concat(frames):

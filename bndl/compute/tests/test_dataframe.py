@@ -1,5 +1,8 @@
 from bndl.compute.tests import DatasetTest
+import pandas as pd
 import numpy as np
+import tempfile
+import csv
 
 
 class DataFrameTest(DatasetTest):
@@ -25,3 +28,32 @@ class DataFrameTest(DatasetTest):
 
         self.assertTrue((with_nums2['num'] == np.arange(100)).all())
         self.assertTrue((with_nums2['num2'] == np.arange(100) ** 2).all())
+
+    def test_csv(self):
+        n_files = 10
+        n_rows_per_file = 100
+        n_rows = n_rows_per_file * n_files
+        files = [tempfile.NamedTemporaryFile('w+t')
+                 for _ in range(n_files)]
+        for offset, file in enumerate(files):
+            offset *= n_rows_per_file
+            writer = csv.writer(file.file)
+            rows = [[i, i ** 2, i // 2] for i in range(offset, offset + n_rows_per_file)]
+            writer.writerow(list('abc'))
+            for row in rows:
+                writer.writerow(row)
+            file.file.flush()
+
+        df = self.ctx.files([file.name for file in files],
+                             psize_bytes=1024, psize_files=3).parse_csv().collect()
+
+        expected = pd.DataFrame(dict(
+            a=np.arange(n_rows),
+            b=np.arange(n_rows) ** 2,
+            c=np.arange(n_rows) // 2,
+        ))
+
+        self.assertTrue((df == expected).all().all())
+
+        for file in files:
+            file.close()
