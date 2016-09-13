@@ -605,7 +605,7 @@ class Dataset(metaclass=abc.ABCMeta):
         for _ in range(depth):
             agg = agg.group_by_key(pcount=pcount).map_values(lambda v: comb(pluck(1, v)))
             pcount //= scale
-            if pcount < 2:
+            if pcount < scale:
                 break
             agg = agg.map_keys(lambda idx, : idx % pcount)
 
@@ -824,6 +824,20 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.combine_by_key(identity, reduction, reduction, pcount, partitioner)
 
 
+    def _join(self, other, *others, key=None, partitioner=None, pcount=None):
+        key = key_or_getter(key)
+
+        rdds = []
+        for idx, rdd in enumerate((self, other) + others):
+            if key is None:
+                rdds.append(rdd.map_values(lambda v: (idx, v)))
+            else:
+                rdds.append(rdd.map_partitions(lambda p, idx=idx: ((key(e), (idx, e)) for e in p)))
+
+        union = reduce(lambda a, b: a.union(b), rdds)
+        return union.group_by_key(partitioner=partitioner, pcount=pcount)
+
+
     def join(self, other, key=None, partitioner=None, pcount=None):
         '''
         Join two datasets.
@@ -844,23 +858,9 @@ class Dataset(metaclass=abc.ABCMeta):
             [(0, [(0, 8), (0, 6), (2, 8), (2, 6), (4, 8), (4, 6)]),
              (1, [(1, 5), (1, 9), (1, 7), (3, 5), (3, 9), (3, 7)])]
         '''
-        key = key_or_getter(key)
-
-        if key:
-            # add a key to keep left from right
-            # also apply the key function
-            left = self.map_partitions(lambda p: ((key(e), (0, e)) for e in p))
-            right = other.map_partitions(lambda p: ((key(e), (1, e)) for e in p))
-        else:
-            # add a key to keep left from right
-            left = self.map_values(lambda v: (0, v))
-            right = other.map_values(lambda v: (1, v))
-
-        both = left.union(right)
-        shuffled = both.group_by_key(partitioner=partitioner, pcount=pcount)
-
         def local_join(group):
             key, group = group
+
             left, right = [], []
             left_append, right_append = left.append, right.append
             for (idx, value) in pluck(1, group):
@@ -871,8 +871,23 @@ class Dataset(metaclass=abc.ABCMeta):
             if left and right:
                 return key, list(product(left, right))
 
-        joined = shuffled.map(local_join)
-        return joined.filter()
+        groups = self._join(other, key=key, partitioner=partitioner, pcount=pcount)
+        return groups.map(local_join).filter()
+
+
+    def cogroup(self, other, *others, key=None, partitioner=None, pcount=None):
+        num_rdds = 2 + len(others)
+
+        def local_cogroup(group):
+            key, group = group
+
+            buckets = [[] for _ in range(num_rdds)]
+            for (idx, value) in pluck(1, group):
+                buckets[idx].append(value)
+            return key, buckets
+
+        groups = self._join(other, *others, key=key, partitioner=partitioner, pcount=pcount)
+        return groups.map(local_cogroup).filter()
 
 
     def distinct(self, pcount=None):

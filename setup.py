@@ -28,7 +28,7 @@ except ImportError:
 
 setup(
     name='bndl',
-    version='0.1.9',
+    version='0.1.10',
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
     long_description=open('README.md').read(),
