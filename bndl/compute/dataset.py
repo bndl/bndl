@@ -215,14 +215,19 @@ class Dataset(metaclass=abc.ABCMeta):
     def parse_csv(self, sample=None, **kwargs):
         import pandas as pd
         from bndl.compute import dataframes
-        if sample is None:
-            sample = pd.read_csv(io.StringIO(self.first()), **kwargs)
-        if 'names' not in kwargs:
-            kwargs['names'] = sample.columns
+
         def as_df(part):
             dfs = (pd.read_csv(io.StringIO(e), **kwargs) for e in part)
-            return dataframes.combine_dataframes(dfs)
+            return pd.concat(list(dfs))
         dsets = self.map_partitions(as_df)
+
+        if sample is None:
+            columns = kwargs.pop('names', None)
+            if columns:
+                return dataframes.DistributedDataFrame(dsets, [None], columns)
+            else:
+                sample = pd.read_csv(io.StringIO(self.first()), **kwargs)
+
         return dataframes.DistributedDataFrame.from_sample(dsets, sample)
 
 
