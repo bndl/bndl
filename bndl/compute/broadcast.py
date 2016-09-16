@@ -7,7 +7,7 @@ import pickle
 from bndl.util import serialize, threads
 from bndl.util.conf import Float
 from bndl.util.funcs import identity
-from toolz.functoolz import compose
+from cytoolz.functoolz import compose
 
 
 min_block_size = Float(4)  # MB
