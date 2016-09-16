@@ -14,7 +14,12 @@ def as_method(o):
 def _getter(key, obj):
     return obj[key]
 
-def getter(key):
+
+def _getter_list(index, obj):
+    return tuple(obj[i] for i in index)
+
+
+def getter(index):
     '''
     Because unpickling itemgetter is for some reason hard to implement ...
 
@@ -26,8 +31,28 @@ def getter(key):
         ----> 1 pickle.loads(pickle.dumps(operator.itemgetter(1)))
 
         TypeError: itemgetter expected 1 arguments, got 0
-    '''
-    return partial(_getter, key)
+
+
+    This also hurts cytoolz:
+        An unknown exception occurred in connection localdomain.localhost.driver.9844.0
+        Traceback (most recent call last):
+          File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 279, in _serve
+            msg = yield from self.recv()
+          File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/peer.py", line 75, in recv
+            msg = yield from self.conn.recv(timeout)
+          File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/connection.py", line 208, in recv
+            return serialize.load(*payload)
+          File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/net/serialize.py", line 61, in load
+            value = serialize.loads(marshalled, msg)
+          File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/serialize.py", line 27, in loads
+            return pickle.loads(msg)
+          File "cytoolz/itertoolz.pyx", line 1174, in cytoolz.itertoolz._getter_list.__cinit__ (cytoolz/itertoolz.c:15892)
+        TypeError: __cinit__() takes exactly 1 positional argument (0 given)
+     '''
+    if isinstance(index, list):
+        return partial(_getter_list, index)
+    else:
+        return partial(_getter, index)
 
 
 def key_or_getter(key):
