@@ -1,8 +1,9 @@
+from asyncio.futures import TimeoutError
 from bisect import bisect_left
 from collections import Counter, Iterable
 from copy import copy
 from functools import partial, total_ordering, reduce
-from itertools import islice, product, chain, starmap
+from itertools import islice, product, chain, starmap, groupby
 from math import sqrt, log, ceil
 from operator import add
 from os import linesep
@@ -14,6 +15,7 @@ import json
 import logging
 import os
 import pickle
+import random
 import struct
 import traceback
 import uuid
@@ -29,7 +31,6 @@ from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
-import sortedcontainers.sortedlist
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class Dataset(metaclass=abc.ABCMeta):
             applied to each element of the dataset
         '''
         return self.map_partitions(partial(map, func))
+
 
     def starmap(self, func):
         '''
@@ -415,11 +417,13 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         return next(self.itake(1))
 
+
     def take(self, num):
         '''
         Take the first num elements from this dataset.
         '''
         return list(self.itake(num))
+
 
     def itake(self, num):
         '''
@@ -579,7 +583,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.aggregate(partial(reduce, reduction))
 
 
-    def tree_aggregate(self, local, comb=None, depth=2, scale=None):
+    def tree_aggregate(self, local, comb=None, depth=2, scale=None, **shuffle_opts):
         '''
         Tree-wise aggregation by first applying local on each partition and
         subsequently shuffling the data across workers in depth rounds and for
@@ -597,6 +601,9 @@ class Dataset(metaclass=abc.ABCMeta):
             results is roughly of the same size (the branching factor in the
             tree is the same across the entire tree).
         '''
+        if depth < 2:
+            return self.aggregate(local, comb)
+
         if not comb:
             comb = local
 
@@ -607,7 +614,7 @@ class Dataset(metaclass=abc.ABCMeta):
         agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
 
         for _ in range(depth):
-            agg = agg.group_by_key(pcount=pcount).map_values(lambda v: comb(pluck(1, v)))
+            agg = agg._group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
             pcount //= scale
             if pcount < scale:
                 break
@@ -704,7 +711,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.aggregate(Stats, partial(reduce, add))
 
 
-    def union(self, other):
+    def union(self, other, *others):
         '''
         Union this dataset with another
 
@@ -715,10 +722,10 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(0, 5).union(ctx.range(5, 10)).collect()
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         '''
-        return UnionDataset(self, other)
+        return UnionDataset((self, other) + others)
 
 
-    def group_by(self, key, partitioner=None, pcount=None):
+    def group_by(self, key, partitioner=None, pcount=None, **shuffle_opts):
         '''
         Group the dataset by a given key function.
 
@@ -739,11 +746,11 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         key = key_or_getter(key)
         return (self.key_by(key)
-                    .group_by_key(partitioner=partitioner, pcount=pcount)
-                    .map_values(lambda val: pluck(1, val)))  # @UnusedVariable
+                    ._group_by_key(partitioner=partitioner, pcount=pcount, **shuffle_opts)
+                    .map_values(lambda val: list(pluck(1, val))))  # @UnusedVariable
 
 
-    def group_by_key(self, partitioner=None, pcount=None):
+    def group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
         '''
         Group a K, V dataset by K.
 
@@ -752,26 +759,17 @@ class Dataset(metaclass=abc.ABCMeta):
         :param pcount:
             The number of partitions to group into.
         '''
-        def sort_and_group(partition):
-            partition = sorted(partition, key=getter(0))
-            if not partition:
-                return ()
-            key = partition[0][0]
-            group = []
-            for element in partition:
-                if key == element[0]:
-                    group.append(element)
-                else:
-                    yield key, group
-                    group = [element]
-                    key = element[0]
-            yield key, group
-
-        return (self.shuffle(key=getter(0), partitioner=partitioner, pcount=pcount)
-                    .map_partitions(sort_and_group))
+        return self._group_by_key(partitioner, pcount, **shuffle_opts).map_values(list)
 
 
-    def combine_by_key(self, create, merge_value, merge_combs, partitioner=None, pcount=None):
+    def _group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
+        def _group_by_key(partition):
+            return groupby(partition, key=getter(0))
+        return (self.shuffle(pcount, partitioner, key=getter(0), **shuffle_opts)
+                    .map_partitions(_group_by_key))
+
+
+    def combine_by_key(self, create, merge_value, merge_combs, partitioner=None, pcount=None, **shuffle_opts):
         '''
         Combine the values in a K, V1 dataset into a dataset of K, V2.
 
@@ -787,29 +785,26 @@ class Dataset(metaclass=abc.ABCMeta):
             The number of partitions to combine into.
         '''
         def _merge_vals(partition):
-            items = {}
-            for key, value in partition:
-                if key in items:
-                    items[key] = merge_value(items[key], value)
-                else:
-                    items[key] = create(value)
-            return list(items.items())
+            for key, group in groupby(partition, key=getter(0)):
+                group = pluck(1, group)
+                merged = create(next(group))
+                for value in group:
+                    merged = merge_value(merged, value)
+                yield key, merged
 
         def _merge_combs(partition):
-            items = {}
-            for k, v in partition:
-                if k in items:
-                    items[k] = merge_combs(items[k], v)
-                else:
-                    items[k] = v
-            return list(items.items())
+            for key, group in groupby(partition, key=getter(0)):
+                group = pluck(1, group)
+                merged = next(group)
+                for value in group:
+                    merged = merge_combs(merged, value)
+                yield key, merged
 
-        return self.map_partitions(_merge_vals) \
-                   .shuffle(pcount, partitioner, key=getter(0)) \
-                   .map_partitions(_merge_combs)
+        return (self.shuffle(pcount, partitioner, key=getter(0), comb=_merge_vals, **shuffle_opts)
+                    .map_partitions(_merge_combs))
 
 
-    def reduce_by_key(self, reduction, partitioner=None, pcount=None):
+    def reduce_by_key(self, reduction, partitioner=None, pcount=None, **shuffle_opts):
         '''
         Reduce the values of a K, V dataset.
 
@@ -825,10 +820,10 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(12).map(lambda i: (i%3, 1)).reduce_by_key(lambda a, b: a+b).collect()
             [(0, 4), (1, 4), (2, 4)]
         '''
-        return self.combine_by_key(identity, reduction, reduction, pcount, partitioner)
+        return self.combine_by_key(identity, reduction, reduction, pcount, partitioner, **shuffle_opts)
 
 
-    def _join(self, other, *others, key=None, partitioner=None, pcount=None):
+    def _join(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
         key = key_or_getter(key)
 
         rdds = []
@@ -838,11 +833,10 @@ class Dataset(metaclass=abc.ABCMeta):
             else:
                 rdds.append(rdd.map_partitions(lambda p, idx=idx: ((key(e), (idx, e)) for e in p)))
 
-        union = reduce(lambda a, b: a.union(b), rdds)
-        return union.group_by_key(partitioner=partitioner, pcount=pcount)
+        return UnionDataset(rdds)._group_by_key(partitioner, pcount, **shuffle_opts)
 
 
-    def join(self, other, key=None, partitioner=None, pcount=None):
+    def join(self, other, key=None, partitioner=None, pcount=None, **shuffle_opts):
         '''
         Join two datasets.
 
@@ -863,38 +857,30 @@ class Dataset(metaclass=abc.ABCMeta):
              (1, [(1, 5), (1, 9), (1, 7), (3, 5), (3, 9), (3, 7)])]
         '''
         def local_join(group):
-            key, group = group
+            key, groups = group
+            if all(groups):
+                yield key, list(product(*groups))
 
-            left, right = [], []
-            left_append, right_append = left.append, right.append
-            for (idx, value) in pluck(1, group):
-                if idx:
-                    right_append(value)
-                else:
-                    left_append(value)
-            if left and right:
-                return key, list(product(left, right))
-
-        groups = self._join(other, key=key, partitioner=partitioner, pcount=pcount)
-        return groups.map(local_join).filter()
+        return (self.cogroup(other, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
+                    .flatmap(local_join))
 
 
-    def cogroup(self, other, *others, key=None, partitioner=None, pcount=None):
+    def cogroup(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
         num_rdds = 2 + len(others)
 
         def local_cogroup(group):
             key, group = group
 
             buckets = [[] for _ in range(num_rdds)]
-            for (idx, value) in pluck(1, group):
+            for idx, value in pluck(1, group):
                 buckets[idx].append(value)
             return key, buckets
 
-        groups = self._join(other, *others, key=key, partitioner=partitioner, pcount=pcount)
-        return groups.map(local_cogroup).filter()
+        return (self._join(other, *others, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
+                    .map(local_cogroup))
 
 
-    def distinct(self, pcount=None):
+    def distinct(self, pcount=None, key=None, **shuffle_opts):
         '''
         Select the distinct elements from this dataset.
 
@@ -906,15 +892,22 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> sorted(ctx.range(10).map(lambda i: i%2).distinct().collect())
             [0, 1]
         '''
-        shuffle = self.shuffle(pcount, bucket=SetBucket, comb=set)
-        return shuffle.map_partitions(set)
+        key = key_or_getter(key)
+        if key is not None:
+            from .shuffle import DictBucket
+            shuffle = self.shuffle(pcount, bucket=DictBucket, key=key, **shuffle_opts)
+            return shuffle.map_partitions(lambda p: iter(dict(zip(map(key, p), p)).values()))
+        else:
+            from .shuffle import SetBucket
+            shuffle = self.shuffle(pcount, bucket=SetBucket, **shuffle_opts)
+            return shuffle.map_partitions(set)
 
 
-    def count_distinct(self):
+    def count_distinct(self, pcount=None, **shuffle_opts):
         '''
         Count the distinct elements in this Dataset.
         '''
-        return self.distinct().count()
+        return self.distinct(pcount, **shuffle_opts).count()
 
 
     def count_distinct_approx(self, error_rate=.05):
@@ -931,15 +924,16 @@ class Dataset(metaclass=abc.ABCMeta):
         ).card()
 
 
-    def count_by_value(self):
+    def count_by_value(self, depth=1, **shuffle_opts):
         '''
         Count the occurrence of each distinct value in the data set.
         '''
-        return self.aggregate(Counter, lambda counters: sum(counters, Counter()))
+        return self.tree_aggregate(Counter, lambda counters: sum(counters, Counter()),
+                                   depth=depth, **shuffle_opts)
 
 
 
-    def sort(self, key=identity, reverse=False, pcount=None):
+    def sort(self, key=identity, reverse=False, pcount=None, hd_distribution=False, **shuffle_opts):
         '''
         Sort the elements in this dataset.
 
@@ -963,18 +957,30 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(5).key_by(lambda i: i-2).sort(key=1).sort().collect()
             [(-2, 0), (-1, 1), (0, 2), (1, 3), (2, 4)]
         '''
+        from bndl.compute.shuffle import RangePartitioner
         key = key_or_getter(key)
 
-        pcount = pcount or self.ctx.default_pcount
-        # TODO if sort into 1 partition
+        if pcount is None:
+            pcount = len(self.parts())
 
-        dset_size = self.count()
-        if dset_size == 0:
-            return self
+        if pcount == 1:
+            return self.shuffle(pcount, key=key, **shuffle_opts)
 
-        # sample to find a good distribution over buckets
-        fraction = min(pcount * 20. / dset_size, 1.)
-        samples = self.sample(fraction).collect()
+        if hd_distribution:
+            dset_size = self.count()
+            if dset_size == 0:
+                return self
+            # sample to find a good distribution over buckets
+            fraction = min(pcount * 20. / dset_size, 1.)
+            samples = self.sample(fraction).collect_as_set()
+        else:
+            rng = np.random.RandomState()
+            def sampler(partition):
+                samples = sample_without_replacement(rng, 0.1, partition)
+                rng.shuffle(samples)
+                return samples[0:pcount * 2]
+            samples = self.map_partitions(sampler).collect_as_set()
+
         # apply the key function if any
         if key:
             samples = map(key, samples)
@@ -982,20 +988,19 @@ class Dataset(metaclass=abc.ABCMeta):
         samples = sorted(set(samples), reverse=reverse)
         # take pcount - 1 points evenly spaced from the samples as boundaries
         boundaries = [samples[len(samples) * (i + 1) // pcount] for i in range(pcount - 1)]
+#         print(len(boundaries), boundaries)
         # and use that in the range partitioner to shuffle
         partitioner = RangePartitioner(boundaries, reverse)
-        shuffled = self.shuffle(pcount, partitioner=partitioner, key=key)
+        shuffled = self.shuffle(pcount, partitioner=partitioner, key=key, **shuffle_opts)
         # finally sort within the partition
-        return shuffled.map_partitions(partial(sorted, key=key, reverse=reverse))
+        return shuffled.map_partitions(sorted)
 
 
-    def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
-        shuffle = self._shuffle(pcount, partitioner, bucket, key, comb)
-        return ShuffleReadingDataset(self.ctx, shuffle)
-
-    def _shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None):
+    def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, **opts):
         key = key_or_getter(key)
-        return ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb)
+        from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset
+        shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb, **opts)
+        return ShuffleReadingDataset(self.ctx, shuffle)
 
 
     def zip(self, other):
@@ -1012,6 +1017,7 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         # TODO what if some partition is shorter/longer than another?
         return self.zip_partitions(other, zip)
+
 
     def zip_partitions(self, other, comb):
         '''
@@ -1040,7 +1046,6 @@ class Dataset(metaclass=abc.ABCMeta):
 
         assert 0 < fraction < 1
 
-        import numpy as np
         rng = np.random.RandomState(seed)
 
         sampling = sample_with_replacement if with_replacement else sample_without_replacement
@@ -1061,7 +1066,6 @@ class Dataset(metaclass=abc.ABCMeta):
         if count == 0:
             return []
 
-        import numpy as np
         rng = np.random.RandomState(seed)
 
         if (not with_replacement) and num >= count:
@@ -1104,7 +1108,8 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def collect_as_set(self):
         s = set()
-        s.update(*self.map_partitions(set).icollect(parts=True))
+        for part in self.map_partitions(set).icollect(parts=True):
+            s.update(part)
         return s
 
 
@@ -1219,7 +1224,7 @@ class Dataset(metaclass=abc.ABCMeta):
             if worker.name in cache_loc_names]
         # wait for them to finish
         for task in tasks:
-            with catch(Exception):
+            with catch(TimeoutError):
                 task.result()
         # clear cache locations
         self._cache_locs = {}
@@ -1369,152 +1374,25 @@ class MaskedDataset(Dataset):
 
 
 class UnionDataset(Dataset):
-    def __init__(self, *src):
-        super().__init__(src[0].ctx, src)
+    def __init__(self, src):
+        assert len(src) > 1
+        super().__init__(src[0].ctx, tuple(src))
 
-    def union(self, other):
-        extra = other.src if isinstance(other, UnionDataset) else(other,)
-        return UnionDataset(*(self.src + extra))
+    def union(self, other, *others):
+        rdds = list(self.src)
+        def merge_union_or_add(other):
+            if isinstance(other, UnionDataset):
+                rdds.extend(other.src)
+            else:
+                rdds.append(other)
+        merge_union_or_add(other)
+        for other in others:
+            merge_union_or_add(other)
+        return UnionDataset(rdds)
 
     def parts(self):
         return list(chain.from_iterable(src.parts() for src in self.src))
 
-
-
-class ListBucket(list):
-    add = list.append
-
-
-class SetBucket(set):
-    extend = set.update
-
-
-class SortedListBucket(sortedcontainers.sortedlist.SortedList):
-    def extend(self, iterable):
-        self.update(iterable)
-        return self
-
-
-
-class RangePartitioner():
-    def __init__(self, boundaries, reverse=False):
-        self.boundaries = boundaries
-        self.reverse = reverse
-
-    def __call__(self, value):
-        boundaries = self.boundaries
-        boundary = bisect_left(boundaries, value)
-        return len(boundaries) - boundary if self.reverse else boundary
-
-
-
-class ShuffleWritingDataset(Dataset):
-    def __init__(self, ctx, src, pcount, partitioner=None, bucket=None, key=None, comb=None):
-        super().__init__(ctx, src)
-        self.pcount = pcount or len(self.src.parts())
-        self.comb = comb
-        self.partitioner = partitioner or portable_hash
-        self.bucket = ListBucket
-        self.key = key or identity
-
-
-    @property
-    def sync_required(self):
-        return True
-
-    @property
-    def cleanup(self):
-        def _cleanup(job):
-            futures = [worker.clear_bucket(self.id) for worker in job.ctx.workers]
-            for future in futures:
-                try:
-                    future.result()
-                except Exception:
-                    logger.warning('unable to cleanup after job for shuffle writing dataset %s', self.id, exc_info=True)
-
-        return _cleanup
-
-
-    def parts(self):
-        return [
-            ShuffleWritingPartition(self, i, p)
-            for i, p in enumerate(self.src.parts())
-        ]
-
-
-
-class ShuffleWritingPartition(Partition):
-    def __init__(self, dset, idx, src):
-        super().__init__(dset, idx, src)
-
-
-    def _ensure_buckets(self, worker):
-        # TODO lock
-        buckets = worker.buckets.get(self.dset.id)
-        if not buckets:
-            buckets = [self.dset.bucket() for _ in range(self.dset.pcount)]
-            worker.buckets[self.dset.id] = buckets
-        return buckets
-
-
-    def _materialize(self, ctx):
-        worker = self.dset.ctx.node
-        buckets = self._ensure_buckets(worker)
-        bucket_count = len(buckets)
-
-        if bucket_count:
-            key = self.dset.key
-            partitioner = self.dset.partitioner
-
-            if key:
-                def select_bucket(element):
-                    return partitioner(key(element))
-            else:
-                select_bucket = partitioner
-
-            for element in self.src.materialize(ctx):
-                buckets[select_bucket(element) % bucket_count].add(element)
-
-            if self.dset.comb:
-                for key, bucket in enumerate(buckets):
-                    if bucket:
-                        buckets[key] = self.dset.bucket(self.dset.comb(bucket))
-        else:
-            data = self.src.materialize(ctx)
-            if self.dset.comb:
-                data = self.dset.comb(data)
-            buckets[0].extend(data)
-
-
-
-class ShuffleReadingDataset(Dataset):
-    def __init__(self, ctx, src):
-        super().__init__(ctx, src)
-        assert isinstance(src, ShuffleWritingDataset)
-
-    def parts(self):
-        return [
-            ShuffleReadingPartition(self, i)
-            for i in range(self.src.pcount)
-        ]
-
-
-class ShuffleReadingPartition(Partition):
-    def _materialize(self, ctx):
-        bucket = self.dset.ctx.node.get_bucket(None, self.dset.src.id, self.idx)
-        if bucket:
-            yield from bucket
-
-        futures = [
-            worker.get_bucket(self.dset.src.id, self.idx)
-            for worker in self.dset.ctx.workers
-        ]
-
-        for future in futures:
-            # TODO timeout and reschedule
-            yield from future.result()
-
-        del futures
 
 
 class TransformingDataset(Dataset):
@@ -1546,9 +1424,6 @@ class TransformingPartition(Partition):
     def _materialize(self, ctx):
         data = self.src.materialize(ctx)
         return self.dset.transformation(self.src, data if data is not None else ())
-
-
-logger = logging.getLogger(__name__)
 
 
 def schedule_job(dset, workers=None):

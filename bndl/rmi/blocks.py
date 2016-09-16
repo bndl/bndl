@@ -27,16 +27,16 @@ class BlockSpec(object):
         self.num_blocks = num_blocks
 
 
-class _Block(object):
+class Block(object):
     '''
     Helper class for exchanging blocks between peers. It uses the attach and
     attachment utilities from bndl.net.serialize to optimize sending the already
     serialized data.
     '''
 
-    def __init__(self, idx, block):
-        self.idx = idx
-        self.block = block
+    def __init__(self, block_idx, data):
+        self.id = id
+        self.data = data
 
 
     def __getstate__(self):
@@ -44,15 +44,17 @@ class _Block(object):
         def _attacher():
             @asyncio.coroutine
             def sender(loop, writer):
-                writer.write(self.block)
-            yield len(self.block), sender
-        attach(str(self.idx).encode(), _attacher)
-        return dict(idx=self.idx)
+                writer.write(self.data)
+            yield len(self.data), sender
+        attach(str(self.id).encode(), _attacher)
+        state = dict(self.__dict__)
+        del state['data']
+        return state
 
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.block = attachment(str(self.idx).encode())
+        self.data = attachment(str(self.id).encode())
 
 
 def _batch_blocks(data, block_size):
@@ -185,7 +187,7 @@ class BlockManager:
     @asyncio.coroutine
     def _get_block(self, peer, name, idx):
         logger.debug('sending block %s of %s to %s', idx, name, peer.name)
-        return _Block(idx, self._blocks_cache[name][idx])
+        return Block(idx, self._blocks_cache[name][idx])
 
 
     @asyncio.coroutine
@@ -246,7 +248,7 @@ class BlockManager:
             local, remote = candidates[True], candidates[False]
 
             def download(source):
-                blocks[idx] = source._get_block(name, idx).result().block
+                blocks[idx] = source._get_block(name, idx).result().data
 
             while local or remote:
                 # select a random candidate, preferring local ones

@@ -3,8 +3,11 @@ from bndl.compute.tests import DatasetTest
 
 class ShuffleTest(DatasetTest):
     def test_shuffle(self):
-        dset = self.ctx.range(10).shuffle(2, lambda i: i % 2)
-        parts = sorted(sorted(part) for part in dset.collect(parts=True))
-        self.assertEqual(parts, [list(range(0, 10, 2)), list(range(1, 10, 2))])
+        size = 100*1000
+        
+        dset = self.ctx.range(size, pcount=3).shuffle(pcount=3, partitioner=lambda i: i % 2)
+        parts = sorted(sorted(part) for part in dset.collect(parts=True) if part)
+        
+        self.assertEqual(parts, [list(range(0, size, 2)), list(range(1, size, 2))])
 
     # TODO test Dataset.clean

@@ -1,21 +1,18 @@
-from collections import OrderedDict
+from _collections import OrderedDict
 from functools import partial, lru_cache
 from os.path import getsize
-import asyncio
-import contextlib
 import gzip
+import io
 import logging
 import mmap
 import os
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset
-from bndl.net.sendfile import sendfile
 from bndl.net.serialize import attach, attachment
-from bndl.util import aio
 from bndl.util.collection import batch
 from bndl.util.fs import filenames
-from toolz.itertoolz import pluck
-import io
+from cytoolz.itertoolz import pluck
+from bndl.net.sendfile import file_attachment
 
 
 logger = logging.getLogger(__name__)
@@ -115,6 +112,7 @@ class DistributedFiles(DistributedFilesOps, Dataset):
         return super().parse_csv(**kwargs)
 
 
+    @lru_cache()
     def parts(self):
         node = self.ctx.node
         assert node.node_type == 'driver'
@@ -127,25 +125,10 @@ class DistributedFiles(DistributedFilesOps, Dataset):
         parts = []
         for idx, files in enumerate(batches):
             if files:
-                part = FilesPartition(self, idx)
+                part = FilesPartition(self, idx, files)
                 parts.append(part)
-                node.hosted_values[part.key] = FilesValue(files)
 
         return parts
-
-
-    @property
-    def cleanup(self):
-        def _cleanup(job):
-            node = job.ctx.node
-            assert node.node_type == 'driver'
-            for part in self.parts():
-                try:
-                    del node.hosted_values[part.key]
-                except KeyError:
-                    pass
-
-        return _cleanup
 
 
     def _sliceby_psize(self):
@@ -159,8 +142,7 @@ class DistributedFiles(DistributedFilesOps, Dataset):
             sep = split
         else:
             sep = None
-        if sep:
-            sep_len = len(sep)
+        sep_len = len(sep) if sep else 0
 
         batch = []
         batches = [batch]
@@ -264,34 +246,27 @@ class DistributedFiles(DistributedFilesOps, Dataset):
 
 
 
-def _file_attachment(filename, offset, size):
-    @contextlib.contextmanager
-    def _attacher():
-        @asyncio.coroutine
-        def sender(loop, writer):
-            '''
-            make sure there is no data pending in the writer's buffer
-            get the socket from the writer
-            use sendfile to send file to socket
-            '''
-            with open(filename, 'rb') as file:
-                yield from aio.drain(writer)
-                socket = writer.get_extra_info('socket')
-                yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
-        yield size, sender
-
-    return filename.encode('utf-8'), _attacher
-
-
-class FilesValue(object):
-    def __init__(self, files):
+class FilesPartition(Partition):
+    def __init__(self, dset, idx, files):
+        super().__init__(dset, idx)
         self.files = files
+
+
+    @property
+    def key(self):
+        return str(self.__class__), self.dset.id, self.idx
+
+
+    def _materialize(self, ctx):
+        return iter(self.files.items())
 
 
     def __getstate__(self):
         for file in self.files:
-            attach(*_file_attachment(*file))
-        return {'files': list(pluck(0, self.files))}
+            attach(*file_attachment(*file))
+        state = dict(self.__dict__)
+        state['files'] = list(pluck(0, self.files))
+        return state
 
 
     def __setstate__(self, state):
@@ -301,22 +276,3 @@ class FilesValue(object):
             (filename, attachment(filename.encode('utf-8')))
             for filename in self.files
         )
-
-
-
-class FilesPartition(Partition):
-    def __init__(self, dset, idx):
-        super().__init__(dset, idx)
-
-
-    @property
-    def key(self):
-        return str(self.__class__), self.dset.id, self.idx
-
-
-    def _materialize(self, ctx):
-        driver = ctx.node.peers.filter(node_type='driver')[0]
-        logger.debug('retrieving files from driver for part %r of data set %r',
-                     self.idx, self.dset.id)
-        val = driver.get_hosted_value(self.key).result()
-        return iter(val.files.items())

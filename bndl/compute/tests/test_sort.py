@@ -5,9 +5,13 @@ from bndl.compute.tests import DatasetTest
 
 class SortTest(DatasetTest):
     def test_sort(self):
-        rng = random.Random(1)
-        for length in (10, 1000):
-            for maxint in (2, 3, 4, 5, 10, 100, 1000):
-                dset = self.ctx.collection([rng.randint(1, maxint) for _ in range(length)])
-                self.assertEqual(dset.sort().count(), dset.count())
-                self.assertEqual(dset.sort().collect(), sorted(dset.collect()))
+        col = [str(random.random())
+               for _ in range(1000000)]
+        col = col * 10
+        dset = self.ctx.collection(col, pcount=100)
+        self.assertEqual(dset.sort(pcount=100).collect(), sorted(col))
+#         for length in (10, 1000):
+#             for maxint in (3, 10, 100, 1000):
+#                 col = [random.randint(1, maxint) for _ in range(length)]
+#                 dset = self.ctx.collection(col)
+#                 self.assertEqual(dset.sort().collect(), sorted(col))

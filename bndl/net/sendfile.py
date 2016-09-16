@@ -5,9 +5,31 @@ https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a097020
 
 import asyncio
 import os
+import contextlib
+from bndl.util import aio
 
 
 CHUNK_SIZE = 8 * 1024
+
+
+def file_attachment(filename, offset, size):
+    @contextlib.contextmanager
+    def _attacher():
+        @asyncio.coroutine
+        def sender(loop, writer):
+            '''
+            make sure there is no data pending in the writer's buffer
+            get the socket from the writer
+            use sendfile to send file to socket
+            '''
+            with open(filename, 'rb') as file:
+                yield from aio.drain(writer)
+                socket = writer.get_extra_info('socket')
+                yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
+        yield size, sender
+
+    return filename.encode('utf-8'), _attacher
+
 
 
 def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):

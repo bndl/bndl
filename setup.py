@@ -28,7 +28,7 @@ except ImportError:
 
 setup(
     name='bndl',
-    version='0.1.10',
+    version='0.2.0',
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
     long_description=open('README.md').read(),
@@ -44,7 +44,7 @@ setup(
 
     install_requires=[
         'sortedcontainers',
-        'cloudpickle',
+        'cloudpickle>=0.2.1',
         'cytoolz',
         'numpy',
         'flask',

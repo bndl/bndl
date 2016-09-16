@@ -11,7 +11,7 @@ class CachingTest(DatasetTest):
     worker_count = 3
 
     def test_caching(self):
-        dset = self.ctx.range(10).map(lambda i: random.randint(1, 1000)).map(str)
+        dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str)
 
         locations = ('memory', 'disk')
         serializations = (None, 'marshal', 'pickle', 'json', 'text', 'binary')

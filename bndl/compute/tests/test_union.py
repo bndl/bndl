@@ -19,12 +19,16 @@ class UnionTest(DatasetTest):
 
 
     def test_chains(self):
-        dset = self.a
+        aaa = self.a
         for _ in range(3):
-            dset = dset.union(self.a)
-        self.assertEqual(sorted(dset.collect()), sorted(list(range(10)) * 4))
+            aaa = aaa.union(self.a)
 
-        self.assertEqual(sorted(self.c.union(self.a.union(self.b)).collect()), list(range(0, 30)))
+        abc = self.a.union(self.b, self.c)
+        cab = self.c.union(self.a.union(self.b))
+
+        self.assertEqual(sorted(aaa.collect()), sorted(list(range(10)) * 4))
+        self.assertEqual(sorted(abc.collect()), list(range(0, 30)))
+        self.assertEqual(sorted(cab.collect()), list(range(0, 30)))
 
 
     def test_union_distinct_chains(self):
