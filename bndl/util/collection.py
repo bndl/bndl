@@ -1,4 +1,4 @@
-from collections import defaultdict, Iterable, Sized
+from collections import defaultdict, Iterable, Sequence, Sized
 from itertools import islice, groupby
 
 
@@ -6,12 +6,12 @@ def batch(iterable, size):
     """
     Yield iterables of at most size elements from the given iterable.
     """
-
-    if isinstance(iterable, Sized):
+    if isinstance(iterable, Sequence):
         for start in range(0, len(iterable), size):
             yield iterable[start:start + size]
     else:
         while True:
+            iterable = iter(iterable)
             l = list(islice(iterable, size))
             if len(l) == 0:
                 raise StopIteration()
