@@ -1,4 +1,3 @@
-from _collections import OrderedDict
 from functools import partial, lru_cache
 from os.path import getsize
 import gzip
@@ -8,11 +7,11 @@ import mmap
 import os
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset
+from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util.collection import batch
 from bndl.util.fs import filenames
 from cytoolz.itertoolz import pluck
-from bndl.net.sendfile import file_attachment
 
 
 logger = logging.getLogger(__name__)
@@ -258,7 +257,7 @@ class FilesPartition(Partition):
 
 
     def _materialize(self, ctx):
-        return iter(self.files.items())
+        return self.files
 
 
     def __getstate__(self):
@@ -272,7 +271,7 @@ class FilesPartition(Partition):
     def __setstate__(self, state):
         self.__dict__.update(state)
         # transform list of filenames into ordered dict of filenames and data
-        self.files = OrderedDict(
+        self.files = [
             (filename, attachment(filename.encode('utf-8')))
             for filename in self.files
-        )
+        ]
