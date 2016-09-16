@@ -1,9 +1,11 @@
 from __future__ import print_function
 
+from bisect import bisect_left
 from concurrent.futures._base import Future
 from itertools import cycle, islice
 import gc
 import logging
+import time
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.storage import StorageContainerFactory
@@ -12,7 +14,6 @@ from bndl.util.hash import portable_hash
 from cytoolz.itertoolz import merge_sorted
 from psutil import virtual_memory
 from toolz.itertoolz import interleave
-import time
 
 
 logger = logging.getLogger(__name__)
