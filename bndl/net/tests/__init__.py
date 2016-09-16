@@ -46,7 +46,7 @@ class NetTest(TestCase):
 
             if not self.seeds:
                 self.seeds = [
-                    'tcp://localhost.localdomain:%s' % port
+                    'tcp://127.0.0.10:%s' % port
                     for port in range(5000, min(5000 + self.node_count, 5004))
                 ]
 
@@ -65,11 +65,11 @@ class NetTest(TestCase):
                     self.loop.run_until_complete(node.start())
                     if self.ease_discovery:
                         self.loop.run_until_complete(wait_for_discovery(node, i))
-                        self.loop.run_until_complete(sleep(.01))
+                        self.loop.run_until_complete(sleep(.1))
                 # give the nodes a final shot to connect
                 for node in self.nodes:
                     self.loop.run_until_complete(wait_for_discovery(node, self.node_count - 1))
-                    self.loop.run_until_complete(sleep(.25))
+                    self.loop.run_until_complete(sleep(.5))
                 # notify started
                 self._started.set_result(True)
                 # wait for stopped notification
@@ -79,7 +79,7 @@ class NetTest(TestCase):
             finally:
                 for node in self.nodes:
                     self.loop.run_until_complete(node.stop())
-                    self.loop.run_until_complete(sleep(.1))
+                    self.loop.run_until_complete(sleep(.2))
 
                 self.loop.close()
         finally:
