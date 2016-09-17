@@ -50,6 +50,7 @@ setup(
         'flask',
         'mmh3',
         'scandir',
+        'psutil',
     ],
 
     extras_require=dict(
