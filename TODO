@@ -266,3 +266,20 @@ Whooops:
 	WARNING:bndl.rmi.node:Response <Response exception=None, req_id=45, value=None> received for unknown request id 45
 
 
+
+
+and another while nodes were reconnecting to driver:
+	
+	KeyError: 'nl.tgho.priv.sp-prod-adg02.worker.32226.0.4'
+	ERROR:asyncio:Task exception was never retrieved
+	future: <Task finished coro=<_serve() done, defined at /home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/net/peer.py:262> exception=KeyError('nl.tgho.priv.sp-prod-adg02.worker.32226.0.4',)>
+	Traceback (most recent call last):
+	  File "/usr/lib64/python3.4/asyncio/tasks.py", line 236, in _step
+	    result = coro.send(value)
+	  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/net/peer.py", line 270, in _serve
+	    yield from self.local._peer_connected(self)
+	  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/net/node.py", line 224, in _peer_connected
+	    del self.peers[known_peer.name]
+	KeyError: 'nl.tgho.priv.sp-prod-adg02.worker.32226.0.4'
+	WARNING:bndl.net.watchdog:<Peer:
+	
