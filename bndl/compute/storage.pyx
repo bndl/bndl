@@ -243,7 +243,7 @@ def gettempdir():
     if os.path.exists('/proc/mounts'):
         with open('/proc/mounts') as mounts:
             for mount in mounts:
-                mo  unt = mount.split()
+                mount = mount.split()
                 if mount[1] == tempdir:
                     if mount[0] == 'tmpfs' and os.path.isdir('/var/tmp'):
                         return '/var/tmp'
