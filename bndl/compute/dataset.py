@@ -67,6 +67,7 @@ class Dataset(metaclass=abc.ABCMeta):
         self._cache_locs = {}
         self._worker_preference = None
         self._worker_filter = None
+        self.workers = None
 
 
     @abc.abstractmethod
@@ -1448,6 +1449,8 @@ def schedule_job(dset, workers=None):
             dset.cleanup(job)
 
     while dset:
+        dset.workers = [w.name for w in workers]
+
         if dset.cleanup:
             job.add_listener(partial(_cleaner, dset))
         if isinstance(dset.src, Iterable):

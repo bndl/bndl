@@ -271,12 +271,18 @@ def prefetch(func, args_list):
 
 class ShuffleReadingPartition(Partition):
     def _materialize(self, ctx):
-        workers = self.dset.ctx.workers
+        sources = [
+            w for w in self.dset.ctx.workers
+            if w.name in self.dset.workers
+        ]
+
+        assert len(sources) + 1 == len(self.dset.workers)
+
         dset_id = self.dset.src.id
         part_idx = self.idx
 
         # issue requests for the bucket sizes
-        size_requests = [worker.get_bucket_size(dset_id, part_idx) for worker in workers]
+        size_requests = [worker.get_bucket_size(dset_id, part_idx) for worker in sources]
 
         # make it seem like fetching locally is remote
         # so it fits in the stream_batch loop
@@ -293,7 +299,7 @@ class ShuffleReadingPartition(Partition):
 
         # wait for responses and zip with a function to get a block
         sizes += list((worker.get_bucket_block, future.result())
-                     for worker, future in zip(workers, size_requests))
+                     for worker, future in zip(sources, size_requests))
 
         streams = []
         for get_block, batches in sizes:
