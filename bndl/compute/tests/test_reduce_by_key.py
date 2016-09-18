@@ -7,8 +7,6 @@ from bndl.util import strings
 
 class ReduceByKeyTest(DatasetTest):
     def test_wordcount(self):
-#         print(self.ctx.range(100).map(lambda i: i // 20).with_value(1).reduce_by_key(add).collect())
-
         words = [strings.random(2) for _ in range(100)] * 5
         counts = Counter(words)
         dset = self.ctx.collection(words, pcount=4).with_value(1).reduce_by_key(add)
