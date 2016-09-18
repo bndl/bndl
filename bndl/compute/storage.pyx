@@ -237,10 +237,25 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         return baio
 
 
+
+def gettempdir():
+    tempdir = tempfile.gettempdir()
+    if os.path.exists('/proc/mounts'):
+        with open('/proc/mounts') as mounts:
+            for mount in mounts:
+                mo  unt = mount.split()
+                if mount[1] == tempdir:
+                    if mount[0] == 'tmpfs' and os.path.isdir('/var/tmp'):
+                        return '/var/tmp'
+                    break
+    return tempdir
+
+
+
 class OnDisk(SerializedContainer):
     def _open(self, mode):
         *dirpath, filename = self.id
-        dirpath = os.path.join(tempfile.gettempdir(), 'bndl', *map(str, dirpath))
+        dirpath = os.path.join(gettempdir(), 'bndl', *map(str, dirpath))
         self.filepath = os.path.join(dirpath, str(filename))
         os.makedirs(dirpath, exist_ok=True)
         return open(self.filepath, mode + 'b')
