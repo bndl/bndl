@@ -820,7 +820,7 @@ class Dataset(metaclass=abc.ABCMeta):
             >>> ctx.range(12).map(lambda i: (i%3, 1)).reduce_by_key(lambda a, b: a+b).collect()
             [(0, 4), (1, 4), (2, 4)]
         '''
-        return self.combine_by_key(identity, reduction, reduction, pcount, partitioner, **shuffle_opts)
+        return self.combine_by_key(identity, reduction, reduction, partitioner, pcount, **shuffle_opts)
 
 
     def _join(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
