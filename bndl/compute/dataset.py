@@ -1545,9 +1545,6 @@ def schedule_stage(stage, workers, dset):
             preferred_workers, allowed_workers
         ))
 
-    # sort the tasks by their id
-    stage.tasks.sort(key=lambda t: t.id)
-
 
 class MaterializePartitionTask(Task):
     def __init__(self, part, stage,
