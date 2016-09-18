@@ -37,26 +37,23 @@ class Worker(ExecutionWorker, BlockManager):
 
     def get_bucket_block(self, src, dset_id, part_idx, batch_idx, block_idx):
         try:
-            bucket = self.buckets.get(dset_id)
+            bucket = self.buckets.get(dset_id)[part_idx]
         except TypeError:
-            raise KeyError('No buckets for dataset %r', dset_id)
-
-        try:
-            bucket = bucket[part_idx]
+            raise KeyError('No buckets for dataset %r' % dset_id)
         except IndexError:
-            raise KeyError('No partition %r in dataset %r', part_idx, dset_id)
+            raise KeyError('No partition %r in dataset %r' % (part_idx, dset_id))
 
         try:
             batch = bucket.batches[batch_idx]
         except IndexError:
-            raise KeyError('No batch %r in partition %r of dataset %r',
-                           batch_idx, part_idx, dset_id)
+            raise KeyError('No batch %r in partition %r of dataset %r' % (
+                           batch_idx, part_idx, dset_id))
 
         try:
             return batch[block_idx]
         except IndexError:
-            raise KeyError('No block %r in batch %r of partition %r in dataset %r',
-                           block_idx, batch_idx, part_idx, dset_id)
+            raise KeyError('No block %r in batch %r of partition %r in dataset %r' % (
+                           block_idx, batch_idx, part_idx, dset_id))
 
 
 
