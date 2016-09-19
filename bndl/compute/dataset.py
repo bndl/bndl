@@ -29,6 +29,7 @@ from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
+from _collections_abc import Iterator, Generator
 
 
 logger = logging.getLogger(__name__)
@@ -879,6 +880,11 @@ class Dataset(metaclass=abc.ABCMeta):
                     .map(local_cogroup))
 
 
+    def product(self, other, *others):
+        return CartesianProductDataset((self, other) + others)
+
+
+
     def distinct(self, pcount=None, key=None, **shuffle_opts):
         '''
         Select the distinct elements from this dataset.
@@ -1295,6 +1301,17 @@ class Partition(metaclass=abc.ABCMeta):
         pass
 
 
+    def _combine_worker_locations(self, method, workers, op):
+        if self.src:
+            if isinstance(self.src, tuple):
+                worker_sets = (set(getattr(src, method)(workers)) for src in self.src)
+                return reduce(op, worker_sets)
+            else:
+                return getattr(self.src, method)(workers)
+        else:
+            return workers
+
+
     def preferred_workers(self, workers):
         if self.cache_loc:
             return [worker for worker in workers if worker.name == self.cache_loc]
@@ -1306,10 +1323,7 @@ class Partition(metaclass=abc.ABCMeta):
 
 
     def _preferred_workers(self, workers):
-        if self.src:
-            return self.src.preferred_workers(workers)
-        else:
-            return None
+        return self._combine_worker_locations('preferred_workers', workers, set.union)
 
 
     def allowed_workers(self, workers):
@@ -1320,10 +1334,7 @@ class Partition(metaclass=abc.ABCMeta):
 
 
     def _allowed_workers(self, workers):
-        if self.src:
-            return self.src.allowed_workers(workers)
-        else:
-            return workers
+        return self._combine_worker_locations('allowed_workers', workers, set.intersection)
 
 
     def __lt__(self, other):
@@ -1362,6 +1373,7 @@ class IterablePartition(Partition):
         return self.iterable
 
 
+
 class MaskedDataset(Dataset):
     def __init__(self, src, mask):
         super().__init__(src.ctx, src)
@@ -1372,25 +1384,50 @@ class MaskedDataset(Dataset):
 
 
 
+def _merge_multisource(others, cls):
+    datasets = []
+    def extend_or_append(other):
+        if isinstance(other, cls):
+            datasets.extend(other.src)
+        else:
+            datasets.append(other)
+    for other in others:
+        extend_or_append(other)
+    return datasets
+
+
+
 class UnionDataset(Dataset):
     def __init__(self, src):
         assert len(src) > 1
         super().__init__(src[0].ctx, tuple(src))
 
     def union(self, other, *others):
-        rdds = list(self.src)
-        def merge_union_or_add(other):
-            if isinstance(other, UnionDataset):
-                rdds.extend(other.src)
-            else:
-                rdds.append(other)
-        merge_union_or_add(other)
-        for other in others:
-            merge_union_or_add(other)
-        return UnionDataset(rdds)
+        return UnionDataset(_merge_multisource((self, other) + others, UnionDataset))
 
     def parts(self):
         return list(chain.from_iterable(src.parts() for src in self.src))
+
+
+
+class CartesianProductDataset(Dataset):
+    def __init__(self, src):
+        assert len(src) > 1
+        super().__init__(src[0].ctx, tuple(src))
+
+    def product(self, other, *others):
+        return CartesianProductDataset(_merge_multisource((self, other) + others, CartesianProductDataset))
+
+    def parts(self):
+        part_pairs = product(*(ds.parts() for ds in self.src))
+        return [CartesianProductPartition(self, idx, parts)
+                for idx, parts in enumerate(part_pairs)]
+
+
+
+class CartesianProductPartition(Partition):
+    def _materialize(self, ctx):
+        yield from product(*tuple(src.materialize(ctx) for src in self.src))
 
 
 
