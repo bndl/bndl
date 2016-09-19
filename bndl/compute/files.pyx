@@ -119,7 +119,8 @@ class DistributedFiles(DistributedFilesOps, Dataset):
         if self.psize_bytes:
             batches = self._sliceby_psize()
         else:
-            batches = batch(self._files, self.psize_files)
+            with_offset = ((file, 0, size) for file, size in self._files)
+            batches = batch(with_offset, self.psize_files)
 
         parts = []
         for idx, files in enumerate(batches):
