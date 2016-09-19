@@ -9,6 +9,7 @@ def groups(partition):
     for key, group in groupby(partition, key=itemgetter(0)):
         yield key, list(group)
 
+
 class JoinTest(DatasetTest):
     def test_join(self):
         a = range(0, 50)
@@ -19,19 +20,9 @@ class JoinTest(DatasetTest):
             (True, list(product(filter(iseven, a), filter(iseven, b)))),
         ]
 
-#         print(expected[0])
-#         print(expected[1])
-# 
-#         print('---')
-
         a = self.ctx.collection(a, pcount=3).key_by(iseven)
         b = self.ctx.collection(b, pcount=3).key_by(iseven)
         ab = a.join(b, pcount=4)
-
-#         for part in ab.collect(parts=True):
-#             assert len(part) in(0, 1)
-#             for key, group in part:
-#                 print(key, sorted(group))
 
         self.assertEqual(ab.map_values(sorted).collect(), expected)
 
