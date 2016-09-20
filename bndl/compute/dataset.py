@@ -30,6 +30,10 @@ from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
 from _collections_abc import Iterator, Generator
+import subprocess
+import shlex
+import asyncio
+import threading
 
 
 logger = logging.getLogger(__name__)
@@ -173,6 +177,27 @@ class Dataset(metaclass=abc.ABCMeta):
             over the partition's elements.
         '''
         return TransformingDataset(self.ctx, self, func)
+
+
+    def pipe(self, command, reader=io.IOBase.readlines, writer=io.IOBase.writelines, **opts):
+        if isinstance(command, str):
+            command = shlex.split(command)
+
+        def pipe_partition(partition):
+            opts['stdin'] = subprocess.PIPE
+            opts['stdout'] = subprocess.PIPE
+            proc = subprocess.Popen(command, **opts)
+
+            def write_partition():
+                writer(proc.stdin, partition)
+                proc.stdin.close()
+
+            writer_thread = threading.Thread(target=write_partition)
+            writer_thread.start()
+            yield from reader(proc.stdout)
+            writer_thread.join()
+
+        return self.map_partitions(pipe_partition)
 
 
     def glom(self):
