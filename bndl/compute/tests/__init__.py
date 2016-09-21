@@ -19,4 +19,6 @@ class ComputeTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.ctx.stop()
 
-DatasetTest = ComputeTest
+
+class DatasetTest(ComputeTest):
+    pass
