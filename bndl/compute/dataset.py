@@ -187,14 +187,23 @@ class Dataset(metaclass=abc.ABCMeta):
             opts['stdout'] = subprocess.PIPE
             proc = subprocess.Popen(command, **opts)
 
-            def write_partition():
-                writer(proc.stdin, partition)
-                proc.stdin.close()
+            failure = [None]
+            def write_partition(failure):
+                try:
+                    writer(proc.stdin, partition)
+                except Exception as exc:
+                    failure[0] = exc
+                finally:
+                    proc.stdin.close()
 
-            writer_thread = threading.Thread(target=write_partition)
+            writer_thread = threading.Thread(target=write_partition, args=[failure])
             writer_thread.start()
             yield from reader(proc.stdout)
             writer_thread.join()
+
+            failure = failure[0]
+            if failure:
+                raise failure
 
         return self.map_partitions(pipe_partition)
 
