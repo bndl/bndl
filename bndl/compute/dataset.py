@@ -29,7 +29,7 @@ from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
-from _collections_abc import Iterator, Generator
+from _collections_abc import Iterator, Generator, Sized
 import subprocess
 import shlex
 import asyncio
@@ -1010,7 +1010,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
 
-    def sort(self, key=identity, reverse=False, pcount=None, hd_distribution=False, **shuffle_opts):
+    def sort(self, key=None, reverse=False, pcount=None, hd_distribution=False, **shuffle_opts):
         '''
         Sort the elements in this dataset.
 
@@ -1043,6 +1043,8 @@ class Dataset(metaclass=abc.ABCMeta):
         if pcount == 1:
             return self.shuffle(pcount, key=key, **shuffle_opts)
 
+        point_count = pcount * 20
+
         if hd_distribution:
             dset_size = self.count()
             if dset_size == 0:
@@ -1053,9 +1055,17 @@ class Dataset(metaclass=abc.ABCMeta):
         else:
             rng = np.random.RandomState()
             def sampler(partition):
-                samples = sample_without_replacement(rng, 0.1, partition)
-                rng.shuffle(samples)
-                return samples[0:pcount * 2]
+                fraction = 0.1
+                if isinstance(partition, Sized):
+                    if len(partition) <=point_count:
+                        return partition
+                    fraction = point_count / len(partition)
+                samples = sample_without_replacement(rng, fraction, partition)
+                if len(samples) > point_count:
+                    rng.shuffle(samples)
+                    return samples[:point_count]
+                else:
+                    return samples
             samples = self.map_partitions(sampler).collect_as_set()
 
         # apply the key function if any
