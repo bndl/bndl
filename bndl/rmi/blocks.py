@@ -166,7 +166,7 @@ class BlockManager:
             del self._available_events[name]
 
 
-    def get_blocks(self, block_spec):
+    def get_blocks(self, block_spec, peers=[]):
         name = block_spec.name
         with self._available_lock:
             available = self._available_events.get(name)
@@ -179,7 +179,7 @@ class BlockManager:
         if in_progress:
             available.wait()
         else:
-            self._download(block_spec)
+            self._download(block_spec, peers)
             available.set()
         return self._blocks_cache[name]
 
@@ -200,26 +200,26 @@ class BlockManager:
             return [idx for idx, block in enumerate(blocks) if block is not None]
 
 
-    def _next_download(self, block_spec):
+    def _next_download(self, block_spec, peers):
         # check block availability at peers
         available_requests = []
-        for worker in self.peers.filter(node_type='worker'):
-            available_request = worker._get_blocks_available(block_spec.name)
-            available_request.worker = worker
+        for peer in peers:
+            available_request = peer._get_blocks_available(block_spec.name)
+            available_request.peer = peer
             available_requests.append(available_request)
 
         blocks = self._blocks_cache[block_spec.name]
 
-        # store workers which have block (keyed by block index)
+        # store peers which have block (keyed by block index)
         availability = defaultdict(list)
         try:
             for available_request in as_completed(available_requests, timeout=AVAILABILITY_TIMEOUT):
                 try:
                     for idx in available_request.result():
                         if blocks[idx] is None:
-                            availability[idx].append(available_request.worker)
+                            availability[idx].append(available_request.peer)
                 except Exception:
-                    logger.warning('Unable to get block availability from %s', available_request.worker, exc_info=True)
+                    logger.warning('Unable to get block availability from %s', available_request.peer, exc_info=True)
         except TimeoutError:
             # raised from as_completed(...).__next__() if the next
             pass
@@ -233,7 +233,7 @@ class BlockManager:
             return block_idx, [self.peers[block_spec.seeder]]
 
 
-    def _download(self, block_spec):
+    def _download(self, block_spec, peers):
         name = block_spec.name
         assert block_spec.seeder != self.name
 
@@ -243,7 +243,7 @@ class BlockManager:
         local_ips = self.ip_addresses
 
         for _ in blocks:
-            idx, candidates = self._next_download(block_spec)
+            idx, candidates = self._next_download(block_spec, peers)
             candidates = split(candidates, lambda c: bool(c.ip_addresses & local_ips))
             local, remote = candidates[True], candidates[False]
 

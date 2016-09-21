@@ -99,7 +99,7 @@ class BroadcastValue(object):
 
     def _get(self):
         node = self.ctx.node
-        blocks = node.get_blocks(self.block_spec)
+        blocks = node.get_blocks(self.block_spec, node.peers.filter(node_type='worker'))
 
         val = self.deserialize(b''.join(blocks))
 
