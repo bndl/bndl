@@ -47,11 +47,10 @@ class Job(Lifecycle):
                                     concurrency=concurrency)
         except Exception:
             self.signal_stop()
-            raise
-        finally:
             for stage in self.stages:
                 if not stage.stopped:
                     stage.cancel()
+            raise
 
 
     def _stage_done(self, stage):
@@ -96,12 +95,11 @@ class Stage(Lifecycle):
                 yield from self._execute_onebyone(workers)
         except (Exception, KeyboardInterrupt):
             self.cancelled = True
-            raise
-        finally:
             for task in self.tasks:
                 if not task.stopped:
                     task.cancel()
             self.signal_stop()
+            raise
 
 
     def _execute_eagerly(self, workers, ordered, concurrency):
@@ -172,6 +170,7 @@ class Stage(Lifecycle):
             raise
 
         task_driver.join()
+        self.signal_stop()
 
 
     def _execute_onebyone(self, workers):
@@ -184,6 +183,7 @@ class Stage(Lifecycle):
                 worker = workers[0]
             future = task.execute(worker)
             yield future.result()
+        self.signal_stop()
 
 
     def cancel(self):
