@@ -1358,20 +1358,17 @@ class Partition(metaclass=abc.ABCMeta):
         # check cache
         if self.dset.cached:
             try:
-                part_loc = self.dset._cache_locs[self.idx]
-                if part_loc == ctx.node.name:
+                if self.cache_loc == ctx.node.name:
                     # read locally
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
-                else:
-                    # read remote
-                    peer = ctx.node.peers[part_loc]
-                    return peer.run_task(lambda worker: self.dset._cache_provider
-                                                            .read(self.dset.id, self.idx)).result()
+                elif self.cache_loc:
+                    peer = ctx.node.peers[self.cache_loc]
+                    return peer.run_task(lambda worker: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
             except InvocationException:
                 logger.exception('Unable to get cached partition %s.%s from %s',
-                                 self.dset.id, self.idx, part_loc)
+                                 self.dset.id, self.idx, self.cache_loc)
 
         # compute if not cached
         data = self._materialize(ctx)
