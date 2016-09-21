@@ -13,7 +13,6 @@ clean:
 
 test:
 	rm -fr .coverage .coverage.* htmlcov
-	BNDL_SUPERVISOR_ONSIGTERM=raise_exit \
 	COVERAGE_PROCESS_START=.coveragerc \
 	coverage run -m pytest bndl
 	coverage combine

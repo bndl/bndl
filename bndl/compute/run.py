@@ -73,6 +73,7 @@ def create_ctx(config=Config(), daemon=True):
         # register stop as 'exit' listeners
         ctx.add_listener(lambda obj: stop() if obj is ctx else None)
         atexit.register(stop)
+        atexit.register(ctx.stop)
         return ctx
     except Exception:
         with catch():
