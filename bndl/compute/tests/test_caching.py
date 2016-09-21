@@ -5,6 +5,7 @@ import random
 
 from bndl.compute import cache
 from bndl.compute.tests import DatasetTest
+from bndl.util.funcs import identity
 
 
 class CachingTest(DatasetTest):
@@ -63,3 +64,15 @@ class CachingTest(DatasetTest):
         return self.ctx.range(self.worker_count) \
                    .map_partitions_with_part(get_keys) \
                    .collect()
+
+
+    def test_cache_fetch(self):
+        dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str).cache()
+
+        first = dset.map(identity).allow_workers(lambda workers:[sorted(workers)[0]]).collect()
+        self.assertEqual(self.get_cachekeys(), [dset.id])
+
+        second = dset.map(identity).allow_workers(lambda workers: [sorted(workers)[1]]).collect()
+        self.assertEqual(self.get_cachekeys(), [dset.id])
+
+        self.assertEqual(first, second)

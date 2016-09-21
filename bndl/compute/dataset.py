@@ -1,5 +1,5 @@
 from asyncio.futures import TimeoutError
-from collections import Counter, Iterable
+from collections import Counter, Iterable, Sized
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
@@ -14,13 +14,17 @@ import json
 import logging
 import os
 import pickle
+import shlex
 import struct
+import subprocess
+import threading
 import traceback
 import uuid
 
 from bndl.compute import cache
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute.job import Job, Stage, Task
+from bndl.rmi import InvocationException
 from bndl.util import serialize, cycloudpickle
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
@@ -29,11 +33,6 @@ from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.itertoolz import pluck, take
 import numpy as np
-from _collections_abc import Iterator, Generator, Sized
-import subprocess
-import shlex
-import asyncio
-import threading
 
 
 logger = logging.getLogger(__name__)
@@ -1057,7 +1056,7 @@ class Dataset(metaclass=abc.ABCMeta):
             def sampler(partition):
                 fraction = 0.1
                 if isinstance(partition, Sized):
-                    if len(partition) <=point_count:
+                    if len(partition) <= point_count:
                         return partition
                     fraction = point_count / len(partition)
                 samples = sample_without_replacement(rng, fraction, partition)
@@ -1075,7 +1074,6 @@ class Dataset(metaclass=abc.ABCMeta):
         samples = sorted(set(samples), reverse=reverse)
         # take pcount - 1 points evenly spaced from the samples as boundaries
         boundaries = [samples[len(samples) * (i + 1) // pcount] for i in range(pcount - 1)]
-#         print(len(boundaries), boundaries)
         # and use that in the range partitioner to shuffle
         partitioner = RangePartitioner(boundaries, reverse)
         shuffled = self.shuffle(pcount, partitioner=partitioner, key=key, **shuffle_opts)
@@ -1360,15 +1358,29 @@ class Partition(metaclass=abc.ABCMeta):
         # check cache
         if self.dset.cached:
             try:
-                return self.dset._cache_provider.read(self)
+                part_loc = self.dset._cache_locs[self.idx]
+                if part_loc == ctx.node.name:
+                    # read locally
+                    return self.dset._cache_provider.read(self.dset.id, self.idx)
+                else:
+                    # read remote
+                    peer = ctx.node.peers[part_loc]
+                    return peer.run_task(lambda worker: self.dset._cache_provider
+                                                            .read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
+            except InvocationException:
+                logger.exception('Unable to get cached partition %s.%s from %s',
+                                 self.dset.id, self.idx, part_loc)
+
         # compute if not cached
         data = self._materialize(ctx)
+
         # cache if requested
         if self.dset.cached:
             data = ensure_collection(data)
-            self.dset._cache_provider.write(self, data)
+            self.dset._cache_provider.write(self.dset.id, self.idx, data)
+
         # return data
         return data
 
@@ -1688,7 +1700,7 @@ class MaterializePartitionTask(Task):
 
     def _save_cacheloc(self, part):
         # memorize the cache location for the partition
-        if part.dset.cached:
+        if part.dset.cached and not part.dset._cache_locs.get(part.idx):
             part.dset._cache_locs[part.idx] = self.executed_on[-1]
         # traverse backup up the DAG
         if part.src:
