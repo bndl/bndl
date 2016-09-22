@@ -255,6 +255,6 @@ class Connection(object):
 
     def __repr__(self):
         return '<Connection %s %s>' % (
-            '%s:%s' % self.sockname() + ' <-> ' + '%s:%s' % self.peername(),
+            '%s:%s' % self.sockname()[:2] + ' <-> ' + '%s:%s' % self.peername()[:2],
             'connected' if self.is_connected else 'not connected'
         )
