@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from bndl.net.tests import NetTest
 from bndl.rmi.node import RMINode
+from bndl.rmi import InvocationException
 
 
 class NestedRequestNode(RMINode):
@@ -25,6 +26,9 @@ class NestedRequestNode(RMINode):
         peer = next(iter(self.peers.values()))
         peer.method_a().result()
 
+    def method_that_raises(self, src):
+        raise ValueError('x')
+
 
 class RMITest(NetTest):
     node_class = NestedRequestNode
@@ -46,3 +50,7 @@ class RMITest(NetTest):
         self.assertEqual(self.nodes[0].calls['b'], 0)
         self.assertEqual(self.nodes[1].calls['a'], 0)
         self.assertEqual(self.nodes[1].calls['b'], 1)
+
+    def test_exc(self):
+        with self.assertRaises(InvocationException):
+            next(iter(self.nodes[0].peers.values())).method_that_raises().result()

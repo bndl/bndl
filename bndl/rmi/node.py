@@ -2,7 +2,6 @@ import asyncio
 import itertools
 import logging
 import sys
-import traceback
 
 from bndl.net.connection import NotConnected
 from bndl.net.node import Node
@@ -12,6 +11,10 @@ from bndl.rmi.messages import Response, Request
 from bndl.util.aio import async_call
 from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.threads import OnDemandThreadedExecutor
+
+
+from tblib import pickling_support ; pickling_support.install()
+
 
 
 logger = logging.getLogger(__name__)
@@ -65,9 +68,9 @@ class Invocation(object):
 
         if response.exception:
             exc_class, exc, tback = response.exception
-            source = Exception('%s: %s\n---\n%s' % (exc_class.__name__,
-                                                    str(exc),
-                                                    ''.join(traceback.format_list(tback))))
+            if not exc:
+                exc = exc_class()
+            source = exc.with_traceback(tback)
             iexc = InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__))
             raise iexc from source
         else:
@@ -137,9 +140,7 @@ class RMIPeerNode(PeerNode):
 
         if exc:
             response.value = None
-            exc_class, exc, tback = exc
-            tback = traceback.extract_tb(tback)
-            response.exception = exc_class, exc, tback
+            response.exception = exc
             try:
                 yield from self.send(response)
             except Exception:
