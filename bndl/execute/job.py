@@ -144,10 +144,13 @@ class Stage(Lifecycle):
                 if not task:
                     workers_available.put(worker)
                 else:
-                    del to_schedule[idx]
-                    future = task.execute(worker)
-                    future.add_done_callback(lambda future, task=task, worker=worker: task_done(task, worker))
-                    scheduled.release()
+                    try:
+                        del to_schedule[idx]
+                        future = task.execute(worker)
+                        future.add_done_callback(lambda future, task=task, worker=worker: task_done(task, worker))
+                        scheduled.release()
+                    except CancelledError:
+                        pass
 
         task_driver = threading.Thread(target=schedule_tasks, daemon=True,
                                        name='bndl-task-driver-%s-%s' % (self.job.id, self.id))
@@ -208,17 +211,22 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.id = task_id
         self.stage = stage
         self.method = method
-        self.args = args
-        self.kwargs = kwargs
+        self.args = args or ()
+        self.kwargs = kwargs or {}
         self.preferred_workers = preferred_workers
         self.allowed_workers = allowed_workers
         self.future = None
         self.executed_on = []
 
     def execute(self, worker):
+        if self.cancelled:
+            raise CancelledError()
+        args = self.args
+        kwargs = self.kwargs
+
         self.signal_start()
         self.executed_on.append(worker.name)
-        self.future = worker.run_task(self.method, *self.args, **(self.kwargs or {}))
+        self.future = worker.run_task(self.method, *args, **kwargs)
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
 
@@ -245,10 +253,10 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def cancel(self):
         if not self.done:
-            self._release_resources()
             if self.future:
                 self.future.cancel()
             super().cancel()
+            self._release_resources()
 
     def _release_resources(self):
         # release resources if successful
