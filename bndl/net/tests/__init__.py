@@ -11,10 +11,11 @@ from bndl.util.aio import get_loop
 
 
 class NetTest(TestCase):
+    address = 'tcp://127.0.0.10'
     node_class = Node
     node_count = 4
     ease_discovery = True
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.seeds = []
@@ -35,7 +36,7 @@ class NetTest(TestCase):
 
     def create_nodes(self):
         return [
-            self.node_class(seeds=self.seeds, loop=self.loop)
+            self.node_class(addresses=[self.address], seeds=self.seeds, loop=self.loop)
             for _ in range(self.node_count)
         ]
 
@@ -46,7 +47,7 @@ class NetTest(TestCase):
 
             if not self.seeds:
                 self.seeds = [
-                    'tcp://127.0.0.10:%s' % port
+                    self.address + ':%s' % port
                     for port in range(5000, min(5000 + self.node_count, 5004))
                 ]
 
