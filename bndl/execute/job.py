@@ -1,3 +1,4 @@
+from concurrent.futures._base import CancelledError
 from itertools import chain, count
 from queue import Queue
 import abc
@@ -45,7 +46,7 @@ class Job(Lifecycle):
                                     eager=stage != self.stages[-1] or eager,
                                     ordered=ordered,
                                     concurrency=concurrency)
-        except Exception:
+        except (Exception, GeneratorExit):
             self.signal_stop()
             for stage in self.stages:
                 if not stage.stopped:
@@ -157,7 +158,7 @@ class Stage(Lifecycle):
                 next_task_idx = 0
                 while next_task_idx < len(self.tasks):
                     next_task = self.tasks[next_task_idx]
-                    if next_task.started():
+                    if next_task.started:
                         yield next_task.result()
                         next_task_idx += 1
                     else:
@@ -166,6 +167,7 @@ class Stage(Lifecycle):
                 for _ in range(len(self.tasks)):
                     yield done.get().result()
         except Exception:
+            to_schedule.clear()
             workers_available.put(sentinel)
             raise
 
@@ -220,15 +222,35 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
 
+    @property
     def started(self):
         return bool(self.future)
 
+    @property
     def done(self):
         return self.future and self.future.done()
+
+    @property
+    def failed(self):
+        try:
+            return bool(self.future and self.future.exception())
+        except CancelledError:
+            return False
 
     def result(self):
         assert self.future, 'task not yet scheduled'
         result = self.future.result()
+        self._release_resources()
+        return result
+
+    def cancel(self):
+        if not self.done:
+            self._release_resources()
+            if self.future:
+                self.future.cancel()
+            super().cancel()
+
+    def _release_resources(self):
         # release resources if successful
         # (otherwise an exception is raised)
         self.future = None
@@ -236,10 +258,3 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.kwargs = None
         self.preferred_workers = None
         self.allowed_workers = None
-        # return result
-        return result
-
-    def cancel(self):
-        if self.future:
-            self.future.cancel()
-        super().cancel()

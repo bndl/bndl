@@ -1,4 +1,4 @@
-{% extends "dash/base.html" %}
+{% extends "execute/base.html" %}
 
 {% import 'execute/stats_row.html' as stats_row %}
 
@@ -13,7 +13,8 @@ Stage {{ stage.id }}: {{ stage.name }}
 	<table class="table table-hover table-condensed">
 		<thead>
 			<tr>
-				<th width="10%">Task</th>
+				<th width="4%">Task</th>
+				<th width="6%">Status</th>
 				<th width="10%">Duration</th>
 				<th width="20%">Started</th>
 				<th width="20%">Finished</th>
@@ -24,11 +25,20 @@ Stage {{ stage.id }}: {{ stage.name }}
 			{% for task in stage.tasks|reverse %}
 			<tr class="{{ 'active' if task.running else '' }}">
 				<td>{{ task.id }} {{ task.name or '' }}</td>
+				<td>{{ task|task_status }}</td>
 				<td>{{ task.duration|fmt_timedelta }}</td>
 				<td>{{ task.started_on.strftime('%Y-%m-%d %H:%M:%S') if task.started_on else '' }}</td>
 				<td>{{ task.stopped_on.strftime('%Y-%m-%d %H:%M:%S') if task.stopped_on else '' }}</td>
 				<td>{{ task.executed_on[-1] }}</td>
 			</tr>
+			{% if task.failed %}
+			<tr>
+				<td></td>
+				<td colspan="5">
+					<pre>{{ task.future.exception()|fmt_exc }}</pre>
+				</td>
+			</tr>
+			{% endif %}
 			{% endfor %}
 		</tbody>
 	</table>

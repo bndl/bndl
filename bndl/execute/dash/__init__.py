@@ -6,6 +6,7 @@ from flask.templating import render_template
 from werkzeug.exceptions import NotFound
 
 from bndl.util import dash
+import traceback
 
 
 blueprint = Blueprint('execute', __name__,
@@ -21,22 +22,44 @@ class Dash(dash.Dash):
     blueprint = blueprint
     status_panel_cls = Status
 
-
 @blueprint.app_template_filter('task_stats')
 def task_stats(tasklist):
     tasks = tasklist.tasks
     total = len(tasks)
+
     started = sum(1 for t in tasks if t.started_on)
     stopped = sum(1 for t in tasks if t.stopped_on)
     cancelled = sum(1 for t in tasks if t.cancelled)
-    finished = stopped - cancelled
+    failed = sum(1 for t in tasks if t.failed)
     running = sum(1 for t in tasks if t.started_on and not t.stopped_on)
-    remaining = len(tasks) - stopped
-    idle = len(tasks) - started
+
+    completed = stopped - cancelled
+    remaining = 0 if tasklist.stopped_on else total - stopped - cancelled
+    idle = total - started
+
     duration = ((tasklist.stopped_on or datetime.now()) - tasklist.started_on) if tasklist.started_on else None
-    time_remaining = (duration / stopped * len(tasks) - duration if duration and stopped and remaining else None)
+    time_remaining = (duration / stopped * total - duration if duration and stopped and remaining else None)
     finished_on = tasklist.stopped_on or (tasklist.started_on + duration + time_remaining if time_remaining else '')
     return locals()
+
+
+@blueprint.app_template_filter('task_status')
+def task_status(task):
+    if task.failed:
+        return 'failed'
+    elif task.cancelled:
+        return 'cancelled'
+    elif task.stopped_on:
+        return 'done'
+    elif task.started_on:
+        return 'running'
+    else:
+        return ''
+
+
+@blueprint.app_template_filter('fmt_exc')
+def fmt_exc(exc):
+    return ''.join(traceback.TracebackException.from_exception(exc).format())
 
 
 @blueprint.route('/')
