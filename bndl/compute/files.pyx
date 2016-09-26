@@ -92,12 +92,13 @@ def _batches(root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None,
 def _get_batches(worker, *args, **kwargs):
     return _batches(*args, **kwargs)
 
+def _ip_addresses(worker):
+    return tuple(sorted(map(str, worker.ip_addresses)))
 
 def _worker_files(ctx, *args, **kwargs):
     batch_requests = []
-    get_ip_addresses = attrgetter('ip_addresses')
-    workers = sorted(ctx.workers, key=get_ip_addresses)
-    for _, workers in groupby(workers, key=get_ip_addresses):
+    workers = sorted(ctx.workers, key=_ip_addresses)
+    for _, workers in groupby(workers, key=_ip_addresses):
         worker = next(workers)
         batch_requests.append((worker, worker.run_task(_get_batches, *args, **kwargs)))
 
@@ -290,7 +291,8 @@ class DistributedFilesOps:
         return self.map_values(partial(_decode, encoding, errors))
 
     def lines(self, encoding='utf-8', keepends=False, errors='strict'):
-        return self.decode(encoding, errors).values().flatmap(partial(_splitlines, keepends))
+        data = self.values() if encoding is None else self.decode(encoding, errors)
+        return data.values().flatmap(partial(_splitlines, keepends))
 
     def parse_csv(self, **kwargs):
         return self.decode().values().parse_csv(**kwargs)
@@ -388,7 +390,7 @@ class LocalFilesPartition(FilesPartition):
 
     def allowed_workers(self, workers):
         return [worker for worker in workers
-                if worker.ip_addresses and self.ip_addresses]
+                if worker.ip_addresses & self.ip_addresses]
 
 
 
