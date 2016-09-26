@@ -20,6 +20,7 @@ import subprocess
 import threading
 import traceback
 import uuid
+import weakref
 
 from bndl.compute import cache
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
@@ -1359,9 +1360,13 @@ class Dataset(metaclass=abc.ABCMeta):
 @total_ordering
 class Partition(metaclass=abc.ABCMeta):
     def __init__(self, dset, idx, src=None):
-        self.dset = dset
+        self._dset = weakref.proxy(dset)
         self.idx = idx
         self.src = src
+
+    @property
+    def dset(self):
+        return self._dset
 
     def materialize(self, ctx):
         # check cache
