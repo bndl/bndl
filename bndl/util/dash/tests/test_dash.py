@@ -2,6 +2,7 @@ import re
 import unittest
 
 from bndl.compute.tests import DatasetTest
+from bndl.rmi import InvocationException
 from bndl.util.dash import app, _load_dashes, dashes
 import flask
 
@@ -18,6 +19,13 @@ class DashTestCase(DatasetTest):
         self.app = app.test_client()
 
     def test_crawl(self):
+        # generate some 'pages'
+
+        self.ctx.range(10).count()
+        self.ctx.range(10).sort().count()
+        with self.assertRaises(InvocationException):
+            self.ctx.range(10).map(lambda i: exec('raise ValueError()')).execute()
+
         seen = set()
         queue = ['/']
 
@@ -26,14 +34,17 @@ class DashTestCase(DatasetTest):
             if url in seen:
                 continue
             seen.add(url)
-            main = self.app.get(url, follow_redirects=True)
-            self.assertEqual(main.status_code, 200)
-            data = main.get_data().decode('utf-8')
-            links = re.findall(r'''<a.*href=["]([^"]+)["]''', data)
-            for link in links:
-                if link not in seen:
-                    queue.append(link)
-
+            print(url)
+            with self.subTest(url):
+                main = self.app.get(url, follow_redirects=True)
+                self.assertEqual(main.status_code, 200)
+                data = main.get_data().decode('utf-8')
+                links = re.findall(r'''<a.+href=["']([^"']+)["']''', data) + re.findall(r'''<.+data-href=["']([^"']+)["']''', data)
+                for link in links:
+                    if not link[0] == '/':
+                        link = url + '/' + link
+                    if link not in seen:
+                        queue.append(link)
 
 if __name__ == '__main__':
     unittest.main()

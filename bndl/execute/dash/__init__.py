@@ -1,12 +1,12 @@
+from asyncio import compat
 from datetime import datetime
+import traceback
 
-import flask
+from bndl.util import dash
 from flask.blueprints import Blueprint
 from flask.templating import render_template
 from werkzeug.exceptions import NotFound
-
-from bndl.util import dash
-import traceback
+import flask
 
 
 blueprint = Blueprint('execute', __name__,
@@ -59,7 +59,25 @@ def task_status(task):
 
 @blueprint.app_template_filter('fmt_exc')
 def fmt_exc(exc):
-    return ''.join(traceback.TracebackException.from_exception(exc).format())
+    if compat.PY35:
+        return ''.join(traceback.TracebackException.from_exception(exc).format())
+    else:
+        parts = []
+        while exc:
+            etype = type(exc)
+            ename = etype.__qualname__
+            emod = etype.__module__
+            if emod not in ("__main__", "builtins"):
+                ename = emod + '.' + ename
+
+            chunks = (
+                ['Traceback (most recent call last):\n'] +
+                traceback.format_tb(exc.__traceback__) +
+                [ename + ':' + str(exc)]
+            )
+            parts.insert(0, ''.join(chunks))
+            exc = exc.__cause__
+        return '\n\nThe above exception was the direct cause of the following exception:\n\n'.join(parts)
 
 
 @blueprint.route('/')
