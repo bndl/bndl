@@ -3,7 +3,7 @@ import itertools
 from bndl.compute.broadcast import broadcast, broadcast_pickled
 from bndl.compute.arrays import SourceDistributedArray, DistributedArray
 from bndl.compute.collections import DistributedCollection
-from bndl.compute.files import DistributedFiles
+from bndl.compute.files import files
 from bndl.compute.ranges import DistributedRange
 from bndl.execute.context import ExecutionContext
 from bndl.util.funcs import as_method
@@ -27,7 +27,7 @@ class ComputeContext(ExecutionContext):
             return DistributedCollection(self, collection, pcount, psize)
 
     range = as_method(DistributedRange)
-    files = as_method(DistributedFiles)
+    files = as_method(files)
     broadcast = broadcast
     broadcast_pickled = broadcast_pickled
 

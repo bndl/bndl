@@ -1,11 +1,13 @@
 from itertools import chain, product
 from tempfile import TemporaryDirectory
 import gzip
+import math
 import os.path
 
 from bndl.compute.tests import DatasetTest
 from bndl.util.text import random_string
-import math
+from cytoolz import pluck
+from os.path import basename
 
 
 class FilesTest(DatasetTest):
@@ -45,16 +47,16 @@ class FilesTest(DatasetTest):
 
 
     def test_pcount(self):
-        count = round(self.total_size / self.dset.psize_bytes)
+        count = round(self.total_size / self.psize_bytes)
         self.assertEqual(len(self.dset.parts()), count)
 
 
-    def _test_psize(self, dset):
+    def _test_psize(self, psize_bytes, psize_files, dset):
         data = dset.values()
-        if dset.psize_bytes:
-            self.assertTrue(all(data.map(len).map_partitions(lambda p: (sum(p) <= dset.psize_bytes,)).collect()))
-        if dset.psize_files:
-            self.assertTrue(all(data.map_partitions(lambda p: (sum(1 for _ in p) <= dset.psize_files,)).collect()))
+        if psize_bytes:
+            self.assertTrue(all(data.map(len).map_partitions(lambda p: (sum(p) <= psize_bytes,)).collect()))
+        if psize_files:
+            self.assertTrue(all(data.map_partitions(lambda p: (sum(1 for _ in p) <= psize_files,)).collect()))
 
 
     def test_psize(self):
@@ -63,7 +65,8 @@ class FilesTest(DatasetTest):
 
         for psize_bytes, psize_files in product(psize_bytes, psize_files):
             with self.subTest('psize_bytes = %s, psize_files = %s' % (psize_bytes, psize_files)):
-                self._test_psize(self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=psize_files))
+                self._test_psize(psize_bytes, psize_files,
+                                 self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=psize_files))
 
 
     def test_count(self):
@@ -87,14 +90,17 @@ class FilesTest(DatasetTest):
     def test_recursive(self):
         filter_test_files = lambda filename: os.path.basename(filename).startswith('test_file_') and filename.endswith('.tmp')
         dirname = os.path.dirname(self.filenames[0])
-        dset = self.ctx.files(dirname, True, None, filter_test_files)
-        self.assertEqual(dset.count(), self.file_count)
-        self.assertEqual(
-            sum(1 for _ in filter(
-                filter_test_files,
-                self.ctx.files(dirname).filenames
-            )
-        ), self.file_count)
+        for loc in ('driver', 'workers'):
+            dset = self.ctx.files(dirname, True, None, filter_test_files, location=loc).cache()
+            self.assertEqual(dset.count(), self.file_count)
+            self.assertEqual(
+                sum(1 for _ in filter(
+                    filter_test_files,
+                    self.ctx.files(dirname).filenames
+                )
+            ), self.file_count)
+            files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
+            self.assertEqual(b''.join(pluck(1, files)), b''.join(self.contents))
 
 
     def test_binary(self):
@@ -125,20 +131,22 @@ class FilesTest(DatasetTest):
 
     def test_split_files(self):
         for factor in (1.9, 2.0, 2.1):
-            psize_bytes = int(self.psize_bytes / 2 * factor)
-            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=True).cache()
-            for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
-                self.assertLessEqual(psize, psize_bytes)
-            self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
-            self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+            with self.subTest('factor is %r' % factor):
+                psize_bytes = int(self.psize_bytes / 2 * factor)
+                dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=True).cache()
+                for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
+                    self.assertLessEqual(psize, psize_bytes)
+                self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
+                self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
 
 
     def test_split_fileslines(self):
         sep = '\n'
         for factor in (1.8, 1.95, 2.0, 2.2):
-            psize_bytes = int(self.psize_bytes / 2 * factor)
-            max_lines_per_part = psize_bytes // self.line_size
-            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
-            self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
-            for part in dset.values().collect(parts=True)[:-1]:
-                self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)
+            with self.subTest('factor is %r' % factor):
+                psize_bytes = int(self.psize_bytes / 2 * factor)
+                dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
+                self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+                max_lines_per_part = psize_bytes // self.line_size
+                for part in dset.values().collect(parts=True)[:-1]:
+                    self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)
