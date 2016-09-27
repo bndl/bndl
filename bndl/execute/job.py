@@ -1,4 +1,4 @@
-from concurrent.futures._base import CancelledError
+from concurrent.futures import CancelledError
 from itertools import chain, count
 from queue import Queue
 import abc
@@ -241,7 +241,7 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
     @property
     def failed(self):
         try:
-            return bool(self.future and self.future.exception())
+            return bool(self.future and self.future.done() and self.future.exception())
         except CancelledError:
             return False
 
