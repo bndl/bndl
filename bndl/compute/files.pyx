@@ -25,7 +25,7 @@ from operator import attrgetter
 logger = logging.getLogger(__name__)
 
 
-def files(ctx, root, recursive=None, dfilter=None, ffilter=None,
+def files(ctx, root, recursive=True, dfilter=None, ffilter=None,
           psize_bytes=None, psize_files=None, split=False, location='driver'):
     '''
     Create a Dataset out of files.
@@ -36,7 +36,8 @@ def files(ctx, root, recursive=None, dfilter=None, ffilter=None,
         pattern (see glob.glob).
         If list, root is considered a list of filenames.
     :param recursive: bool
-        Whether to recursively search a (root) directory for files
+        Whether to recursively search a (root) directory for files, defaults
+        to True.
     :param dfilter: function(dir_name)
         A function to filter out directories by name, return a trueish or falsy
         value to indicate whether to use or the directory or not. 
@@ -81,7 +82,7 @@ def files(ctx, root, recursive=None, dfilter=None, ffilter=None,
         return RemoteFilesDataset(ctx, batches)
 
 
-def _batches(root, recursive=None, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
+def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
     if isinstance(root, str):
         filesizes = list(_filesizes(root, recursive, dfilter, ffilter))
     else:
