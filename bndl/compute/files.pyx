@@ -326,9 +326,18 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
     @property
+    def _chunks(self):
+        return chain.from_iterable(part.file_chunks for part in self._parts)
+
+
+    @property
     def filenames(self):
-        chunks = chain.from_iterable(part.file_chunks for part in self._parts)
-        return list(pluck(0, chunks))
+        return list(pluck(0, self._chunks))
+
+
+    @property
+    def size(self):
+        return sum(pluck(2, self._chunks))
 
 
     def __getstate__(self):
