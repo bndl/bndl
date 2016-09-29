@@ -96,12 +96,13 @@ def _get_batches(worker, *args, **kwargs):
 def _ip_addresses(worker):
     return tuple(sorted(map(str, worker.ip_addresses)))
 
-def _worker_files(ctx, *args, **kwargs):
+def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batch_requests = []
     workers = sorted(ctx.workers, key=_ip_addresses)
     for _, workers in groupby(workers, key=_ip_addresses):
         worker = next(workers)
-        batch_requests.append((worker, worker.run_task(_get_batches, *args, **kwargs)))
+        batch_requests.append((worker, worker.run_task(_get_batches, root, recursive, dfilter,
+                                                       ffilter, psize_bytes, psize_files, split)))
 
     batches = []
     for worker, batch_request in batch_requests:
@@ -109,7 +110,7 @@ def _worker_files(ctx, *args, **kwargs):
         for file_chunks in worker_batches:
             batches.append((worker.ip_addresses, file_chunks))
 
-    return LocalFilesDataset(ctx, batches)
+    return LocalFilesDataset(ctx, batches, split)
 
 
 def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
@@ -291,8 +292,8 @@ class DistributedFilesOps:
     def decode(self, encoding='utf-8', errors='strict'):
         return self.map_values(partial(_decode, encoding, errors))
 
-    def lines(self, encoding='utf-8', keepends=False, errors='strict'):
-        data = self.values() if encoding is None else self.decode(encoding, errors)
+    def lines(self, encoding='utf-8', errors='strict', keepends=True):
+        data = self if encoding is None else self.decode(encoding, errors)
         return data.values().flatmap(partial(_splitlines, keepends))
 
     def parse_csv(self, **kwargs):
@@ -306,7 +307,12 @@ class DecompressedFilesDataset(DistributedFilesOps, TransformingDataset):
 
 
 class FilesDataset(DistributedFilesOps, Dataset):
-    def decompress(self):
+    def __init__(self, ctx):
+        super().__init__(ctx)
+
+
+    def decompress(self, format='gzip'):
+        assert format == 'gzip'
         decompressed = self.map_values(gzip.decompress)
         decompressed.__class__ = DecompressedFilesDataset
         return decompressed
@@ -351,12 +357,25 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
 class LocalFilesDataset(FilesDataset):
-    def __init__(self, ctx, batches):
+    def __init__(self, ctx, batches, split):
         super().__init__(ctx)
+        self.split = bool(split)
         self._parts = [
             LocalFilesPartition(self, idx, ip_addresses, file_chunks)
             for idx, (ip_addresses, file_chunks) in enumerate(batches)
         ]
+
+
+    def lines(self, encoding='utf-8', errors='strict', keepends=True):
+        if not self.split and keepends:
+            ds = FilesDataset(self.ctx)
+            ds._parts = [
+                LinesFilesPartition(ds, part.idx, part.file_chunks, encoding, errors)
+                for part in self._parts
+            ]
+            return ds
+        else:
+            return super().lines(encoding, errors, keepends)
 
 
 
@@ -383,6 +402,25 @@ class FilesPartition(Partition):
                 f.seek(offset)
                 contents = f.read(size)
             yield filename, contents
+
+
+
+class LinesFilesPartition(FilesPartition):
+    def __init__(self, dset, idx, file_chunks, encoding, errors):
+        super().__init__(dset, idx, file_chunks)
+        self.encoding = encoding
+        self.errors = errors
+
+
+    def _materialize(self, ctx):
+        if not self.encoding:
+            open_file = partial(open, mode='rb')
+        else:
+            open_file = partial(open, encoding=self.encoding, errors=self.errors)
+
+        for filename, offset, size in self.file_chunks:
+            with open_file(filename) as f:
+                yield from f
 
 
 
