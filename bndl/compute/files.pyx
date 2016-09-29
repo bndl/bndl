@@ -173,7 +173,7 @@ def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
 
     subdirs = [directory]
     fnames = []
-    while True:
+    while len(fnames) < 10000:
         try:
             subdir = subdirs.pop()
         except IndexError:
