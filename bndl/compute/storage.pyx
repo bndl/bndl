@@ -1,3 +1,4 @@
+from os.path import getsize
 import abc
 import asyncio
 import contextlib
@@ -11,13 +12,12 @@ import pickle
 import struct
 import tempfile
 
-from bndl.net.sendfile import sendfile
+from bndl.net.sendfile import file_attachment, sendfile
 from bndl.net.serialize import attach, attachment
 from bndl.rmi.blocks import Block
 from bndl.util import aio
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
-from bndl.net.sendfile import file_attachment
 
 
 logger = logging.getLogger(__name__)
@@ -237,6 +237,11 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         return baio
 
 
+    @property
+    def size(self):
+        return len(self.data)
+
+
 
 def gettempdir():
     tempdir = tempfile.gettempdir()
@@ -253,12 +258,17 @@ def gettempdir():
 
 
 class OnDisk(SerializedContainer):
-    def _open(self, mode):
-        *dirpath, filename = self.id
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        * dirpath, filepath = self.id
         dirpath = os.path.join(gettempdir(), 'bndl', *map(str, dirpath))
-        self.filepath = os.path.join(dirpath, str(filename))
         os.makedirs(dirpath, exist_ok=True)
+        self.filepath = os.path.join(dirpath, str(filename))
+
+
+    def _open(self, mode):
         return open(self.filepath, mode + 'b')
+
 
     def clear(self):
         try:
@@ -268,6 +278,11 @@ class OnDisk(SerializedContainer):
         except Exception:
             logger.exception('Unable to clear file %s for id %s' %
                              (self.filepath, self.id))
+
+    @property
+    def size(self):
+        return getsize(self.filepath)
+
 
     def __getstate__(self):
         attach(*file_attachment(self.filepath, 0, os.path.getsize(self.filepath)))
