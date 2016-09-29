@@ -1,7 +1,7 @@
-from __future__ import print_function
-
 from bisect import bisect_left
 from concurrent.futures._base import Future
+from math import ceil
+from statistics import mean
 import gc
 import logging
 import threading
@@ -9,7 +9,7 @@ import threading
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.storage import StorageContainerFactory
 from bndl.util.collection import batch as batch_data, ensure_collection
-from bndl.util.conf import Int
+from bndl.util.conf import Int, Float
 from bndl.util.hash import portable_hash
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import merge_sorted
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 max_mem_pct = Int(75)
-min_block_len = Int(1000)
+block_size_mb = Float(10)
 
 
 BLOCK_FRACTION = 4
@@ -29,14 +29,20 @@ BLOCK_FRACTION = 4
 class Bucket:
     sorted = False
 
-    def __init__(self, idx, key, comb, min_block_len, default_container):
+    def __init__(self, idx, key, comb, block_size_mb, default_container):
         self.idx = idx
         self.key = key
         self.comb = comb
-        self.min_block_len = min_block_len
+        self.block_size_mb = block_size_mb
         self.default_container = default_container
         self.batches = []
         self._spill_lock = threading.Lock()
+        self.record_size = None
+
+
+    @property
+    def _block_size_recs(self):
+        return ceil(self.block_size_mb * 1024 * 1024 / self.record_size)
 
 
     def spill(self, container=None):
@@ -57,16 +63,25 @@ class Bucket:
             data = ensure_collection(self.comb(self)) if self.comb else list(self)
             idx = self.idx
 
-            # write out data in blocks
-            block_size = len(data) // BLOCK_FRACTION
-            if self.min_block_len > block_size:
+            if not self.record_size:
+                test_set = data[:max(3, len(data) // 10)]
+                c = self.default_container(('tmp',))
+                c.write(test_set)
+                self.record_size = c.size / len(test_set)
+
+            if self._block_size_recs > len(data):
                 blocks = [data]
             else:
-                blocks = batch_data(data, block_size)
+                blocks = batch_data(data, self._block_size_recs)
             for block in blocks:
-                c = container(idx + (batch_no, len(batch)))
+                c = container(idx + ('%r.%r' % (batch_no, len(batch)),))
                 c.write(block)
                 add_block(c)
+
+            self.record_size = self.record_size / 2 + mean(block.size for block in batch) / 2
+
+            logger.debug('spilled bucket %r into %r blocks, record size is estimated at %r',
+                         idx, len(batch), self.record_size)
 
             # clear the in memory
             self.clear()
@@ -121,19 +136,16 @@ class RangePartitioner():
 
 class ShuffleWritingDataset(Dataset):
     def __init__(self, ctx, src, pcount, partitioner=None, bucket=None, key=None, comb=None,
-            max_mem_pct=None,
-            min_block_len=1000,
-            serialization='pickle',
-            compression=None):
+            max_mem_pct=None, block_size_mb=None, serialization='pickle', compression=None):
         super().__init__(ctx, src)
-        self.pcount = pcount or len(self.src.parts())
+        self.pcount = pcount or self.ctx.default_pcount
         self.comb = comb
         self.partitioner = partitioner or portable_hash
         self.bucket = bucket or SortedBucket
         self.key = key
 
-        self.max_mem_pct = ctx.conf['bndl.compute.shuffle.max_mem_pct']
-        self.min_block_len = ctx.conf['bndl.compute.shuffle.min_block_len']
+        self.max_mem_pct = max_mem_pct or ctx.conf['bndl.compute.shuffle.max_mem_pct']
+        self.block_size_mb = block_size_mb or ctx.conf['bndl.compute.shuffle.block_size_mb']
         self.serialization = serialization
         self.compression = compression
 
@@ -184,7 +196,7 @@ class ShuffleWritingPartition(Partition):
 
         if not buckets:
             buckets = [self.dset.bucket((dset_id, part_id, idx), self.dset.key, self.dset.comb,
-                                        self.dset.min_block_len, self._memory_container)
+                                        self.dset.block_size_mb, self._memory_container)
                        for idx in range(self.dset.pcount)]
             worker.buckets[self.dset.id] = buckets
         return buckets
@@ -215,8 +227,7 @@ class ShuffleWritingPartition(Partition):
         check_interval_min_mem = -max(100 * 1024 * 1024, vmem.total // 100)
         check_interval_max_mem = check_interval_min_mem * 2
         # because we don't know on forehand how memory usage is growing,
-        # start with checking every min_block_len elements
-        check_interval = self.dset.min_block_len
+        check_interval = 10
 
         disk_container = self._disk_container
 
@@ -235,6 +246,9 @@ class ShuffleWritingPartition(Partition):
                         gc.collect()
                         if virtual_memory().percent < max_mem_pct:
                             break
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug('memory usage from %r%% down to %r%% after spilling',
+                                     vmem.percent, virtual_memory().percent)
                 dt_available = vmem.available - vmem_prev.available
                 if dt_available >= check_interval_min_mem:
                     check_interval <<= 1
@@ -244,9 +258,10 @@ class ShuffleWritingPartition(Partition):
 
 
 class ShuffleReadingDataset(Dataset):
-    def __init__(self, ctx, src):
-        super().__init__(ctx, src)
+    def __init__(self, ctx, src, sort=None):
         assert isinstance(src, ShuffleWritingDataset)
+        super().__init__(ctx, src)
+        self.sort = sort
 
 
     def parts(self):
@@ -268,13 +283,14 @@ def prefetch(func, args_list):
 
 
 
-
 class ShuffleReadingPartition(Partition):
     def _materialize(self, ctx):
         sources = [
             w for w in self.dset.ctx.workers
             if w.name in self.dset.workers
         ]
+
+        logger.debug('starting shuffle read from %r+1 sources', len(sources))
 
         assert len(sources) + 1 == len(self.dset.workers)
 
@@ -310,14 +326,21 @@ class ShuffleReadingPartition(Partition):
                         block_idx in range(num_blocks)]
                     streams.append(prefetch(get_block, blocks))
 
-        if self.dset.src.bucket.sorted:
-            def block_stream_iterator(stream):
-                for block in stream:
-                    yield from block.result().read()
-            # merge the streams in a sorted fashion
-            streams = [block_stream_iterator(stream) for stream in streams]
+        def block_stream_iterator(stream):
+            for request in stream:
+                block = request.result()
+                data = block.read()
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug('received shuffle block of %.2f MB, %r items', block.size / 1024 / 1024, len(data))
+                del block
+                yield from data
+
+        streams = [block_stream_iterator(stream) for stream in streams]
+
+        if self.dset.sort or self.dset.src.bucket.sorted:
+            logger.debug('performing sorted shuffle read')
             yield from merge_sorted(*streams, key=self.dset.src.key)
         else:
+            logger.debug('performing unsorted shuffle read')
             for stream in streams:
-                for block in stream:
-                    yield from block.result().read()
+                yield from stream
