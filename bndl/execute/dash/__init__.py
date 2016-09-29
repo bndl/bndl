@@ -1,5 +1,5 @@
-from asyncio import compat
 from datetime import datetime
+import sys
 import traceback
 
 from bndl.util import dash
@@ -59,7 +59,7 @@ def task_status(task):
 
 @blueprint.app_template_filter('fmt_exc')
 def fmt_exc(exc):
-    if compat.PY35:
+    if sys.version_info >= (3, 5):
         return ''.join(traceback.TracebackException.from_exception(exc).format())
     else:
         parts = []
