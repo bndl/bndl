@@ -113,20 +113,26 @@ class FilesTest(DatasetTest):
 
 
     def test_lines(self):
-        self.assertEqual(self.dset.lines().count(), self.total_line_count)
-        self.assertEqual(self.dset.lines().map(len).collect(), [self.line_size - 1] * self.total_line_count)
-        self.assertEqual(self.dset.lines().collect(),
-                         list(chain.from_iterable(c.decode().splitlines() for c in self.contents)))
+        for encoding in ('utf-8', None):
+            with self.subTest('encoding is %r' % encoding):
+                lines = self.dset.lines(encoding)
+                self.assertEqual(lines.count(), self.total_line_count)
+                self.assertEqual(lines.map(len).collect(), [self.line_size] * self.total_line_count)
+                if encoding is None:
+                    expected = list(chain.from_iterable(content.splitlines(keepends=True)for content in self.contents))
+                else:
+                    expected = list(chain.from_iterable(c.decode(encoding).splitlines(keepends=True) for c in self.contents))
+                self.assertEqual(lines.collect(), expected)
 
 
     def test_decompress(self):
-        dset = self.ctx.range(10)
+        dset = self.ctx.range(100)
         with TemporaryDirectory() as d:
             strings = dset.map(str)
             gzipped = strings.glom().map(lambda p: gzip.compress('\n'.join(p).encode()))
             gzipped.collect_as_files(d)
             self.assertEqual(dset.collect(),
-                             self.ctx.files(d).decompress().lines().map(int).sort().collect())
+                             sorted(self.ctx.files(d).decompress().lines().map(int).collect()))
 
 
     def test_split_files(self):
