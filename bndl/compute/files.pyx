@@ -370,7 +370,8 @@ class LocalFilesDataset(FilesDataset):
         if not self.split and keepends:
             ds = FilesDataset(self.ctx)
             ds._parts = [
-                LinesFilesPartition(ds, part.idx, part.file_chunks, encoding, errors)
+                LinesFilesPartition(ds, part.idx, part.ip_addresses,
+                                    part.file_chunks, encoding, errors)
                 for part in self._parts
             ]
             return ds
@@ -405,25 +406,6 @@ class FilesPartition(Partition):
 
 
 
-class LinesFilesPartition(FilesPartition):
-    def __init__(self, dset, idx, file_chunks, encoding, errors):
-        super().__init__(dset, idx, file_chunks)
-        self.encoding = encoding
-        self.errors = errors
-
-
-    def _materialize(self, ctx):
-        if not self.encoding:
-            open_file = partial(open, mode='rb')
-        else:
-            open_file = partial(open, encoding=self.encoding, errors=self.errors)
-
-        for filename, offset, size in self.file_chunks:
-            with open_file(filename) as f:
-                yield from f
-
-
-
 class MaterializedFilesPartition(FilesPartition):
     def _materialize(self, ctx):
         return self.files_data
@@ -439,6 +421,25 @@ class LocalFilesPartition(FilesPartition):
     def allowed_workers(self, workers):
         return [worker for worker in workers
                 if worker.ip_addresses & self.ip_addresses]
+
+
+
+class LinesFilesPartition(LocalFilesPartition):
+    def __init__(self, dset, idx, ip_addresses, file_chunks, encoding, errors):
+        super().__init__(dset, idx, ip_addresses, file_chunks)
+        self.encoding = encoding
+        self.errors = errors
+
+
+    def _materialize(self, ctx):
+        if not self.encoding:
+            open_file = partial(open, mode='rb')
+        else:
+            open_file = partial(open, encoding=self.encoding, errors=self.errors)
+
+        for filename, offset, size in self.file_chunks:
+            with open_file(filename) as f:
+                yield from f
 
 
 
@@ -464,8 +465,10 @@ class RemoteFiles(object):
         ]
 
 
+
 def _get_chunks(worker, file_chunks):
     return RemoteFiles(file_chunks)
+
 
 
 class RemoteFilesPartition(FilesPartition):
