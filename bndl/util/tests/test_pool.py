@@ -2,8 +2,6 @@ from collections import Counter
 from unittest.case import TestCase
 
 from bndl.util.pool import ObjectPool
-from itertools import count
-from bndl.util import cycloudpickle
 import pickle
 import time
 
