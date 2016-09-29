@@ -979,14 +979,20 @@ class Dataset(metaclass=abc.ABCMeta):
             [0, 1]
         '''
         key = key_or_getter(key)
+
         if key is not None:
             from .shuffle import DictBucket
-            shuffle = self.shuffle(pcount, bucket=DictBucket, key=key, **shuffle_opts)
-            return shuffle.map_partitions(lambda p: iter(dict(zip(map(key, p), p)).values()))
+            bucket = DictBucket
         else:
             from .shuffle import SetBucket
-            shuffle = self.shuffle(pcount, bucket=SetBucket, **shuffle_opts)
-            return shuffle.map_partitions(set)
+            bucket = SetBucket
+
+        shuffle = self.shuffle(pcount, bucket=bucket, key=key, comb=sorted, sort=True, **shuffle_opts)
+
+        def select_distinct(partition):
+            for _, group in groupby(partition, key=key):
+                yield next(group)
+        return shuffle.map_partitions(select_distinct)
 
 
     def count_distinct(self, pcount=None, **shuffle_opts):
@@ -1086,16 +1092,14 @@ class Dataset(metaclass=abc.ABCMeta):
         boundaries = [samples[len(samples) * (i + 1) // pcount] for i in range(pcount - 1)]
         # and use that in the range partitioner to shuffle
         partitioner = RangePartitioner(boundaries, reverse)
-        shuffled = self.shuffle(pcount, partitioner=partitioner, key=key, **shuffle_opts)
-        # finally sort within the partition
-        return shuffled.map_partitions(sorted)
+        return self.shuffle(pcount, partitioner=partitioner, key=key, **shuffle_opts)
 
 
-    def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, **opts):
+    def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, sort=None, **opts):
         key = key_or_getter(key)
         from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset
         shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb, **opts)
-        return ShuffleReadingDataset(self.ctx, shuffle)
+        return ShuffleReadingDataset(self.ctx, shuffle, sort)
 
 
     def zip(self, other):
