@@ -260,7 +260,7 @@ def gettempdir():
 class OnDisk(SerializedContainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        * dirpath, filepath = self.id
+        * dirpath, filename = self.id
         dirpath = os.path.join(gettempdir(), 'bndl', *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
         self.filepath = os.path.join(dirpath, str(filename))
