@@ -39,7 +39,7 @@ class ConnectionTest(TestCase):
 
         @asyncio.coroutine
         def connect():
-            host, port = 'localhost', 5000
+            host, port = '127.0.0.10', 5000
             # let a server listen
             self.server = (yield from asyncio.start_server(serve, host, port, loop=self.loop))
             # connect a client
@@ -58,7 +58,7 @@ class ConnectionTest(TestCase):
 
 
     def send(self, conn, msg):
-        self.loop.run_until_complete(conn.send(msg))
+        self.loop.run_until_complete(conn.send(msg, drain=False))
 
 
     def recv(self, conn, timeout=None):
