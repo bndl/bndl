@@ -2,7 +2,7 @@ from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 from itertools import groupby, chain
 from os import stat
-from os.path import getsize, join
+from os.path import getsize, join, isfile
 from queue import Queue, Empty
 import glob
 import gzip
@@ -10,6 +10,7 @@ import io
 import logging
 import mmap
 import os.path
+import struct
 import sys
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset
@@ -18,11 +19,12 @@ from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
 from cytoolz.itertoolz import pluck
+import marisa_trie
 import scandir
-from operator import attrgetter
 
 
 logger = logging.getLogger(__name__)
+
 
 
 def files(ctx, root, recursive=True, dfilter=None, ffilter=None,
@@ -78,23 +80,35 @@ def files(ctx, root, recursive=True, dfilter=None, ffilter=None,
         assert isinstance(root, str)
         return _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
     else:
-        batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
-        return RemoteFilesDataset(ctx, batches)
+        return _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
 
 
 def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
     if isinstance(root, str):
         filesizes = list(_filesizes(root, recursive, dfilter, ffilter))
     else:
+        if not all(map(isfile, root)):
+            raise ValueError('Not every file in %r is a file' % root)
         filesizes = [(filename, getsize(filename)) for filename in root]
-    return _batch_files(filesizes, psize_bytes, psize_files, split)
+    # batch in chunks by size / file count
+    batches = _batch_files(filesizes, psize_bytes, psize_files, split)
+    # compact filenames into a trie
+    return [marisa_trie.RecordTrie('QQ', batch) for batch in batches]
+
+
+def _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
+    batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
+    logger.debug('created files dataset of %s batches', len(batches))
+    return RemoteFilesDataset(ctx, batches)
 
 
 def _get_batches(worker, *args, **kwargs):
     return _batches(*args, **kwargs)
 
+
 def _ip_addresses(worker):
     return tuple(sorted(map(str, worker.ip_addresses)))
+
 
 def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batch_requests = []
@@ -109,6 +123,9 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
         worker_batches = batch_request.result()
         for file_chunks in worker_batches:
             batches.append((worker.ip_addresses, file_chunks))
+
+    logger.debug('created files dataset of %s batches accross %s worker nodes',
+                 len(batches), len(batch_requests))
 
     return LocalFilesDataset(ctx, batches, split)
 
@@ -198,10 +215,9 @@ def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
     return subdirs, fnames
 
 
-
 def _batch_files(filesizes, psize_bytes, psize_files, split):
     if not psize_bytes:
-        with_offset = ((file, 0, size) for file, size in filesizes)
+        with_offset = ((file, (0, size)) for file, size in filesizes)
         return collection.batch(with_offset, psize_files)
 
     if isinstance(split, str):
@@ -247,7 +263,7 @@ def _batch_files(filesizes, psize_bytes, psize_files, split):
                                             if split == 0:
                                                 split = filesize
                                     length = split - offset
-                                    batch.append((filename, offset, length))
+                                    batch.append((filename, (offset, length)))
                                     offset = split
                                     space -= length
                                     if space < sep_len:
@@ -262,18 +278,18 @@ def _batch_files(filesizes, psize_bytes, psize_files, split):
                             if remaining == 0:
                                 break
                             elif remaining < space:
-                                batch.append((filename, offset, remaining))
+                                batch.append((filename, (offset, remaining)))
                                 space -= remaining
                                 break
                             else:  # remaining > space
-                                batch.append((filename, offset, offset + space))
+                                batch.append((filename, (offset, offset + space)))
                                 offset += space
                                 remaining -= space
                                 new_batch()
                     continue
                 else:
                     new_batch()
-        batch.append((filename, 0, filesize))
+        batch.append((filename, (0, filesize)))
         space -= filesize
 
     return batches
@@ -311,8 +327,8 @@ class FilesDataset(DistributedFilesOps, Dataset):
         super().__init__(ctx)
 
 
-    def decompress(self, format='gzip'):
-        assert format == 'gzip'
+    def decompress(self, compression='gzip'):
+        assert compression == 'gzip'
         decompressed = self.map_values(gzip.decompress)
         decompressed.__class__ = DecompressedFilesDataset
         return decompressed
@@ -333,7 +349,7 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
     @property
     def _chunks(self):
-        return chain.from_iterable(part.file_chunks for part in self._parts)
+        return chain.from_iterable(part.file_chunks.items() for part in self._parts)
 
 
     @property
@@ -342,8 +358,13 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
     @property
+    def filecount(self):
+        return sum(len(part.file_chunks) for part in self._parts)
+
+
+    @property
     def size(self):
-        return sum(pluck(2, self._chunks))
+        return sum(pluck(1, pluck(1, self._chunks)))
 
 
     def __getstate__(self):
@@ -385,8 +406,8 @@ class RemoteFilesDataset(FilesDataset):
         super().__init__(ctx)
         self._parts = [
             RemoteFilesPartition(self, idx, file_chunks)
-             for idx, file_chunks in enumerate(batches)
-             if file_chunks
+            for idx, file_chunks in enumerate(batches)
+            if file_chunks
         ]
 
 
@@ -398,7 +419,7 @@ class FilesPartition(Partition):
 
 
     def _materialize(self, ctx):
-        for filename, offset, size in self.file_chunks:
+        for filename, (offset, size) in self.file_chunks.items():
             with open(filename, 'rb') as f:
                 f.seek(offset)
                 contents = f.read(size)
@@ -426,6 +447,7 @@ class LocalFilesPartition(FilesPartition):
 
 class LinesFilesPartition(LocalFilesPartition):
     def __init__(self, dset, idx, ip_addresses, file_chunks, encoding, errors):
+        file_chunks = marisa_trie.Trie(file_chunks.keys())
         super().__init__(dset, idx, ip_addresses, file_chunks)
         self.encoding = encoding
         self.errors = errors
@@ -437,37 +459,38 @@ class LinesFilesPartition(LocalFilesPartition):
         else:
             open_file = partial(open, encoding=self.encoding, errors=self.errors)
 
-        for filename, offset, size in self.file_chunks:
+        for filename in self.file_chunks:
             with open_file(filename) as f:
                 yield from f
 
 
 
-class RemoteFiles(object):
+class _RemoteFilesSender(object):
     def __init__(self, file_chunks):
         self.file_chunks = file_chunks
 
 
     def __getstate__(self):
-        for chunk in self.file_chunks:
-            attach(*file_attachment(*chunk))
-        state = dict(self.__dict__)
-        state['files_names'] = list(pluck(0, self.file_chunks))
-        del state['file_chunks']
-        return state
+        prefix = id(self)
+        for idx, (filename, (offset, size)) in enumerate(self.file_chunks.items()):
+            _, attacher = file_attachment(filename, offset, size)
+            key = struct.pack('NN', prefix, idx)
+            attach(key, attacher)
+        return {'prefix': prefix, 'N': idx + 1}
 
 
     def __setstate__(self, state):
-        files_names = state.pop('files_names')
+        prefix = state['prefix']
+        N = state['N']
         self.data = [
-            (filename, attachment(filename.encode('utf-8')))
-            for filename in files_names
+            attachment(struct.pack('NN', prefix, idx))
+            for idx in range(N)
         ]
 
 
 
 def _get_chunks(worker, file_chunks):
-    return RemoteFiles(file_chunks)
+    return _RemoteFilesSender(file_chunks)
 
 
 
@@ -479,4 +502,5 @@ class RemoteFilesPartition(FilesPartition):
 
     def _materialize(self, ctx):
         request = ctx.node.peers[self.source].run_task(_get_chunks, self.file_chunks)
-        return request.result().data
+        contents = request.result().data
+        return zip(self.file_chunks.keys(), contents)

@@ -28,7 +28,7 @@ except ImportError:
 
 setup(
     name='bndl',
-    version='0.2.7',
+    version='0.2.8',
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
     long_description=open('README.md').read(),
@@ -52,6 +52,7 @@ setup(
         'scandir',
         'psutil',
         'tblib',
+        'marisa_trie',
     ],
 
     extras_require=dict(

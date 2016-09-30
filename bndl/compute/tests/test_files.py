@@ -1,4 +1,5 @@
 from itertools import chain, product
+from os.path import basename
 from tempfile import TemporaryDirectory
 import gzip
 import math
@@ -7,7 +8,6 @@ import os.path
 from bndl.compute.tests import DatasetTest
 from bndl.util.text import random_string
 from cytoolz import pluck
-from os.path import basename
 
 
 class FilesTest(DatasetTest):
@@ -70,21 +70,26 @@ class FilesTest(DatasetTest):
 
 
     def test_count(self):
+        self.assertEqual(self.dset.filecount, self.file_count)
         self.assertEqual(self.dset.count(), self.file_count)
+
+
+    def test_size(self):
+        self.assertEqual(self.dset.size, self.total_size)
+
+
+    def _check_contents(self, dset):
+        files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
+        self.assertEqual(b''.join(pluck(1, files)), b''.join(self.contents))
 
 
     def test_listings(self):
         dirname = self.tmpdir.name
         filename_pattern = os.path.join(dirname, 'test_file_*.tmp')
         dset = self.ctx.files(filename_pattern)
+        self.assertEqual(len(dset.filenames), self.file_count)
         self.assertEqual(dset.count(), self.file_count)
-        file_count = sum(1 for _ in filter(
-                lambda f: os.path.basename(f).startswith('test_file_') and f.endswith('.tmp'),
-                self.ctx.files(dirname).filenames
-            )
-        )
-        self.assertEqual(file_count, self.file_count)
-        self.assertEqual(self.dset.count(), self.file_count)
+        self._check_contents(dset)
 
 
     def test_recursive(self):
@@ -99,8 +104,7 @@ class FilesTest(DatasetTest):
                     self.ctx.files(dirname).filenames
                 )
             ), self.file_count)
-            files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
-            self.assertEqual(b''.join(pluck(1, files)), b''.join(self.contents))
+            self._check_contents(dset)
 
 
     def test_binary(self):
@@ -143,7 +147,7 @@ class FilesTest(DatasetTest):
                 for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
                     self.assertLessEqual(psize, psize_bytes)
                 self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
-                self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+                self._check_contents(dset)
 
 
     def test_split_fileslines(self):
@@ -152,7 +156,7 @@ class FilesTest(DatasetTest):
             with self.subTest('factor is %r' % factor):
                 psize_bytes = int(self.psize_bytes / 2 * factor)
                 dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
-                self.assertEqual(b''.join(dset.values().collect()), b''.join(self.contents))
+                self._check_contents(dset)
                 max_lines_per_part = psize_bytes // self.line_size
                 for part in dset.values().collect(parts=True)[:-1]:
                     self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)
