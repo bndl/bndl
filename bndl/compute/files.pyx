@@ -1,6 +1,7 @@
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 from itertools import groupby, chain
+from os import stat, posix_fadvise, POSIX_FADV_SEQUENTIAL
 from os.path import getsize, join, isfile
 from queue import Queue, Empty
 import glob
@@ -491,6 +492,12 @@ class _RemoteFilesSender(object):
     def __getstate__(self):
         prefix = id(self)
         for idx, (filename, (offset, size)) in enumerate(self.file_chunks.items()):
+            try:
+                fd = os.open(filename, 'rb')
+                posix_fadvise(fd, offset, size, POSIX_FADV_SEQUENTIAL)
+                os.close(fd)
+            except Exception:
+                pass
             _, attacher = file_attachment(filename, offset, size)
             key = struct.pack('NN', prefix, idx)
             attach(key, attacher)
