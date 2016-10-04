@@ -1,7 +1,6 @@
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 from itertools import groupby, chain
-from os import stat
 from os.path import getsize, join, isfile
 from queue import Queue, Empty
 import glob
@@ -158,31 +157,39 @@ def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
         else:
             subdirs.append(name)
     # scan sub-directories concurrently if > 1
-    if dfilter:
-        dfilter = serialize.dumps(dfilter)
-    if ffilter:
-        ffilter = serialize.dumps(ffilter)
-
-    pool_size = max(4, os.cpu_count())
-
-    with ProcessPoolExecutor(pool_size) as executor:
-        scan_func = partial(_scan_dir, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
-        scans = Queue()
-        for subdir in subdirs:
-            scans.put(executor.submit(scan_func, subdir))
-        while True:
-            try:
-                dnames, fnames = scans.get_nowait().result()
-            except Empty:
-                break
-            else:
-                for dname in dnames:
-                    scans.put(executor.submit(scan_func, dname))
-                if fnames:
-                    yield from fnames
 
 
-def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
+    if len(subdirs) > 1:
+        if dfilter:
+            dfilter = serialize.dumps(dfilter)
+        if ffilter:
+            ffilter = serialize.dumps(ffilter)
+
+        scan_func = partial(_scan_dir_worker, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
+        pool_size = max(4, os.cpu_count())
+
+        with ProcessPoolExecutor(pool_size) as executor:
+            scans = Queue()
+            for subdir in subdirs:
+                scans.put(executor.submit(scan_func, subdir))
+            while True:
+                try:
+                    dnames, fnames = scans.get_nowait().result()
+                except Empty:
+                    break
+                else:
+                    for dname in dnames:
+                        scans.put(executor.submit(scan_func, dname))
+                    if fnames:
+                        yield from fnames
+    else:
+        while subdirs:
+            more_dirs, fnames = _scan_dir(subdirs.pop(), recursive, dfilter, ffilter)
+            subdirs.extend(more_dirs)
+            yield from fnames
+
+
+def _scan_dir_worker(directory, recursive, dfilter, ffilter):
     if dfilter:
         dfilter = serialize.loads(*dfilter)
     if ffilter:
@@ -196,22 +203,33 @@ def _scan_dir(directory, recursive=False, dfilter=None, ffilter=None):
         except IndexError:
             break
 
-        try:
-            scan = scandir.scandir(subdir)
-        except PermissionError:
-            continue
+        more_subdirs, more_fnames = _scan_dir(directory, recursive, dfilter, ffilter)
+        subdirs.extend(more_subdirs)
+        fnames.extend(more_fnames)
+    return subdirs, fnames
 
-        dir_fd = os.open(subdir, os.O_RDONLY)
 
-        try:
-            for entry in scan:
-                epath = join(subdir, entry.name)
-                if entry.is_dir() and recursive and (not dfilter or dfilter(epath)):
-                    subdirs.append(epath)
-                elif entry.is_file() and (not ffilter or ffilter(epath)):
-                    fnames.append((epath, stat(entry.name, dir_fd=dir_fd).st_size))
-        finally:
-            os.close(dir_fd)
+def _scan_dir(directory, recursive, dfilter, ffilter):
+    subdirs = []
+    fnames = []
+
+    try:
+        scan = scandir.scandir(directory)
+    except PermissionError:
+        return (), ()
+
+    dir_fd = os.open(directory, os.O_RDONLY)
+
+    try:
+        for entry in scan:
+            epath = join(directory, entry.name)
+            if entry.is_dir() and recursive and (not dfilter or dfilter(epath)):
+                subdirs.append(epath)
+            elif entry.is_file() and (not ffilter or ffilter(epath)):
+                fnames.append((epath, stat(entry.name, dir_fd=dir_fd).st_size))
+    finally:
+        os.close(dir_fd)
+
     return subdirs, fnames
 
 
