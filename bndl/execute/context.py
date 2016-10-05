@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import logging
 import time
 
+from bndl.execute.profile import Profiling
 from bndl.execute.worker import current_worker
 from bndl.util import plugins
 from bndl.util.conf import Config
@@ -24,12 +25,14 @@ class ExecutionContext(Lifecycle):
         self.jobs = []
         self.signal_start()
 
+
     @property
     def node(self):
         if self._node is None:
             with catch():
                 self._node = current_worker()
         return self._node
+
 
     def execute(self, job, workers=None, eager=True, ordered=True):
         # TODO what if not everything is consumed?
@@ -145,6 +148,11 @@ class ExecutionContext(Lifecycle):
     @property
     def workers(self):
         return list(self.node.peers.filter(node_type='worker'))
+
+
+    @property
+    def profiling(self):
+        return Profiling(self)
 
 
     def stop(self):
