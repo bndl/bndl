@@ -78,10 +78,10 @@ class Bucket:
                 c.write(block)
                 add_block(c)
 
-            self.record_size = self.record_size / 2 + mean(block.size for block in batch) / 2
+            self.record_size = self.record_size / 2 + mean(block.size for block in batch) / len(self) / 2
 
-            logger.debug('spilled bucket %r into %r blocks, record size is estimated at %r',
-                         idx, len(batch), self.record_size)
+            logger.debug('spilled bucket %s with %s elements into %s blocks, record size is estimated at %s',
+                         idx, len(self), len(batch), self.record_size)
 
             # clear the in memory
             self.clear()
