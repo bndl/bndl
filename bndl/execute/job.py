@@ -41,28 +41,29 @@ class Job(Lifecycle):
                 if not self.running:
                     break
                 logger.info('executing stage %s with %s tasks', stage, len(stage.tasks))
-                stage.add_listener(self._stage_done)
+                is_last = stage == self.stages[-1]
+                stage.add_listener(self._on_stage_event)
                 yield stage.execute(workers,
-                                    eager=stage != self.stages[-1] or eager,
+                                    eager=(not is_last) or eager,
                                     ordered=ordered,
                                     concurrency=concurrency)
         except (Exception, GeneratorExit):
-            self.signal_stop()
-            for stage in self.stages:
-                if not stage.stopped:
-                    stage.cancel()
+            self.cancel()
             raise
 
 
-    def _stage_done(self, stage):
+    def _on_stage_event(self, stage):
         if stage.stopped and stage == self.stages[-1]:
             self.signal_stop()
+        if stage.cancelled:
+            self.cancel()
 
 
     def cancel(self):
-        super().cancel()
         for stage in self.stages:
-            stage.cancel()
+            if not stage.stopped:
+                stage.cancel()
+        super().cancel()
 
 
     @property
@@ -95,11 +96,7 @@ class Stage(Lifecycle):
             else:
                 yield from self._execute_onebyone(workers)
         except (Exception, KeyboardInterrupt):
-            self.cancelled = True
-            for task in self.tasks:
-                if not task.stopped:
-                    task.cancel()
-            self.signal_stop()
+            self.cancel()
             raise
 
 
@@ -192,9 +189,10 @@ class Stage(Lifecycle):
 
 
     def cancel(self):
-        super().cancel()
         for task in self.tasks:
-            task.cancel()
+            if not task.stopped:
+                task.cancel()
+        super().cancel()
 
 
     def __repr__(self):
