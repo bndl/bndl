@@ -158,7 +158,7 @@ class ShuffleWritingDataset(Dataset):
     @property
     def cleanup(self):
         def _cleanup(job):
-            futures = [worker.clear_bucket.with_timeout(1)(self.id) for worker in job.ctx.workers]
+            futures = [worker.clear_bucket.with_timeout(5)(self.id) for worker in job.ctx.workers]
             for future in futures:
                 try:
                     future.result()
