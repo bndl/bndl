@@ -18,7 +18,7 @@ from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
-from cytoolz.itertoolz import pluck
+from cytoolz import pluck, interleave
 import marisa_trie
 import scandir
 
@@ -120,9 +120,13 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
 
     batches = []
     for worker, batch_request in batch_requests:
-        worker_batches = batch_request.result()
-        for file_chunks in worker_batches:
-            batches.append((worker.ip_addresses, file_chunks))
+        worker_batches = []
+        batches.append(worker_batches)
+        for file_chunks in batch_request.result():
+            worker_batches.append((worker.ip_addresses, file_chunks))
+
+    # interleave batches to ease scheduling overhead
+    batches = list(interleave(batches))
 
     logger.debug('created files dataset of %s batches accross %s worker nodes',
                  len(batches), len(batch_requests))
