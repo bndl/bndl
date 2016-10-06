@@ -164,34 +164,28 @@ def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
     # scan sub-directories concurrently if > 1
 
 
-    if len(subdirs) > 1:
-        if dfilter:
-            dfilter = serialize.dumps(dfilter)
-        if ffilter:
-            ffilter = serialize.dumps(ffilter)
+    if dfilter:
+        dfilter = serialize.dumps(dfilter)
+    if ffilter:
+        ffilter = serialize.dumps(ffilter)
 
-        scan_func = partial(_scan_dir_worker, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
-        pool_size = max(4, os.cpu_count())
+    scan_func = partial(_scan_dir_worker, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
+    pool_size = max(4, os.cpu_count())
 
-        with ProcessPoolExecutor(pool_size) as executor:
-            scans = Queue()
-            for subdir in subdirs:
-                scans.put(executor.submit(scan_func, subdir))
-            while True:
-                try:
-                    dnames, fnames = scans.get_nowait().result()
-                except Empty:
-                    break
-                else:
-                    for dname in dnames:
-                        scans.put(executor.submit(scan_func, dname))
-                    if fnames:
-                        yield from fnames
-    else:
-        while subdirs:
-            more_dirs, fnames = _scan_dir(subdirs.pop(), recursive, dfilter, ffilter)
-            subdirs.extend(more_dirs)
-            yield from fnames
+    with ProcessPoolExecutor(pool_size) as executor:
+        scans = Queue()
+        for subdir in subdirs:
+            scans.put(executor.submit(scan_func, subdir))
+        while True:
+            try:
+                dnames, fnames = scans.get_nowait().result()
+            except Empty:
+                break
+            else:
+                for dname in dnames:
+                    scans.put(executor.submit(scan_func, dname))
+                if fnames:
+                    yield from fnames
 
 
 def _scan_dir_worker(directory, recursive, dfilter, ffilter):
