@@ -15,6 +15,7 @@ import logging
 import os
 import pickle
 import shlex
+import string
 import struct
 import subprocess
 import threading
@@ -26,7 +27,7 @@ from bndl.compute import cache
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute.job import Job, Stage, Task
 from bndl.rmi import InvocationException
-from bndl.util import serialize, cycloudpickle
+from bndl.util import serialize, cycloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
@@ -67,7 +68,7 @@ class Dataset(metaclass=abc.ABCMeta):
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
         self.src = src
-        self.id = dset_id or uuid.uuid1()
+        self.id = dset_id or strings.random(8)
         self._cache_provider = False
         self._cache_locs = {}
         self._worker_preference = None
@@ -1338,7 +1339,7 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
     def __hash__(self):
-        return int(self.id)
+        return hash(self.id)
 
 
     def __eq__(self, other):
@@ -1364,13 +1365,9 @@ class Dataset(metaclass=abc.ABCMeta):
 @total_ordering
 class Partition(metaclass=abc.ABCMeta):
     def __init__(self, dset, idx, src=None):
-        self._dset = weakref.proxy(dset)
+        self.dset = weakref.proxy(dset)
         self.idx = idx
         self.src = src
-
-    @property
-    def dset(self):
-        return self._dset
 
     def materialize(self, ctx):
         # check cache
