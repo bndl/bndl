@@ -161,9 +161,7 @@ def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
                 yield name, getsize(name)
         else:
             subdirs.append(name)
-    # scan sub-directories concurrently if > 1
-
-
+            
     if dfilter:
         dfilter = serialize.dumps(dfilter)
     if ffilter:
@@ -201,10 +199,10 @@ def _scan_dir_worker(directory, recursive, dfilter, ffilter):
             subdir = subdirs.pop()
         except IndexError:
             break
-
-        more_subdirs, more_fnames = _scan_dir(directory, recursive, dfilter, ffilter)
-        subdirs.extend(more_subdirs)
-        fnames.extend(more_fnames)
+        else:
+            more_subdirs, more_fnames = _scan_dir(subdir, recursive, dfilter, ffilter)
+            subdirs.extend(more_subdirs)
+            fnames.extend(more_fnames)
     return subdirs, fnames
 
 
