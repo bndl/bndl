@@ -21,7 +21,9 @@ extensions = [
 
 try:
     from Cython.Build.Dependencies import cythonize
-    extensions = cythonize(extensions)
+    extensions = cythonize(extensions, compiler_directives={
+        'language_level': 3
+    })
 except ImportError:
     pass
 
