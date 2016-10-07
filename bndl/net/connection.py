@@ -9,7 +9,7 @@ import urllib.parse
 
 from bndl.net import serialize
 from bndl.util import aio
-from bndl.util.aio import async_call, readexactly
+from bndl.util.aio import readexactly
 
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,6 @@ class Connection(object):
         self.reader = reader
         self.readexactly = types.MethodType(readexactly, self.reader)
         self.writer = writer
-        self.read_lock = asyncio.Lock(loop=self.loop)
         self.write_lock = asyncio.Lock(loop=self.loop)
         self.bytes_received = 0
         self.bytes_sent = 0
@@ -176,23 +175,22 @@ class Connection(object):
 
     @asyncio.coroutine
     def _recv(self):
-        with (yield from self.read_lock):
-            # read and unpack format
-            fmt = yield from self.readexactly(1)
-            fmt = int.from_bytes(fmt, sys.byteorder)
-            marshalled = fmt & 1
-            has_attachments = fmt & 2
+        # read and unpack format
+        fmt = yield from self.readexactly(1)
+        fmt = int.from_bytes(fmt, sys.byteorder)
+        marshalled = fmt & 1
+        has_attachments = fmt & 2
 
-            # read in attachments if any
-            attachments = {}
-            if has_attachments:
-                att_count = yield from self._recv_unpack('I')
-                for _ in range(att_count):
-                    key = bytes((yield from self._recv_field()))
-                    attachments[key] = yield from self._recv_field('Q')
+        # read in attachments if any
+        attachments = {}
+        if has_attachments:
+            att_count = yield from self._recv_unpack('I')
+            for _ in range(att_count):
+                key = bytes((yield from self._recv_field()))
+                attachments[key] = yield from self._recv_field('Q')
 
-            # read message itself
-            msg = yield from self._recv_field('Q')
+        # read message itself
+        msg = yield from self._recv_field('Q')
 
         return marshalled, msg, attachments
 
