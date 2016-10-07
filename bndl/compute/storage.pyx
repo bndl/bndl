@@ -118,6 +118,11 @@ class StorageContainerFactory(object):
                 self.serialize = pickle.dump
                 self.deserialize = pickle.load
                 self.mode = 'b'
+            elif serialization == 'msgpack':
+                import msgpack
+                self.serialize = msgpack.dump
+                self.deserialize = msgpack.load
+                self.mode = 'b'
             elif serialization == 'text':
                 self.serialize = _text_dump
                 self.deserialize = _text_load
