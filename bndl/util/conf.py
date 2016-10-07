@@ -20,8 +20,10 @@ class Config(object):
 
         # read from .bndl.ini files
         config = ConfigParser()
-        config.read(['~/.bndl.ini',
-                     './.bndl.ini', ])
+        config.read(['~/bndl.ini',
+                     './bndl.ini',
+                     '~/.bndl.ini',
+                     './.bndl.ini',])
         for section in config.sections():
             for key, value in config[section].items():
                 self.values['%s.%s' % (section, key)] = value
