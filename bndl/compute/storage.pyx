@@ -242,6 +242,18 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         return len(self.data)
 
 
+    def to_disk(self):
+        self.__class__ = OnDisk
+        self.__init__(self.id, self.provider)
+        fileobj = self.open('w')
+        try:
+            fileobj.write(self.data)
+        finally:
+            with catch():
+                fileobj.close()
+        del self.data
+
+
 
 def gettempdir():
     tempdir = tempfile.gettempdir()
