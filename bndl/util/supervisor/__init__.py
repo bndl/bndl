@@ -180,8 +180,11 @@ class Supervisor(object):
                 for child in self.children:
                     returncode = child.returncode
                     if returncode is not None:
-                        logger.info('Child %s (%s:%s) exited with code %s', child.id , child.module, child.main, returncode)
-                        if returncode not in DNR_CODES and (time.time() - child.started_on) > self.min_run_time:
+                        restart = returncode not in DNR_CODES and (time.time() - child.started_on) > self.min_run_time
+                        logger.log(logging.ERROR if restart else logging.INFO,
+                                   'Child %s (%s:%s) exited with code %s',
+                                   child.id , child.module, child.main, returncode)
+                        if restart:
                             child.start()
                     else:
                         time.sleep(check_interval)
