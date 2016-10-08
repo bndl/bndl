@@ -81,4 +81,10 @@ def create_ctx(config=Config(), daemon=True):
         raise
 
 
-ctx = LazyObject(lambda: create_ctx(daemon=True), 'stop')
+def _get_or_create_ctx():
+    if len(ComputeContext.instances) > 0:
+        return next(iter(ComputeContext.instances))
+    else:
+        return create_ctx()
+
+ctx = LazyObject(_get_or_create_ctx, 'stop')
