@@ -244,7 +244,7 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
     @property
     def size(self):
-        return len(self.data)
+        return len(self.data) if self.data else 0
 
 
     def to_disk(self):
