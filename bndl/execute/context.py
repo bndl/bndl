@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import logging
 import time
 
-from bndl.execute.profile import Profiling
+from bndl.execute.profile import CpuProfiling, MemoryProfiling
 from bndl.execute.worker import current_worker
 from bndl.util import plugins
 from bndl.util.conf import Config
@@ -151,8 +151,13 @@ class ExecutionContext(Lifecycle):
 
 
     @property
-    def profiling(self):
-        return Profiling(self)
+    def cpu_profiling(self):
+        return CpuProfiling(self)
+
+
+    @property
+    def memory_profiling(self):
+        return MemoryProfiling(self)
 
 
     def stop(self):

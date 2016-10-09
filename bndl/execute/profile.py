@@ -1,5 +1,7 @@
+import linecache
 import os
 import sys
+import tracemalloc
 import weakref
 
 from cytoolz import pluck
@@ -15,17 +17,35 @@ COLMUMNS = (
 )
 
 
-class Profiling(object):
+def _each(ctx, func):
+    tasks = [
+        (worker, worker.run_task(lambda w: func()))
+        for worker in ctx.workers
+    ]
+    return [(worker, task.result()) for worker, task in tasks]
+
+
+def _strip_dirs(path):
+    cwd_parent = os.getcwd()
+    if path.startswith(cwd_parent):
+        return os.path.relpath(path)
+    else:
+        for p in sys.path:
+            if path.startswith(p):
+                return path.replace(p, '').lstrip('/')
+
+
+class CpuProfiling(object):
     def __init__(self, ctx):
         self.ctx = weakref.proxy(ctx)
 
 
     def start(self):
-        self._each(yappi.start)
+        _each(self.ctx, yappi.start)
 
 
     def stop(self):
-        self._each(yappi.stop)
+        _each(self.ctx, yappi.stop)
 
 
     def get_stats(self, per_worker=False):
@@ -90,16 +110,8 @@ class Profiling(object):
             if sort_by:
                 stats.sort(sort_by, sort_dir or 'desc')
             if strip_dirs:
-#                 cwd_parent = os.path.dirname(os.getcwd())
-                cwd_parent = os.getcwd()
                 for stat in stats:
-                    if stat.full_name.startswith(cwd_parent):
-                        stat.full_name = os.path.relpath(stat.full_name)
-                    else:
-                        for p in sys.path:
-                            if stat.full_name.startswith(p):
-                                stat.full_name = stat.full_name.replace(p, '').lstrip('/')
-                                break
+                    stat.full_name = _strip_dirs()
                 if include or exclude:
                     excl = [mod.replace('.', '/') for mod in
                             ((exclude,) if isinstance(exclude, str) else exclude)]
@@ -142,9 +154,79 @@ class Profiling(object):
             print_stats(stats)
 
 
-    def _each(self, func):
-        tasks = [
-            (worker, worker.run_task(lambda w: func()))
-            for worker in self.ctx.workers
-        ]
-        return [(worker, task.result()) for worker, task in tasks]
+def print_snapshot_top(snapshot, group_by, limit, file, strip_dirs, include, exclude):
+    def _build_snapshot_filter(inclusive, modules):
+        if isinstance(modules, str):
+            modules = (modules,)
+        filters = []
+        for mod in modules:
+            mod = mod.replace('.', '/')
+            for sys_path in sys.path:
+                filename_filter = os.path.join(sys_path, mod, '*')
+                print(filename_filter)
+                filters.append(tracemalloc.Filter(inclusive, filename_filter))
+        return filters
+
+    filters = [tracemalloc.Filter(False, "<frozen importlib._bootstrap>")]
+    if exclude:
+        filters.extend(_build_snapshot_filter(False, exclude))
+    if include:
+        filters.extend(_build_snapshot_filter(True, include))
+
+    snapshot = snapshot.filter_traces(filters)
+
+    top_stats = snapshot.statistics(group_by)
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        filename = frame.filename
+        if strip_dirs:
+            filename = _strip_dirs(frame.filename)
+        print("#{}: {}:{}: {:.1f} KiB".format(index, filename, frame.lineno,
+                                              stat.size / 1024), file=file)
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            print('    %s' % line, file=file)
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        print("%s other: %.1f KiB" % (len(other), size / 1024), file=file)
+
+    total = sum(stat.size for stat in top_stats)
+    print("Total allocated size: %.1f KiB" % (total / 1024), file=file)
+
+
+
+class MemoryProfiling(object):
+    def __init__(self, ctx):
+        self.ctx = weakref.proxy(ctx)
+
+
+    def start(self):
+        _each(self.ctx, tracemalloc.start)
+
+
+    def stop(self):
+        _each(self.ctx, tracemalloc.stop)
+
+
+    def take_snapshot(self, per_worker=False):
+        snapshots = _each(self.ctx, tracemalloc.take_snapshot)
+        if per_worker:
+            return snapshots
+        snapshot_merged, *snapshots = pluck(1, snapshots)
+        traces_merged = snapshot_merged.traces._traces
+        for s in snapshots:
+            traces_merged.extend(s.traces._traces)
+        return snapshot_merged
+
+
+    def print_top(self, group_by='lineno', limit=10, per_worker=False,
+                  strip_dirs=True, include=(), exclude=(), file=sys.stdout):
+        if per_worker:
+            for worker, snapshot in self.take_snapshot(True):
+                print('Worker:', worker.name, file=file)
+                print_snapshot_top(snapshot, group_by, limit, file, include, exclude)
+        else:
+            snapshot = self.take_snapshot(False)
+            print_snapshot_top(snapshot, group_by, limit, file, strip_dirs, include, exclude)
