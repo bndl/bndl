@@ -1,5 +1,4 @@
 import itertools
-import weakref
 
 from bndl.compute.arrays import SourceDistributedArray, DistributedArray
 from bndl.compute.broadcast import broadcast, broadcast_pickled
@@ -11,12 +10,9 @@ from bndl.util.funcs import as_method
 
 
 class ComputeContext(ExecutionContext):
-    instances = weakref.WeakSet()
-
     def __init__(self, driver, *args, **kwargs):
         super().__init__(driver, *args, **kwargs)
         self._dataset_ids = itertools.count()
-        self.instances.add(self)
 
     @property
     def default_pcount(self):

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 import time
+import weakref
 
 from bndl.execute.profile import CpuProfiling, MemoryProfiling
 from bndl.execute.worker import current_worker
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutionContext(Lifecycle):
+    instances = weakref.WeakSet()
 
     def __init__(self, node, config=Config()):
         # Make sure the BNDL plugins are loaded
@@ -24,6 +26,7 @@ class ExecutionContext(Lifecycle):
         self.conf = config
         self.jobs = []
         self.signal_start()
+        self.instances.add(self)
 
 
     @property
@@ -162,10 +165,14 @@ class ExecutionContext(Lifecycle):
 
     def stop(self):
         self.signal_stop()
+        try:
+            self.instances.remove(self)
+        except KeyError:
+            pass
 
 
     def __getstate__(self):
         state = super().__getstate__()
         for attr in ('_node', 'jobs'):
-            state[attr] = None
+            del state[attr]
         return state
