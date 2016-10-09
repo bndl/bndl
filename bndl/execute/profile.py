@@ -154,28 +154,7 @@ class CpuProfiling(object):
             print_stats(stats)
 
 
-def print_snapshot_top(snapshot, group_by, limit, file, strip_dirs, include, exclude):
-    def _build_snapshot_filter(inclusive, modules):
-        if isinstance(modules, str):
-            modules = (modules,)
-        filters = []
-        for mod in modules:
-            mod = mod.replace('.', '/')
-            for sys_path in sys.path:
-                filename_filter = os.path.join(sys_path, mod, '*')
-                print(filename_filter)
-                filters.append(tracemalloc.Filter(inclusive, filename_filter))
-        return filters
-
-    filters = [tracemalloc.Filter(False, "<frozen importlib._bootstrap>")]
-    if exclude:
-        filters.extend(_build_snapshot_filter(False, exclude))
-    if include:
-        filters.extend(_build_snapshot_filter(True, include))
-
-    snapshot = snapshot.filter_traces(filters)
-
-    top_stats = snapshot.statistics(group_by)
+def print_snapshot_top(top_stats, limit, file, strip_dirs, include, exclude):
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
         filename = frame.filename
@@ -221,12 +200,41 @@ class MemoryProfiling(object):
         return snapshot_merged
 
 
-    def print_top(self, group_by='lineno', limit=10, per_worker=False,
+    def print_top(self, group_by='lineno', limit=10, compare_to=None, per_worker=False,
                   strip_dirs=True, include=(), exclude=(), file=sys.stdout):
+        assert not (compare_to and per_worker)
+
         if per_worker:
-            for worker, snapshot in self.take_snapshot(True):
+            snapshots = self.take_snapshot(True)
+            for worker, snapshot in snapshots:
                 print('Worker:', worker.name, file=file)
                 print_snapshot_top(snapshot, group_by, limit, file, include, exclude)
+            return snapshots
+
         else:
+            def _build_snapshot_filter(inclusive, modules):
+                if isinstance(modules, str):
+                    modules = (modules,)
+                filters = []
+                for mod in modules:
+                    mod = mod.replace('.', '/')
+                    for sys_path in sys.path:
+                        filename_filter = os.path.join(sys_path, mod, '*')
+                        filters.append(tracemalloc.Filter(inclusive, filename_filter))
+                return filters
+
+            filters = [tracemalloc.Filter(False, "<frozen importlib._bootstrap>")]
+            if exclude:
+                filters.extend(_build_snapshot_filter(False, exclude))
+            if include:
+                filters.extend(_build_snapshot_filter(True, include))
+
             snapshot = self.take_snapshot(False)
-            print_snapshot_top(snapshot, group_by, limit, file, strip_dirs, include, exclude)
+            snapshot = snapshot.filter_traces(filters)
+            if compare_to:
+                top_stats = snapshot.compare_to(compare_to.filter_traces(filters), group_by)
+            else:
+                top_stats = snapshot.statistics(group_by)
+
+            print_snapshot_top(top_stats, limit, file, strip_dirs, include, exclude)
+            return snapshot
