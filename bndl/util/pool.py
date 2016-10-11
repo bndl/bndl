@@ -121,8 +121,7 @@ class ObjectPool(object):
         if self.max_idle and time.time() - inserted > self.max_idle:
             return False
         try:
-            c = bool(self.check(obj))
-            return c
+            return bool(self.check(obj))
         except Exception:
             return False
 
