@@ -32,7 +32,7 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
-from toolz.itertoolz import pluck, take
+from cytoolz.itertoolz import pluck, take
 import numpy as np
 
 
