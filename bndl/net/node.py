@@ -221,7 +221,8 @@ class Node(object):
                         yield from known_peer.disconnect(reason='already connected, new connection wins')
 
                 if known_peer.name != peer.name:
-                    del self.peers[known_peer.name]
+                    with catch(KeyError):
+                        del self.peers[known_peer.name]
 
             self.peers[peer.name] = peer
 
