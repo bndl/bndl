@@ -174,5 +174,5 @@ class ExecutionContext(Lifecycle):
     def __getstate__(self):
         state = super().__getstate__()
         for attr in ('_node', 'jobs'):
-            del state[attr]
+            state[attr] = None
         return state
