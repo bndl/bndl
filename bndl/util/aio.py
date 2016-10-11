@@ -1,8 +1,7 @@
 import asyncio
+import concurrent.futures
 import functools
 import logging
-
-import concurrent.futures
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +65,7 @@ def run_coroutine_threadsafe(coro, loop):
         global task
         try:
             logger.debug('scheduling coro %s as task', coro)
-            task = asyncio.ensure_future(coro, loop=loop)
+            task = loop.create_task(coro)
             task.add_done_callback(task_done)
         except Exception as exc:
             logger.exception('unable to schedule task')
