@@ -1,5 +1,5 @@
-from asyncio.futures import TimeoutError
 from collections import Counter, Iterable, Sized
+from concurrent.futures import TimeoutError
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
@@ -26,13 +26,13 @@ from bndl.compute import cache
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute.job import Job, Stage, Task
 from bndl.rmi import InvocationException
-from bndl.util import serialize, cycloudpickle, strings
+from bndl.util import serialize, cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
-from cytoolz.itertoolz import pluck, take
+from toolz.itertoolz import pluck, take
 import numpy as np
 
 
@@ -1543,7 +1543,7 @@ class TransformingDataset(Dataset):
         try:
             self._transformation = pickle.dumps(transformation, protocol=4)
         except (pickle.PicklingError, AttributeError):
-            self._transformation = cycloudpickle.dumps(transformation, protocol=4)
+            self._transformation = cloudpickle.dumps(transformation, protocol=4)
 
     def parts(self):
         return [
@@ -1558,7 +1558,7 @@ class TransformingDataset(Dataset):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.transformation = cycloudpickle.loads(self._transformation)  # @UndefinedVariable
+        self.transformation = pickle.loads(self._transformation)  # @UndefinedVariable
 
 
 class TransformingPartition(Partition):
