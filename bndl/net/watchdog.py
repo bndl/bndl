@@ -185,7 +185,7 @@ class Watchdog(object):
                 stats.last_reconnect = now
                 yield from peer.connect()
         elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:
-            self.node.loop.create_task(self._ping(peer))
+            yield from self._ping(peer)
 
 
     def rxtx_stats(self):
