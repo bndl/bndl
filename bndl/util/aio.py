@@ -53,7 +53,7 @@ def run_coroutine_threadsafe(coro, loop):
     :param loop: asyncio loop
     '''
     future = concurrent.futures.Future()
-    scheduled = concurrent.futures.Future()
+    task = None
 
     def task_done(task):
         try:
@@ -62,29 +62,26 @@ def run_coroutine_threadsafe(coro, loop):
             logger.debug('task failed', exc_info=True)
             future.set_exception(exc)
 
-
     def schedule_task():
+        global task
         try:
             logger.debug('scheduling coro %s as task', coro)
-            task = loop.create_task(coro)
+            task = asyncio.ensure_future(coro, loop=loop)
             task.add_done_callback(task_done)
-            scheduled.set_result(task)
         except Exception as exc:
             logger.exception('unable to schedule task')
             future.set_exception(exc)
-
     schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
 
-    def cancel_task():
-        return scheduled.cancel()
-
-    def future_done(future):
-        try:
-            schedule_task_handle.cancel()
-            loop.call_soon_threadsafe(cancel_task)
-        except Exception:
-            logger.exception('canceling future failed')
-    future.add_done_callback(future_done)
+    def propagate_cancel(future):
+        if future.cancelled:
+            try:
+                schedule_task_handle.cancel()
+                if task:
+                    loop.call_soon_threadsafe(task.cancel)
+            except Exception:
+                logger.exception('canceling future failed')
+    future.add_done_callback(propagate_cancel)
 
     return future
 
