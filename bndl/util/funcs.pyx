@@ -62,6 +62,22 @@ def key_or_getter(key):
         return key
 
 
+def prefetch(function, sequence):
+    '''
+    Utility similar to itertools.starmap but which is one invocation ahead of the results returned.
+    Useful in combination with functions which set of work and return a Future.
+    :param function: the function to apply.
+    :param sequence: a sequence of arguments to apply the function to.
+    '''
+    sequence = iter(sequence)
+    pending = function(*next(sequence))
+    for args in sequence:
+        nxt = function(*args)
+        yield pending
+        pending = nxt
+    yield pending
+
+
 def neg(x):
     return -x
 
