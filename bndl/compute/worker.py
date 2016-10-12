@@ -1,10 +1,9 @@
-from collections import defaultdict
 import argparse
-import gc
 import logging
 import os
 
 from bndl.compute import broadcast
+from bndl.compute.shuffle import ShuffleManager
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
@@ -17,59 +16,12 @@ from bndl.util.supervisor import Supervisor
 logger = logging.getLogger(__name__)
 
 
-class Worker(ExecutionWorker, BlockManager):
+class Worker(ExecutionWorker, BlockManager, ShuffleManager):
     def __init__(self, *args, **kwargs):
         os.environ['PYTHONHASHSEED'] = '0'
         ExecutionWorker.__init__(self, *args, **kwargs)
         BlockManager.__init__(self)
-        self.buckets = defaultdict(dict)
-
-
-    def get_bucket_size(self, src, dset_id, bucket_idx):
-        try:
-            bucket = self.buckets.get(dset_id)[bucket_idx]
-            bucket.spill()
-            sizes = [len(batch) for batch in bucket.batches]
-            return sizes
-        except (TypeError, IndexError):
-            return ()
-
-
-    def get_bucket_block(self, src, dset_id, part_idx, batch_idx, block_idx):
-        try:
-            bucket = self.buckets.get(dset_id)[part_idx]
-        except TypeError:
-            raise KeyError('No buckets for dataset %r' % dset_id)
-        except IndexError:
-            raise KeyError('No partition %r in dataset %r' % (part_idx, dset_id))
-
-        try:
-            batch = bucket.batches[batch_idx]
-        except IndexError:
-            raise KeyError('No batch %r in partition %r of dataset %r' % (
-                           batch_idx, part_idx, dset_id))
-
-        try:
-            return batch[block_idx]
-        except IndexError:
-            raise KeyError('No block %r in batch %r of partition %r in dataset %r' % (
-                           block_idx, batch_idx, part_idx, dset_id))
-
-
-
-    def clear_bucket(self, src, dset_id, part_idx=None):
-        try:
-            if part_idx is not None:
-                buckets = self.buckets.get(dset_id)
-                buckets[part_idx].clear()
-                del buckets[part_idx]
-            else:
-                for bucket in self.buckets[dset_id]:
-                    bucket.clear()
-                del self.buckets[dset_id]
-            gc.collect()
-        except KeyError:
-            pass
+        ShuffleManager.__init__(self)
 
 
     def unpersist_broadcast_values(self, src, name):

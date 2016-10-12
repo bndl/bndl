@@ -1,7 +1,5 @@
 from os.path import getsize
 import abc
-import asyncio
-import contextlib
 import gzip
 import io
 import json
@@ -12,12 +10,12 @@ import pickle
 import struct
 import tempfile
 
-from bndl.net.sendfile import file_attachment, sendfile
+from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.rmi.blocks import Block
-from bndl.util import aio
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
+from functools import lru_cache
 
 
 logger = logging.getLogger(__name__)
@@ -248,19 +246,18 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
 
     def to_disk(self):
-        self.__class__ = OnDisk
-        self.__init__(self.id, self.provider)
-        fileobj = self.open('w')
+        on_disk = OnDisk(self.id, self.provider)
+        fileobj = on_disk.open('w')
         try:
             fileobj.write(self.data)
         finally:
-            with catch():
-                fileobj.close()
-        del self.data
+            fileobj.close()
+        return on_disk
 
 
 
-def gettempdir():
+@lru_cache()
+def get_work_dir():
     tempdir = tempfile.gettempdir()
     if os.path.exists('/proc/mounts'):
         with open('/proc/mounts') as mounts:
@@ -268,9 +265,9 @@ def gettempdir():
                 mount = mount.split()
                 if mount[1] == tempdir:
                     if mount[0] == 'tmpfs' and os.path.isdir('/var/tmp'):
-                        return '/var/tmp'
+                        tempdir = '/var/tmp'
                     break
-    return tempdir
+    return os.path.join(tempdir, 'bndl', str(os.getpid()))
 
 
 
@@ -278,7 +275,7 @@ class OnDisk(SerializedContainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         * dirpath, filename = self.id
-        dirpath = os.path.join(gettempdir(), 'bndl', *map(str, dirpath))
+        dirpath = os.path.join(get_work_dir(), *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
         self.filepath = os.path.join(dirpath, str(filename))
 
@@ -313,5 +310,4 @@ class OnDisk(SerializedContainer):
 
 
     def __del__(self):
-        with catch():
-            os.remove(self.filepath)
+        self.clear()
