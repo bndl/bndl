@@ -16,7 +16,6 @@ from bndl.util.threads import OnDemandThreadedExecutor
 from tblib import pickling_support ; pickling_support.install()
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -55,10 +54,11 @@ class Invocation(object):
         except asyncio.futures.CancelledError:
             logger.debug('remote invocation cancelled')
             return None
-        except TimeoutError:
+        except asyncio.futures.TimeoutError:
             raise
         except Exception:
-            logger.exception('unable to perform remote invocation')
+            logger.exception('unable to perform remote invocation of %s on %s' % (
+                             self.name, self.peer.name))
             raise
         finally:
             try:
