@@ -275,7 +275,7 @@ class ShuffleWritingDataset(Dataset):
         super().__init__(ctx, src)
         self.pcount = pcount or ctx.default_pcount
         self.comb = comb
-        self.partitioner = partitioner or hash  # portable_hash
+        self.partitioner = partitioner or portable_hash
         self.bucket = bucket or SortedBucket
         self.key = key
 
