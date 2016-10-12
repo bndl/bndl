@@ -50,7 +50,7 @@ class PeerStats(object):
 
         if not self.peer.is_connected and self.peer.connected_on is not None:
             if not self.error_since:
-                logger.warning('%r disconnected', self.peer)
+                logger.info('%r disconnected', self.peer)
             self.error_since = self.error_since or now
             self.bytes_sent_rate = 0
             self.bytes_received_rate = 0
@@ -70,11 +70,11 @@ class PeerStats(object):
 
         if self.last_rx and (now - self.last_rx).total_seconds() > DT_MAX_INACTIVE:
             if not self.error_since:
-                logger.warning('%r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
+                logger.info('%r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
             self.error_since = self.error_since or now
         else:
             if self.error_since:
-                logger.warning('%s recovered', self.peer)
+                logger.info('%s recovered', self.peer)
             # clear error stats
             self.connection_attempts = 0
             self.error_since = None
@@ -158,7 +158,7 @@ class Watchdog(object):
             return
 
         if peer.name != name:
-            logger.warning('Peer %s of node %s registered under %s, updating registration',
+            logger.info('Peer %s of node %s registered under %s, updating registration',
                            peer.name, self.node.name, name)
             peer = self.node.peers.pop(name)
             self.node.peers[name] = peer
