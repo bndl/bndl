@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import atexit
 
 from bndl.net.connection import urlcheck
 
@@ -36,6 +37,7 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
             raise
 
     try:
+        atexit.register(loop.stop)
         if stop_signal:
             loop.run_until_complete(loop.run_in_executor(None, stop_signal.result))
         else:
