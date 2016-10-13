@@ -14,6 +14,12 @@ from bndl.util.lifecycle import Lifecycle
 logger = logging.getLogger(__name__)
 
 
+def _num_connected(worker):
+    return sum(1 for worker
+               in worker.peers.filter(node_type='worker')
+               if worker.is_connected)
+
+
 class ExecutionContext(Lifecycle):
     instances = weakref.WeakSet()
 
@@ -116,7 +122,7 @@ class ExecutionContext(Lifecycle):
                 return False
 
             expected = self.worker_count ** 2 - self.worker_count
-            tasks = [w.run_task(lambda w:sum(1 for w in w.peers.filter(node_type='worker') if w.is_connected)) for w in self.workers]
+            tasks = [w.run_task(_num_connected) for w in self.workers]
             actual = sum(t.result() for t in tasks)
 
             return expected == actual
