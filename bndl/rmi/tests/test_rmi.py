@@ -16,7 +16,7 @@ class NestedRequestNode(RMINode):
 
     def call_b(self):
         peer = next(iter(self.peers.values()))
-        peer.method_b().result()
+        peer.method_b.with_timeout(5)().result()
 
     def method_a(self, src):
         self.calls['a'] += 1
