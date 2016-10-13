@@ -1,5 +1,6 @@
 from asyncio.futures import CancelledError
 import asyncio
+import atexit
 import errno
 import itertools
 import logging
@@ -54,6 +55,11 @@ class Node(object):
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
         self._iotasks = weakref.WeakSet()
+
+        def stop():
+            with catch():
+                self.stop_async().result(1)
+        atexit.register(stop)
 
 
     @property
