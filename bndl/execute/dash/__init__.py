@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import traceback
 
@@ -38,7 +38,11 @@ def task_stats(tasklist):
     idle = total - started
 
     duration = ((tasklist.stopped_on or datetime.now()) - tasklist.started_on) if tasklist.started_on else None
-    time_remaining = (duration / stopped * total - duration if duration and stopped and remaining else None)
+    if completed and remaining:
+        durations = [task.duration for task in tasks if task.stopped_on]
+        time_remaining = sum(durations, timedelta()) / len(durations) / running * remaining
+    else:
+        time_remaining = None
     finished_on = tasklist.stopped_on or (tasklist.started_on + duration + time_remaining if time_remaining else '')
     return locals()
 
