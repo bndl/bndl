@@ -75,6 +75,7 @@ class Child(object):
         self.args = args
 
         self.proc = None
+        self.pid = None
         self.watcher = None
         self.started_on = None
 
@@ -89,6 +90,7 @@ class Child(object):
         env.update(os.environ)
         args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
         self.proc = Popen(args, env=env)
+        self.pid = self.proc.pid
         self.started_on = time.time()
 
         atexit.register(self.terminate)
@@ -182,8 +184,8 @@ class Supervisor(object):
                     if returncode is not None:
                         restart = returncode not in DNR_CODES and (time.time() - child.started_on) > self.min_run_time
                         logger.log(logging.ERROR if restart else logging.INFO,
-                                   'Child %s (%s:%s) exited with code %s',
-                                   child.id , child.module, child.main, returncode)
+                                   'Child %s (%s:%s, pid %s) exited with code %s',
+                                   child.id , child.module, child.main, child.pid, returncode)
                         if restart:
                             child.start()
                     else:
