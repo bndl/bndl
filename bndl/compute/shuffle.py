@@ -1,5 +1,4 @@
 from bisect import bisect_left
-from collections import defaultdict
 from concurrent.futures import Future, TimeoutError
 from functools import lru_cache
 from itertools import chain
@@ -414,8 +413,8 @@ class ShuffleReadingPartition(Partition):
                     w in source_names)))
 
         # and check if their all there (apart from self)
-        assert len(sources) + (1 if ctx.node.name in self.dset.workers else 0) == \
-               len(self.dset.workers), 'missing shuffle sources'
+        missing = len(self.dset.workers) - len(sources) + (1 if ctx.node.name in self.dset.workers else 0)
+        assert not missing, 'missing %s shuffle sources' % missing
 
         return sources
 
@@ -462,7 +461,7 @@ class ShuffleReadingPartition(Partition):
             for _, batches in sizes:
                 batch_count.append(len(batches))
                 block_count.append(sum(batches))
-            logger.info('shuffling %s batches and %s blocks from %s workers',
+            logger.info('shuffling %s batches (%s blocks) from %s workers',
                         sum(batch_count), sum(block_count), len(batch_count))
             logger.debug('batch count per source: min: %s, mean: %s, max: %s',
                          min(batch_count), mean(batch_count), max(batch_count))
@@ -635,6 +634,6 @@ class ShuffleManager(object):
                     bucket.clear()
                 with catch(KeyError):
                     del self.buckets[dset_id]
-            gc.collect()
+            gc.collect(0)
         except KeyError:
             pass
