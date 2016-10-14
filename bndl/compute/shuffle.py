@@ -120,7 +120,7 @@ class Bucket:
         data = ensure_collection(self.comb(self)) if self.comb else list(self)
         # and clear self
         self.clear()
-        gc.collect(0)
+        gc.collect()
 
         # calculate the size of an element for splitting the batch into several blocks
         if self.element_size is None:
@@ -400,7 +400,7 @@ class ShuffleReadingDataset(Dataset):
 class ShuffleReadingPartition(Partition):
     def get_sources(self):
         ctx = self.dset.ctx
-        
+
         # sort the source worker names relative to the name of the local worker
         # if every node does this, load will be spread more evenly in reading blocks
         source_names = sorted(self.dset.workers)
@@ -413,8 +413,9 @@ class ShuffleReadingPartition(Partition):
                     w in source_names)))
 
         # and check if their all there (apart from self)
-        missing = len(self.dset.workers) - len(sources) + (1 if ctx.node.name in self.dset.workers else 0)
-        assert not missing, 'missing %s shuffle sources' % missing
+        missing = len(self.dset.workers) - (len(sources) + (1 if ctx.node.name in self.dset.workers else 0))
+        assert not missing, 'missing %s shuffle sources: %s' % (missing, [name for name in source_names
+                                                                          if name not in ctx.node.peers])
 
         return sources
 
@@ -482,10 +483,9 @@ class ShuffleReadingPartition(Partition):
                             raise
                         data = block.read()
                         logger.debug('received block of %.2f mb, %r items', block.size / 1024 / 1024, len(data))
-                        del block
-                        gc.collect(0)
+                        block = None
                         yield data
-                        del data
+                        data = None
                         gc.collect(0)
 
 
@@ -634,6 +634,6 @@ class ShuffleManager(object):
                     bucket.clear()
                 with catch(KeyError):
                     del self.buckets[dset_id]
-            gc.collect(0)
+            gc.collect()
         except KeyError:
             pass
