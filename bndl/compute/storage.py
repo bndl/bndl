@@ -1,5 +1,7 @@
+from functools import lru_cache
 from os.path import getsize
 import abc
+import atexit
 import gzip
 import io
 import json
@@ -7,6 +9,7 @@ import logging
 import marshal
 import os
 import pickle
+import shutil
 import struct
 import tempfile
 
@@ -15,7 +18,6 @@ from bndl.net.serialize import attach, attachment
 from bndl.rmi.blocks import Block
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
-from functools import lru_cache
 
 
 logger = logging.getLogger(__name__)
@@ -269,6 +271,16 @@ def get_work_dir():
                     break
     return os.path.join(tempdir, 'bndl', str(os.getpid()))
 
+
+@atexit.register
+def clean_work_dir():
+    wdir = get_work_dir()
+    if os.path.exists(wdir):
+        for _, _, files in os.walk(wdir):
+            if files:
+                break
+        else:
+            shutil.rmtree(wdir)
 
 
 class OnDisk(SerializedContainer):
