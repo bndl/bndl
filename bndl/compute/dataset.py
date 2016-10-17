@@ -7,6 +7,7 @@ from math import sqrt, log, ceil
 from operator import add
 from os import linesep
 import abc
+import concurrent.futures
 import gzip
 import heapq
 import io
@@ -1308,27 +1309,42 @@ class Dataset(metaclass=abc.ABCMeta):
             self._cache_provider = cache.CacheProvider(location, serialization, compression)
         return self
 
+
     @property
     def cached(self):
         return bool(self._cache_provider)
 
-    def uncache(self):
+
+    def uncache(self, block=False, timeout=None):
         # issue uncache tasks
         def clear(worker, provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
-        cache_loc_names = set(self._cache_locs.values())
+
         tasks = [
-            worker.run_task.with_timeout(1)(clear)
+            worker.run_task
             for worker in self.ctx.workers
-            if worker.name in cache_loc_names]
-        # wait for them to finish
-        for task in tasks:
-            with catch(TimeoutError):
-                task.result()
+            if worker.name in set(self._cache_locs.values())]
+
+        if timeout:
+            tasks = [task.with_timeout(timeout) for task in tasks]
+
+        tasks = [task(clear) for task in tasks]
+
+        if block:
+            # wait for them to finish
+            for task in tasks:
+                try:
+                    task.result()
+                except concurrent.futures.TimeoutError:
+                    pass
+                except Exception:
+                    logger.warning('error while uncaching %s', self, exc_info=True)
+
         # clear cache locations
         self._cache_locs = {}
         self._cache_provider = None
         return self
+
 
     def __del__(self):
         if getattr(self, '_cache_provider', None):
