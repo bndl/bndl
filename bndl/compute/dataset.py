@@ -1054,7 +1054,7 @@ class Dataset(metaclass=abc.ABCMeta):
         key = key_or_getter(key)
 
         if pcount is None:
-            pcount = self.ctx.default_pcount
+            pcount = len(self.parts())
 
         if pcount == 1:
             return self.shuffle(pcount, key=key, **shuffle_opts)

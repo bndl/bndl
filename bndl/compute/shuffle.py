@@ -260,7 +260,7 @@ class ShuffleWritingDataset(Dataset):
             max_mem_pct=None, block_size_mb=None, serialization='pickle',
             compression=None):
         super().__init__(ctx, src)
-        self.pcount = pcount or ctx.default_pcount
+        self.pcount = pcount or len(src.parts())
         self.comb = comb
         self.partitioner = partitioner or portable_hash
         self.bucket = bucket or SortedBucket
