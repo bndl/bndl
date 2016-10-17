@@ -329,11 +329,8 @@ class ShuffleWritingPartition(Partition):
         # spill when used_more_pct_than(*max_mem_pct)
         max_mem_pct = self.dset.max_mem_pct
 
-        # check every once in a while, every 1+/-.1 percent of allowed memory
-        check_interval_min_mem = max_mem_pct[1] / 100 * 0.9
-        check_interval_max_mem = max_mem_pct[1] / 100 * 1.1
-        check_interval = 1024  # because we don't know on forehand how memory usage is growing
-
+        # check every once in a while
+        check_interval = 1024
         check_loop = 0
 
         bytes_spilled = 0
@@ -581,6 +578,7 @@ class ShuffleManager(object):
         else:
             for bucket in buckets:
                 spilled += bucket.serialize(True)
+
         return spilled
 
 
