@@ -1,5 +1,6 @@
 import itertools
 
+from bndl.compute.accumulate import Accumulator
 from bndl.compute.arrays import SourceDistributedArray, DistributedArray
 from bndl.compute.broadcast import broadcast, broadcast_pickled
 from bndl.compute.collections import DistributedCollection
@@ -14,11 +15,13 @@ class ComputeContext(ExecutionContext):
         super().__init__(driver, *args, **kwargs)
         self._dataset_ids = itertools.count()
 
+
     @property
     def default_pcount(self):
         if self.worker_count == 0:
             self.await_workers()
         return self.worker_count * self.conf['bndl.execute.concurrency'] * 2
+
 
     def collection(self, collection, pcount=None, psize=None):
         if isinstance(collection, range):
@@ -26,10 +29,18 @@ class ComputeContext(ExecutionContext):
         else:
             return DistributedCollection(self, collection, pcount, psize)
 
-    range = as_method(DistributedRange)
-    files = as_method(files)
+
+    def accumulator(self, initial):
+        accumulator = Accumulator(self, self.node.name, initial)
+        self.node._register_accumulator(accumulator)
+        return accumulator
+
+
     broadcast = broadcast
     broadcast_pickled = broadcast_pickled
+
+    range = as_method(DistributedRange)
+    files = as_method(files)
 
     array = as_method(SourceDistributedArray)
     empty = as_method(DistributedArray.empty)
