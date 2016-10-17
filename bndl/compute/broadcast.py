@@ -1,4 +1,5 @@
 from uuid import uuid4
+import concurrent.futures
 import json
 import logging
 import marshal
@@ -109,14 +110,24 @@ class BroadcastValue(object):
         return val
 
 
-    def unpersist(self):
+    def unpersist(self, block=False, timeout=None):
         node = self.ctx.node
         name = self.block_spec.name
         assert node.name == self.block_spec.seeder
         node.unpersist_broadcast_values(node, name)
-        for peer in node.peers.filter():
-            peer.unpersist_broadcast_values(name)
-            # response isn't waited on
+        requests = [peer.unpersist_broadcast_values
+                   for peer in node.peers.filter()]
+        if timeout:
+            requests = [request.with_timeout(timeout) for request in requests]
+        requests = [request(name) for request in requests]
+        if block:
+            for request in requests:
+                try:
+                    request.result()
+                except concurrent.futures.TimeoutError:
+                    pass
+                except Exception:
+                    logger.warning('error while unpersisting %s', name, exc_info=True)
 
 
     def __del__(self):
