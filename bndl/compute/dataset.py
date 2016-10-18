@@ -1,5 +1,4 @@
 from collections import Counter, Iterable, Sized
-from concurrent.futures import TimeoutError
 from copy import copy
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
@@ -29,7 +28,6 @@ from bndl.execute.job import Job, Stage, Task
 from bndl.rmi import InvocationException
 from bndl.util import serialize, cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
-from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
