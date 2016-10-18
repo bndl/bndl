@@ -49,7 +49,7 @@ class CpuProfiling(object):
 
 
     def get_stats(self, per_worker=False):
-        individual_stats = self._each(yappi.get_func_stats)
+        individual_stats = _each(self.ctx, yappi.get_func_stats)
         if per_worker:
             return individual_stats
         else:
@@ -111,7 +111,7 @@ class CpuProfiling(object):
                 stats.sort(sort_by, sort_dir or 'desc')
             if strip_dirs:
                 for stat in stats:
-                    stat.full_name = _strip_dirs()
+                    stat.full_name = _strip_dirs(stat.full_name)
                 if include or exclude:
                     excl = [mod.replace('.', '/') for mod in
                             ((exclude,) if isinstance(exclude, str) else exclude)]
