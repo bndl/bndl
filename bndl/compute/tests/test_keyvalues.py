@@ -5,7 +5,7 @@ from bndl.compute.tests import DatasetTest
 from bndl.util.funcs import iseven, neg, identity, isodd
 
 
-class RangeTest(DatasetTest):
+class KeyValuesTest(DatasetTest):
     def setUp(self):
         self.dset = self.ctx.range(10, pcount=3)
 
