@@ -1,12 +1,7 @@
 import psutil
 
 process = psutil.Process()
-
-def used_more_pct_than(proc_max, total_max):
-    return memory_percent() > proc_max or virtual_memory().percent > total_max
-
-def memory_percent():
-    return process.memory_percent()
+memory_percent = process.memory_percent
 
 cpu_count = psutil.cpu_count
 cpu_percent = psutil.cpu_percent

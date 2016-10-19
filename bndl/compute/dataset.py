@@ -1097,8 +1097,8 @@ class Dataset(metaclass=abc.ABCMeta):
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, sort=None, **opts):
         key = key_or_getter(key)
         from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset
-        shuffle = ShuffleWritingDataset(self.ctx, self, pcount, partitioner, bucket, key, comb, **opts)
-        return ShuffleReadingDataset(self.ctx, shuffle, sort)
+        shuffle = ShuffleWritingDataset(self, pcount, partitioner, bucket, key, comb, **opts)
+        return ShuffleReadingDataset(shuffle, sort)
 
 
     def zip(self, other):
