@@ -227,7 +227,6 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.executed_on.append(worker)
         self.task_id = worker.run_task_async(self.method, *args, **kwargs).result()
         self.future = worker.get_task_result(self.task_id)
-#         self.future = worker.run_task(self.method, *args, **kwargs)
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
 
