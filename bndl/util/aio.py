@@ -58,17 +58,14 @@ def run_coroutine_threadsafe(coro, loop):
         try:
             future.set_result(task.result())
         except Exception as exc:
-            logger.debug('task failed', exc_info=True)
             future.set_exception(exc)
 
     def schedule_task():
         global task
         try:
-            logger.debug('scheduling coro %s as task', coro)
             task = loop.create_task(coro)
             task.add_done_callback(task_done)
         except Exception as exc:
-            logger.exception('unable to schedule task')
             future.set_exception(exc)
     schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
 
