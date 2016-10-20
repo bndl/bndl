@@ -32,6 +32,10 @@ class AccumulatorService:
     def _update_accumulator(self, src, accumulator_id, op, value):
         try:
             lock = self.locks[accumulator_id]
+        except KeyError:
+            logger.debug('received update for unknown accumulator %s',
+                         accumulator_id)
+        try:
             with lock:
                 accumulator = self.accumulators[accumulator_id]
                 if op == '+':
