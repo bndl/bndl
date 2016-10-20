@@ -3,11 +3,11 @@ import logging
 import os
 
 from bndl.compute import broadcast
+from bndl.compute.blocks import BlockManager
 from bndl.compute.shuffle import ShuffleManager
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
-from bndl.rmi.blocks import BlockManager
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.supervisor import Supervisor

@@ -13,9 +13,9 @@ import shutil
 import struct
 import tempfile
 
+from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
-from bndl.rmi.blocks import Block
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
 
