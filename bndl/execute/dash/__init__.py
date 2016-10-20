@@ -38,7 +38,7 @@ def task_stats(tasklist):
     idle = total - started
 
     duration = ((tasklist.stopped_on or datetime.now()) - tasklist.started_on) if tasklist.started_on else None
-    if completed and remaining:
+    if completed and remaining and running:
         durations = [task.duration for task in tasks if task.stopped_on]
         time_remaining = sum(durations, timedelta()) / len(durations) / running * remaining
     else:
