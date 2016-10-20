@@ -213,6 +213,7 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.kwargs = kwargs or {}
         self.preferred_workers = preferred_workers
         self.allowed_workers = allowed_workers
+        self.task_id = None
         self.future = None
         self.executed_on = []
 
@@ -223,8 +224,10 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         kwargs = self.kwargs
 
         self.signal_start()
-        self.executed_on.append(worker.name)
-        self.future = worker.run_task(self.method, *args, **kwargs)
+        self.executed_on.append(worker)
+        self.task_id = worker.run_task_async(self.method, *args, **kwargs).result()
+        self.future = worker.get_task_result(self.task_id)
+#         self.future = worker.run_task(self.method, *args, **kwargs)
         self.future.add_done_callback(lambda future: self.signal_stop())
         return self.future
 
@@ -245,16 +248,21 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def result(self):
         assert self.future, 'task not yet scheduled'
-        result = self.future.result()
-        self._release_resources()
-        return result
+        try:
+            return self.future.result()
+        finally:
+            self._release_resources()
 
     def cancel(self):
         if not self.done:
-            if self.future:
-                self.future.cancel()
-            super().cancel()
-            self._release_resources()
+            try:
+                if self.task_id:
+                    self.executed_on[-1].cancel_task(self.task_id).result()
+                if self.future:
+                    self.future.cancel()
+                super().cancel()
+            finally:
+                self._release_resources()
 
     def _release_resources(self):
         # release resources if successful
