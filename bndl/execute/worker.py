@@ -96,9 +96,13 @@ class Worker(RMINode):
     @asyncio.coroutine
     def cancel_task(self, src, task_id):
         logger.debug('canceling task %s on request of %s', task_id, src.name)
-        task = self.tasks_running.pop(task_id)
-        task.result.cancel()
-        thread_id = ctypes.c_size_t(task.ident)
-        exc = ctypes.py_object(TaskCancelled)
-        modified = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, exc)
-        return modified > 0
+        try:
+            task = self.tasks_running.pop(task_id)
+        except KeyError:
+            return False
+        else:
+            task.result.cancel()
+            thread_id = ctypes.c_size_t(task.ident)
+            exc = ctypes.py_object(TaskCancelled)
+            modified = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, exc)
+            return modified > 0
