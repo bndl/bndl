@@ -1,5 +1,7 @@
+from asyncio.futures import CancelledError
 from datetime import datetime
 import asyncio
+import atexit
 import errno
 import logging
 import weakref
@@ -7,9 +9,9 @@ import weakref
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
-from bndl.util.exceptions import catch
-from asyncio.futures import CancelledError
 from bndl.util import aio
+from bndl.util.exceptions import catch
+import concurrent.futures
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,8 @@ class PeerNode(object):
         self.connected_on = None
         self.disconnected_on = None
         self._iotasks = weakref.WeakSet()
+
+        atexit.register(self.disconnect_async, 'process terminated')
 
 
     @property
@@ -94,17 +98,26 @@ class PeerNode(object):
 
 
     def disconnect_async(self, reason='', active=True):
-        return aio.run_coroutine_threadsafe(self.disconnect(reason, active), self.loop)
+        if not self.loop.is_closed:
+            return aio.run_coroutine_threadsafe(self.disconnect(reason, active), self.loop)
+        else:
+            self._stop_tasks()
+            fut = concurrent.futures.Future()
+            fut.set_result(None)
+            return fut
 
 
     def _stop_tasks(self):
-        # close any running dispatch tasks
+        # cancel any pending io work
         for task in self._iotasks:
-            task.cancel()
+            with catch(RuntimeError):
+                task.cancel()
         self._iotasks.clear()
-        # close the server task
-        with catch():
-            self.server.cancel()
+
+        # close the servers
+        if self.server:
+            with catch(RuntimeError):
+                self.server.cancel()
 
 
     @asyncio.coroutine

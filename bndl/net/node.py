@@ -1,6 +1,7 @@
 from asyncio.futures import CancelledError
 import asyncio
 import atexit
+import concurrent.futures
 import errno
 import itertools
 import logging
@@ -56,10 +57,7 @@ class Node(object):
         self._watchdog = None
         self._iotasks = weakref.WeakSet()
 
-        def stop():
-            with catch():
-                self.stop_async().result(1)
-        atexit.register(stop)
+        atexit.register(self.stop_async)
 
 
     @property
@@ -97,25 +95,32 @@ class Node(object):
 
 
     def stop_async(self):
-        return aio.run_coroutine_threadsafe(self.stop(), self.loop)
+        if not self.loop.is_closed:
+            return aio.run_coroutine_threadsafe(self.stop(), self.loop)
+        else:
+            self._stop_tasks()
+            fut = concurrent.futures.Future()
+            fut.set_result(None)
+            return fut
 
 
     def _stop_tasks(self):
         # stop watching
-        with catch():
-            self._watchdog.stop()
-            self._watchdog = None
-
-        # close the servers
-        for server in self.servers.values():
-            with catch():
-                server.close()
+        if self._watchdog:
+            with catch(RuntimeError):
+                self._watchdog.stop()
+                self._watchdog = None
 
         # cancel any pending io work
         for task in self._iotasks:
-            with catch():
+            with catch(RuntimeError):
                 task.cancel()
         self._iotasks.clear()
+
+        # close the servers
+        for server in self.servers.values():
+            with catch(RuntimeError):
+                server.close()
 
 
     @asyncio.coroutine

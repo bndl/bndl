@@ -1,8 +1,9 @@
-import asyncio
 from asyncio.futures import CancelledError
 from datetime import datetime
-import logging
 from random import random
+import asyncio
+import atexit
+import logging
 
 from bndl.net.messages import Ping
 
@@ -96,6 +97,8 @@ class Watchdog(object):
         self.node = node
         self._peer_stats = {}
         self.monitor_task = None
+
+        atexit.register(self.stop)
 
 
     def start(self):
