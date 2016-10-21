@@ -1,13 +1,19 @@
 from asyncio import sleep  # @UnresolvedImport
-import asyncio
 from concurrent.futures import Future
-import logging.config
 from threading import Thread
-import traceback
 from unittest.case import TestCase
+import asyncio
+import logging.config
+import sys
+import traceback
 
 from bndl.net.node import Node
 from bndl.util.aio import get_loop
+from bndl.util.exceptions import catch
+
+
+if sys.version_info >= (3, 4):
+    del asyncio.Task.__del__
 
 
 class NetTest(TestCase):
@@ -78,10 +84,10 @@ class NetTest(TestCase):
                     self.loop.run_in_executor(None, self._stopped.result)
                 )
             finally:
-                for node in self.nodes:
-                    self.loop.run_until_complete(node.stop())
-                    self.loop.run_until_complete(sleep(.2))
-
+                with catch(RuntimeError):
+                    for node in self.nodes:
+                        self.loop.run_until_complete(node.stop())
+                    self.loop.run_until_complete(sleep(.2 * len(self.nodes)))
                 self.loop.close()
         finally:
             self._started.set_result(True)
