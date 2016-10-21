@@ -44,7 +44,7 @@ class Invocation(object):
     def _request(self, *args, **kwargs):
         request = Request(req_id=next(self.peer._request_ids), method=self.name, args=args, kwargs=kwargs)
         response_future = asyncio.Future(loop=self.peer.loop)
-        self.peer.handlers[request.req_id] = response_future.set_result
+        self.peer.handlers[request.req_id] = response_future
 
         logger.debug('remote invocation of %s on %s', self.name, self.peer.name)
         yield from self.peer.send(request)
@@ -55,6 +55,10 @@ class Invocation(object):
             logger.debug('remote invocation cancelled')
             return None
         except asyncio.futures.TimeoutError:
+            raise
+        except NotConnected:
+            logger.info('%s not connected, unable to perform remote invocation of %s' %
+                        (self.peer.name, self.name))
             raise
         except Exception:
             logger.exception('unable to perform remote invocation of %s on %s' % (
@@ -151,7 +155,7 @@ class RMIPeerNode(PeerNode):
     def _handle_response(self, response):
         try:
             handler = self.handlers.pop(response.req_id)
-            coro = handler(response)
+            coro = handler.set_result(response)
             if asyncio.iscoroutine(coro):
                 yield from coro
         except KeyError:
@@ -163,6 +167,13 @@ class RMIPeerNode(PeerNode):
     def __getattr__(self, name):
         return Invocation(self, name)
 
+
+    @asyncio.coroutine
+    def disconnect(self, *args, **kwargs):
+        super().disconnect(*args, **kwargs)
+        for handler in self.handlers.values():
+            handler.set_exception(NotConnected())
+        self.handlers.clear()
 
 
 class RMINode(Node):
