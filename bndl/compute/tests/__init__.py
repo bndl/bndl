@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from bndl.compute.run import create_ctx
@@ -9,6 +10,10 @@ class ComputeTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Increase switching interval to lure out race conditions a bit ...
+        cls._old_switchinterval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-6)
+
         config = Config()
         config['bndl.compute.worker_count'] = cls.worker_count
         config['bndl.net.listen_addresses'] = 'tcp://127.0.0.11:5000'
@@ -18,6 +23,7 @@ class ComputeTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.ctx.stop()
+        sys.setswitchinterval(cls._old_switchinterval)
 
 
 class DatasetTest(ComputeTest):
