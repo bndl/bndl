@@ -283,3 +283,29 @@ and another while nodes were reconnecting to driver:
 	KeyError: 'nl.tgho.priv.sp-prod-adg02.worker.32226.0.4'
 	WARNING:bndl.net.watchdog:<Peer:
 	
+
+	
+support more syntactic sugar for creating accumulators, e.g.:
+	acc = ctx.accumulator(set(), 'add')
+	def task(...):
+		nonlocal acc
+		acc.add(1)
+		
+		
+		
+use local read if ctx.files on same node
+
+
+Support shuffle with not all workers / use at runtime task dependencies
+
+
+
+Implement cassandra.limit as
+	docs = ctx.cassandra_table('adg', 'document', contact_points='sp-prod-adg01')
+
+	In [27]: 10000 / sum(len(p.token_ranges) for p in docs.parts())
+	Out[27]: 7.027406886858749
+	
+	In [28]: docs.limit(7).count(push_down=False)
+	Out[28]: 9957
+
