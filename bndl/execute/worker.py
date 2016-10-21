@@ -5,7 +5,6 @@ import threading
 
 from bndl.execute import TaskCancelled
 from bndl.rmi.node import RMINode
-from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
@@ -43,10 +42,10 @@ class TaskRunner(threading.Thread):
         _CURRENT_WORKER.w = self.worker
         try:
             result = self.task(self, *self.args, **self.kwargs)
-            self.result.set_result(result)
+            self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
         except Exception as exc:
-            with catch(asyncio.futures.InvalidStateError):
-                self.result.set_exception(exc)
+            if not self.result.cancelled():
+                self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
         finally:
             # clean up worker context
             del _CURRENT_WORKER.w
