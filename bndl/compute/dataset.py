@@ -1442,7 +1442,11 @@ class Partition(metaclass=abc.ABCMeta):
 
 
     def _preferred_workers(self, workers):
-        return self._combine_worker_locations('preferred_workers', workers, set.union)
+        preferred = self._combine_worker_locations('preferred_workers', workers, set.union)
+        if preferred is workers:
+            return None
+        else:
+            return preferred
 
 
     def allowed_workers(self, workers):
