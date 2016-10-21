@@ -1,3 +1,4 @@
+from collections import defaultdict
 from concurrent.futures import CancelledError
 from itertools import chain, count
 from queue import Queue
@@ -71,6 +72,8 @@ class Job(Lifecycle):
         return list(chain.from_iterable(stage.tasks for stage in self.stages))
 
 
+_DONE = object()
+
 
 class Stage(Lifecycle):
 
@@ -84,11 +87,11 @@ class Stage(Lifecycle):
     def execute(self, workers, eager=True, ordered=True, concurrency=1):
         self.signal_start()
 
+        worker_set = set(workers)
+
         for task in self.tasks:
             # clean up preferred worker list given the available workers
-            task.preferred_workers = [worker for worker
-                                      in task.preferred_workers
-                                      if worker in workers]
+            task.preferred_workers = set(worker for worker in task.preferred_workers if worker in worker_set)
 
         try:
             if eager:
@@ -101,78 +104,101 @@ class Stage(Lifecycle):
 
 
     def _execute_eagerly(self, workers, ordered, concurrency):
+        results = Queue()
+        task_driver = threading.Thread(target=self._schedule_tasks,
+                                       args=(results, workers, ordered, concurrency),
+                                       name='bndl-task-driver-%s-%s' % (self.job.id, self.id),
+                                       daemon=True)
+        task_driver.start()
+        try:
+            return (task.result() for task in iter(results.get, _DONE))
+        finally:
+            task_driver.join()
+
+
+    def _schedule_tasks(self, results, workers, ordered, concurrency):
+        lock = threading.Lock()
+        to_schedule = self.tasks[:]
+        done = {}
+        pending = 0
+        next_task_idx = 0  # only used when ordered is True
+
+        # build lookup tables for worker preferences
+        preferred_workers = defaultdict(list)
+        for task in to_schedule:
+            for worker in task.preferred_workers:
+                preferred_workers[worker].append(task)
+
+        # create a queue of workers available
         workers_available = Queue()
+        # each worker is added concurrency times
         for _ in range(concurrency):
             for worker in workers:
                 workers_available.put(worker)
 
-        to_schedule = self.tasks[:]
-        done = Queue()
-        sentinel = object()
-        scheduled = threading.Semaphore(0)
-
+        # put the task in the done dict when the task is done
+        # and the worker in the available queue for a next task
         def task_done(task, worker):
+            nonlocal pending
+            with lock:
+                done[task.id] = task
+                pending -= 1
             workers_available.put(worker)
-            done.put(task)
 
-        def schedule_tasks():
-            while to_schedule:
-                # only step if there is a worker available
-                worker = workers_available.get()
-                # break if sentinel received
-                if worker == sentinel:
-                    break
+        # utility to execute a task
+        def execute_task(task, worker):
+            nonlocal pending
+            try:
+                pending += 1
+                future = task.execute(worker)
+                future.add_done_callback(lambda future: task_done(task, worker))
+            except CancelledError:
+                pass
 
-                idx, task = None, None
-                for idx, task in enumerate(to_schedule):
-                    if task.preferred_workers:
-                        if worker in task.preferred_workers:
-                            break
-                        else:
-                            idx, task = None, None
-                    elif task.allowed_workers:
-                        if worker in task.allowed_workers:
-                            break
-                        else:
-                            idx, task = None, None
+        while to_schedule or pending:
+            # wait until a worker is available / a previous task completed
+            worker = workers_available.get()
+
+            # select the next task to run
+            preferred_tasks = preferred_workers[worker]
+            if preferred_tasks:
+                for task in preferred_tasks[:]:
+                    if task.started:
+                        # task may have been executed by another
+                        preferred_tasks.remove(task)
                     else:
+                        # execute task on this worker
+                        execute_task(task, worker)
+                        to_schedule.remove(task)
                         break
-
-                if not task:
-                    workers_available.put(worker)
-                else:
-                    try:
-                        del to_schedule[idx]
-                        future = task.execute(worker)
-                        future.add_done_callback(lambda future, task=task, worker=worker: task_done(task, worker))
-                        scheduled.release()
-                    except CancelledError:
-                        pass
-
-        task_driver = threading.Thread(target=schedule_tasks, daemon=True,
-                                       name='bndl-task-driver-%s-%s' % (self.job.id, self.id))
-        task_driver.start()
-
-        try:
-            if ordered:
-                next_task_idx = 0
-                while next_task_idx < len(self.tasks):
-                    next_task = self.tasks[next_task_idx]
-                    if next_task.started:
-                        yield next_task.result()
-                        next_task_idx += 1
-                    else:
-                        scheduled.acquire()
             else:
-                for _ in range(len(self.tasks)):
-                    yield done.get().result()
-        except Exception:
-            to_schedule.clear()
-            workers_available.put(sentinel)
-            raise
+                for idx, task in enumerate(to_schedule):
+                    if worker in task.allowed_workers:
+                        del to_schedule[idx]
+                        execute_task(task, worker)
+                        break
+                # else:
+                #     the worker has no preferred tasks remaining
+                #     nor does it have tasks for which it is allowed left
+                #     so continue the loop and 'forget' the worker for this stage
 
-        task_driver.join()
-        self.signal_stop()
+            # yield any available task results
+            if done:
+                with lock:
+                    if ordered:
+                        while done and next_task_idx < len(self.tasks):
+                            task = done.pop(next_task_idx, None)
+                            if task:
+                                results.put(task)
+                                next_task_idx += 1
+                            else:
+                                break
+                    else:
+                        for task in done.values():
+                            results.put(task)
+                        done.clear()
+
+        results.put(_DONE)
 
 
     def _execute_onebyone(self, workers):
@@ -203,7 +229,7 @@ class Stage(Lifecycle):
 class Task(Lifecycle, metaclass=abc.ABCMeta):
 
     def __init__(self, task_id, stage, method, args, kwargs,
-                 preferred_workers=None, allowed_workers=None,
+                 preferred_workers=(), allowed_workers=(),
                  name=None, desc=None):
         super().__init__(name, desc)
         self.id = task_id
@@ -213,9 +239,11 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.kwargs = kwargs or {}
         self.preferred_workers = preferred_workers
         self.allowed_workers = allowed_workers
+
         self.task_id = None
         self.future = None
         self.executed_on = []
+
 
     def execute(self, worker):
         if self.cancelled:
@@ -227,16 +255,19 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         self.executed_on.append(worker)
         self.task_id = worker.run_task_async(self.method, *args, **kwargs).result()
         self.future = worker.get_task_result(self.task_id)
-        self.future.add_done_callback(lambda future: self.signal_stop())
+        self.future.add_done_callback(self._future_done)
         return self.future
+
 
     @property
     def started(self):
         return bool(self.future)
 
+
     @property
     def done(self):
         return self.future and self.future.done()
+
 
     @property
     def failed(self):
@@ -245,12 +276,14 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
         except CancelledError:
             return False
 
+
     def result(self):
         assert self.future, 'task not yet scheduled'
         try:
             return self.future.result()
         finally:
             self._release_resources()
+
 
     def cancel(self):
         if not self.done:
@@ -262,6 +295,11 @@ class Task(Lifecycle, metaclass=abc.ABCMeta):
                 super().cancel()
             finally:
                 self._release_resources()
+
+
+    def _future_done(self, future):
+        self.signal_stop()
+
 
     def _release_resources(self):
         # release resources if successful
