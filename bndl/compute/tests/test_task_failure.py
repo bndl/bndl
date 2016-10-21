@@ -6,9 +6,9 @@ from bndl.rmi import InvocationException
 
 
 class TaskFailureTest(DatasetTest):
-#     def test_assert_raises(self):
-#         with self.assertRaises(Exception):
-#             self.ctx.range(10).map(lambda i: exec("raise ValueError('test')")).collect()
+    def test_assert_raises(self):
+        with self.assertRaises(Exception):
+            self.ctx.range(10).map(lambda i: exec("raise ValueError('test')")).collect()
 
 
     def test_cancel(self):
