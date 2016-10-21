@@ -1730,7 +1730,7 @@ class MaterializePartitionTask(Task):
     def _save_cacheloc(self, part):
         # memorize the cache location for the partition
         if part.dset.cached and not part.dset._cache_locs.get(part.idx):
-            part.dset._cache_locs[part.idx] = self.executed_on[-1]
+            part.dset._cache_locs[part.idx] = self.executed_on[-1].name
         # traverse backup up the DAG
         if part.src:
             if isinstance(part.src, Iterable):
