@@ -71,7 +71,7 @@ def create_ctx(config=Config(), daemon=True):
         dash.run(driver, ctx)
 
         # register stop as 'exit' listeners
-        ctx.add_listener(lambda obj: stop() if obj is ctx else None)
+        ctx.add_listener(lambda obj: stop() if obj is ctx and ctx.stopped else None)
         atexit.register(stop)
         atexit.register(ctx.stop)
         return ctx
