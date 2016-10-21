@@ -16,7 +16,7 @@ from bndl.util.conf import Float
 from bndl.util.exceptions import catch
 from bndl.util.funcs import prefetch
 from bndl.util.hash import portable_hash
-from bndl.util.psutil import memory_percent, virtual_memory
+from bndl.util.psutil import process_memory_percent, virtual_memory
 from cytoolz.itertoolz import merge_sorted
 
 
@@ -29,6 +29,14 @@ block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks cr
 
 
 MAX_MEM_LOW_WATER = 0.8
+
+# try to have at least 10% or 1 GB of memory available
+MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
+                              1024 * 1024 * 1024)
+
+
+def low_memory(max_mem_pct):
+    return process_memory_percent() > max_mem_pct or virtual_memory().available < MIN_SYSTEM_MEM_AVAILBLE
 
 
 class Bucket:
@@ -371,7 +379,7 @@ class ShuffleWritingPartition(Partition):
             part_ = self.dset.partitioner
 
         # the relative amount of memory used to consider as ceiling
-        # spill when memory_percent() > max_mem_pct
+        # spill when low_memory(max_mem_pct)
         max_mem_pct = self.dset.max_mem_pct
 
         def calc_check_interval(buckets):
@@ -382,6 +390,7 @@ class ShuffleWritingPartition(Partition):
                 return 16
             else:
                 # check 10 times in the memory budget
+                # this also limits the interval at which data is spilled
                 return int((max_mem_pct / 100) * virtual_memory().total / 10 / element_size)
 
         # check every once in a while
@@ -407,8 +416,9 @@ class ShuffleWritingPartition(Partition):
                 check_loop = 0
 
                 # spill if to much memory is used
-                mem_used = memory_percent()
-                if mem_used > max_mem_pct:
+                if low_memory(max_mem_pct):
+                    mem_used = process_memory_percent()
+
                     # spill enough to get below the high water mark - 20%
                     spilled = ctx.node.spill_buckets(max_mem_pct * MAX_MEM_LOW_WATER)
                     bytes_spilled += spilled
@@ -419,9 +429,9 @@ class ShuffleWritingPartition(Partition):
                         check_interval = calc_check_interval(buckets)
 
                     logger.debug('memory usage from %.2f%% down to %.2f%% after spilling %.2f mb',
-                                 mem_used, memory_percent(), spilled / 1024 / 1024)
+                                 mem_used, process_memory_percent(), spilled / 1024 / 1024)
 
-                elif mem_used < max_mem_pct * MAX_MEM_LOW_WATER:
+                elif not low_memory(max_mem_pct * MAX_MEM_LOW_WATER):
                     # check less often if enough memory available
                     check_interval *= 2
 
@@ -433,7 +443,7 @@ class ShuffleWritingPartition(Partition):
         # serialize / spill the buckets for shuffle read
         # and keep track of the number of bytes spilled / serialized
         for bucket in buckets:
-            if memory_percent() > max_mem_pct:
+            if low_memory(max_mem_pct):
                 bytes_spilled += bucket.serialize(True)
             else:
                 bytes_serialized += bucket.serialize(False)
@@ -591,7 +601,7 @@ class ShuffleReadingPartition(Partition):
         logger.info('starting %s shuffle read', 'sorted' if sort else 'unsorted')
 
         # the relative amount of memory used to consider as ceiling
-        # spill when memory_percent() > max_mem_pct
+        # spill when low_memory(max_mem_pct)
         max_mem_pct = self.dset.src.max_mem_pct
 
         # create a stream of blocks
@@ -622,19 +632,12 @@ class ShuffleReadingPartition(Partition):
                 data = None
 
                 if check_val > check_interval:
-                    # spill source buckets under progressively higher pressure
-                    max_mem_pct_tmp = max_mem_pct
-                    while memory_percent() > max_mem_pct:
-                        spilled = worker.spill_buckets(max_mem_pct_tmp)
-                        # break if nothing could be spilled
-                        if not spilled:
-                            break
-                        # lower what's left for source buckets
-                        max_mem_pct_tmp //= 2
+                    # spill source buckets (spill_buckets checks itself)
+                    worker.spill_buckets(max_mem_pct)
 
                     # spill the destination bucket if need be
-                    if memory_percent() > max_mem_pct:
-                        spilled = bucket.serialize(True)
+                    if low_memory(max_mem_pct):
+                        bucket.serialize(True)
 
             logger.debug('sorting %.1f mb', bytes_received / 1024 / 1024)
 
@@ -677,14 +680,12 @@ class ShuffleManager(object):
         return buckets
 
 
-    def spill_buckets(self, max_mem_pct=None):
+    def spill_buckets(self, max_mem_pct):
         '''
-        Spill buckets known by this ShuffleManager (worker).
+        Spill buckets known by this ShuffleManager (worker) in order of their (estimated) memory footprint.
 
-        When max_mem_pct is set, buckets are spilled in order of their (estimated) memory footprint.
-
-        :param max_mem_pct: int between 0 and 100 or None
-            Spill until memory_percent() < max_mem_pct or spill everything if max_mem_pct is None
+        :param max_mem_pct: int between 0 and 100
+            Spill until not low_memory(max_mem_pct)
         '''
         buckets = chain.from_iterable(
             chain.from_iterable(buckets.values())
@@ -693,19 +694,14 @@ class ShuffleManager(object):
 
         spilled = 0
 
-        # spill only when under memory pressure (if max_mem_pct set)
-        # or just spill all
-        if max_mem_pct:
-            if memory_percent() > max_mem_pct:
-                for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
-                    if bucket.memory_size == 0:
-                        break
-                    spilled += bucket.serialize(True)
-                    if memory_percent() < max_mem_pct:
-                        break
-        else:
-            for bucket in buckets:
+        # spill only when under memory pressure
+        if low_memory(max_mem_pct):
+            for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
+                if bucket.memory_size == 0:
+                    break
                 spilled += bucket.serialize(True)
+                if not low_memory(max_mem_pct):
+                    break
 
         return spilled
 
