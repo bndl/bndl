@@ -33,6 +33,53 @@ def _strip_dirs(path):
         for p in sys.path:
             if path.startswith(p):
                 return path.replace(p, '').lstrip('/')
+    return path
+
+
+def print_yappi_stats(stats, max_rows=100, sort_by=None, sort_dir=None,
+                    columns=COLMUMNS, per_worker=False, strip_dirs=True,
+                    include=(), exclude=(), file=sys.stdout):
+    columns = dict(enumerate(columns))
+
+    if sort_by:
+        stats.sort(sort_by, sort_dir or 'desc')
+
+    if strip_dirs:
+        for stat in stats:
+            stat.full_name = _strip_dirs(stat.full_name)
+        if include or exclude:
+            excl = [mod.replace('.', '/') for mod in
+                    ((exclude,) if isinstance(exclude, str) else exclude)]
+            incl = [mod.replace('.', '/') for mod in
+                    ((include,) if isinstance(include, str) else include)]
+            i = 0
+            while True:
+                try:
+                    stat = list.__getitem__(stats, i)
+                except IndexError:
+                    break
+                if incl:
+                    remove = True
+                    for mod in incl:
+                        if stat.full_name and stat.full_name.startswith(mod):
+                            remove = False
+                            break
+                else:
+                    remove = False
+                for mod in excl:
+                    if stat.full_name and stat.full_name.startswith(mod):
+                        remove = True
+                        break
+                if remove:
+                    list.__delitem__(stats, i)
+                else:
+                    i += 1
+
+    if max_rows:
+        del stats[max_rows:]
+
+    stats.print_all(columns=columns, out=file)
+
 
 
 class CpuProfiling(object):
@@ -104,54 +151,17 @@ class CpuProfiling(object):
         :param file: fileobj
             Where to print to. Defaults to sys.stdout.
         '''
-        columns = dict(enumerate(columns))
-
-        def print_stats(stats):
-            if sort_by:
-                stats.sort(sort_by, sort_dir or 'desc')
-            if strip_dirs:
-                for stat in stats:
-                    stat.full_name = _strip_dirs(stat.full_name)
-                if include or exclude:
-                    excl = [mod.replace('.', '/') for mod in
-                            ((exclude,) if isinstance(exclude, str) else exclude)]
-                    incl = [mod.replace('.', '/') for mod in
-                            ((include,) if isinstance(include, str) else include)]
-                    i = 0
-                    while True:
-                        try:
-                            stat = list.__getitem__(stats, i)
-                        except IndexError:
-                            break
-                        if incl:
-                            remove = True
-                            for mod in incl:
-                                if stat.full_name.startswith(mod):
-                                    remove = False
-                                    break
-                        else:
-                            remove = False
-                        for mod in excl:
-                            if stat.full_name.startswith(mod):
-                                remove = True
-                                break
-                        if remove:
-                            list.__delitem__(stats, i)
-                        else:
-                            i += 1
-            if max_rows:
-                del stats[max_rows:]
-            stats.print_all(columns=columns, out=file)
-
         stats = self.get_stats(per_worker)
 
         if per_worker:
             for worker, stats in sorted(stats):
                 print('Worker:', worker.name, end='', file=file)
-                print_stats(stats)
+                print_yappi_stats(stats, max_rows, sort_by, sort_dir, columns,
+                                  per_worker, strip_dirs, include, exclude, file)
                 print('', file=file)
         else:
-            print_stats(stats)
+            print_yappi_stats(stats, max_rows, sort_by, sort_dir, columns,
+                              per_worker, strip_dirs, include, exclude, file)
 
 
 def print_snapshot_top(top_stats, limit, file, strip_dirs, include, exclude):
