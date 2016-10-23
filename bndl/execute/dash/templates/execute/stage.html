@@ -29,7 +29,7 @@ Stage {{ stage.id }}: {{ stage.name }}
 				<td>{{ task.duration|fmt_timedelta }}</td>
 				<td>{{ task.started_on.strftime('%Y-%m-%d %H:%M:%S') if task.started_on else '' }}</td>
 				<td>{{ task.stopped_on.strftime('%Y-%m-%d %H:%M:%S') if task.stopped_on else '' }}</td>
-				<td>{{ task.executed_on[-1].name }}</td>
+				<td>{% if task.executed_on %}{{ task.executed_on[-1].name }}{% endif %}</td>
 			</tr>
 			{% if task.failed %}
 			<tr>
