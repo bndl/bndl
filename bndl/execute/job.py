@@ -110,8 +110,9 @@ class Stage(Lifecycle):
                                        name='bndl-task-driver-%s-%s' % (self.job.id, self.id),
                                        daemon=True)
         task_driver.start()
+        
         try:
-            return (task.result() for task in iter(results.get, _DONE))
+            yield from (task.result() for task in iter(results.get, _DONE))
         finally:
             task_driver.join()
 
@@ -155,7 +156,7 @@ class Stage(Lifecycle):
             except CancelledError:
                 pass
 
-        while to_schedule or pending:
+        while to_schedule or pending or done:
             # wait until a worker is available / a previous task completed
             worker = workers_available.get()
 
@@ -186,7 +187,7 @@ class Stage(Lifecycle):
             if done:
                 with lock:
                     if ordered:
-                        while done and next_task_idx < len(self.tasks):
+                        while done:
                             task = done.pop(next_task_idx, None)
                             if task:
                                 results.put(task)
