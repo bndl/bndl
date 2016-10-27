@@ -309,3 +309,48 @@ Implement cassandra.limit as
 	In [28]: docs.limit(7).count(push_down=False)
 	Out[28]: 9957
 
+
+
+Cassandra parts are still flaky in a non-deterministic order ... sigh
+
+
+
+Is span_by working for spanning by part of the primary key?
+	ctx.cassandra_table('adg_prod', 'authorship_features').select('doc_id', 'authorship_seq_no', 'affiliation_seq_no').span_by('doc_id', 'authorship_seq_no').take(10)
+	yields
+	[((83683000013, 1), Empty DataFrame
+	  Columns: []
+	  Index: [(83683000013, 1, 1)]), ((83683000027, 1), Empty DataFrame
+	  Columns: []
+	  Index: [(83683000027, 1, 1)]), ((83708200003, 1), Empty DataFrame
+	  Columns: []
+	  Index: [(83708200003, 1, 1)]), ((83708200003, 2), Empty DataFrame
+	  Columns: []
+	  Index: [(83708200003, 2, -1)]), ((83819800006, 1), Empty DataFrame
+	  Columns: []
+	  Index: [(83819800006, 1, 1)]), ((83819800006, 2), Empty DataFrame
+	  Columns: []
+	  Index: [(83819800006, 2, -1)]), ((83889400015, 1), Empty DataFrame
+	  Columns: []
+	  Index: [(83889400015, 1, 1)]), ((83889400015, 2), Empty DataFrame
+	  Columns: []
+	  Index: [(83889400015, 2, -1)]), ((83889400015, 3), Empty DataFrame
+	  Columns: []
+	  Index: [(83889400015, 3, -1)]), ((83889400015, 4), Empty DataFrame
+	  Columns: []
+	  Index: [(83889400015, 4, -1)])]
+
+
+
+Shouldn't group_by_key and friends yield key, [value, ...] instead of key, [(key, value), ...] ?
+
+
+Initializers / zero for reduce, sum,etc. 
+
+
+span_by can be a lot more efficient! DataFrame.groupby is expensive
+
+strip key from values from group_by_key
+
+use default dict in CassandraCoScanPartition._materialize for merged
+
