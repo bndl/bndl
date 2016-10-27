@@ -4,7 +4,6 @@ import asyncio
 import atexit
 import errno
 import logging
-import weakref
 
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
@@ -45,7 +44,7 @@ class PeerNode(object):
         self.server = None
         self.connected_on = None
         self.disconnected_on = None
-        self._iotasks = weakref.WeakSet()
+        self._iotasks = set()
 
         atexit.register(self.disconnect_async, 'process terminated')
 
@@ -314,6 +313,7 @@ class PeerNode(object):
 
             task = self.loop.create_task(self._dispatch(msg))
             self._iotasks.add(task)
+            task.add_done_callback(self._iotasks.remove)
 
         logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()

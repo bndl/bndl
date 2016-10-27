@@ -8,7 +8,6 @@ import logging
 import os
 import random
 import socket
-import weakref
 
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
     getlocalhostname
@@ -55,7 +54,7 @@ class Node(object):
         self.peers = PeerTable()
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
-        self._iotasks = weakref.WeakSet()
+        self._iotasks = set()
 
         atexit.register(self.stop_async)
 
@@ -240,6 +239,7 @@ class Node(object):
         # notify others of the new peer
         task = self.loop.create_task(self._notifiy_peers(peer))
         self._iotasks.add(task)
+        task.add_done_callback(self._iotasks.remove)
 
         return True
 
