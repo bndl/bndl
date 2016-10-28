@@ -239,7 +239,7 @@ class Node(object):
         # notify others of the new peer
         task = self.loop.create_task(self._notifiy_peers(peer))
         self._iotasks.add(task)
-        task.add_done_callback(self._iotasks.remove)
+        task.add_done_callback(self._iotasks.discard)
 
         return True
 

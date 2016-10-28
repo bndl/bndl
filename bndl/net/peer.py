@@ -313,7 +313,7 @@ class PeerNode(object):
 
             task = self.loop.create_task(self._dispatch(msg))
             self._iotasks.add(task)
-            task.add_done_callback(self._iotasks.remove)
+            task.add_done_callback(self._iotasks.discard)
 
         logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()
