@@ -10,8 +10,8 @@ from bndl.rmi.node import RMINode
 logger = logging.getLogger(__name__)
 
 
-_CURRENT_WORKER = threading.local()
-_CURRENT_WORKER_ERR_MSG = '''\
+_TASK_CTX = threading.local()
+_TASK_CTX_ERR_MSG = '''\
 Working outside of task context.
 
 This typically means you attempted to use functionality that needs to interface
@@ -19,12 +19,18 @@ with the local worker node.
 '''
 
 
+def task_context():
+    ctx = _TASK_CTX
+    if not hasattr(ctx, 'data'):
+        raise RuntimeError(_TASK_CTX_ERR_MSG)
+    return ctx.data
+
+
 def current_worker():
     try:
-        return _CURRENT_WORKER.w
+        return _TASK_CTX.worker
     except AttributeError:
-        raise RuntimeError(_CURRENT_WORKER_ERR_MSG)
-
+        raise RuntimeError(_TASK_CTX_ERR_MSG)
 
 
 class TaskRunner(threading.Thread):
@@ -38,17 +44,12 @@ class TaskRunner(threading.Thread):
 
 
     def run(self):
-        # set worker context
-        _CURRENT_WORKER.w = self.worker
         try:
-            result = self.task(self, *self.args, **self.kwargs)
+            result = self.worker._run_task(self.task, *self.args, **self.kwargs)
             self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
         except Exception as exc:
             if not self.result.cancelled():
                 self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
-        finally:
-            # clean up worker context
-            del _CURRENT_WORKER.w
 
 
 
@@ -58,16 +59,22 @@ class Worker(RMINode):
         self.tasks_running = {}
 
 
-    def run_task(self, src, task, *args, **kwargs):
-        logger.debug('running task %s from %s', task, src.name)
+    def _run_task(self, task, *args, **kwargs):
 
         # set worker context
-        _CURRENT_WORKER.w = self
+        _TASK_CTX.worker = self
+        _TASK_CTX.data = {}
         try:
             return task(self, *args, **kwargs)
         finally:
             # clean up worker context
-            del _CURRENT_WORKER.w
+            del _TASK_CTX.worker
+            del _TASK_CTX.data
+
+
+    def run_task(self, src, task, *args, **kwargs):
+        logger.debug('running task %s from %s', task, src.name)
+        return self._run_task(task, *args, **kwargs)
 
 
     @asyncio.coroutine
