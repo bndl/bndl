@@ -17,7 +17,7 @@ class Lifecycle(object):
         self.listeners.remove(listener)
 
     def cancel(self):
-        if not self.stopped_on:
+        if self.started_on and not self.stopped_on:
             self.cancelled = True
             self.signal_stop()
 
