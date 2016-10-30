@@ -17,7 +17,7 @@ from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
 from bndl.util.supervisor import CHILD_ID
-from bndl.util.text import camel_to_snake
+from bndl.util.strings import camel_to_snake
 
 
 logger = logging.getLogger(__name__)
