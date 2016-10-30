@@ -25,9 +25,11 @@ class AccumulatorTest(DatasetTest):
             rshift_accum >>= i
             and_accum &= i
             or_accum |= i
+            return i
 
         r = range(10)
-        self.ctx.collection(r).map(update).execute(),
+        c = self.ctx.collection(r).map(update).count()
+        self.assertEqual(c, len(r))
         self.assertEqual(inc_accum.value, sum(r))
         self.assertEqual(dec_accum.value, -sum(r))
         self.assertEqual(mul_accum.value, factorial(r.stop))
@@ -39,12 +41,14 @@ class AccumulatorTest(DatasetTest):
 
 
     def test_cancelling_ops(self):
+        inc_accum = self.ctx.accumulator(0)
         incdec_accum = self.ctx.accumulator(0)
         muldiv_accum = self.ctx.accumulator(1)
         shift_accum = self.ctx.accumulator(sys.maxsize // 2)
 
         def update(i):
-            nonlocal incdec_accum, muldiv_accum, shift_accum
+            nonlocal inc_accum, incdec_accum, muldiv_accum, shift_accum
+            inc_accum += i
             incdec_accum += i
             incdec_accum -= i
             muldiv_accum *= i + 1
@@ -53,7 +57,19 @@ class AccumulatorTest(DatasetTest):
             shift_accum >>= i
 
         r = range(10)
-        self.ctx.collection(r).map(update).execute(),
+        self.ctx.collection(r).map(update).execute()
+        self.assertEqual(inc_accum.value, 45)
         self.assertEqual(incdec_accum.value, 0)
         self.assertAlmostEqual(muldiv_accum.value, 1)
         self.assertEqual(shift_accum.value, sys.maxsize // 2)
+
+    
+    def test_set(self):
+        accum = self.ctx.accumulator(set())
+        
+        def update(i):
+            accum.update('add', i)
+            
+        self.ctx.range(10).map(update).execute()
+        
+        self.assertEqual(accum.value, set(range(10)))

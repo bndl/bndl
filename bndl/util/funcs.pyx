@@ -1,5 +1,7 @@
 import inspect
 from functools import partial
+from cytoolz import pluck
+from cytoolz.utils import no_default
 
 
 def as_method(o):
@@ -9,6 +11,19 @@ def as_method(o):
     proxy.__name__ = o.__name__
     proxy.__doc__ = proxy.__doc__
     return proxy
+
+
+class ppluck(object):
+    def __init__(self, ind, seqs, default=no_default):
+        self.ind = ind
+        self.seqs = seqs
+        self.default = default
+        
+    def __iter__(self):
+        return pluck(self.ind, self.seqs, self.default)
+    
+    def __reduce__(self):
+        return identity, (tuple(iter(self)),)
 
 
 def _getter(key, obj):

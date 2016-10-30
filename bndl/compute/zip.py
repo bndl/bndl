@@ -47,5 +47,5 @@ class ZippedPartition(Partition):
             return union
 
 
-    def _materialize(self, ctx):
-        return self.dset.comb(*(child.materialize(ctx) for child in self.src))
+    def _compute(self):
+        return self.dset.comb(*(child.compute() for child in self.src))

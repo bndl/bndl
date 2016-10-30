@@ -37,6 +37,8 @@ class UnionTest(DatasetTest):
 
 
     def test_self_union(self):
+        self.assertEqual(sorted(self.a.union(self.a).collect()), sorted(list(range(10)) * 2))
+
         dset = self.a
         for _ in range(2):
             dset = dset.union(dset)

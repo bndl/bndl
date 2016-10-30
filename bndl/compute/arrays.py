@@ -24,12 +24,21 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
 
     def take(self, num):
         sliced = self.map_partitions(lambda p: p[0:num])
-        parts = iter(sliced.icollect(eager=False, parts=True))
-        collected = next(parts)
-        for part in parts:
-            collected = np.concatenate([collected, part])
-        parts.close()
-        return collected[:num]
+        parts = sliced.itake_parts()
+        try:
+            collected = [next(parts)]
+            remaining = num - len(collected[0])
+            while remaining>0:
+                try:
+                    part = next(parts)
+                    collected.append(part)
+                    remaining -=len(part)
+                except StopIteration:
+                    break
+            collected = np.concatenate(collected)
+            return collected[:num]
+        finally:
+            parts.close()
 
 
     def sum(self, axis=None, dtype=None):
@@ -280,7 +289,7 @@ class CtorPartition(Partition):
         self.ctor = ctor
         self.shape = shape
 
-    def _materialize(self, ctx):
+    def _compute(self):
         return self.ctor(self, self.shape, self.dset.dtype)
 
 

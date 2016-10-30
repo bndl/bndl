@@ -21,6 +21,7 @@ from bndl.util import serialize
 from cytoolz import pluck, interleave
 import marisa_trie
 import scandir
+from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)
@@ -433,18 +434,12 @@ class FilesPartition(Partition):
         self.file_chunks = file_chunks
 
 
-    def _materialize(self, ctx):
+    def _compute(self):
         for filename, (offset, size) in self.file_chunks.items():
             with open(filename, 'rb') as f:
                 f.seek(offset)
                 contents = f.read(size)
             yield filename, contents
-
-
-
-class MaterializedFilesPartition(FilesPartition):
-    def _materialize(self, ctx):
-        return self.files_data
 
 
 
@@ -468,7 +463,7 @@ class LinesFilesPartition(LocalFilesPartition):
         self.errors = errors
 
 
-    def _materialize(self, ctx):
+    def _compute(self):
         if not self.encoding:
             open_file = partial(open, mode='rb')
         else:
@@ -521,7 +516,7 @@ class RemoteFilesPartition(FilesPartition):
         self.source = dset.ctx.node.name
 
 
-    def _materialize(self, ctx):
-        request = ctx.node.peers[self.source].run_task(_get_chunks, self.file_chunks)
+    def _compute(self):
+        request = self.dset.ctx.node.peers[self.source].run_task(_get_chunks, self.file_chunks)
         contents = request.result().data
         return zip(self.file_chunks.keys(), contents)

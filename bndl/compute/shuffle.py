@@ -17,7 +17,10 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import prefetch
 from bndl.util.hash import portable_hash
 from bndl.util.psutil import process_memory_percent, virtual_memory
-from cytoolz.itertoolz import merge_sorted
+from cytoolz.itertoolz import merge_sorted, pluck
+from bndl.execute.worker import task_context, current_worker
+from bndl.execute import DependenciesFailed, TaskCancelled
+from bndl.net.connection import NotConnected
 
 
 logger = logging.getLogger(__name__)
@@ -363,9 +366,9 @@ class ShuffleWritingDataset(Dataset):
 
 
 class ShuffleWritingPartition(Partition):
-    def _materialize(self, ctx):
+    def _compute(self):
         # prepare the buckets
-        buckets = ctx.node.create_buckets(self)
+        buckets = self.dset.ctx.node.create_buckets(self)
         bucketadd = [bucket.add for bucket in buckets]
         bucket_count = len(buckets)
 
@@ -394,7 +397,7 @@ class ShuffleWritingPartition(Partition):
                 return int((max_mem_pct / 100) * virtual_memory().total / 10 / element_size)
 
         # check every once in a while
-        check_interval = calc_check_interval(chain.from_iterable(ctx.node._buckets_for_dset(self.dset.id).values()))
+        check_interval = calc_check_interval(chain.from_iterable(self.dset.ctx.node._buckets_for_dset(self.dset.id).values()))
         check_loop = 0
 
         # stat counters
@@ -403,7 +406,7 @@ class ShuffleWritingPartition(Partition):
         elements_partitioned = 0
 
         # add each element to the bucket assigned to by the partitioner
-        for element in self.src.materialize(ctx):
+        for element in self.src.compute():
             # (limited by the bucket count and wrapped around)
             bucketadd[part_(element) % bucket_count](element)
             check_loop += 1
@@ -420,7 +423,7 @@ class ShuffleWritingPartition(Partition):
                     mem_used = process_memory_percent()
 
                     # spill enough to get below the high water mark - 20%
-                    spilled = ctx.node.spill_buckets(max_mem_pct * MAX_MEM_LOW_WATER)
+                    spilled = self.dset.ctx.node.spill_buckets(max_mem_pct * MAX_MEM_LOW_WATER)
                     bytes_spilled += spilled
 
                     if spilled:
@@ -462,15 +465,15 @@ class ShuffleReadingDataset(Dataset):
     (or at least compatible to it). Many properties of it are read in the shuffle read, i.e.:
     block_size_mb, max_mem_pct, key, bucket.sorted, memory_container, disk_container
     '''
-    def __init__(self, src, sort=None):
-        assert isinstance(src, ShuffleWritingDataset)
+    def __init__(self, src, sorted=None):
         super().__init__(src.ctx, src)
-        self.sort = sort
+        self.sorted=sorted
 
 
     def parts(self):
+        sources = self.src.parts()
         return [
-            ShuffleReadingPartition(self, i)
+            ShuffleReadingPartition(self, i, sources)
             for i in range(self.src.pcount)
         ]
 
@@ -478,29 +481,36 @@ class ShuffleReadingDataset(Dataset):
 
 class ShuffleReadingPartition(Partition):
     def get_sources(self):
-        ctx = self.dset.ctx
+        worker = self.dset.ctx.node
 
         # sort the source worker names relative to the name of the local worker
         # if every node does this, load will be spread more evenly in reading blocks
-        source_names = sorted(self.dset.workers)
-        source_names.remove(ctx.node.name)
-        split = bisect_left(source_names, ctx.node.name)
+
+        dependencies_executed_on = task_context()['dependencies_executed_on']
+        source_names = set(dependencies_executed_on)
+
+        local_source = worker.name in source_names
+        if local_source:
+            source_names.remove(worker.name)
+        source_names = sorted(source_names)
+        split = bisect_left(source_names, worker.name)
         source_names = source_names[split:] + source_names[:split]
 
         # get the peer objects corresponding to the worker name list in self.dset
-        sources = list(filter(None, (ctx.node.peers.get(w) for
+        sources = list(filter(None, (worker.peers.get(w) for
                     w in source_names)))
 
         # and check if their all there (apart from self)
-        missing = len(self.dset.workers) - (len(sources) + (1 if ctx.node.name in self.dset.workers else 0))
+        missing = len(source_names) - (len(sources) + (1 if worker.name in source_names else 0))
+        # TODO raise DependencyFailed
         assert not missing, 'missing %s shuffle sources: %s' % (missing, [name for name in source_names
-                                                                          if name not in ctx.node.peers])
+                                                                          if name not in worker.peers])
 
-        return sources
+        return local_source, sources
 
 
     def sizes(self):
-        sources = self.get_sources()
+        local_source, sources = self.get_sources()
         ctx = self.dset.ctx
 
         # issue requests for the bucket bucket prep and get back sizes
@@ -517,8 +527,10 @@ class ShuffleReadingPartition(Partition):
                 fut.set_exception(e)
             return fut
 
+        
         # add the local fetch operations if the local node is a source
-        if ctx.node.name in self.dset.workers:
+        if local_source:
+            
             sizes = [(ctx.node,
                       get_local_block,
                       ctx.node.get_bucket_sizes(ctx.node, self.dset.src.id, self.idx))]
@@ -529,11 +541,30 @@ class ShuffleReadingPartition(Partition):
         for worker, future in zip(sources, size_requests):
             try:
                 size = future.result()
+            except NotConnected:
+                # TODO raise DependenciesFailed
+                assert False
             except Exception:
                 logger.exception('Unable to finalize bucket %s.%s on %s' %
                                  (self.dset.src.id, self.idx, worker.name))
                 raise
             sizes.append((worker, worker.get_bucket_blocks, size))
+
+
+        # if size info is missing for any source partitions, fail materializing this partition
+        # and indicate which tasks/parts aren't available. This assumes that the task ids
+        # for the missing source partitions equals the ids of these partitions.
+        size_info_missing = {src.idx for src in self.src}
+        
+        for src_part_idx in pluck(0, chain.from_iterable(pluck(2, sizes))):
+            size_info_missing.remove(src_part_idx)
+        
+        # TODO add worker names (i.e. missing __from__), may already have been rescheduled
+        if size_info_missing:
+            raise DependenciesFailed([
+                (self.dset.src.id, idx)
+                for idx in size_info_missing
+            ])
 
         # print some workload info
         if logger.isEnabledFor(logging.INFO):
@@ -587,6 +618,8 @@ class ShuffleReadingPartition(Partition):
             for request in prefetch(get_blocks, requests):
                 try:
                     blocks = request.result()
+                except TaskCancelled:
+                    raise
                 except Exception:
                     logger.exception('unable to retrieve blocks from %s', worker.name)
                     raise
@@ -594,9 +627,9 @@ class ShuffleReadingPartition(Partition):
                     yield from blocks
 
 
-    def _materialize(self, ctx):
-        sort = self.dset.sort or self.dset.src.bucket.sorted
-        worker = ctx.node
+    def _compute(self):
+        sort = self.dset.sorted or self.dset.src.bucket.sorted
+        worker = self.dset.ctx.node
 
         logger.info('starting %s shuffle read', 'sorted' if sort else 'unsorted')
 
@@ -649,7 +682,7 @@ class ShuffleReadingPartition(Partition):
                     streams.append(chain.from_iterable(block.read() for block in reversed(batch)))
                 return merge_sorted(*streams, key=self.dset.src.key)
         else:
-            return chain.from_iterable(blocks)
+            return chain.from_iterable(block.read() for block in blocks)
 
 
 
@@ -671,7 +704,7 @@ class ShuffleManager(object):
         with self.buckets_lock:
             dset = part.dset
             # ensure that nothing is overwritten and ensure there is a dset level container
-            assert part.idx not in self.buckets.setdefault(dset.id, {})
+            assert part.idx not in self.buckets.setdefault(dset.id, {}), 'part %r already exists in %r' % (part.idx, self.buckets[dset.id])
             # create a bucket for each output partition
             buckets = [dset.bucket((dset.id, part.idx, idx), dset.key, dset.comb,
                                     dset.block_size_mb, dset.memory_container, dset.disk_container)

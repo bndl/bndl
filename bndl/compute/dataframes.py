@@ -155,8 +155,8 @@ class Column(DistributedDataFrame):
 
 
 class DistributedDataFramePartition(Partition):
-    def _materialize(self, ctx):
-        data = self.src.materialize(ctx)
+    def _compute(self):
+        data = self.src.compute()
         if isinstance(data, pd.DataFrame):
             data.__class__ = DataFrame
         return data

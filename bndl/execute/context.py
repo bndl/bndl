@@ -9,6 +9,9 @@ from bndl.util import plugins
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
+from bndl.execute.scheduler import Scheduler
+from queue import Queue
+from threading import Thread
 
 
 logger = logging.getLogger(__name__)
@@ -38,33 +41,67 @@ class ExecutionContext(Lifecycle):
     @property
     def node(self):
         if self._node is None:
-            with catch():
+            with catch(RuntimeError):
                 self._node = current_worker()
         return self._node
 
 
-    def execute(self, job, workers=None, eager=True, ordered=True):
-        # TODO what if not everything is consumed?
+    def execute(self, job, workers=None, order_results=True, concurrency=None, max_attempts=None):
         assert self.running, 'context is not running'
+        self.jobs.append(job)
+
         if workers is None:
             self.await_workers()
             workers = self.workers[:]
 
-        concurrency = self.conf.get('bndl.execute.concurrency')
+        if not job.tasks:
+            return
+
+        done = Queue()
+        scheduler = Scheduler(self, job.tasks, done.put, workers, concurrency, max_attempts)
+        scheduler_driver = Thread(target=scheduler.run,
+                                  name='bndl-scheduler-%s' % (job.id),
+                                  daemon=True)
+        job.signal_start()
+        scheduler_driver.start()
 
         try:
-            for listener in self.listeners:
-                job.add_listener(listener)
-
-            self.jobs.append(job)
-            execution = job.execute(workers, eager, ordered, concurrency)
-            for stage, stage_execution in zip(job.stages, execution):
-                for result in stage_execution:
-                    if stage == job.stages[-1]:
-                        yield result
+            if order_results:
+                # keep a dict with results which are 'early' and the task id
+                task_ids = iter(task.id for task in job.tasks)
+                next_taskid = next(task_ids)
+                early = {}
+                for task in iter(done.get, None):
+                    if task.failed:
+                        raise task.exception()
+                    elif task.id == next_taskid:
+                        yield task
+                        try:
+                            # possibly yield tasks which are next
+                            next_taskid = next(task_ids)
+                            while early:
+                                if next_taskid in early:
+                                    yield early.pop(next_taskid)
+                                    next_taskid = next(task_ids)
+                                else:
+                                    break
+                        except StopIteration:
+                            break
+                    else:
+                        early[task.id] = task
+                assert not early
+            else:
+                yield from (task for task in iter(done.get, None))
+        except KeyboardInterrupt:
+            scheduler.abort()
+            raise
+        except GeneratorExit:
+            scheduler.abort()
         finally:
-            for listener in self.listeners:
-                job.remove_listener(listener)
+            for task in job.tasks:
+                task.release()
+            job.signal_stop()
+            scheduler_driver.join()
 
 
     def await_workers(self, worker_count=None, connect_timeout=5, stable_timeout=60):

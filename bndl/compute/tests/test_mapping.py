@@ -10,8 +10,10 @@ class MappingTest(DatasetTest):
         self.dset = self.ctx.range(10, pcount=3)
 
     def test_mapping(self):
-        remainders = self.dset.map(lambda x: x % 2).collect()
-        self.assertEqual(remainders, list(x % 2 for x in range(10)))
+        remainders = self.dset.map(lambda x: x % 2)
+        self.assertEqual(remainders.collect(), list(x % 2 for x in range(10)))
+        remainders = remainders.map(str)
+        self.assertEqual(remainders.collect(), list(str(x % 2) for x in range(10)))
 
     def test_flatmap(self):
         self.assertEqual(self.dset.flatmap(lambda i: (i,)).collect(),

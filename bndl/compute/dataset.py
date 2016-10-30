@@ -1,11 +1,9 @@
-from collections import Counter, Iterable, Sized
-from copy import copy
+from collections import Counter, deque, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
 from math import sqrt, log, ceil
 from operator import add
-from os import linesep
-import abc
+from statistics import mean
 import concurrent.futures
 import gzip
 import heapq
@@ -18,29 +16,30 @@ import shlex
 import struct
 import subprocess
 import threading
-import traceback
-import uuid
 import weakref
 
-from bndl.compute import cache
-from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
-from bndl.execute.job import Job, Stage, Task
-from bndl.rmi import InvocationException
-from bndl.util import serialize, cycloudpickle as cloudpickle, strings
-from bndl.util.collection import is_stable_iterable, ensure_collection
-from bndl.util.funcs import identity, getter, key_or_getter
-from bndl.util.hash import portable_hash
-from bndl.util.hyperloglog import HyperLogLog
+from cloudpickle import islambda
+from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 import numpy as np
 
+from ..compute import cache
+from ..execute.job import RemoteTask, Job
+from ..execute.worker import task_context
+from ..net.peer import PeerNode
+from ..rmi import InvocationException
+from ..util import serialize, cycloudpickle as cloudpickle, strings
+from ..util.collection import is_stable_iterable, ensure_collection
+from ..util.exceptions import catch
+from ..util.funcs import identity, getter, key_or_getter
+from ..util.hash import portable_hash
+from ..util.hyperloglog import HyperLogLog
+from .explain import callsite, flatten_dset
+from .stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
+from bndl.execute import TaskCancelled
+
 
 logger = logging.getLogger(__name__)
-
-
-
-def _filter_local_workers(workers):
-    return [w for w in workers if w.islocal]
 
 
 def _as_bytes(obj):
@@ -59,7 +58,7 @@ def _as_bytes(obj):
         return bytes(obj)
 
 
-class Dataset(metaclass=abc.ABCMeta):
+class Dataset(object):
     cleanup = None
     sync_required = False
 
@@ -71,12 +70,11 @@ class Dataset(metaclass=abc.ABCMeta):
         self._cache_locs = {}
         self._worker_preference = None
         self._worker_filter = None
-        self.workers = None
+        self.name, self.callsite = callsite(type(self))
 
 
-    @abc.abstractmethod
     def parts(self):
-        pass
+        return ()
 
 
     def map(self, func):
@@ -168,14 +166,14 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def map_partitions_with_part(self, func):
         '''
-        Transform the partitions - with the partition object as argument - of
+        Transform the partitions - with the source partition object as argument - of
         this dataset.
 
         :param func: callable(partition, iterator)
             The transformation to apply on the partition object and the iterator
             over the partition's elements.
         '''
-        return TransformingDataset(self.ctx, self, func)
+        return TransformingDataset(self, func)
 
 
     def pipe(self, command, reader=io.IOBase.readlines, writer=io.IOBase.writelines, **opts):
@@ -444,31 +442,6 @@ class Dataset(metaclass=abc.ABCMeta):
             return self.map_partitions(lambda p: (kv for kv in p if kv[1]))
 
 
-    def first(self):
-        '''
-        Take the first element from this dataset.
-        '''
-        return next(self.itake(1))
-
-
-    def take(self, num):
-        '''
-        Take the first num elements from this dataset.
-        '''
-        return list(self.itake(num))
-
-
-    def itake(self, num):
-        '''
-        Take the first num elements from this dataset as iterator.
-        '''
-        # TODO don't use itake if first partition doesn't yield > 50% of num
-        sliced = self.map_partitions(partial(take, num))
-        results = sliced.icollect(eager=False)
-        yield from islice(results, num)
-        results.close()
-
-
     def nlargest(self, num, key=None):
         '''
         Take the num largest elements from this dataset.
@@ -665,7 +638,7 @@ class Dataset(metaclass=abc.ABCMeta):
         agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
 
         for _ in range(depth):
-            agg = agg._group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
+            agg = agg.group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
             pcount //= scale
             if pcount < scale:
                 break
@@ -797,8 +770,8 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         key = key_or_getter(key)
         return (self.key_by(key)
-                    ._group_by_key(partitioner=partitioner, pcount=pcount, **shuffle_opts)
-                    .map_values(lambda val: list(pluck(1, val))))  # @UnusedVariable
+                    .group_by_key(partitioner=partitioner, pcount=pcount, **shuffle_opts)
+                    .map_values(tuple))
 
 
     def group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
@@ -810,9 +783,11 @@ class Dataset(metaclass=abc.ABCMeta):
         :param pcount:
             The number of partitions to group into.
         '''
-        return self._group_by_key(partitioner, pcount, **shuffle_opts).map_values(list)
-
-
+        def strip_key(key, value):
+            return key, pluck(1, value)
+        return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key).map_values(tuple)
+    
+    
     def _group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
         def _group_by_key(partition):
             return groupby(partition, key=getter(0))
@@ -903,7 +878,7 @@ class Dataset(metaclass=abc.ABCMeta):
         return self.combine_by_key(identity, reduction, reduction, partitioner, pcount, **shuffle_opts)
 
 
-    def _join(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
+    def _cogroup(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
         key = key_or_getter(key)
 
         rdds = []
@@ -914,6 +889,21 @@ class Dataset(metaclass=abc.ABCMeta):
                 rdds.append(rdd.map_partitions(lambda p, idx=idx: ((key(e), (idx, e)) for e in p)))
 
         return UnionDataset(rdds)._group_by_key(partitioner, pcount, **shuffle_opts)
+
+
+    def cogroup(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
+        num_rdds = 2 + len(others)
+
+        def local_cogroup(group):
+            key, group = group
+
+            buckets = [[] for _ in range(num_rdds)]
+            for idx, value in pluck(1, group):
+                buckets[idx].append(value)
+            return key, buckets
+
+        return (self._cogroup(other, *others, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
+                    .map(local_cogroup))
 
 
     def join(self, other, key=None, partitioner=None, pcount=None, **shuffle_opts):
@@ -939,25 +929,10 @@ class Dataset(metaclass=abc.ABCMeta):
         def local_join(group):
             key, groups = group
             if all(groups):
-                yield key, list(product(*groups))
+                yield key, tuple(product(*groups))
 
         return (self.cogroup(other, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
                     .flatmap(local_join))
-
-
-    def cogroup(self, other, *others, key=None, partitioner=None, pcount=None, **shuffle_opts):
-        num_rdds = 2 + len(others)
-
-        def local_cogroup(group):
-            key, group = group
-
-            buckets = [[] for _ in range(num_rdds)]
-            for idx, value in pluck(1, group):
-                buckets[idx].append(value)
-            return key, buckets
-
-        return (self._join(other, *others, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
-                    .map(local_cogroup))
 
 
     def product(self, other, *others):
@@ -1070,11 +1045,26 @@ class Dataset(metaclass=abc.ABCMeta):
             rng = np.random.RandomState()
             def sampler(partition):
                 fraction = 0.1
+
                 if isinstance(partition, Sized):
                     if len(partition) <= point_count:
                         return partition
-                    fraction = point_count / len(partition)
-                samples = sample_without_replacement(rng, fraction, partition)
+                    else:
+                        fraction = point_count / len(partition)
+                        samples = sample_without_replacement(rng, fraction, partition)
+                else:
+                    samples1 = list(islice(partition, point_count))
+                    samples2 = sample_without_replacement(rng, fraction, partition)
+                    short = point_count - len(samples2)
+                    if short > 0:
+                        if len(samples1) < short:
+                            samples = samples1 + samples2
+                        else:
+                            rng.shuffle(samples1)
+                            samples = samples1[:short] + samples2
+                    elif short < 0:
+                        rng.shuffle(samples1)
+                        samples = samples1[len(samples1) * fraction] + samples2
                 if len(samples) > point_count:
                     rng.shuffle(samples)
                     return samples[:point_count]
@@ -1082,11 +1072,13 @@ class Dataset(metaclass=abc.ABCMeta):
                     return samples
             samples = self.map_partitions(sampler).collect_as_set()
 
+        assert samples
+
         # apply the key function if any
         if key:
-            samples = map(key, samples)
+            samples = set(map(key, samples))
         # sort the samples to function as boundaries
-        samples = sorted(set(samples), reverse=reverse)
+        samples = sorted(samples, reverse=reverse)
         # take pcount - 1 points evenly spaced from the samples as boundaries
         boundaries = [samples[len(samples) * (i + 1) // pcount] for i in range(pcount - 1)]
         # and use that in the range partitioner to shuffle
@@ -1096,7 +1088,9 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, sort=None, **opts):
         key = key_or_getter(key)
-        from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset
+        from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset, ListBucket
+        if bucket is None and sort == False:
+            bucket = ListBucket
         shuffle = ShuffleWritingDataset(self, pcount, partitioner, bucket, key, comb, **opts)
         return ShuffleReadingDataset(shuffle, sort)
 
@@ -1189,24 +1183,24 @@ class Dataset(metaclass=abc.ABCMeta):
 
 
 
-    def collect(self, parts=False):
-        return list(self.icollect(parts=parts))
+    def collect(self, parts=False, ordered=True):
+        return list(self.icollect(parts, ordered))
 
 
     def collect_as_map(self, parts=False):
-        dicts = self.map_partitions(dict).icollect(parts=True)
+        dicts = self.map_partitions(dict)
         if parts:
-            return list(dicts)
+            return dicts.collect(True, True)
         else:
             combined = {}
-            for d in dicts:
+            for d in dicts.icollect(True, False):
                 combined.update(d)
             return combined
 
 
     def collect_as_set(self):
         s = set()
-        for part in self.map_partitions(set).icollect(parts=True):
+        for part in self.map_partitions(set).icollect(True, False):
             s.update(part)
         return s
 
@@ -1222,7 +1216,7 @@ class Dataset(metaclass=abc.ABCMeta):
         '''
         Collect each partition as a line separated json file into directory.
         '''
-        self.map(json.dumps).concat(linesep).collect_as_files(directory, '.json', 't', compress)
+        self.map(json.dumps).concat(os.linesep).collect_as_files(directory, '.json', 't', compress)
 
 
     def collect_as_files(self, directory=None, ext='', mode='b', compress=None):
@@ -1259,38 +1253,151 @@ class Dataset(metaclass=abc.ABCMeta):
                 f.writelines(part)
 
 
-    def icollect(self, eager=True, parts=False, ordered=True):
-        result = self._execute(eager, ordered)
+    def execute(self):
+        def consume_iterable(i):
+            if not is_stable_iterable(i):
+                sum(1 for _ in i)
+        for _ in self.map_partitions(consume_iterable)._execute(ordered=False):
+            pass
+
+
+    def icollect(self, parts=False, ordered=True):
+        result = self._execute(ordered)
         result = filter(lambda p: p is not None, result)  # filter out empty parts
         if not parts:
             result = chain.from_iterable(result)  # chain the parts into a big iterable
         yield from result
 
 
-    def foreach(self, func):
-        for element in self.icollect():
-            func(element)
+    def first(self):
+        '''
+        Take the first element from this dataset.
+        '''
+        taker = self.itake(1)
+        first = next(taker)
+        taker.close()
+        return first
 
 
-    def execute(self):
-        for _ in self._execute():
-            pass
+    def take(self, num):
+        '''
+        Take the first num elements from this dataset.
+        '''
+        return list(self.itake(num))
 
-    def _execute(self, eager=True, ordered=True):
-        yield from self.ctx.execute(self._schedule(), eager=eager, ordered=ordered)
+
+    def itake(self, num):
+        '''
+        Take the first num elements from this dataset as iterator.
+        '''
+        assert self.ctx.running, 'context of dataset is not running'
+        remaining = num
+        sliced = self.map_partitions(partial(take, remaining)).itake_parts()
+        try:
+            for part in sliced:
+                for e in islice(part, remaining):
+                    yield e
+                    remaining -= 1
+                if not remaining:
+                    break
+        finally:
+            sliced.close()
+
+
+    def itake_parts(self):
+        mask = slice(0, 1)
+        pcount = len(self.parts())
+        while mask.start < pcount:
+            masked = self.mask_partitions(lambda parts: parts[mask])
+            done = self.ctx.execute(masked._schedule())
+            try:
+                for task in done:
+                    yield task.result()
+                mask = slice(mask.stop, mask.stop * 2 + 1)
+            finally:
+                done.close()
+
+
+    def _execute(self, ordered=True):
+        assert self.ctx.running, 'context of dataset is not running'
+        job = self._schedule()
+        done = self.ctx.execute(job, order_results=ordered)
+        for task in done:
+            yield task.result()
+
+
+    def _tasks(self):
+        tasks = OrderedDict()
+        stage = 1
+        stages = 1
+
+        def generate_task(part):
+            nonlocal stage, stages
+            
+            task = tasks.get(part.id)
+            if task:
+                return task
+
+            stack = deque()
+            task = ComputePartitionTask(part)
+            task.stage = stage
+
+            if isinstance(part.src, Iterable):
+                stack.extend(part.src)
+            elif part.src is not None:
+                stack.append(part.src)
+
+            while stack:
+                p = stack.popleft()
+                if p.dset.sync_required:
+                    stage += 1
+                    stages += 1
+                    dependency = generate_task(p)
+                    task.dependencies.append(dependency)
+                    dependency.dependents.append(task)
+                    stage -= 1
+                else:
+                    if isinstance(p.src, Iterable):
+                        stack.extend(p.src)
+                    elif p.src is not None:
+                        stack.append(p.src)
+
+            tasks[part.id] = task
+            return task
+
+        for part in self.parts():
+            generate_task(part)
+
+        return list(tasks.values())
+
 
     def _schedule(self):
-        return schedule_job(self)
+        name, desc = callsite()
+        job = Job(self.ctx, self.id, self._tasks(), name, desc)
+
+        cleanups = []
+        for dset in flatten_dset(self):
+            if dset.cleanup:
+                cleanups.append(dset.cleanup)
+
+        if cleanups:
+            def cleanup(job):
+                if job.stopped:
+                    for cleanup in cleanups:
+                        cleanup(job)
+            job.add_listener(cleanup)
+
+        return job
 
 
     def prefer_workers(self, fltr):
         return self._with(_worker_preference=fltr)
 
-    def allow_workers(self, fltr):
+    def require_workers(self, fltr):
         return self._with(_worker_filter=fltr)
 
     def require_local_workers(self):
-        return self.allow_workers(_filter_local_workers)
+        return self.require_workers(PeerNode.islocal)
 
     def allow_all_workers(self):
         return self.allow_workers(None)
@@ -1346,7 +1453,9 @@ class Dataset(metaclass=abc.ABCMeta):
 
     def __del__(self):
         if getattr(self, '_cache_provider', None):
-            node = self.ctx.node
+            node = None
+            with catch(RuntimeError):
+                node = self.ctx.node
             if node and node.node_type == 'driver':
                 self.uncache()
 
@@ -1366,31 +1475,45 @@ class Dataset(metaclass=abc.ABCMeta):
             for attribute, value in zip(args[0::2], args[1::2]):
                 setattr(clone, attribute, value)
         clone.__dict__.update(kwargs)
-        clone.id = uuid.uuid1()
+        clone.id = strings.random(8)
         return clone
 
 
-    def __str__(self):
-        return 'dataset %s' % self.id
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.id)
 
+
+    def __str__(self):
+        return self.name
+
+
+FORBIDDEN = -1
+NON_LOCAL = 0
+LOCAL = 1
+NODE_LOCAL = 3
+PROCESS_LOCAL = 4
 
 
 @total_ordering
-class Partition(metaclass=abc.ABCMeta):
+class Partition(object):
     def __init__(self, dset, idx, src=None):
         self.dset = weakref.proxy(dset)
         self.idx = idx
         self.src = src
+        self.id = (dset.id, idx)
 
-    def materialize(self, ctx):
+
+    def compute(self):
+        cached = self.dset.cached
+
         # check cache
-        if self.dset.cached:
+        if cached:
             try:
-                if self.cache_loc == ctx.node.name:
+                if self.cache_loc == self.dset.ctx.node.name:
                     # read locally
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
                 elif self.cache_loc:
-                    peer = ctx.node.peers[self.cache_loc]
+                    peer = self.dset.ctx.node.peers[self.cache_loc]
                     return peer.run_task(lambda worker: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
@@ -1399,10 +1522,10 @@ class Partition(metaclass=abc.ABCMeta):
                                  self.dset.id, self.idx, self.cache_loc)
 
         # compute if not cached
-        data = self._materialize(ctx)
+        data = self._compute()
 
         # cache if requested
-        if self.dset.cached:
+        if cached:
             data = ensure_collection(data)
             self.dset._cache_provider.write(self.dset.id, self.idx, data)
 
@@ -1415,62 +1538,65 @@ class Partition(metaclass=abc.ABCMeta):
         return self.dset._cache_locs.get(self.idx, None)
 
 
-    @abc.abstractmethod
-    def _materialize(self, ctx):
+    def _compute(self):
         pass
 
 
-    def _combine_worker_locations(self, method, workers, op):
-        if self.src:
-            if isinstance(self.src, tuple):
-                worker_sets = (set(getattr(src, method)(workers)) for src in self.src)
-                return reduce(op, worker_sets)
+    def locality(self, worker):
+        '''
+        Determine locality of computing this partition at the given worker. 
+        '''
+        cache_loc = self.cache_loc
+        if cache_loc:
+            if cache_loc == worker.name:
+                return PROCESS_LOCAL
+            elif worker.islocal:
+                return NODE_LOCAL
+        else:
+            if self.dset._worker_filter and not self.dset._worker_filter(worker):
+                return FORBIDDEN
+            elif self.dset._worker_preference and self.dset._worker_preference(worker):
+                return LOCAL
             else:
-                return getattr(self.src, method)(workers)
-        else:
-            return workers
+                return self._locality(worker)
 
 
-    def preferred_workers(self, workers):
-        if self.cache_loc:
-            return [worker for worker in workers if worker.name == self.cache_loc]
-        else:
-            if self.dset._worker_preference:
-                return self.dset._worker_preference(workers)
+    def _locality(self, worker):
+        '''
+        Determine locality of computing this partition after first processing
+        cache locality and _worker_filter and _worker_preference.
+        
+        Typically source partition implementations which inherit from Partition
+        indicate here whether computing on a worker shows locality. This allows
+        dealing with caching and preference/requirements set at the dataset
+        separately from locality in the 'normal' case.
+        '''
+        src = self.src
+        if src:
+            if isinstance(src, Iterable):
+                localities = [src.locality(worker) for src in src]
+                if FORBIDDEN in localities:
+                    return FORBIDDEN
+                else:
+                    return mean(localities)
             else:
-                return self._preferred_workers(workers)
-
-
-    def _preferred_workers(self, workers):
-        preferred = self._combine_worker_locations('preferred_workers', workers, set.union)
-        if preferred is workers:
-            return None
+                return src.locality(worker)
         else:
-            return preferred
-
-
-    def allowed_workers(self, workers):
-        if self.dset._worker_filter:
-            return self.dset._worker_filter(workers)
-        else:
-            return self._allowed_workers(workers)
-
-
-    def _allowed_workers(self, workers):
-        return self._combine_worker_locations('allowed_workers', workers, set.intersection)
+            return NON_LOCAL
 
 
     def __lt__(self, other):
-        return other.dset.id < self.dset.id or other.idx > self.idx
+        return self.id < other.id
 
     def __eq__(self, other):
-        return other.dset.id == self.dset.id and other.idx == self.idx
+        return self.id == other.id
 
     def __hash__(self):
-        return hash((self.dset.id, self.idx))
+        return hash(self.id)
 
-    def __str__(self):
-        return '%s(%s.%s)' % (self.__class__.__name__, self.dset.id, self.idx)
+
+    def __repr__(self):
+        return '<%s %s.%s>' % ((self.__class__.__name__,) + self.id)
 
 
 
@@ -1478,6 +1604,7 @@ class IterablePartition(Partition):
     def __init__(self, dset, idx, iterable):
         super().__init__(dset, idx)
         self.iterable = iterable
+
 
     # TODO look into e.g. https://docs.python.org/3.4/library/pickle.html#persistence-of-external-objects
     # for attachments? Or perhaps separate the control and the data paths?
@@ -1487,12 +1614,14 @@ class IterablePartition(Partition):
         state['iterable'] = serialize.dumps(iterable)
         return state
 
+
     def __setstate__(self, state):
         iterable = state.pop('iterable')
         self.__dict__.update(state)
         self.iterable = serialize.loads(*iterable)
 
-    def _materialize(self, ctx):
+
+    def _compute(self):
         return self.iterable
 
 
@@ -1501,6 +1630,7 @@ class MaskedDataset(Dataset):
     def __init__(self, src, mask):
         super().__init__(src.ctx, src)
         self.mask = mask
+
 
     def parts(self):
         return self.mask(self.src.parts())
@@ -1516,6 +1646,14 @@ def _merge_multisource(others, cls):
             datasets.append(other)
     for other in others:
         extend_or_append(other)
+
+    for idx, dset in enumerate(datasets[:]):
+        try:
+            datasets.index(dset, idx + 1)
+            datasets[idx] = dset._with()
+        except ValueError:
+            pass  # not found, not duplicated
+
     return datasets
 
 
@@ -1523,10 +1661,12 @@ def _merge_multisource(others, cls):
 class UnionDataset(Dataset):
     def __init__(self, src):
         assert len(src) > 1
-        super().__init__(src[0].ctx, tuple(src))
+        super().__init__(src[0].ctx, _merge_multisource(src, UnionDataset))
+
 
     def union(self, other, *others):
-        return UnionDataset(_merge_multisource((self, other) + others, UnionDataset))
+        return UnionDataset((self, other) + others)
+
 
     def parts(self):
         return list(chain.from_iterable(src.parts() for src in self.src))
@@ -1536,10 +1676,12 @@ class UnionDataset(Dataset):
 class CartesianProductDataset(Dataset):
     def __init__(self, src):
         assert len(src) > 1
-        super().__init__(src[0].ctx, tuple(src))
+        super().__init__(src[0].ctx, _merge_multisource(src, CartesianProductDataset))
+
 
     def product(self, other, *others):
-        return CartesianProductDataset(_merge_multisource((self, other) + others, CartesianProductDataset))
+        return CartesianProductDataset((self, other) + others)
+
 
     def parts(self):
         part_pairs = product(*(ds.parts() for ds in self.src))
@@ -1549,19 +1691,17 @@ class CartesianProductDataset(Dataset):
 
 
 class CartesianProductPartition(Partition):
-    def _materialize(self, ctx):
-        yield from product(*tuple(src.materialize(ctx) for src in self.src))
+    def _compute(self):
+        yield from product(*tuple(src.compute() for src in self.src))
 
 
 
 class TransformingDataset(Dataset):
-    def __init__(self, ctx, src, transformation):
-        super().__init__(ctx, src)
-        self.transformation = transformation
-        try:
-            self._transformation = pickle.dumps(transformation, protocol=4)
-        except (pickle.PicklingError, AttributeError):
-            self._transformation = cloudpickle.dumps(transformation, protocol=4)
+    def __init__(self, src, *funcs):  # , descs):
+        super().__init__(src.ctx, src)
+        self.funcs = funcs
+        self._pickle_funcs()
+
 
     def parts(self):
         return [
@@ -1569,169 +1709,76 @@ class TransformingDataset(Dataset):
             for i, part in enumerate(self.src.parts())
         ]
 
+
+    def map_partitions_with_part(self, func):
+        if not self.cached:
+            name, csite = callsite()
+            # TODO name = self.name + ' -> ' + name
+            dset = self._with(funcs=self.funcs + (func,),
+                              name=name, callsite=csite)
+            dset._pickle_funcs()
+            return dset
+        else:
+            return TransformingDataset(self, func)
+
+
+    def _pickle_funcs(self):
+        try:
+            self._funcs = pickle.dumps(self.funcs)
+        except (pickle.PicklingError, AttributeError):
+            self._funcs = cloudpickle.dumps(self.funcs)
+
+
     def __getstate__(self):
-        state = copy(self.__dict__)
-        del state['transformation']
+        state = dict(self.__dict__)
+        del state['funcs']
         return state
+
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.transformation = pickle.loads(self._transformation)  # @UndefinedVariable
+        self.funcs = pickle.loads(self._funcs)
+
 
 
 class TransformingPartition(Partition):
-    def _materialize(self, ctx):
-        data = self.src.materialize(ctx)
-        return self.dset.transformation(self.src, data if data is not None else ())
-
-
-def schedule_job(dset, workers=None):
-    '''
-    Schedule a job for a data set
-    :param dset:
-        The data set to schedule
-    '''
-
-    ctx = dset.ctx
-    assert ctx.running, 'context of dataset is not running'
-
-    ctx.await_workers()
-    workers = ctx.workers[:]
-
-    job = Job(ctx, *_job_calling_info())
-
-    stage = Stage(None, job)
-    schedule_stage(stage, workers, dset)
-    job.stages.insert(0, stage)
-
-    def _cleaner(dset, job):
-        if job.stopped:
-            dset.cleanup(job)
-
-    while dset:
-        dset.workers = [w.name for w in workers]
-
-        if dset.cleanup:
-            job.add_listener(partial(_cleaner, dset))
-        if isinstance(dset.src, Iterable):
-            for src in dset.src:
-                branch = schedule_job(src)
-
-                for task in branch.stages[-1].tasks:
-                    task.args = (task.args[0], True)
-
-                for listener in branch.listeners:
-                    job.add_listener(listener)
-
-                if dset.sync_required:
-                    branch_stages = branch.stages
-                elif len(branch.stages) > 1:
-                    branch_stages = branch.stages[:-1]
-                else:
-                    continue
-
-                for stage in reversed(branch_stages):
-                    stage.job = job
-                    stage.is_last = False
-                    job.stages.insert(0, stage)
-
-            break
-
-        elif dset.sync_required:
-            stage = stage.prev_stage = Stage(None, job)
-            schedule_stage(stage, workers, dset)
-            job.stages.insert(0, stage)
-
-        dset = dset.src
-
-    # Since stages are added in reverse, setting the ids in execution order
-    # later in execution order gives a clearer picture to users
-    for idx, stage in enumerate(job.stages):
-        stage.id = idx
-
-    for task in job.stages[-1].tasks:
-        task.args = (task.args[0], True)
-
-    return job
-
-
-def _job_calling_info():
-    name = None
-    desc = None
-    for file, lineno, func, text in reversed(traceback.extract_stack()):
-        if 'bndl/' in file and func[0] != '_':
-            name = func
-        desc = file, lineno, func, text
-        if 'bndl/' not in file:
-            break
-    return name, desc
+    def _compute(self):
+        data = self.src.compute()
+        for func in self.dset.funcs:
+            data = func(self.src, data if data is not None else ())
+        return data
 
 
 
-def _get_cache_loc(part):
-    loc = part.dset._cache_locs.get(part.idx)
-    if loc:
-        return loc
-    elif part.src:
-        if isinstance(part.src, Iterable):
-            return set(chain.from_iterable(_get_cache_loc(src) for src in part.src))
-        else:
-            return _get_cache_loc(part.src)
-
-
-def schedule_stage(stage, workers, dset):
-    '''
-    Schedule a stage for a data set.
-
-    It is assumed that all source data sets (and their parts) are materialized when
-    this data set is materialized. (i.e. parts call materialize on their sources,
-    if any).
-
-    Also it is assumed that stages are scheduled backwards. Specifically if
-    stage.is_last when this function is called it will remain that way ...
-
-    :param stage: Stage
-        stage to add tasks to
-    :param workers: list or set
-        Workers to schedule the data set on
-    :param dset:
-        The data set to schedule
-    '''
-    stage.name = dset.__class__.__name__
-
-    for part in dset.parts():
-        allowed_workers = list(part.allowed_workers(workers) or [])
-        preferred_workers = list(part.preferred_workers(allowed_workers or workers) or [])
-
-        stage.tasks.append(MaterializePartitionTask(
-            part, stage,
-            preferred_workers, allowed_workers
-        ))
-
-
-class MaterializePartitionTask(Task):
-    def __init__(self, part, stage,
-                 preferred_workers, allowed_workers,
-                 name=None, desc=None):
+class ComputePartitionTask(RemoteTask):
+    def __init__(self, part):
+        name = part.dset.name
+        super().__init__(part.dset.ctx, part.id, compute_part, (part,), {},
+                         name=name, desc=part.dset.callsite)
         self.part = part
-        super().__init__(
-            part.idx,
-            stage,
-            materialize_partition, (part, False), None,
-            preferred_workers, allowed_workers,
-            name, desc)
+        self.locality = part.locality
+
+
+    def execute(self, worker):
+        dependencies_executed_on = {}
+        for dep in self.dependencies:
+            dependencies_executed_on.setdefault(dep.executed_on[-1].name, []).append(dep.part.id)
+        self.args += (dependencies_executed_on,)
+        return super().execute(worker)
+
 
     def result(self):
         result = super().result()
         self._save_cacheloc(self.part)
-        self.part = None
         return result
+
 
     def _save_cacheloc(self, part):
         # memorize the cache location for the partition
         if part.dset.cached and not part.dset._cache_locs.get(part.idx):
             part.dset._cache_locs[part.idx] = self.executed_on[-1].name
         # traverse backup up the DAG
+        # TODO don't we have to stop between shuffle write and read?
         if part.src:
             if isinstance(part.src, Iterable):
                 for src in part.src:
@@ -1740,21 +1787,25 @@ class MaterializePartitionTask(Task):
                 self._save_cacheloc(part.src)
 
 
-def materialize_partition(worker, part, return_data):
+    def release(self):
+        self.part = None
+
+
+
+def compute_part(worker, part, dependencies_executed_on):
     try:
-        ctx = part.dset.ctx
-
+        # communicate out of band on which workers dependencies of this task were executed
+        task_context()['dependencies_executed_on'] = dependencies_executed_on
         # generate data
-        data = part.materialize(ctx)
-
-        # return data if requested
-        if return_data and data is not None:
-            # 'materialize' iterators and such for pickling
-            if not is_stable_iterable(data):
-                return list(data)
-            else:
-                return data
+        data = part.compute()
+        # 'materialize' iterators and such for pickling
+        if data is not None and not is_stable_iterable(data):
+            return list(data)
+        else:
+            return data
+    except TaskCancelled:
+        return None
     except Exception:
-        logger.info('error while materializing part %s on worker %s',
+        logger.info('error while computing part %s on worker %s',
                     part, worker, exc_info=True)
         raise

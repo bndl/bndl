@@ -5,6 +5,8 @@ import re
 
 from setuptools import setup, find_packages, Extension
 
+import bndl
+
 
 ext = re.compile(r'\.pyx$')
 
@@ -30,7 +32,7 @@ except ImportError:
 
 setup(
     name='bndl',
-    version='0.2.9',
+    version=bndl.__version__,
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
     long_description=open('README.md').read(),

@@ -11,7 +11,6 @@ class ComputeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Increase switching interval to lure out race conditions a bit ...
-        cls._old_switchinterval = sys.getswitchinterval()
         sys.setswitchinterval(1e-6)
 
         config = Config()
@@ -22,8 +21,8 @@ class ComputeTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        sys.setswitchinterval(5e-3)
         cls.ctx.stop()
-        sys.setswitchinterval(cls._old_switchinterval)
 
 
 class DatasetTest(ComputeTest):
