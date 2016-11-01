@@ -64,8 +64,7 @@ class Dataset(object):
         self.id = dset_id or strings.random(8)
         self._cache_provider = False
         self._cache_locs = {}
-        self._worker_preference = None
-        self._worker_filter = None
+        self._workers_required = None
         self.name, self.get_callsite = get_callsite(type(self))
 
 
@@ -1316,6 +1315,30 @@ class Dataset(object):
                 done.close()
 
 
+    def require_workers(self, workers_required):
+        '''
+        Create a clone of this dataset which is only computable on the workers
+        which are returned by the workers_required argument. 
+        
+        :param workers_required: function(iterable[PeerNode]): -> iterable[PeerNode]
+            A function which is given an iterable of workers (PeerNodes) which is to
+            return only those which are allowed to compute this dataset.
+        '''
+        return self._with(_workers_required=workers_required)
+
+
+    def allow_all_workers(self):
+        '''
+        Create a clone of this dataset which resets the worker filter set by
+        require_workers if any.
+        '''
+        if self._workers_required is not None:
+            return self._with(_workers_required=None)
+        else:
+            return self
+
+
+
     def _execute(self, ordered=True):
         assert self.ctx.running, 'context of dataset is not running'
         job = self._schedule()
@@ -1537,18 +1560,27 @@ class Partition(object):
         
         :return: a generator of worker, locality pairs.
         '''
-        workers = set(workers)
+        workers_filtered = set(workers)
+
+        if self.dset._workers_required is not None:
+            allowed = set(self.dset._workers_required(workers))
+            forbidden = set(workers_filtered) - allowed
+            workers_filtered = allowed
+            for worker in forbidden:
+                yield worker, FORBIDDEN
+
         cache_loc = self.cache_loc
         if cache_loc:
             for worker in workers:
                 if cache_loc == worker.name:
                     yield worker, PROCESS_LOCAL
-                    workers.remove(worker)
+                    workers_filtered.remove(worker)
                 elif worker.islocal:
                     yield worker, NODE_LOCAL
-                    workers.remove(worker)
-        if workers:
-            yield from self._locality(workers)
+                    workers_filtered.remove(worker)
+
+        if workers_filtered:
+            yield from self._locality(workers_filtered)
 
 
     def _locality(self, workers):

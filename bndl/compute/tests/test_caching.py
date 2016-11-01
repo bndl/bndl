@@ -74,11 +74,11 @@ class CachingTest(DatasetTest):
         dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str).cache()
         w0, w1 = (w.name for w in self.ctx.workers[0:2])
 
-        first = dset.map(register_worker).require_workers(lambda w: w.name == w0).execute()
+        first = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w0]).execute()
         self.assertEqual(executed_on.value, Counter({w0:10}))
         self.assertEqual(self.get_cachekeys(), [dset.id])
 
-        second = dset.map(register_worker).require_workers(lambda w: w.name == w1).execute()
+        second = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w1]).execute()
         self.assertEqual(executed_on.value, Counter({w0:10, w1:10}))
         self.assertEqual(self.get_cachekeys(), [dset.id])
 
