@@ -1,5 +1,3 @@
-import itertools
-
 from bndl.compute.accumulate import Accumulator
 from bndl.compute.arrays import SourceDistributedArray, DistributedArray
 from bndl.compute.broadcast import broadcast, broadcast_pickled
@@ -13,7 +11,6 @@ from bndl.util.funcs import as_method
 class ComputeContext(ExecutionContext):
     def __init__(self, driver, *args, **kwargs):
         super().__init__(driver, *args, **kwargs)
-        self._dataset_ids = itertools.count()
 
 
     @property
@@ -53,8 +50,3 @@ class ComputeContext(ExecutionContext):
     ones = as_method(DistributedArray.ones)
     arange = as_method(DistributedArray.arange)
 
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        state.pop('_dataset_ids', None)
-        return state
