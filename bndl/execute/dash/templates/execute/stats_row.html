@@ -1,6 +1,6 @@
 {% macro stats_row(tasklist, stats) -%}
 	<td>
-		{{ stats.completed }} + {{ stats.running }} / {{ stats.tasks|length }}
+		{{ stats.completed }} {% if stats.running %} + {{ stats.running }} {% endif %} / {{ stats.tasks|length }}
 		&nbsp;
 		{% if stats.failed %}
 		<span class="glyphicon glyphicon-flash"></span>
@@ -8,11 +8,11 @@
 	</td>
 	<td>
 		{% if stats.tasks %}
-		{% set completed = (stats.completed * 100 / stats.tasks|length) %}
+		{% set completed = (stats.completed * 100 / stats.total) %}
 		<div class="progress{{ ' progress-striped' if stats.remaining else '' }}" style="width: 100%; margin: 0;">
 		  <div class="progress-bar progress-bar-success" style="width: {{ completed }}%">{% if completed > 10 %}{{ completed|round(0)|int }}%{% endif %}</div>
-		  <div class="progress-bar" style="background-color: rgba(0, 0, 0, .2); width: {{ stats.cancelled * 100 / stats.tasks|length }}%"></div>
-		  <div class="progress-bar progress-bar-default" style="{% if stats.running %}min-width: 5px;{% endif %} width: {{ (stats.running) * 100 / stats.tasks|length }}%"></div>
+		  <div class="progress-bar" style="background-color: rgba(0, 0, 0, .2); width: {{ stats.cancelled * 100 / stats.total }}%"></div>
+		  <div class="progress-bar progress-bar-default" style="{% if stats.running %}min-width: 5px;{% endif %} width: {{ (stats.running) * 100 / stats.total }}%"></div>
 		  <div style="text-align: center;"></div>
 		</div>
 		{% endif %}

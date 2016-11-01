@@ -24,12 +24,12 @@ Job {{ job.id }}: {{ job.name }}
 </div>
 
 <div class="container">
-	<h2>Stages:</h2>
+	<h2>Task groups:</h2>
 	<table class="table table-hover ">
 		<thead>
 			<tr>
 				<th width="3%">#</th>
-				<th width="17%">Stage</th>
+				<th width="17%">Group</th>
 				<th width="12%">
 					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Tasks</span>
 				</th>
@@ -43,12 +43,11 @@ Job {{ job.id }}: {{ job.name }}
 			</tr>
 		</thead>
 		<tbody>
-		{% for stage in job.stages|reverse %}
-		<tr class="clickable {{ ' active' if stage.running_on else '' }}" data-href='stage/{{ stage.id }}'>
-			<td>{{ stage.id }}</td>
-			<td>{{ stage.name }}</td>
-			
-			{{ stats_row.stats_row(stage, stage|task_stats) }}			
+		{% for group in job.tasks|groupby('group') %}
+		<tr class="clickable {{ ' active' if group.running_on else '' }}" data-href='group/{{ group.grouper }}'>
+			<td>{{ group.grouper }}</td>
+			<td>{{ (group.list|first).name }}</td>
+			{{ stats_row.stats_row(group, group.list|task_stats) }}			
 		</tr>
 		{% endfor %}
 		</tbody>

@@ -1,9 +1,8 @@
-from collections import Counter, deque, Iterable, Sized, OrderedDict
+from collections import Counter, deque, defaultdict, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
 from math import sqrt, log, ceil
 from operator import add
-from statistics import mean
 import concurrent.futures
 import gzip
 import heapq
@@ -18,15 +17,14 @@ import subprocess
 import threading
 import weakref
 
-from cloudpickle import islambda
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 import numpy as np
 
 from ..compute import cache
+from ..execute import TaskCancelled
 from ..execute.job import RemoteTask, Job
 from ..execute.worker import task_context
-from ..net.peer import PeerNode
 from ..rmi import InvocationException
 from ..util import serialize, cycloudpickle as cloudpickle, strings
 from ..util.collection import is_stable_iterable, ensure_collection
@@ -34,9 +32,8 @@ from ..util.exceptions import catch
 from ..util.funcs import identity, getter, key_or_getter
 from ..util.hash import portable_hash
 from ..util.hyperloglog import HyperLogLog
-from .explain import callsite, flatten_dset
+from .explain import get_callsite, flatten_dset
 from .stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
-from bndl.execute import TaskCancelled
 
 
 logger = logging.getLogger(__name__)
@@ -70,7 +67,7 @@ class Dataset(object):
         self._cache_locs = {}
         self._worker_preference = None
         self._worker_filter = None
-        self.name, self.callsite = callsite(type(self))
+        self.name, self.get_callsite = get_callsite(type(self))
 
 
     def parts(self):
@@ -786,8 +783,8 @@ class Dataset(object):
         def strip_key(key, value):
             return key, pluck(1, value)
         return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key).map_values(tuple)
-    
-    
+
+
     def _group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
         def _group_by_key(partition):
             return groupby(partition, key=getter(0))
@@ -1295,6 +1292,8 @@ class Dataset(object):
         sliced = self.map_partitions(partial(take, remaining)).itake_parts()
         try:
             for part in sliced:
+                if part is None:
+                    continue
                 for e in islice(part, remaining):
                     yield e
                     remaining -= 1
@@ -1328,19 +1327,18 @@ class Dataset(object):
 
     def _tasks(self):
         tasks = OrderedDict()
-        stage = 1
-        stages = 1
+        group = 1
+        groups = 1
 
         def generate_task(part):
-            nonlocal stage, stages
-            
+            nonlocal group, groups
+
             task = tasks.get(part.id)
             if task:
                 return task
 
             stack = deque()
-            task = ComputePartitionTask(part)
-            task.stage = stage
+            task = ComputePartitionTask(part, group)
 
             if isinstance(part.src, Iterable):
                 stack.extend(part.src)
@@ -1350,12 +1348,12 @@ class Dataset(object):
             while stack:
                 p = stack.popleft()
                 if p.dset.sync_required:
-                    stage += 1
-                    stages += 1
+                    group += 1
+                    groups = max(groups, group)
                     dependency = generate_task(p)
                     task.dependencies.append(dependency)
                     dependency.dependents.append(task)
-                    stage -= 1
+                    group -= 1
                 else:
                     if isinstance(p.src, Iterable):
                         stack.extend(p.src)
@@ -1368,12 +1366,17 @@ class Dataset(object):
         for part in self.parts():
             generate_task(part)
 
-        return list(tasks.values())
+
+        taskslist = []
+        for task in tasks.values():
+            task.group = groups - task.group + 1
+            taskslist.append(task)
+        return taskslist
 
 
     def _schedule(self):
-        name, desc = callsite()
-        job = Job(self.ctx, self.id, self._tasks(), name, desc)
+        name, desc = get_callsite()
+        job = Job(self.ctx, self._tasks(), name, desc)
 
         cleanups = []
         for dset in flatten_dset(self):
@@ -1388,19 +1391,6 @@ class Dataset(object):
             job.add_listener(cleanup)
 
         return job
-
-
-    def prefer_workers(self, fltr):
-        return self._with(_worker_preference=fltr)
-
-    def require_workers(self, fltr):
-        return self._with(_worker_filter=fltr)
-
-    def require_local_workers(self):
-        return self.require_workers(PeerNode.islocal)
-
-    def allow_all_workers(self):
-        return self.allow_workers(None)
 
 
     def cache(self, location='memory', serialization=None, compression=None, provider=None):
@@ -1539,50 +1529,60 @@ class Partition(object):
 
 
     def _compute(self):
-        pass
+        raise Exception('%s does not implement _compute' % type(self))
 
 
-    def locality(self, worker):
+    def locality(self, workers):
         '''
-        Determine locality of computing this partition at the given worker. 
+        Determine locality of computing this partition at the given workers. 
+        
+        :return: a generator of worker, locality pairs.
         '''
+        workers = set(workers)
         cache_loc = self.cache_loc
         if cache_loc:
-            if cache_loc == worker.name:
-                return PROCESS_LOCAL
-            elif worker.islocal:
-                return NODE_LOCAL
-        else:
-            if self.dset._worker_filter and not self.dset._worker_filter(worker):
-                return FORBIDDEN
-            elif self.dset._worker_preference and self.dset._worker_preference(worker):
-                return LOCAL
-            else:
-                return self._locality(worker)
+            for worker in workers:
+                if cache_loc == worker.name:
+                    yield worker, PROCESS_LOCAL
+                    workers.remove(worker)
+                elif worker.islocal:
+                    yield worker, NODE_LOCAL
+                    workers.remove(worker)
+        if workers:
+            yield from self._locality(workers)
 
 
-    def _locality(self, worker):
+    def _locality(self, workers):
         '''
-        Determine locality of computing this partition after first processing
-        cache locality and _worker_filter and _worker_preference.
+        Determine locality of computing this partition. Cache locality
         
         Typically source partition implementations which inherit from Partition
         indicate here whether computing on a worker shows locality. This allows
-        dealing with caching and preference/requirements set at the dataset
+        dealing with caching and preference/requirements set at the data set
         separately from locality in the 'normal' case.
         '''
         src = self.src
         if src:
             if isinstance(src, Iterable):
-                localities = [src.locality(worker) for src in src]
-                if FORBIDDEN in localities:
-                    return FORBIDDEN
-                else:
-                    return mean(localities)
+                localities = defaultdict(int)
+                forbidden = set()
+                for src in src:
+                    for worker, locality in src.locality(workers) or ():
+                        if locality == FORBIDDEN:
+                            forbidden.append(worker)
+                        else:
+                            localities[worker] += locality
+                for worker in forbidden:
+                    yield worker, FORBIDDEN
+                    try:
+                        localities[worker]
+                    except KeyError:
+                        pass
+                src_count = len(self.src)
+                for worker, locality in localities.items():
+                    yield worker, locality / src_count
             else:
-                return src.locality(worker)
-        else:
-            return NON_LOCAL
+                return src.locality(workers)
 
 
     def __lt__(self, other):
@@ -1712,10 +1712,10 @@ class TransformingDataset(Dataset):
 
     def map_partitions_with_part(self, func):
         if not self.cached:
-            name, csite = callsite()
+            name, csite = get_callsite()
             # TODO name = self.name + ' -> ' + name
             dset = self._with(funcs=self.funcs + (func,),
-                              name=name, callsite=csite)
+                              name=name, get_callsite=csite)
             dset._pickle_funcs()
             return dset
         else:
@@ -1751,18 +1751,18 @@ class TransformingPartition(Partition):
 
 
 class ComputePartitionTask(RemoteTask):
-    def __init__(self, part):
+    def __init__(self, part, group):
         name = part.dset.name
         super().__init__(part.dset.ctx, part.id, compute_part, (part,), {},
-                         name=name, desc=part.dset.callsite)
+                         name=name, desc=part.dset.get_callsite, group=group)
         self.part = part
         self.locality = part.locality
 
 
     def execute(self, worker):
-        dependencies_executed_on = {}
+        dependencies_executed_on = defaultdict(list)
         for dep in self.dependencies:
-            dependencies_executed_on.setdefault(dep.executed_on[-1].name, []).append(dep.part.id)
+            dependencies_executed_on[dep.executed_on[-1].name].append(dep.part.id)
         self.args += (dependencies_executed_on,)
         return super().execute(worker)
 

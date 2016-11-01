@@ -22,28 +22,50 @@ class Dash(dash.Dash):
     blueprint = blueprint
     status_panel_cls = Status
 
+
 @blueprint.app_template_filter('task_stats')
-def task_stats(tasklist):
-    tasks = tasklist.tasks
+def task_stats(tasks):
     total = len(tasks)
 
-    started = sum(1 for t in tasks if t.started_on)
-    stopped = sum(1 for t in tasks if t.stopped_on)
-    cancelled = sum(1 for t in tasks if t.cancelled)
-    failed = sum(1 for t in tasks if t.failed)
-    running = sum(1 for t in tasks if t.started_on and not t.stopped_on)
+    started = [task.started_on for task in tasks if task.started_on]
+    started_on = min(started) if started else None
+    started = len(started)
+
+    stopped = [task.stopped_on for task in tasks if task.stopped_on]
+    stopped_on = max(stopped) if stopped else None
+    stopped = len(stopped)
+    all_stopped = stopped == total
+
+    running = sum(1 for task in tasks if task.started_on and not task.stopped_on)
+    cancelled = sum(1 for task in tasks if task.cancelled)
+    failed = sum(1 for task in tasks if task.failed)
 
     completed = stopped - cancelled
-    remaining = 0 if tasklist.stopped_on else total - stopped - cancelled
+    remaining = 0 if all_stopped else total - stopped - cancelled
     idle = total - started
 
-    duration = ((tasklist.stopped_on or datetime.now()) - tasklist.started_on) if tasklist.started_on else None
+    if started:
+        if all_stopped:
+            duration = stopped_on - started_on
+        else:
+            duration = datetime.now() - started_on
+    else:
+        duration = None
+
     if completed and remaining and running:
-        durations = [task.duration for task in tasks if task.stopped_on]
-        time_remaining = sum(durations, timedelta()) / len(durations) / running * remaining
+        durations_stopped = [task.duration for task in tasks if task.stopped_on]
+        durations_running = [task.duration for task in tasks if task.started_on and not task.stopped_on]
+        time_remaining = sum(durations_stopped, timedelta()) / len(durations_stopped) / running * remaining \
+                         - sum(durations_running, timedelta())
     else:
         time_remaining = None
-    finished_on = tasklist.stopped_on or (tasklist.started_on + duration + time_remaining if time_remaining else '')
+
+    if all_stopped:
+        finished_on = stopped_on
+    elif time_remaining:
+        finished_on = datetime.now() + time_remaining
+    else:
+        finished_on = ''
     return locals()
 
 
@@ -95,12 +117,6 @@ def job_by_id(job_id):
         if job.id == job_id:
             return job
 
-def stage_by_id(job, stage_id):
-    stage_id = int(stage_id)
-    for stage in job.stages:
-        if stage.id == stage_id:
-            return stage
-
 
 @blueprint.route('/job/<job_id>/')
 def job(job_id):
@@ -111,11 +127,11 @@ def job(job_id):
         return NotFound()
 
 
-@blueprint.route('/job/<job_id>/stage/<stage_id>')
-def stage(job_id, stage_id):
+@blueprint.route('/job/<job_id>/group/<group_id>')
+def group(job_id, group_id):
     job = job_by_id(job_id)
     if job:
-        stage = stage_by_id(job, stage_id)
-        if stage:
-            return render_template('execute/stage.html', job=job, stage=stage)
+        tasks = job.group(int(group_id))
+        if tasks:
+            return render_template('execute/group.html', job=job, tasks=tasks)
     return NotFound()

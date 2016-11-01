@@ -286,7 +286,10 @@ class ShuffleWritingDataset(Dataset):
     The writing end of a shuffle.
     '''
 
-    # indicate that this data set must be the last one computed in a stage
+    # Indicate that this data set must be synchronized on. The tasks for the
+    # ShuffleReadingDataset which read from this data set need to wait until
+    # each and every shuffle write task has completed, and the dependencies
+    # are all to all.
     sync_required = True
 
 

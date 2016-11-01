@@ -1,9 +1,9 @@
 import copy
 
-from bndl.compute.run import create_ctx
-from bndl.net.run import argparser
-from bndl.util.conf import Config
-from bndl.util.exceptions import catch
+from ..compute.run import create_ctx
+from ..net.run import argparser
+from ..util.conf import Config
+from ..util.exceptions import catch
 
 
 HEADER = r'''         ___ _  _ ___  _

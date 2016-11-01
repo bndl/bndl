@@ -48,7 +48,6 @@ class ExecutionContext(Lifecycle):
 
     def execute(self, job, workers=None, order_results=True, concurrency=None, max_attempts=None):
         assert self.running, 'context is not running'
-        self.jobs.append(job)
 
         if workers is None:
             self.await_workers()
@@ -56,6 +55,8 @@ class ExecutionContext(Lifecycle):
 
         if not job.tasks:
             return
+
+        self.jobs.append(job)
 
         done = Queue()
         scheduler = Scheduler(self, job.tasks, done.put, workers, concurrency, max_attempts)
@@ -98,10 +99,10 @@ class ExecutionContext(Lifecycle):
         except GeneratorExit:
             scheduler.abort()
         finally:
+            scheduler_driver.join()
             for task in job.tasks:
                 task.release()
             job.signal_stop()
-            scheduler_driver.join()
 
 
     def await_workers(self, worker_count=None, connect_timeout=5, stable_timeout=60):
@@ -216,6 +217,6 @@ class ExecutionContext(Lifecycle):
 
     def __getstate__(self):
         state = super().__getstate__()
-        for attr in ('_node', 'jobs'):
-            state[attr] = None
+        state['_node'] = None
+        state['jobs'] = None
         return state

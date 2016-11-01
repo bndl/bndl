@@ -164,13 +164,13 @@ class CpuProfiling(object):
                               per_worker, strip_dirs, include, exclude, file)
 
 
-def print_snapshot_top(top_stats, limit, file, strip_dirs, include, exclude):
+def print_snapshot_top(top_stats, limit=10, file=sys.stdout, strip_dirs=True, include=(), exclude=()):
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
         filename = frame.filename
         if strip_dirs:
             filename = _strip_dirs(frame.filename)
-        print("#{}: {}:{}: {:.1f} KiB".format(index, filename, frame.lineno,
+        print("#{} {}:{} {:.1f} KiB".format(index, filename, frame.lineno,
                                               stat.size / 1024), file=file)
         line = linecache.getline(frame.filename, frame.lineno).strip()
         if line:

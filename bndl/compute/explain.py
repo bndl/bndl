@@ -5,28 +5,64 @@ import os.path
 import traceback
 
 import graphviz
+import contextlib
+import threading
+from functools import wraps
 
 
-def callsite(*skip):
+_callsite = threading.local()
+
+
+def _get_callsite(*internal, name=None):
     stack = traceback.extract_stack()
 
-    skip = list(map(inspect.getfile, skip)) + [stack[-2][0]]
-    skip = [os.path.dirname(fname) for fname in skip]
+    internal = list(map(inspect.getfile, internal)) + [stack[-1][0]]
+    internal = [os.path.dirname(fname) for fname in internal]
     stack = stack[:-2]
 
+    name_override = name
     name = None
     desc = None
 
     for frame in reversed(stack):
         file, _, func, _ = frame
-        internals = any(map(file.startswith, skip))
+        internals = any(map(file.startswith, internal))
         if internals and func[0] != '_':
             name = func
         desc = frame
         if not internals:
             break
 
-    return name, desc
+    return name_override or name, desc
+
+
+def get_callsite(*internal, name=None):
+    if hasattr(_callsite, 'current'):
+        return _callsite.current
+    else:
+        return _get_callsite(*internal, name=name)
+
+
+@contextlib.contextmanager
+def set_callsite(*internal, name=None):
+    if not hasattr(_callsite, 'current'):
+        _callsite.current = get_callsite(*internal, name=name)
+        yield
+        del _callsite.current
+    else:
+        yield
+
+
+def callsite(*internal):
+    def decorator(func):
+        nonlocal internal
+        internal += (func, contextlib.contextmanager)
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with set_callsite(*internal, name=func.__name__):
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def flatten_dset(root):
@@ -42,22 +78,22 @@ def flatten_dset(root):
     return datasets
 
 
-def dset_stages(root):
-    stage = []
-    stages = [stage]
+def group_dsets(root):
+    group = []
+    groups = [group]
     stack = [root]
     while stack:
         dset = stack.pop()
-        stage.append(dset)
+        group.append(dset)
         src = dset.src
         if isinstance(src, Iterable):
             stack.extend(src)
         elif src is not None:
             if src.sync_required:
-                stages.extend(dset_stages(src))
+                groups.extend(group_dsets(src))
             else:
                 stack.append(src)
-    return stages
+    return groups
 
 # def dset_to_dot(dset):
 #     g = graphviz.Digraph()
@@ -71,7 +107,7 @@ def dset_stages(root):
 #             srcs = (dset.src,)
 #         else:
 #             continue
-# 
+#
 #         stack.extend(srcs)
 #         for src in srcs:
 #             g.edge(src.id, dset.id)
@@ -104,10 +140,10 @@ def dset_to_dot(dset):
 #                 sg = graphviz.Digraph()
 #                 g.subgraph(sg)
 #                 add_dsets(g, sg, src.src, dest)
-    job = dset_stages(dset)
-    for stage in job:
+    job = group_dsets(dset)
+    for group in job:
         sg = g
-        for dset in stage:
+        for dset in group:
             add_dsets(g, g, dset.src, dset)
     g.render(mktemp(), '.', view=True, cleanup=True)
 

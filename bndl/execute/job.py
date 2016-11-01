@@ -1,7 +1,9 @@
-from concurrent.futures import CancelledError, Future
+from concurrent.futures import CancelledError, Future, TimeoutError
+from functools import lru_cache
+from itertools import count
 import logging
 
-from bndl.util.lifecycle import Lifecycle
+from ..util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -9,10 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class Job(Lifecycle):
+    _job_ids = count(1)
 
-    def __init__(self, ctx, job_id, tasks, name=None, desc=None):
+    def __init__(self, ctx, tasks, name=None, desc=None):
         super().__init__(name, desc)
-        self.id = job_id
+        self.id = next(self._job_ids)
         self.ctx = ctx
         self.tasks = tasks
 
@@ -21,6 +24,11 @@ class Job(Lifecycle):
         for task in self.tasks:
             task.cancel()
         super().cancel()
+
+
+    @lru_cache()
+    def group(self, name):
+        return [t for t in self.tasks if t.group == name]
 
 
 
@@ -37,8 +45,6 @@ class Task(Lifecycle):
 
         self.dependencies = []
         self.dependents = []
-
-        self.future = None
         self.executed_on = []
 
 
@@ -51,13 +57,15 @@ class Task(Lifecycle):
             super().cancel()
 
 
-    def locality(self, worker):
+    def locality(self, workers):
         '''
-        Indicate locality for executing this task on a worker.
-        :param worker: The worker to determine the locality for.
-        :return: 0 is indifferent, -1 is forbidden, 1+ increasing locality 
+        Indicate locality for executing this task on workers.
+        :param workers: The workers to determine the locality for.
+        :return: Sequence[(worker, locality), ...].
+            A sequence of worker - locality tuples. 0 is indifferent and can be
+            skipped, -1 is forbidden, 1+ increasing locality.
         '''
-        return 0
+        return ()
 
 
     @property
@@ -73,8 +81,8 @@ class Task(Lifecycle):
     @property
     def failed(self):
         try:
-            return bool(self.future and self.future.done() and self.future.exception())
-        except CancelledError:
+            return self.future and self.future.exception(0)
+        except (CancelledError, TimeoutError):
             return False
 
 
@@ -95,14 +103,12 @@ class Task(Lifecycle):
         self.signal_stop()
 
 
-    def _release_resources(self):
-        # release resources if successful
-        # (otherwise an exception is raised)
+    def release(self):
         self.future = None
-        self.args = None
-        self.kwargs = None
-        self.preferred_workers = None
-        self.allowed_workers = None
+        self.dependencies = None
+        self.dependents = None
+        if self.executed_on:
+            self.executed_on = [self.executed_on[-1]]
 
 
     def __repr__(self):
@@ -118,14 +124,16 @@ class Task(Lifecycle):
         return '<Task %s%s>' % (task_id, state)
 
 
+
 class RemoteTask(Task):
 
-    def __init__(self, ctx, task_id, method, args=(), kwargs=None, *, priority=None, name=None, desc=None):
+    def __init__(self, ctx, task_id, method, args=(), kwargs=None, *, priority=None, name=None, desc=None, group=None):
         super().__init__(ctx, task_id, priority=priority, name=name, desc=desc)
         self.method = method
         self.args = args
         self.kwargs = kwargs or {}
         self.handle = None
+        self.group = group
 
 
     def execute(self, worker):
@@ -140,7 +148,7 @@ class RemoteTask(Task):
         future = self.future = Future()
         future2 = worker.run_task_async(self.method, *args, **kwargs)
         # TODO put time sleep here to test what happens if task
-        # is done before adding callack (callback gets executed in this thread)
+        # is done before adding callback (callback gets executed in this thread)
         future2.add_done_callback(self._task_scheduled)
         return future
 
@@ -196,6 +204,8 @@ class RemoteTask(Task):
 
 
     def release(self):
-        self.future = None
+        super().release()
+        self.method = None
+        self.handle = None
         self.args = None
         self.kwargs = None

@@ -1,25 +1,15 @@
 from collections  import defaultdict, deque, OrderedDict
 from concurrent.futures import CancelledError
 from functools import partial
-from threading import RLock, Condition
+from threading import Condition, RLock
+import logging
 
-from bndl.execute import DependenciesFailed
 from sortedcontainers import SortedSet
 
-
-# TODO remove assertions for production
-def log(*msg):
-#     print(*msg)
-    return
+from . import DependenciesFailed
 
 
-# TODO use a thread pool to run task.execute on so that IO between driver and workers
-# doesn't limit the throughput of the scheduler
-
-# TODO maybe even use such a pool (or a process pool) for local stuff?
-
-# TODO the scheduler below runs a set of tasks given up front, but is almost capable of
-# executing a 'stream' of tasks ...
+logger = logging.getLogger(__name__)
 
 
 class Scheduler(object):
@@ -71,19 +61,9 @@ class Scheduler(object):
         self.condition = Condition(self.lock)
 
 
-    def dump_state(self):
-        print('---')
-        print('runnable:', [task.id for task in self.runnable])
-        print('running :', [task.id for task in self.running])
-        print('blocked :', [task.id for task in self.blocked if self.blocked[task]])
-        print('executed:', [task.id for task in self.executed])
-        print('workers ready :', [worker for worker in self.workers_ready])
-        print('workers idle  :', [worker for worker in self.workers_idle])
-        print('workers failed:', [worker for worker in self.workers_failed])
-        print('---')
-
-
     def run(self):
+        logger.info('running job with %r tasks', len(self.tasks))
+        
         self._abort = False
 
         # containers for states a task can be in
@@ -110,46 +90,41 @@ class Scheduler(object):
 
         # perform scheduling under lock
         with self.lock:
+            logger.debug('calculating which tasks are runnable, which are blocked and if there is locality')
+            
             # create list of runnable tasks and set of blocked tasks
             for task in self.tasks.values():
                 if task.dependencies:
                     self.blocked[task].update(task.dependencies)
-                    log(task, 'blocked by', ', '.join(str(task.id) for task in task.dependencies))
                 else:
                     self.set_runnable(task)
 
-                for worker in self.workers:
-                    locality = task.locality(worker)
+                # TODO don't ask on a per worker basis for locality, but ask with list of workers
+                for worker, locality in task.locality(self.workers) or ():
                     if locality < 0:
                         self.forbidden[task].add(worker)
                     elif locality > 0:
                         self.locality[worker][task] = locality
 
-            log('--- starting tasks ---')
-
-            assert self.runnable, 'No tasks runnable (all tasks have dependencies)'
-            assert self.workers_ready, 'No workers available (all workers are forbidden by all tasks)'
-
+            if not self.runnable:
+                raise Exception('No tasks runnable (all tasks have dependencies)')
+            if not self.workers_ready:
+                raise Exception('No workers available (all workers are forbidden by all tasks)')
+            
+            logger.debug('starting %s tasks (%s tasks blocked) on %s workers',
+                         len(self.runnable), len(self.blocked), len(self.workers_ready))
+            
             while True:
                 # wait for a worker to become available (signals task completion
-                log()
-                log('waiting for worker')
                 self.condition.wait_for(lambda: self.workers_ready or self._abort)
-#                 self.condition.wait_for(self.workers_ready.__len__, timeout=3)
-#                 if not len(self.workers_ready):
-#                     self.dump_state()
-#                     break
 
                 if self._abort:
-                    print('aborting')
                     # the abort flag can be set to True to break the loop (in case of emergency)
                     for task in self.running:
                         task.cancel()
-                    # log('cancelled running')
                     break
                 
                 worker = self.workers_ready.popleft()
-                log('worker', worker, 'is available')
 
                 if worker in self.workers_failed:
                     # the worker is 'ready' (a task was 'completed'), but with an error
@@ -157,9 +132,7 @@ class Scheduler(object):
                     # on this worker and the dependency failed
                     continue
                 elif not (self.runnable or self.running):
-                    # continue work while there are runnable tasks or tasks running
-                    # (blocked must be empty if there are no running tasks)
-                    assert len(self.executed) == len(self.tasks)
+                    # continue work while there are runnable tasks or tasks running or break
                     break
                 else:
                     task = self.select_task(worker)
@@ -167,27 +140,18 @@ class Scheduler(object):
                         # execute a task on the given worker and add the task_done callback
                         # the task is added to the running set
                         try:
-                            log('executing', task, 'on', worker)
-                            assert task in self.runnable, task
-                            assert task not in self.executed, task
-                            assert task not in self.running, task
-                            assert not task.running, task
-                            assert not task.done or task.failed, task
-                            assert not self.blocked[task], task
-                            assert task.locality(worker) >= 0
                             self.runnable.remove(task)
                             self.runnable_on[worker].discard(task)
                             self.running.add(task)
                             self.running_on[worker].add(task)
                             future = task.execute(worker)
-                            log('executed', task)
                             future.add_done_callback(partial(self.task_done, task, worker))
-                            log('callback added for', task)
                         except CancelledError:
                             pass
                     else:
-                        log('no more work for', worker)
                         self.workers_idle.add(worker)
+            
+            logger.info('completed %s tasks', len(self.executed))
 
             self.done(None)
 
@@ -206,17 +170,14 @@ class Scheduler(object):
         # select a task for the worker
         worker_queue = self.runnable_on[worker]
         for task in list(worker_queue):
-            # log(task, 'has locality', task.locality(worker), 'for worker', worker)
             if task in self.running or task in self.executed:
                 # task executed by another worker
                 worker_queue.remove(task)
             elif task in self.runnable:
-                assert not task.done or task.failed, task
                 return task
             else:  # task not runnable
                 if not self.blocked[task] or (task.done and not task.failed):
                     self.dump_state()
-                assert self.blocked[task] or (task.done and not task.failed), task
 
         # no task available with locality > 0
         # find task which is allowed to run on this worker
@@ -226,17 +187,7 @@ class Scheduler(object):
 
 
     def set_runnable(self, task):
-        assert not self.blocked[task]
-#         assert task not in self.runnable, '%r already runnable' % task
-#         assert task not in self.running, '%r already running' % task
-        if task in self.runnable:
-            log(task, 'already runnable')
-            return
-        if task in self.running:
-            log(task, 'already running')
-            return
-        if task in self.executed:
-            log(task, 'already executed')
+        if task in self.runnable or task in self.running or task in self.executed:
             return
 
         if task.executed_on:  # in case the task was already executed clear this state
@@ -244,6 +195,7 @@ class Scheduler(object):
             self.executed_on[task.executed_on[-1]].discard(task)
 
         # calculate for each worker which tasks are forbidden or which have locality
+        # TODO don't ask on a per worker basis for locality, but ask with list of workers
         for worker in self.workers:
             # don't bother with 'failed' workers
             if worker not in self.workers_failed:
@@ -265,7 +217,6 @@ class Scheduler(object):
             raise Exception('Task %r cannot be run on any available workers' % task)
 
         # add the task to the runnable queue
-        # log(task, 'is runnable')
         self.runnable.add(task)
 
 
@@ -288,7 +239,6 @@ class Scheduler(object):
             if task.failed:
                 self.task_failed(task)
             else:
-                log(task, 'done')
                 # add to executed
                 self.executed.add(task)
                 self.executed_on[worker].add(task)
@@ -299,7 +249,6 @@ class Scheduler(object):
                     blocked_by = self.blocked[dependent]
                     blocked_by.discard(task)
                     if not blocked_by:
-                        log('completion of', task, 'unblocked', dependent)
                         self.set_runnable(dependent)
 
             self.workers_ready.append(worker)
@@ -307,10 +256,6 @@ class Scheduler(object):
 
 
     def task_failed(self, task):
-        assert task.failed, "Can't reschedule task %r which hasn't failed." % task
-        log(task, 'failed')
-
-        assert task.executed_on
         self.executed.discard(task)
         self.executed_on[task.executed_on[-1]].discard(task)
 
@@ -321,23 +266,15 @@ class Scheduler(object):
                 dependent.cancel()
 
         if task in self.runnable or task in self.running or self.blocked[task]:
-            log(task, 'already rescheduled', task in self.runnable, task in self.running , self.blocked[task])
             return
         elif len(task.executed_on) >= self.max_attempts:
-            # signal done (failed) to allow bubbling up the error
-            # and abort
-            log('task', task, 'failed to often:', len(task.executed_on))
+            # signal done (failed) to allow bubbling up the error and abort
             self.done(task)
             self.abort()
             return
 
-        # log('task', task, 'failed with:', type(task.exception()).__name__)
         exc = task.exception()
         if isinstance(exc, DependenciesFailed):
-            log('dependencies', '[' + ', '.join(map(str, exc.task_ids)) + ']', 'of', task, 'failed')
-            # dependency failed
-#             assert not self.blocked[task], '%s is to be rescheduled, but was blocked' % task
-#             self.blocked[task] += len(exc.task_ids)
             for dependency_id in exc.task_ids:
                 dependency = self.tasks[dependency_id]
                 # mark the worker as failed
@@ -351,17 +288,5 @@ class Scheduler(object):
             # mark the worker as failed
             self.workers_failed.add(task.executed_on[-1])
 
-        if not self.blocked[task]:
-            if task not in self.runnable and task not in self.running:
-                log('rescheduled', task, 'ready to run')
-                self.set_runnable(task)
-            elif task in self.runnable:
-                log('rescheduled', task, 'already runnable')
-            elif task in self.running:
-                log('rescheduled', task, 'already running')
-            else:
-                assert False, task
-        else:
-            log('rescheduled', task, 'blocked by', self.blocked[task])
-            assert task not in self.runnable, task
-            assert task not in self.running, task
+        if not self.blocked[task] and task not in self.runnable and task not in self.running:
+            self.set_runnable(task)

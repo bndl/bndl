@@ -18,19 +18,16 @@ Execute
 				<th width="10%">
 					<span data-toggle="tooltip" data-original-title="Name of the job">Job</span>
 				</th>
-				<th width="5%">
-					<span data-toggle="tooltip" data-original-title="Completed, running and total number of stages">Stages</span>
-				</th>
 				<th width="14%">
 					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Tasks</span>
 				</th>
-				<th width="26%">
+				<th width="27%">
 					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Progress</span>
 				</th>
-				<th width="8%">Duration</th>
-				<th width="8%">Remaining</th>
-				<th width="13%">Started</th>
-				<th width="13%">Finished / ETA</th>
+				<th width="9%">Duration</th>
+				<th width="9%">Remaining</th>
+				<th width="14%">Started</th>
+				<th width="14%">Finished / ETA</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -38,11 +35,7 @@ Execute
 				<tr class="clickable {{ '' if job.stopped_on else ' active' }}" data-href='/execute/job/{{ job.id }}'>
 					<td>{{ job.id }}</td>
 					<td><span data-toggle="tooltip" data-original-title="{{ job.desc }}">{{ job.name }}</span></td>
-					<td>
-						{{ job.stages|filtercount('stopped_on') }} / {{ job.stages|length }}
-					</td>
-					
-					{{ stats_row.stats_row(job, job|task_stats) }}
+					{{ stats_row.stats_row(job, job.tasks|task_stats) }}
 				</tr>
 			{% endfor %}
 		</tbody>
