@@ -22,7 +22,7 @@ class Scheduler(object):
       to reduce the memory cost for scheduling
     '''
 
-    def __init__(self, ctx, tasks, done, workers=None, concurrency=None, max_attempts=None):
+    def __init__(self, ctx, tasks, done, workers=None, concurrency=None, attempts=None):
         '''
         Execute tasks in the given context and invoke done(task) when a task completes.
         
@@ -36,8 +36,8 @@ class Scheduler(object):
             Optional sequence of workers to execute on. ctx.workers is used if not provided.
         :param: concurrency: int or None
             @see: bndl.execute.concurrency
-        :param: max_attempts: int or None
-            @see: bndl.execute.max_attempts
+        :param: attempts: int or None
+            @see: bndl.execute.attempts
         '''
         self.tasks = OrderedDict((task.id, task) for task
                                  in sorted(tasks, key=lambda t: t.priority))
@@ -50,8 +50,8 @@ class Scheduler(object):
         self.workers = workers or ctx.workers
 
         self.concurrency = concurrency or ctx.conf['bndl.execute.concurrency']
-        # failed tasks are retried on error, but they are executed at most max_attempts
-        self.max_attempts = max_attempts or ctx.conf['bndl.execute.max_attempts']
+        # failed tasks are retried on error, but they are executed at most attempts
+        self.attempts = attempts or ctx.conf['bndl.execute.attempts']
 
         # task completion is (may be) executed on another thread, this lock serializes access
         # on the containers below and workers_idle
@@ -266,7 +266,7 @@ class Scheduler(object):
 
         if task in self.runnable or task in self.running or self.blocked[task]:
             return
-        elif len(task.executed_on) >= self.max_attempts:
+        elif len(task.executed_on) >= self.attempts:
             # signal done (failed) to allow bubbling up the error and abort
             self.done(task)
             self.abort()

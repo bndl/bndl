@@ -3,7 +3,7 @@ from _collections_abc import Mapping
 
 
 concurrency = Int(1, desc='the number of tasks which can be scheduled at a worker process at the same time')
-max_attempts = Int(1, desc='the number of times a task is attempted before the job is cancelled')
+attempts = Int(1, desc='the number of times a task is attempted before the job is cancelled')
 
 
 class TaskCancelled(Exception):

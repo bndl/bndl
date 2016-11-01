@@ -46,7 +46,7 @@ class ExecutionContext(Lifecycle):
         return self._node
 
 
-    def execute(self, job, workers=None, order_results=True, concurrency=None, max_attempts=None):
+    def execute(self, job, workers=None, order_results=True, concurrency=None, attempts=None):
         assert self.running, 'context is not running'
 
         if workers is None:
@@ -59,7 +59,7 @@ class ExecutionContext(Lifecycle):
         self.jobs.append(job)
 
         done = Queue()
-        scheduler = Scheduler(self, job.tasks, done.put, workers, concurrency, max_attempts)
+        scheduler = Scheduler(self, job.tasks, done.put, workers, concurrency, attempts)
         scheduler_driver = Thread(target=scheduler.run,
                                   name='bndl-scheduler-%s' % (job.id),
                                   daemon=True)
