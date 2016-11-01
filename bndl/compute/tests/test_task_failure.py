@@ -3,12 +3,33 @@ import time
 from bndl.compute.tests import DatasetTest
 from bndl.execute import TaskCancelled
 from bndl.rmi import InvocationException
+from bndl.execute.worker import current_worker
+from functools import partial
 
 
 class TaskFailureTest(DatasetTest):
     def test_assert_raises(self):
         with self.assertRaises(Exception):
             self.ctx.range(10).map(lambda i: exec("raise ValueError('test')")).collect()
+
+
+    def test_retry(self):
+        def failon(workers, i):
+            if current_worker().name in workers:
+                raise Exception()
+            else:
+                return i
+
+        workers = [w.name for w in self.ctx.workers]
+        dset = self.ctx.range(10).require_workers(lambda w: workers)
+
+        dset.map(partial(failon, [])).count()
+
+        with self.assertRaises(Exception):
+            print(dset.map(partial(failon, workers[:1])).count())
+
+        self.ctx.conf['bndl.execute.attempts'] = 2
+        dset.map(partial(failon, workers[:1])).count()
 
 
     def test_cancel(self):
