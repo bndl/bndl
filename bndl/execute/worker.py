@@ -60,7 +60,6 @@ class Worker(RMINode):
 
 
     def _run_task(self, task, *args, **kwargs):
-
         # set worker context
         _TASK_CTX.worker = self
         _TASK_CTX.data = {}
