@@ -2,7 +2,6 @@ import asyncio
 import concurrent.futures
 import functools
 import logging
-import sys
 
 
 logger = logging.getLogger(__name__)
@@ -14,8 +13,10 @@ def get_loop(stop_on=()):
     a new loop is created.
     :param stop_on:
     '''
-    if sys.version_info >= (3,4):
+    try:
         del asyncio.Task.__del__
+    except AttributeError:
+        pass
 
     try:
         loop = asyncio.get_event_loop()
