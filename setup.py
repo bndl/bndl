@@ -26,7 +26,7 @@ install_requires = [
 if sys.version_info < (3, 4):
     install_requires += ['asyncio']
 
-extra_require = dict(
+extras_require = dict(
     dev=[
         'cython',
         'pytest',
