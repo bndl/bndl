@@ -1784,17 +1784,18 @@ class TransformingPartition(Partition):
 class ComputePartitionTask(RemoteTask):
     def __init__(self, part, group):
         name = part.dset.name
-        super().__init__(part.dset.ctx, part.id, compute_part, (part,), {},
+        super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
                          name=name, desc=part.dset.get_callsite, group=group)
         self.part = part
         self.locality = part.locality
 
 
     def execute(self, worker):
-        dependencies_executed_on = defaultdict(list)
-        for dep in self.dependencies:
-            dependencies_executed_on[dep.executed_on[-1].name].append(dep.part.id)
-        self.args += (dependencies_executed_on,)
+        if self.dependencies:
+            dependencies_executed_on = defaultdict(list)
+            for dep in self.dependencies:
+                dependencies_executed_on[dep.executed_on[-1].name].append(dep.part.id)
+            self.args[1] = dependencies_executed_on
         return super().execute(worker)
 
 
