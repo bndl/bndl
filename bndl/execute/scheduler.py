@@ -4,9 +4,8 @@ from functools import partial
 from threading import Condition, RLock
 import logging
 
+from bndl.execute import DependenciesFailed
 from sortedcontainers import SortedSet
-
-from . import DependenciesFailed
 
 
 logger = logging.getLogger(__name__)

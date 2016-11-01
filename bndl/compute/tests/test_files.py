@@ -6,7 +6,7 @@ import math
 import os.path
 
 from bndl.compute.tests import DatasetTest
-from bndl.util.text import random_string
+from bndl.util import strings
 from cytoolz import pluck
 
 
@@ -25,7 +25,7 @@ class FilesTest(DatasetTest):
         cls.total_line_count = cls.line_count * cls.file_count
         cls.total_size = cls.file_size * cls.file_count
         cls.contents = [
-            ('\n'.join(random_string(cls.line_size - 1) for _ in range(cls.line_count)) + '\n').encode()
+            ('\n'.join(strings.random(cls.line_size - 1) for _ in range(cls.line_count)) + '\n').encode()
             for _ in range(cls.file_count)
         ]
         cls.files = [

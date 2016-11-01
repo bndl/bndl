@@ -17,23 +17,22 @@ import subprocess
 import threading
 import weakref
 
+from bndl.compute import cache
+from bndl.compute.explain import get_callsite, flatten_dset
+from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
+from bndl.execute import TaskCancelled
+from bndl.execute.job import RemoteTask, Job
+from bndl.execute.worker import task_context
+from bndl.rmi import InvocationException
+from bndl.util import serialize, cycloudpickle as cloudpickle, strings
+from bndl.util.collection import is_stable_iterable, ensure_collection
+from bndl.util.exceptions import catch
+from bndl.util.funcs import identity, getter, key_or_getter
+from bndl.util.hash import portable_hash
+from bndl.util.hyperloglog import HyperLogLog
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 import numpy as np
-
-from ..compute import cache
-from ..execute import TaskCancelled
-from ..execute.job import RemoteTask, Job
-from ..execute.worker import task_context
-from ..rmi import InvocationException
-from ..util import serialize, cycloudpickle as cloudpickle, strings
-from ..util.collection import is_stable_iterable, ensure_collection
-from ..util.exceptions import catch
-from ..util.funcs import identity, getter, key_or_getter
-from ..util.hash import portable_hash
-from ..util.hyperloglog import HyperLogLog
-from .explain import get_callsite, flatten_dset
-from .stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 
 
 logger = logging.getLogger(__name__)
@@ -1061,7 +1060,7 @@ class Dataset(object):
                             samples = samples1[:short] + samples2
                     elif short < 0:
                         rng.shuffle(samples1)
-                        samples = samples1[len(samples1) * fraction] + samples2
+                        samples = samples1[:int(len(samples1) * fraction)] + samples2
                 if len(samples) > point_count:
                     rng.shuffle(samples)
                     return samples[:point_count]

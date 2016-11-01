@@ -3,7 +3,7 @@ from functools import lru_cache
 from itertools import count
 import logging
 
-from ..util.lifecycle import Lifecycle
+from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
