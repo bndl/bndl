@@ -12,6 +12,11 @@ class TaskCancelled(Exception):
 
 class DependenciesFailed(Exception):
     def __init__(self, failures):
-        assert isinstance(failures, Mapping), 'dependency failure must be a mapping of workers ' \
-                                              'to a sequence of tasks which failed'
+        '''
+        Indicate that a task failed due to dependencies not being 'available'. This will cause the dependencies
+        to be re-executed and the task which raises DependenciesFailed will be scheduled to run once the
+        dependencies complete.
+
+        :param failures: Mapping[worker: Sequence[task_id]]
+        '''
         self.failures = failures

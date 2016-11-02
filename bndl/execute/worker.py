@@ -46,10 +46,19 @@ class TaskRunner(threading.Thread):
     def run(self):
         try:
             result = self.worker._run_task(self.task, *self.args, **self.kwargs)
-            self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
-        except Exception as exc:
-            if not self.result.cancelled():
-                self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
+            exc = None
+        except Exception as e:
+            exc = e
+            logger.info('Unable to execute %s', self.task, exc_info=True)
+
+        try:
+            if exc:
+                if not self.result.cancelled():
+                    self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
+            else:
+                self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
+        except RuntimeError:
+            logger.warning('Unable to send response for task %s', self.task)
 
 
 
@@ -64,7 +73,7 @@ class Worker(RMINode):
         _TASK_CTX.worker = self
         _TASK_CTX.data = {}
         try:
-            return task(self, *args, **kwargs)
+            return task(*args, **kwargs)
         finally:
             # clean up worker context
             del _TASK_CTX.worker

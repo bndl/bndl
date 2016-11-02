@@ -1,10 +1,13 @@
+from functools import partial
+import sys
 import time
 
 from bndl.compute.tests import DatasetTest
 from bndl.execute import TaskCancelled
-from bndl.rmi import InvocationException
 from bndl.execute.worker import current_worker
-from functools import partial
+from bndl.rmi import InvocationException
+import os
+import signal
 
 
 class TaskFailureTest(DatasetTest):
@@ -14,22 +17,41 @@ class TaskFailureTest(DatasetTest):
 
 
     def test_retry(self):
-        def failon(workers, i):
+        def raise_exception():
+            raise Exception()
+
+        def stop_node():
+            os.kill(os.getpid(), signal.SIGKILL)
+
+        failures = [
+            raise_exception,
+            stop_node,
+        ]
+
+        def failon(workers, failure, i):
             if current_worker().name in workers:
-                raise Exception()
+                failure()
             else:
                 return i
 
-        workers = [w.name for w in self.ctx.workers]
-        dset = self.ctx.range(10).require_workers(lambda w: workers)
+        for failure in failures:
+            with self.subTest('failure = %s' % failure):
+                workers = [w.name for w in self.ctx.workers]
+                dset = self.ctx.range(10).require_workers(lambda w: workers)
 
-        dset.map(partial(failon, [])).count()
+                # test it can pass
+                self.assertEqual(dset.map(partial(failon, [], failure)).count(), 10)
 
-        with self.assertRaises(Exception):
-            print(dset.map(partial(failon, workers[:1])).count())
+                # test that it fails if there is no retry
+                with self.assertRaises(Exception):
+                    dset.map(partial(failon, workers[:1], failure)).count()
 
-        self.ctx.conf['bndl.execute.attempts'] = 2
-        dset.map(partial(failon, workers[:1])).count()
+                # test that it succeeds with a retry
+                try:
+                    self.ctx.conf['bndl.execute.attempts'] = 2
+                    self.assertEqual(dset.map(partial(failon, workers[1:2], failure)).count(), 10)
+                finally:
+                    self.ctx.conf['bndl.execute.attempts'] = 1
 
 
     def test_cancel(self):

@@ -22,7 +22,7 @@ from bndl.compute.explain import get_callsite, flatten_dset
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled
 from bndl.execute.job import RemoteTask, Job
-from bndl.execute.worker import task_context
+from bndl.execute.worker import task_context, current_worker
 from bndl.rmi import InvocationException
 from bndl.util import serialize, cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
@@ -72,23 +72,31 @@ class Dataset(object):
         return ()
 
 
-    def map(self, func):
+    def map(self, func, *args, **kwargs):
         '''
         Transform elements in this dataset one by one.
 
         :param func: callable(element)
             applied to each element of the dataset
+
+        Any extra *args or **kwargs are passed to func (args before element).
         '''
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
         return self.map_partitions(partial(map, func))
 
 
-    def starmap(self, func):
+    def starmap(self, func, *args, **kwargs):
         '''
         Variadic form of map.
 
         :param func: callable(element)
             applied to each element of the dataset
+
+        Any extra *args or **kwargs are passed to func (args before element).
         '''
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
         return self.map_partitions(partial(starmap, func))
 
 
@@ -113,14 +121,16 @@ class Dataset(object):
         return self.map_partitions(lambda p: pluck(ind, p, **kwargs))
 
 
-    def flatmap(self, func=None):
+    def flatmap(self, func=None, *args, **kwargs):
         '''
         Transform the elements in this dataset into iterables and chain them
         within each of the partitions.
 
-        :param func:
+        :param func: callable(element)
             The transformation to apply. Defaults to none; i.e. consider the
             elements in this the iterables to chain.
+
+        Any extra *args or **kwargs are passed to func (args before element).
 
         For example::
 
@@ -134,32 +144,36 @@ class Dataset(object):
             'abbcccdddd'
 
         '''
-        iterables = self.map(func) if func else self
+        iterables = self.map(func, *args, **kwargs) if func else self
         return iterables.map_partitions(lambda iterable: chain.from_iterable(iterable))
 
 
-    def map_partitions(self, func):
+    def map_partitions(self, func, *args, **kwargs):
         '''
         Transform the partitions of this dataset.
 
         :param func: callable(iterator)
             The transformation to apply.
+
+        Any extra *args or **kwargs are passed to func (args before iterator).
         '''
-        return self.map_partitions_with_part(lambda p, iterator: func(iterator))
+        return self.map_partitions_with_part(lambda p, iterator: func(*args, iterator, **kwargs))
 
 
-    def map_partitions_with_index(self, func):
+    def map_partitions_with_index(self, func, *args, **kwargs):
         '''
         Transform the partitions - with their index - of this dataset.
 
-        :param func: callable(index, iterator)
+        :param func: callable(*args, index, iterator, **kwargs)
             The transformation to apply on the partition index and the iterator
             over the partition's elements.
+
+        Any extra *args or **kwargs are passed to func (args before index and iterator).
         '''
-        return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
+        return self.map_partitions_with_part(lambda p, iterator: func(*args, p.idx, iterator, **kwargs))
 
 
-    def map_partitions_with_part(self, func):
+    def map_partitions_with_part(self, func, *args, **kwargs):
         '''
         Transform the partitions - with the source partition object as argument - of
         this dataset.
@@ -167,7 +181,11 @@ class Dataset(object):
         :param func: callable(partition, iterator)
             The transformation to apply on the partition object and the iterator
             over the partition's elements.
+
+        Any extra *args or **kwargs are passed to func (args before partition and iterator).
         '''
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
         return TransformingDataset(self, func)
 
 
@@ -263,20 +281,24 @@ class Dataset(object):
         return dataframes.DistributedDataFrame.from_dataset(self, *args, **kwargs)
 
 
-    def filter(self, func=None):
+    def filter(self, func=None, *args, **kwargs):
         '''
         Filter out elements from this dataset
 
-        :param func: callable(element
+        :param func: callable(element)
             The test function to filter this dataset with. An element is
             retained in the dataset if the test is positive.
+
+        Any extra *args or **kwargs are passed to func (args before element)
         '''
+        if func:
+            func = partial(func, *args, **kwargs)
         return self.map_partitions(partial(filter, func))
 
 
     def mask_partitions(self, mask):
         '''
-        :warning: experimental, don't use
+        TODO
         '''
         return MaskedDataset(self, mask)
 
@@ -1526,7 +1548,7 @@ class Partition(object):
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
                 elif self.cache_loc:
                     peer = self.dset.ctx.node.peers[self.cache_loc]
-                    return peer.run_task(lambda worker: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
+                    return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
             except InvocationException:
@@ -1799,10 +1821,10 @@ class ComputePartitionTask(RemoteTask):
         return super().execute(worker)
 
 
-    def result(self):
-        result = super().result()
-        self._save_cacheloc(self.part)
-        return result
+    def release(self):
+        if self.done and not self.failed:
+            self._save_cacheloc(self.part)
+        self.part = None
 
 
     def _save_cacheloc(self, part):
@@ -1819,12 +1841,8 @@ class ComputePartitionTask(RemoteTask):
                 self._save_cacheloc(part.src)
 
 
-    def release(self):
-        self.part = None
 
-
-
-def compute_part(worker, part, dependencies_executed_on):
+def compute_part(part, dependencies_executed_on):
     try:
         # communicate out of band on which workers dependencies of this task were executed
         task_context()['dependencies_executed_on'] = dependencies_executed_on
@@ -1839,5 +1857,5 @@ def compute_part(worker, part, dependencies_executed_on):
         return None
     except Exception:
         logger.info('error while computing part %s on worker %s',
-                    part, worker, exc_info=True)
+                    part, current_worker(), exc_info=True)
         raise

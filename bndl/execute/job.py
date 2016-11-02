@@ -4,6 +4,7 @@ from itertools import count
 import logging
 
 from bndl.util.lifecycle import Lifecycle
+from bndl.net.connection import NotConnected
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class Task(Lifecycle):
 
 
     def execute(self, worker):
-        pass
+        self.executed_on.append(worker)
 
 
     def cancel(self):
@@ -81,7 +82,7 @@ class Task(Lifecycle):
     @property
     def failed(self):
         try:
-            return self.future and self.future.exception(0)
+            return bool(self.future and self.future.exception(0))
         except (CancelledError, TimeoutError):
             return False
 
@@ -139,33 +140,36 @@ class RemoteTask(Task):
     def execute(self, worker):
         if self.cancelled:
             raise CancelledError()
-        args = self.args
-        kwargs = self.kwargs
-
         self.signal_start()
-        self.executed_on.append(worker)
-
+        super().execute(worker)
         future = self.future = Future()
-        future2 = worker.run_task_async(self.method, *args, **kwargs)
+        future2 = worker.run_task_async(self.method, *self.args, **self.kwargs)
         # TODO put time sleep here to test what happens if task
         # is done before adding callback (callback gets executed in this thread)
         future2.add_done_callback(self._task_scheduled)
         return future
 
 
+    def set_exception(self, exc):
+        if self.future:
+            self.future.set_exception(exc)
+        else:
+            logger.warning('exception occurred in task %s which is not scheduled / already released', self)
+
+
     def _task_scheduled(self, future):
         try:
             self.handle = future.result()
         except Exception as exc:
-            if self.future:
-                self.future.set_exception(exc)
-            else:
-                logger.info('scheduling %s on %s failed, but not expecting task to be scheduled', self, self.executed_on[-1], exc_info=True)
+            self.set_exception(exc)
         else:
-            future = self.executed_on[-1].get_task_result(self.handle)
-            # TODO put time sleep here to test what happens if task
-            # is done before adding callack (callback gets executed in this thread)
-            future.add_done_callback(self._task_completed)
+            try:
+                future = self.executed_on[-1].get_task_result(self.handle)
+                # TODO put time sleep here to test what happens if task
+                # is done before adding callack (callback gets executed in this thread)
+                future.add_done_callback(self._task_completed)
+            except NotConnected as exc:
+                self.set_exception(exc)
 
 
     def _task_completed(self, future):
@@ -175,12 +179,12 @@ class RemoteTask(Task):
             if self.future:
                 self.future.set_exception(exc)
             else:
-                logger.info('execution of %s on %s failed, but not expecting result', self, self.executed_on[-1], exc_info=True)
+                logger.warning('execution of %s on %s failed, but not expecting result', self, self.executed_on[-1], exc_info=True)
         else:
             if self.future and not self.future.cancelled():
                 self.future.set_result(result)
             else:
-                logger.info('task %s (%s) completed, but not expecting result')
+                logger.warning('task %s (%s) completed, but not expecting result')
         finally:
             self.signal_stop()
 
@@ -199,7 +203,7 @@ class RemoteTask(Task):
 
 
     def result(self):
-        assert self.future, 'task not yet scheduled'
+        assert self.future, 'task %r not yet scheduled' % self
         return self.future.result()
 
 

@@ -94,7 +94,7 @@ class Node(object):
 
 
     def stop_async(self):
-        if not self.loop.is_closed:
+        if not self.loop.is_closed():
             return aio.run_coroutine_threadsafe(self.stop(), self.loop)
         else:
             self._stop_tasks()
@@ -124,14 +124,14 @@ class Node(object):
 
     @asyncio.coroutine
     def stop(self):
-        # close the watch dog, tasks and the servers
-        self._stop_tasks()
-
         # disconnect from the peers
         if self.peers:
             disconnects = [peer.disconnect('stopping node') for peer in list(self.peers.values())]
             yield from asyncio.wait(disconnects, loop=self.loop)
             self.peers.clear()
+
+        # close the watch dog, tasks and the servers
+        self._stop_tasks()
 
 
     @property

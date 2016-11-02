@@ -1,4 +1,5 @@
 from itertools import chain
+import operator
 
 from bndl.compute.tests import DatasetTest
 from bndl.util.funcs import identity
@@ -28,3 +29,12 @@ class MappingTest(DatasetTest):
         self.assertEqual(sorted(self.dset.map_partitions(lambda p: (len(p),)).collect()), [3, 3, 4])
         self.assertEqual(self.dset.map_partitions_with_index(lambda idx, i: (idx,)).collect(), [0, 1, 2])
         self.assertEqual(self.dset.map_partitions_with_part(lambda p, it: (p.idx,)).collect(), [0, 1, 2])
+
+    def test_extra_args(self):
+        self.assertEqual(self.dset.map(lambda x, i: x + i, 1).sum(), 10 + 45)
+        self.assertEqual(self.dset.flatmap(lambda x, i: (1, x), 1).count(), 10 + 10)
+        self.assertEqual(self.dset.key_by(identity).starmap(lambda x, i1, i2: x + i1 + i2, 1).sum(), 10 + 45 + 45)
+        self.assertEqual(self.dset.filter(operator.le, 5).sum(), 5 + 6 + 7 + 8 + 9)
+        self.assertEqual(self.dset.map_partitions(lambda x, p: [x], 5).sum(), 3 * 5)
+        self.assertEqual(self.dset.map_partitions_with_index(lambda x, idx, p: [x + idx], 5).sum(), 3 * 5 + 0 + 1 + 2)
+        self.assertEqual(self.dset.map_partitions_with_part(lambda x, part, p: [x + part.idx], 5).sum(), 3 * 5 + 0 + 1 + 2)

@@ -53,10 +53,21 @@ def task_stats(tasks):
         duration = None
 
     if completed and remaining and running:
+        # get durations for tasks stopped and those currently running
         durations_stopped = [task.duration for task in tasks if task.stopped_on]
         durations_running = [task.duration for task in tasks if task.started_on and not task.stopped_on]
-        time_remaining = sum(durations_stopped, timedelta()) / len(durations_stopped) / running * remaining \
-                         - sum(durations_running, timedelta())
+        # sum them together
+        duration_stopped = sum(durations_stopped, timedelta())
+        duration_running = sum(durations_running, timedelta())
+        # for the initial tasks use the duration of the tasks still running as well
+        # it will be an underestimate, but less of an underestimate than using duration_stopped
+        if duration_running > duration_stopped:
+            avg_duration = (duration_stopped + duration_running) / (len(durations_stopped) + len(durations_running))
+        else:
+            avg_duration = duration_stopped / len(durations_stopped)
+        # use the average duration times remaining to compute the total time remaining
+        # divided by - it indicates the concurrency - and don't count the duration running are already running
+        time_remaining = avg_duration * remaining / running - duration_running
     else:
         time_remaining = None
 
@@ -66,6 +77,7 @@ def task_stats(tasks):
         finished_on = datetime.now() + time_remaining
     else:
         finished_on = ''
+
     return locals()
 
 

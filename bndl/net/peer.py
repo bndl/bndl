@@ -16,7 +16,6 @@ import concurrent.futures
 logger = logging.getLogger(__name__)
 
 
-
 HELLO_TIMEOUT = 60
 
 
@@ -97,7 +96,7 @@ class PeerNode(object):
 
 
     def disconnect_async(self, reason='', active=True):
-        if not self.loop.is_closed:
+        if not self.loop.is_closed():
             return aio.run_coroutine_threadsafe(self.disconnect(reason, active), self.loop)
         else:
             self._stop_tasks()
@@ -134,8 +133,9 @@ class PeerNode(object):
         self._stop_tasks()
 
         # close the connection
-        with catch():
-            yield from self.conn.close()
+        if self.conn:
+            with catch():
+                yield from self.conn.close()
         # clear the fields
         self.server = None
         self.conn = None
@@ -350,15 +350,11 @@ class PeerNode(object):
             logger.exception('unable to dispatch message %s', type(msg))
 
 
-
     def __lt__(self, other):
         if not isinstance(other, PeerNode):
             raise ValueError('comparision of PeerNodes is only defined for other PeerNodes')
-
         return self.conn < other.conn
 
 
     def __repr__(self):
-        # return 'Peer %s of %s (%sconnected)' % (self.name, self.local.name, '' if self.is_connected() else 'not ')
-        # return '%s - Peer %s of %s' % (id(self), self.name, self.local.name)
-        return '<Peer: %s of node %s>' % (self.name, self.local.name)
+        return '<Peer: %s>' % self.name

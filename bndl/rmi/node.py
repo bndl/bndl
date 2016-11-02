@@ -71,12 +71,7 @@ class Invocation(object):
                 pass
 
         if response.exception:
-            exc_class, exc, tback = response.exception
-            if not exc:
-                exc = exc_class()
-            source = exc.with_traceback(tback)
-            iexc = InvocationException('An exception was raised on %s: %s' % (self.peer.name, exc_class.__name__))
-            raise iexc from source
+            raise response.exception
         else:
             return response.value
 
@@ -119,9 +114,9 @@ class RMIPeerNode(PeerNode):
             except asyncio.futures.CancelledError:
                 logger.debug('handling message from %s cancelled: %s', self, request)
                 return
-            except Exception:
+            except Exception as e:
                 logger.debug('unable to invoke method %s', request.method, exc_info=True)
-                exc = sys.exc_info()
+                exc = e
 
         yield from self._send_response(request, result, exc)
 
@@ -135,9 +130,9 @@ class RMIPeerNode(PeerNode):
                 response.value = result
                 yield from self.send(response)
         except NotConnected:
-            logger.warning('unable to deliver response %s on connection %s (not connected)', response.req_id, self)
+            logger.info('unable to deliver response %s on connection %s (not connected)', response.req_id, self)
         except asyncio.futures.CancelledError:
-            logger.warning('unable to deliver response %s on connection %s (cancelled)', response.req_id, self)
+            logger.info('unable to deliver response %s on connection %s (cancelled)', response.req_id, self)
         except Exception:
             logger.exception('unable to send response')
             exc = sys.exc_info()
@@ -170,7 +165,7 @@ class RMIPeerNode(PeerNode):
 
     @asyncio.coroutine
     def disconnect(self, *args, **kwargs):
-        super().disconnect(*args, **kwargs)
+        yield from super().disconnect(*args, **kwargs)
         for handler in self.handlers.values():
             handler.set_exception(NotConnected())
         self.handlers.clear()

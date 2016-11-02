@@ -17,10 +17,9 @@ from threading import Thread
 logger = logging.getLogger(__name__)
 
 
-def _num_connected(worker):
-    return sum(1 for worker
-               in worker.peers.filter(node_type='worker')
-               if worker.is_connected)
+def _num_connected():
+    worker = current_worker()
+    return sum(1 for w in worker.peers.filter(node_type='worker') if w.is_connected)
 
 
 class ExecutionContext(Lifecycle):
@@ -68,31 +67,9 @@ class ExecutionContext(Lifecycle):
 
         try:
             if order_results:
-                # keep a dict with results which are 'early' and the task id
-                task_ids = iter(task.id for task in job.tasks)
-                next_taskid = next(task_ids)
-                early = {}
-                for task in iter(done.get, None):
-                    if task.failed:
-                        raise task.exception()
-                    elif task.id == next_taskid:
-                        yield task
-                        try:
-                            # possibly yield tasks which are next
-                            next_taskid = next(task_ids)
-                            while early:
-                                if next_taskid in early:
-                                    yield early.pop(next_taskid)
-                                    next_taskid = next(task_ids)
-                                else:
-                                    break
-                        except StopIteration:
-                            break
-                    else:
-                        early[task.id] = task
-                assert not early
+                return self._execute_ordered(job, done)
             else:
-                yield from (task for task in iter(done.get, None))
+                return self._execute_unordered(job, done)
         except KeyboardInterrupt:
             scheduler.abort()
             raise
@@ -103,6 +80,45 @@ class ExecutionContext(Lifecycle):
             for task in job.tasks:
                 task.release()
             job.signal_stop()
+
+
+    def _execute_ordered(self, job, done):
+        # keep a dict with results which are 'early' and the task id
+        task_ids = iter(task.id for task in job.tasks)
+        next_taskid = next(task_ids)
+        early = {}
+
+        for task in self._execute_unordered(job, done):
+            if task.failed:
+                raise task.exception()
+            elif task.id != next_taskid:
+                early[task.id] = task
+            else:
+                early.pop(task.id, None)
+                yield task
+                try:
+                    # possibly yield tasks which are next
+                    next_taskid = next(task_ids)
+                    while early:
+                        if next_taskid in early:
+                            yield early.pop(next_taskid)
+                            next_taskid = next(task_ids)
+                        else:
+                            break
+                except StopIteration:
+                    break
+
+        assert not early, 'results for tasks %r not yet yielded' % early
+
+
+    def _execute_unordered(self, job, done):
+        seen = set()
+        for task in iter(done.get, None):
+            if isinstance(task, Exception):
+                raise task
+            elif task not in seen:
+                seen.add(task)
+                yield task
 
 
     def await_workers(self, worker_count=None, connect_timeout=5, stable_timeout=60):
