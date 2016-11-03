@@ -46,7 +46,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
 
-    python_requires='>=3.4',
     install_requires=[
         'sortedcontainers',
         'cloudpickle>=0.2.1',
