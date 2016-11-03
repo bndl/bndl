@@ -184,6 +184,20 @@ cdef class CloudPickler(Pickler):
             self.modules.add(themodule)
             if getattr(themodule, name, None) is obj:
                 return self.save_global(obj, name)
+            
+        # a builtin_function_or_method which comes in as an attribute of some
+        # object (e.g., object.__new__, itertools.chain.from_iterable) will end
+        # up with modname "__main__" and so end up here. But these functions
+        # have no __code__ attribute in CPython, so the handling for 
+        # user-defined functions below will fail.
+        # So we pickle them here using save_reduce; have to do it differently
+        # for different python versions.
+        if not hasattr(obj, '__code__'):
+            if sys.version_info < (3, 4):
+                raise pickle.PicklingError("Can't pickle %r" % obj)
+            else:
+                rv = obj.__reduce_ex__(self.proto)
+            return Pickler.save_reduce(self, obj=obj, *rv)
 
         # if func is lambda, def'ed at prompt, is in main, or is nested, then
         # we'll pickle the actual function object rather than simply saving a
