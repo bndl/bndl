@@ -311,7 +311,9 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before element)
         '''
-        return self.starmap(func, *args, **kwargs).filter()
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
+        return self.map_partitions(lambda p: (e for e in p if func(*e)))
 
 
     def mask_partitions(self, mask):

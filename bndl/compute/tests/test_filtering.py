@@ -9,4 +9,4 @@ class FilterTest(DatasetTest):
         self.assertEqual(self.ctx.range(1, 100).map(lambda i: i % 2).filter().count(), 50)
 
     def test_starfilter(self):
-        self.assertEqual(self.ctx.range(1, 100).key_by_id().starfilter(lambda a, b: b >= 50).count(), 50)
+        self.assertEqual(self.ctx.range(1, 100).key_by_id().starfilter(lambda a, b: b >= 50).values().sum(), 4950 - 1225)
