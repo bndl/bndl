@@ -40,6 +40,7 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+from builtins import classmethod, staticmethod
 from functools import partial
 from io import BytesIO as StringIO
 import dis
@@ -55,8 +56,6 @@ import types
 
 from cloudpickle.cloudpickle import _make_skel_func, _gen_ellipsis, \
     _gen_not_implemented, _fill_function
-    
-from builtins import classmethod, staticmethod
 
 
 from bndl.util.cypickle cimport Pickler, _Framer
