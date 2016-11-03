@@ -272,14 +272,14 @@ class Scheduler(object):
 
         if len(task.executed_on) >= self.attempts:
             logger.warning('Task %r failed on %s after %s attempts ... aborting',
-                           task, task.executing_on_last, len(task.executed_on))
+                           task, task.executed_on_last, len(task.executed_on))
             # signal done (failed) to allow bubbling up the error and abort
             self.done(task)
             self.abort()
             return
 
         logger.info('Task %r failed on %s with %r, rescheduling',
-                    task, task.executing_on_last, type(exc))
+                    task, task.executed_on_last, type(exc))
 
         if isinstance(exc, DependenciesFailed):
             for worker_name, dependencies in exc.failures.items():
@@ -291,7 +291,7 @@ class Scheduler(object):
                         self.abort()
                     else:
                         # mark the worker as failed
-                        executed_on_last = dependency.executing_on_last
+                        executed_on_last = dependency.executed_on_last
                         if worker_name == executed_on_last:
                             logger.info('marking %s as failed for dependency %s of %s',
                                         worker_name, dependency, task)
@@ -311,8 +311,8 @@ class Scheduler(object):
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
             logger.info('marking %s as failed because %s failed with NotConnected',
-                        task.executing_on_last.name, task)
-            self.workers_failed.add(task.executing_on_last)
+                        task.executed_on_last.name, task)
+            self.workers_failed.add(task.executed_on_last)
 
         if len(self.workers_failed) == len(self.workers):
             try:

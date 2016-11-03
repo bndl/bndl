@@ -158,7 +158,7 @@ class RemoteTask(Task):
 
 
     @property
-    def executing_on_last(self):
+    def executed_on_last(self):
         if self.executed_on:
             return self.executed_on[-1]
 
@@ -211,6 +211,7 @@ class RemoteTask(Task):
                 super().cancel()
             finally:
                 self.future = None
+                self.signal_stop()
 
 
     def result(self):

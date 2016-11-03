@@ -1851,7 +1851,7 @@ class ComputePartitionTask(RemoteTask):
         if self.dependencies:
             dependencies_executed_on = defaultdict(list)
             for dep in self.dependencies:
-                dependencies_executed_on[dep.executing_on_last].append(dep.part.id)
+                dependencies_executed_on[dep.executed_on_last].append(dep.part.id)
             self.args[1] = dependencies_executed_on
         return super().execute(worker)
 
@@ -1865,7 +1865,7 @@ class ComputePartitionTask(RemoteTask):
     def _save_cacheloc(self, part):
         # memorize the cache location for the partition
         if part.dset.cached and not part.dset._cache_locs.get(part.idx):
-            part.dset._cache_locs[part.idx] = self.executing_on_last
+            part.dset._cache_locs[part.idx] = self.executed_on_last
         # traverse backup up the task (not the entire DAG)
         if part.src:
             if isinstance(part.src, Iterable):
