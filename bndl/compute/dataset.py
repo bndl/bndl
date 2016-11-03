@@ -145,7 +145,7 @@ class Dataset(object):
 
         '''
         iterables = self.map(func, *args, **kwargs) if func else self
-        return iterables.map_partitions(lambda iterable: chain.from_iterable(iterable))
+        return iterables.map_partitions(chain.from_iterable)
 
 
     def map_partitions(self, func, *args, **kwargs):
