@@ -354,3 +354,51 @@ strip key from values from group_by_key
 
 use default dict in CassandraCoScanPartition._materialize for merged
 
+
+allow distribution and sort key in shuffle
+ - e.g. distribute by block_id and sort by (block_id, person_id)
+ - just like select col1, col2, col3 from table group by 1, 2
+this is also important for cogroup, currently it has to materialize a partition into a list!
+
+add operators such as set difference (using shuffle)
+
+de select van cassandra_table kan checken of de kolom bestaat
+ - wel rekening houden met udfs?
+ 
+ 
+why is tree aggregate so slow?
+ - is it the new shuffle?
+
+ 
+cache van cass partitioner moet rekening houden met bndl_cassandra.part_size_keys and friends
+
+
+check token ranges in cassandra scan - is everything covered?
+
+
+investigate if we can do something better than yielding entire groups (from e.g. grouop_by_key) in a tuple
+
+
+Revive:
+    def prefer_workers(self, fltr):
+        return self._with(_worker_preference=fltr)
+
+    def require_workers(self, fltr):
+        return self._with(_worker_filter=fltr)
+
+    def require_local_workers(self):
+        return self.require_workers(PeerNode.islocal)
+
+    def allow_all_workers(self):
+        return self.allow_workers(None)
+
+
+
+Reconsider shuffle implementation for keywise aggregation:
+  - Spark uses uses create + merge + combine ...
+  - probably cheaper than sorting ...
+
+
+
+join_with_cassandra with a single element key doesn't work
+  (getter should return an iterable)
