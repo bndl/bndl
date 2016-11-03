@@ -185,12 +185,14 @@ class RemoteTask(Task):
 
     def _task_completed(self, future):
         try:
+            self.handle = None
             result = future.result()
         except Exception as exc:
             if self.future:
                 self.future.set_exception(exc)
-            else:
-                logger.warning('execution of %s on %s failed, but not expecting result', self, self.executed_on_last, exc_info=True)
+            elif not isinstance(exc, NotConnected):
+                logger.warning('execution of %s on %s failed, but not expecting result',
+                               self, self.executed_on_last, exc_info=True)
         else:
             if self.future and not self.future.cancelled():
                 self.future.set_result(result)
@@ -201,17 +203,16 @@ class RemoteTask(Task):
 
 
     def cancel(self):
-        if not self.done:
-            try:
-                logger.debug('canceling %s', self)
-                if self.handle:
-                    self._worker_executing_on.cancel_task(self.handle)
-                if self.future:
-                    self.future.cancel()
-                super().cancel()
-            finally:
-                self.future = None
-                self.signal_stop()
+        super().cancel()
+
+        if self.handle:
+            logger.debug('canceling %s', self)
+            self._worker_executing_on.cancel_task(self.handle)
+            self.handle = None
+
+        if self.future:
+            self.future.cancel()
+            self.future = None
 
 
     def result(self):
