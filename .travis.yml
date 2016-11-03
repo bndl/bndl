@@ -6,7 +6,10 @@ python:
 
 install:
   - pip install pip --upgrade
-  - pip install .[dev] --verbose
+  - pip install .[dev]
+  - pip uninstall bndl -y
+  - ./setup.py sdist
+  - pip install dist/bndl*.tar.gz
 
 script: make test
 
