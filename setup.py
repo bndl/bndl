@@ -35,7 +35,7 @@ setup(
     version=bndl.__version__,
     url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
     description='Bundle compute resources with BNDL',
-    long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     author='Frens Jan Rumph',
     author_email='mail@frensjan.nl',
 
