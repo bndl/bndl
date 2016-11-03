@@ -48,7 +48,7 @@ class Scheduler(object):
             raise ValueError('Tasks must have a unique task ID')
 
         self.done = done
-        self.workers = workers or ctx.workers
+        self.workers = {worker.name:worker for worker in (workers or ctx.workers)}
 
         self.concurrency = concurrency or ctx.conf['bndl.execute.concurrency']
         # failed tasks are retried on error, but they are executed at most attempts
@@ -71,11 +71,11 @@ class Scheduler(object):
         self.executable = SortedSet(key=lambda task: task.priority)  # sorted executable tasks (sorted by task.id by default)
         self.blocked = defaultdict(set)  # blocked tasks task -> dependencies executable or executing
 
-        self.locality = {worker:{} for worker in self.workers}  # worker -> task -> locality > 0
+        self.locality = {worker:{} for worker in self.workers.keys()}  # worker_name -> task -> locality > 0
         self.forbidden = defaultdict(set)  # task -> set[worker]
         # worker -> SortedList[task] in descending locality order
         self.executable_on = {worker:SortedSet(key=lambda task, worker=worker:self.locality[worker].get(task, 0))
-                              for worker in self.workers}
+                              for worker in self.workers.keys()}
 
         self.executing = set()  # mapping of task -> worker for tasks which are currently executing
         self.executed = set()  # tasks which have been executed
@@ -83,7 +83,7 @@ class Scheduler(object):
         # keep a FIFO queue of workers ready
         # and a list of idle workers (ready, but no more tasks to execute)
         self.workers_ready = deque()
-        self.workers_idle = set(self.workers)
+        self.workers_idle = set(self.workers.keys())
         self.workers_failed = set()
 
         # perform scheduling under lock
@@ -98,7 +98,7 @@ class Scheduler(object):
                     self.set_executable(task)
 
                 # TODO don't ask on a per worker basis for locality, but ask with list of workers
-                for worker, locality in task.locality(self.workers) or ():
+                for worker, locality in task.locality(self.workers.values()) or ():
                     if locality < 0:
                         self.forbidden[task].add(worker)
                     elif locality > 0:
@@ -141,7 +141,7 @@ class Scheduler(object):
                             self.executable.remove(task)
                             self.executable_on[worker].discard(task)
                             self.executing.add(task)
-                            future = task.execute(worker)
+                            future = task.execute(self.workers[worker])
                             future.add_done_callback(partial(self.task_done, task, worker))
                         except CancelledError:
                             pass
@@ -272,14 +272,14 @@ class Scheduler(object):
 
         if len(task.executed_on) >= self.attempts:
             logger.warning('Task %r failed on %s after %s attempts ... aborting',
-                           task, task.executed_on[-1], len(task.executed_on))
+                           task, task.executing_on_last, len(task.executed_on))
             # signal done (failed) to allow bubbling up the error and abort
             self.done(task)
             self.abort()
             return
-        else:
-            logger.info('Task %r failed on %s with %r, rescheduling',
-                        task, task.executed_on[-1], type(exc))
+
+        logger.info('Task %r failed on %s with %r, rescheduling',
+                    task, task.executing_on_last, type(exc))
 
         if isinstance(exc, DependenciesFailed):
             for worker_name, dependencies in exc.failures.items():
@@ -291,8 +291,8 @@ class Scheduler(object):
                         self.abort()
                     else:
                         # mark the worker as failed
-                        executed_on_last = dependency.executed_on[-1]
-                        if worker_name == executed_on_last.name:
+                        executed_on_last = dependency.executing_on_last
+                        if worker_name == executed_on_last:
                             logger.info('marking %s as failed for dependency %s of %s',
                                         worker_name, dependency, task)
                             self.workers_failed.add(executed_on_last)
@@ -306,13 +306,13 @@ class Scheduler(object):
                             # restarted (because another task also issued DependenciesFailed)
                             logger.info('Receive DependenciesFailed for task with id %s and worker name %s '
                                         'but the task is last executed on %s',
-                                         task_id, worker_name, executed_on_last.name)
+                                         task_id, worker_name, executed_on_last)
 
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
             logger.info('marking %s as failed because %s failed with NotConnected',
-                        task.executed_on[-1].name, task)
-            self.workers_failed.add(task.executed_on[-1])
+                        task.executing_on_last.name, task)
+            self.workers_failed.add(task.executing_on_last)
 
         if len(self.workers_failed) == len(self.workers):
             try:

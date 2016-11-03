@@ -1,5 +1,4 @@
 from bndl.util.conf import Int
-from _collections_abc import Mapping
 
 
 concurrency = Int(1, desc='the number of tasks which can be scheduled at a worker process at the same time')

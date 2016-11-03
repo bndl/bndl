@@ -9,10 +9,6 @@ from bndl.util.funcs import as_method
 
 
 class ComputeContext(ExecutionContext):
-    def __init__(self, driver, *args, **kwargs):
-        super().__init__(driver, *args, **kwargs)
-
-
     @property
     def default_pcount(self):
         pcount = self.conf['bndl.compute.pcount']

@@ -1,3 +1,4 @@
+import copy
 import linecache
 import os
 import sys
@@ -9,8 +10,8 @@ import yappi
 
 
 COLMUMNS = (
-    ('name', 88),
-    ('ncall', 8),
+    ('name', 84),
+    ('ncall', 12),
     ('tsub', 8),
     ('ttot', 8),
     ('tavg', 8),
@@ -40,6 +41,8 @@ def print_yappi_stats(stats, max_rows=100, sort_by=None, sort_dir=None,
                     columns=COLMUMNS, per_worker=False, strip_dirs=True,
                     include=(), exclude=(), file=sys.stdout):
     columns = dict(enumerate(columns))
+
+    stats = copy.copy(stats)
 
     if sort_by:
         stats.sort(sort_by, sort_dir or 'desc')
@@ -164,7 +167,7 @@ class CpuProfiling(object):
                               per_worker, strip_dirs, include, exclude, file)
 
 
-def print_snapshot_top(top_stats, limit=10, file=sys.stdout, strip_dirs=True, include=(), exclude=()):
+def print_tracemalloc_stats(top_stats, limit=30, file=sys.stdout, strip_dirs=True, include=(), exclude=()):
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
         filename = frame.filename
@@ -210,7 +213,7 @@ class MemoryProfiling(object):
         return snapshot_merged
 
 
-    def print_top(self, group_by='lineno', limit=10, compare_to=None, per_worker=False,
+    def print_top(self, group_by='lineno', limit=30, compare_to=None, per_worker=False,
                   strip_dirs=True, include=(), exclude=(), file=sys.stdout):
         assert not (compare_to and per_worker)
 
@@ -218,7 +221,7 @@ class MemoryProfiling(object):
             snapshots = self.take_snapshot(True)
             for worker, snapshot in snapshots:
                 print('Worker:', worker.name, file=file)
-                print_snapshot_top(snapshot, group_by, limit, file, include, exclude)
+                print_tracemalloc_stats(snapshot, group_by, limit, file, include, exclude)
             return snapshots
 
         else:
@@ -246,5 +249,5 @@ class MemoryProfiling(object):
             else:
                 top_stats = snapshot.statistics(group_by)
 
-            print_snapshot_top(top_stats, limit, file, strip_dirs, include, exclude)
+            print_tracemalloc_stats(top_stats, limit, file, strip_dirs, include, exclude)
             return snapshot

@@ -413,6 +413,7 @@ class Dataset(object):
         '''
         return self.map_partitions(lambda p: ((func(k), v) for k, v in p))
 
+
     def map_values(self, func):
         '''
         Transform the values of this dataset.
@@ -421,6 +422,20 @@ class Dataset(object):
             Transformation to apply to the values
         '''
         return self.map_partitions(lambda p: ((k, func(v)) for k, v in p))
+
+
+    def pluck_values(self, ind, default=None):
+        '''
+        Pluck indices from each of the values in this dataset of (key, value) pairs.
+
+        :param ind: obj or list
+            The indices to pluck with.
+        :param default: obj
+            A default value.
+        '''
+        kwargs = {'default': default} if default is not None else {}
+        return self.map_values(lambda value: pluck(ind, value, **kwargs))
+
 
     def flatmap_values(self, func=None):
         '''
@@ -1816,7 +1831,7 @@ class ComputePartitionTask(RemoteTask):
         if self.dependencies:
             dependencies_executed_on = defaultdict(list)
             for dep in self.dependencies:
-                dependencies_executed_on[dep.executed_on[-1].name].append(dep.part.id)
+                dependencies_executed_on[dep.executing_on_last].append(dep.part.id)
             self.args[1] = dependencies_executed_on
         return super().execute(worker)
 
@@ -1830,15 +1845,17 @@ class ComputePartitionTask(RemoteTask):
     def _save_cacheloc(self, part):
         # memorize the cache location for the partition
         if part.dset.cached and not part.dset._cache_locs.get(part.idx):
-            part.dset._cache_locs[part.idx] = self.executed_on[-1].name
-        # traverse backup up the DAG
-        # TODO don't we have to stop between shuffle write and read?
+            part.dset._cache_locs[part.idx] = self.executing_on_last
+        # traverse backup up the task (not the entire DAG)
         if part.src:
             if isinstance(part.src, Iterable):
                 for src in part.src:
-                    self._save_cacheloc(src)
+                    if not src.dset.sync_required:
+                        self._save_cacheloc(src)
             else:
-                self._save_cacheloc(part.src)
+                src = part.src
+                if not src.dset.sync_required:
+                    self._save_cacheloc(src)
 
 
 

@@ -50,7 +50,7 @@ class Task(Lifecycle):
 
 
     def execute(self, worker):
-        self.executed_on.append(worker)
+        self.executed_on.append(worker.name)
 
 
     def cancel(self):
@@ -157,6 +157,17 @@ class RemoteTask(Task):
             logger.warning('exception occurred in task %s which is not scheduled / already released', self)
 
 
+    @property
+    def executing_on_last(self):
+        if self.executed_on:
+            return self.executed_on[-1]
+
+    @property
+    def _worker_executing_on(self):
+        if self.executed_on:
+            return self.ctx.node.peers.get(self.executed_on[-1])
+
+
     def _task_scheduled(self, future):
         try:
             self.handle = future.result()
@@ -164,7 +175,7 @@ class RemoteTask(Task):
             self.set_exception(exc)
         else:
             try:
-                future = self.executed_on[-1].get_task_result(self.handle)
+                future = self._worker_executing_on.get_task_result(self.handle)
                 # TODO put time sleep here to test what happens if task
                 # is done before adding callack (callback gets executed in this thread)
                 future.add_done_callback(self._task_completed)
@@ -179,7 +190,7 @@ class RemoteTask(Task):
             if self.future:
                 self.future.set_exception(exc)
             else:
-                logger.warning('execution of %s on %s failed, but not expecting result', self, self.executed_on[-1], exc_info=True)
+                logger.warning('execution of %s on %s failed, but not expecting result', self, self.executed_on_last, exc_info=True)
         else:
             if self.future and not self.future.cancelled():
                 self.future.set_result(result)
@@ -194,7 +205,7 @@ class RemoteTask(Task):
             try:
                 logger.debug('canceling %s', self)
                 if self.handle:
-                    self.executed_on[-1].cancel_task(self.handle)
+                    self._worker_executing_on.cancel_task(self.handle)
                 if self.future:
                     self.future.cancel()
                 super().cancel()

@@ -51,6 +51,7 @@ class Lifecycle(object):
     def __getstate__(self):
         state = dict(self.__dict__)
         state.pop('listeners', None)
+        state.pop('desc', None)
         return state
 
     def __setstate__(self, state):

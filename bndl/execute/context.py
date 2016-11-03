@@ -230,9 +230,6 @@ class ExecutionContext(Lifecycle):
         except KeyError:
             pass
 
-
-    def __getstate__(self):
-        state = super().__getstate__()
-        state['_node'] = None
-        state['jobs'] = None
-        return state
+    
+    def __reduce__(self):
+        return type(self), (None, self.conf)

@@ -41,3 +41,7 @@ class RangeDataset(Dataset):
             s += ',' + str(self.step)
 
         return 'range(' + s + ')'
+
+
+    def __reduce__(self):
+        return RangeDataset, (self.ctx, self.start, self.stop, self.step, self.pcount)

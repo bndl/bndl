@@ -1,10 +1,10 @@
+from collections import Iterable
 from configparser import ConfigParser
 from functools import lru_cache
 import importlib
 import os
 import shlex
 import sys
-from _collections_abc import Iterable
 
 
 BNDL_ENV_KEY = 'BNDL_CONF'
@@ -15,29 +15,37 @@ _SETTINGS_CACHE = {}
 
 
 class Config(object):
-    def __init__(self, values={}):
-        self.values = {}
+    def __init__(self, values=None, use_environment=True, **kwargs):
+        if use_environment:
+            self.values = {}
 
-        # read from .bndl.ini files
-        config = ConfigParser()
-        config.read(['~/bndl.ini',
-                     './bndl.ini',
-                     '~/.bndl.ini',
-                     './.bndl.ini',])
-        for section in config.sections():
-            for key, value in config[section].items():
-                self.values['%s.%s' % (section, key)] = value
+            # read from .bndl.ini files
+            config = ConfigParser()
+            config.read(['~/bndl.ini',
+                         './bndl.ini',
+                         '~/.bndl.ini',
+                         './.bndl.ini', ])
+            for section in config.sections():
+                for key, value in config[section].items():
+                    self.values['%s.%s' % (section, key)] = value
 
-        # read from BNDL_CONF environment variable
-        env_config = os.environ.get(BNDL_ENV_KEY, '')
-        for option in shlex.split(env_config):
-            option = option.split('=')
-            if len(option) != 2:
-                raise RuntimeError('%s not in key=value format in BNDL_CONFIG environment variable' % option)
-            self[option[0]] = option[1]
+            # read from BNDL_CONF environment variable
+            env_config = os.environ.get(BNDL_ENV_KEY, '')
+            for option in shlex.split(env_config):
+                option = option.split('=')
+                if len(option) != 2:
+                    raise RuntimeError('%s not in key=value format in BNDL_CONFIG environment variable' % option)
+                self[option[0]] = option[1]
 
-        # override with config provided through the constructor
-        self.values.update(values)
+            if values:
+                # override with config provided through the constructor
+                self.values.update(values)
+        else:
+            self.values = values or {}
+
+        if kwargs:
+            self.values.update(kwargs)
+
 
     @lru_cache(1024)
     def _get_setting(self, key):
@@ -94,6 +102,9 @@ class Config(object):
 
     def __repr__(self):
         return '<Conf %r>' % self.values
+
+    def __reduce__(self):
+        return Config, (self.values,)
 
 
 class Setting(object):

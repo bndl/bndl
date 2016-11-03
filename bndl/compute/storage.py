@@ -1,6 +1,5 @@
 from functools import lru_cache
 from os.path import getsize
-import abc
 import atexit
 import gzip
 import io
@@ -180,11 +179,9 @@ class Container(object):
         self.id = container_id
         self.provider = provider
 
-    @abc.abstractmethod
     def read(self):
         ...
 
-    @abc.abstractmethod
     def write(self, data):
         ...
 
