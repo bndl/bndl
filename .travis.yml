@@ -9,7 +9,7 @@ install:
   - pip install .[dev]
   - pip uninstall bndl -y
   - ./setup.py sdist
-  - pip install dist/bndl*.tar.gz
+  - pip install dist/bndl*.tar.gz --verbose
 
 script: make test
 
