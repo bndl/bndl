@@ -2,41 +2,10 @@
 
 import os
 import re
-import sys
 
 from setuptools import setup, find_packages, Extension
 
 import bndl
-
-
-install_requires = [
-    'sortedcontainers',
-    'cloudpickle>=0.2.1',
-    'cytoolz',
-    'numpy',
-    'flask',
-    'mmh3',
-    'scandir',
-    'psutil',
-    'tblib',
-    'marisa_trie',
-    'yappi',
-]
-
-if sys.version_info < (3, 4):
-    install_requires += ['asyncio']
-
-extras_require = dict(
-    dev=[
-        'cython',
-        'pytest',
-        'pytest-cov',
-        'pylint',
-        'flake8',
-        'sphinx',
-        'sphinx-autobuild',
-    ],
-)
 
 ext = re.compile(r'\.pyx$')
 
@@ -77,9 +46,31 @@ setup(
     include_package_data=True,
     zip_safe=False,
 
-    python_requires='>=3.3',
-    install_requires=install_requires,
-    extras_require=extras_require,
+    python_requires='>=3.4',
+    install_requires=[
+        'sortedcontainers',
+        'cloudpickle>=0.2.1',
+        'cytoolz',
+        'numpy',
+        'flask',
+        'mmh3',
+        'scandir',
+        'psutil',
+        'tblib',
+        'marisa_trie',
+        'yappi',
+    ],
+    extras_require=dict(
+        dev=[
+            'cython',
+            'pytest',
+            'pytest-cov',
+            'pylint',
+            'flake8',
+            'sphinx',
+            'sphinx-autobuild',
+        ],
+    ),
     ext_modules=extensions,
 
     entry_points=dict(
