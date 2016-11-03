@@ -157,7 +157,9 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before iterator).
         '''
-        return self.map_partitions_with_part(lambda p, iterator: func(*args, iterator, **kwargs))
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
+        return self.map_partitions_with_part(lambda p, iterator: func(iterator))
 
 
     def map_partitions_with_index(self, func, *args, **kwargs):
@@ -170,7 +172,9 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before index and iterator).
         '''
-        return self.map_partitions_with_part(lambda p, iterator: func(*args, p.idx, iterator, **kwargs))
+        if args or kwargs:
+            func = partial(func, *args, **kwargs)
+        return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
 
 
     def map_partitions_with_part(self, func, *args, **kwargs):
