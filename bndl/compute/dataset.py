@@ -1076,7 +1076,7 @@ class Dataset(object):
                 return self
             # sample to find a good distribution over buckets
             fraction = min(pcount * 20. / dset_size, 1.)
-            samples = self.sample(fraction).collect_as_set()
+            samples = self.sample(fraction).collect()
         else:
             rng = np.random.RandomState()
             def sampler(partition):
@@ -1106,7 +1106,7 @@ class Dataset(object):
                     return samples[:point_count]
                 else:
                     return samples
-            samples = self.map_partitions(sampler).collect_as_set()
+            samples = self.map_partitions(sampler).collect()
 
         assert samples
 
