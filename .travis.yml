@@ -6,7 +6,7 @@ python:
 
 install:
   - pip install pip --upgrade
-  - pip install .[dev]
+  - pip install .[dev] --verbose
 
 script: make test
 
