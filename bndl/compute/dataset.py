@@ -300,6 +300,20 @@ class Dataset(object):
         return self.map_partitions(partial(filter, func))
 
 
+    def starfilter(self, func, *args, **kwargs):
+        '''
+        Variadic form of Dataset.filter.
+
+        :param func: callable(*element)
+            The test function to filter this dataset with. An element is
+            retained in the dataset if the test is positive. The element is
+            provided as star args.
+
+        Any extra *args or **kwargs are passed to func (args before element)
+        '''
+        return self.starmap(func, *args, **kwargs).filter()
+
+
     def mask_partitions(self, mask):
         '''
         TODO
