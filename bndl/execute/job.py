@@ -209,13 +209,13 @@ class RemoteTask(Task):
             if self.future:
                 self.future.set_exception(exc)
             elif not isinstance(exc, NotConnected):
-                logger.warning('execution of %s on %s failed, but not expecting result',
-                               self, self.executed_on_last, exc_info=True)
+                logger.info('execution of %s on %s failed, but not expecting result',
+                            self, self.executed_on_last, exc_info=True)
         else:
             if self.future and not self.future.cancelled():
                 self.future.set_result(result)
             else:
-                logger.warning('task %s (%s) completed, but not expecting result')
+                logger.info('task %s (%s) completed, but not expecting result')
         finally:
             self.signal_stop()
 
