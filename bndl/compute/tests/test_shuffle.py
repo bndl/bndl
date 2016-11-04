@@ -80,6 +80,5 @@ class ShuffleTest(DatasetTest):
                 self.assertEqual(sum(pluck(1, result)), sum(range(dset_size)))
 
                 time.sleep(1)
-                print('-' * 80)
         finally:
             self.ctx.conf['bndl.execute.attempts'] = 1
