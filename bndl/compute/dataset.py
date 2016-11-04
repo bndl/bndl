@@ -1503,7 +1503,7 @@ class Dataset(object):
 
     def uncache(self, block=False, timeout=None):
         # issue uncache tasks
-        def clear(worker, provider=self._cache_provider, dset_id=self.id):
+        def clear(provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
 
         tasks = [
