@@ -105,7 +105,8 @@ class Task(Lifecycle):
 
 
     def release(self):
-        self.future = None
+        if not self.failed:
+            self.future = None
         self.dependencies = len(self.dependencies)
         self.dependents = len(self.dependents)
         if self.executed_on:
