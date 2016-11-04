@@ -67,9 +67,10 @@ class ExecutionContext(Lifecycle):
 
         try:
             if order_results:
-                return self._execute_ordered(job, done)
+                yield from self._execute_ordered(job, done)
             else:
-                return self._execute_unordered(job, done)
+                yield from self._execute_unordered(job, done)
+            scheduler_driver.join()
         except KeyboardInterrupt:
             scheduler.abort()
             raise

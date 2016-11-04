@@ -1857,6 +1857,7 @@ class ComputePartitionTask(RemoteTask):
 
 
     def release(self):
+        super().release()
         if self.done and not self.failed:
             self._save_cacheloc(self.part)
         self.part = None

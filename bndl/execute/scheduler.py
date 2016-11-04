@@ -118,8 +118,9 @@ class Scheduler(object):
 
                 if self._abort:
                     # the abort flag can be set to True to break the loop (in case of emergency)
-                    for task in self.executing:
-                        task.cancel()
+                    for task in self.tasks.values():
+                        if task in self.executing:
+                            task.cancel()
                     break
 
                 worker = self.workers_ready.popleft()
@@ -157,11 +158,11 @@ class Scheduler(object):
 
 
     def abort(self, exc=None):
+        if exc is not None:
+            self._exc = exc
+        self._abort = True
         with self.lock:
-            if exc is not None:
-                self._exc = exc
-            self._abort = True
-            self.condition.notify()
+            self.condition.notify_all()
 
 
 

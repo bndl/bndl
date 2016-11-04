@@ -51,14 +51,14 @@ class TaskRunner(threading.Thread):
             exc = e
             logger.info('Unable to execute %s', self.task, exc_info=True)
 
-        try:
-            if exc:
-                if not self.result.cancelled():
+        if not self.result.cancelled():
+            try:
+                if exc:
                     self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
-            else:
-                self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
-        except RuntimeError:
-            logger.warning('Unable to send response for task %s', self.task)
+                else:
+                    self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
+            except RuntimeError:
+                logger.warning('Unable to send response for task %s', self.task)
 
 
 

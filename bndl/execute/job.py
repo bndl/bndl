@@ -106,8 +106,8 @@ class Task(Lifecycle):
 
     def release(self):
         self.future = None
-        self.dependencies = None
-        self.dependents = None
+        self.dependencies = len(self.dependencies)
+        self.dependents = len(self.dependents)
         if self.executed_on:
             self.executed_on = [self.executed_on[-1]]
 
@@ -211,7 +211,6 @@ class RemoteTask(Task):
             self.handle = None
 
         if self.future:
-            self.future.cancel()
             self.future = None
 
 
@@ -222,7 +221,8 @@ class RemoteTask(Task):
 
     def release(self):
         super().release()
-        self.method = None
+        self.method = self.method.__name__
         self.handle = None
         self.args = None
         self.kwargs = None
+        self.locality = None
