@@ -68,7 +68,7 @@ class Dataset(object):
         self._cache_provider = False
         self._cache_locs = {}
         self._workers_required = None
-        self.name, self.get_callsite = get_callsite(type(self))
+        self.callsite = get_callsite(type(self))
 
 
     def parts(self):
@@ -1566,7 +1566,7 @@ class Dataset(object):
 
 
     def __str__(self):
-        return self.name
+        return self.callsite[0]
 
 
 FORBIDDEN = -1
@@ -1840,10 +1840,10 @@ class TransformingDataset(Dataset):
 
     def map_partitions_with_part(self, func):
         if not self.cached:
-            name, csite = get_callsite()
-            # TODO name = self.name + ' -> ' + name
-            dset = self._with(funcs=self.funcs + (func,),
-                              name=name, get_callsite=csite)
+            callsite = get_callsite()
+            # TODO name = self.callsite[0] + ' -> ' + name
+            funcs = self.funcs + (func,)
+            dset = self._with(funcs=funcs, callsite=callsite)
             dset._pickle_funcs()
             return dset
         else:
@@ -1880,9 +1880,9 @@ class TransformingPartition(Partition):
 
 class ComputePartitionTask(RemoteTask):
     def __init__(self, part, group):
-        name = part.dset.name
+        name = part.dset.callsite[0]
         super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
-                         name=name, desc=part.dset.get_callsite, group=group)
+                         name=name, desc=part.dset.callsite, group=group)
         self.part = part
         self.locality = part.locality
 
