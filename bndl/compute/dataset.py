@@ -26,6 +26,7 @@ from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sa
 from bndl.execute import TaskCancelled
 from bndl.execute.job import RemoteTask, Job
 from bndl.execute.worker import task_context, current_worker
+from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException
 from bndl.util import serialize, cycloudpickle as cloudpickle, strings
@@ -1598,9 +1599,9 @@ class Partition(object):
                     return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
-            except InvocationException:
-                logger.exception('Unable to get cached partition %s.%s from %s',
-                                 self.dset.id, self.idx, self.cache_loc)
+            except (NotConnected, InvocationException):
+                logger.warning('Unable to get cached partition %s.%s from %s',
+                               self.dset.id, self.idx, self.cache_loc)
 
         # compute if not cached
         data = self._compute()
@@ -1877,9 +1878,12 @@ class ComputePartitionTask(RemoteTask):
 
     def execute(self, worker):
         if self.dependencies:
+            # created mapping of worker -> list[part_id] for dependency locations
             dependencies_executed_on = defaultdict(list)
             for dep in self.dependencies:
                 dependencies_executed_on[dep.executed_on_last].append(dep.part.id)
+
+            # set locations as second arguments
             self.args[1] = dependencies_executed_on
         return super().execute(worker)
 

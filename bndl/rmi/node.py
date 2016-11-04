@@ -71,7 +71,13 @@ class Invocation(object):
                 pass
 
         if response.exception:
-            raise response.exception
+            exc_class, exc, tback = response.exception
+            if not exc:
+                exc = exc_class()
+            source = exc.with_traceback(tback)
+            iexc = InvocationException('An exception was raised on %s: %s' %
+                                       (self.peer.name, exc_class.__name__))
+            raise iexc from source
         else:
             return response.value
 
@@ -116,7 +122,7 @@ class RMIPeerNode(PeerNode):
                 return
             except Exception as e:
                 logger.debug('unable to invoke method %s', request.method, exc_info=True)
-                exc = e
+                exc = sys.exc_info()
 
         yield from self._send_response(request, result, exc)
 

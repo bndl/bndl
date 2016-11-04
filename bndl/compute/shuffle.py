@@ -10,6 +10,8 @@ import logging
 import os
 import threading
 
+from cytoolz.itertoolz import merge_sorted, pluck
+
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.storage import StorageContainerFactory
 from bndl.execute import DependenciesFailed, TaskCancelled
@@ -21,7 +23,6 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import prefetch
 from bndl.util.hash import portable_hash
 from bndl.util.psutil import process_memory_percent, virtual_memory
-from cytoolz.itertoolz import merge_sorted, pluck
 
 
 logger = logging.getLogger(__name__)
@@ -493,6 +494,12 @@ class ShuffleReadingPartition(Partition):
         worker = self.dset.ctx.node
 
         dependencies_executed_on = task_context()['dependencies_executed_on']
+
+        # if a dependency wasn't executed yet (e.g. cache after shuffle)
+        # raise dependencies failed for restart
+        if None in dependencies_executed_on:
+            raise DependenciesFailed({None: dependencies_executed_on[None]})
+
         source_names = set(dependencies_executed_on)
 
         local_source = worker.name in source_names

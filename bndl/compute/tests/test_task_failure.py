@@ -1,5 +1,4 @@
 from functools import partial
-import sys
 import time
 
 from bndl.compute.tests import DatasetTest
@@ -8,9 +7,23 @@ from bndl.execute.worker import current_worker
 from bndl.rmi import InvocationException
 import os
 import signal
+from bndl.net.connection import NotConnected
+
+
+def kill_self():
+    os.kill(os.getpid(), signal.SIGKILL)
+
+
+def kill_worker(worker):
+    try:
+        worker.run_task(kill_self).result()
+    except NotConnected:
+        pass
 
 
 class TaskFailureTest(DatasetTest):
+    worker_count = 5
+
     def test_assert_raises(self):
         with self.assertRaises(Exception):
             self.ctx.range(10).map(lambda i: exec("raise ValueError('test')")).collect()
@@ -20,12 +33,9 @@ class TaskFailureTest(DatasetTest):
         def raise_exception():
             raise Exception()
 
-        def stop_node():
-            os.kill(os.getpid(), signal.SIGKILL)
-
         failures = [
             raise_exception,
-            stop_node,
+            kill_self,
         ]
 
         def failon(workers, failure, i):
@@ -83,3 +93,20 @@ class TaskFailureTest(DatasetTest):
         self.assertEqual(len(executed.value), self.ctx.worker_count)
         self.assertEqual(len(cancelled.value), self.ctx.worker_count - 1)
         self.assertEqual(len(failed.value), 0)
+
+
+    def test_cache_miss_after_shuffle(self):
+        try:
+            self.ctx.conf['bndl.execute.attempts'] = 2
+
+            dset = self.ctx.range(10).shuffle().cache()
+            self.assertEqual(dset.count(), 10)
+            self.assertEqual(dset.count(), 10)
+
+            kill_worker(self.ctx.workers[0])
+            self.assertEqual(dset.count(), 10)
+
+            kill_worker(self.ctx.workers[0])
+            self.assertEqual(dset.shuffle().count(), 10)
+        finally:
+            self.ctx.conf['bndl.execute.attempts'] = 1

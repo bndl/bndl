@@ -94,6 +94,16 @@ class Task(Lifecycle):
             return False
 
 
+    def mark_failed(self, exc):
+        self.future = Future()
+        self.future.set_exception(exc)
+        now = datetime.now()
+        if not self.started_on:
+            self.started_on = now
+        if not self.stopped_on:
+            self.stopped_on = now
+
+
     def result(self):
         assert self.future, 'task not yet scheduled'
         try:
