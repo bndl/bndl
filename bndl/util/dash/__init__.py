@@ -106,18 +106,21 @@ def fmt_timedelta(tdelta):
         if math.isnan(tdelta):
             return 'NaN'
         else:
-            tdelta = timedelta(seconds=tdelta)
-    parts = str(tdelta).split('.')
-    if tdelta.total_seconds() == 0:
+            seconds = tdelta
+            tdelta = timedelta(seconds=seconds)
+    elif isinstance(tdelta, timedelta):
+        seconds = tdelta.total_seconds()
+
+    if seconds == 0:
         return '0 µs'
-    elif tdelta < timedelta(seconds=0.01):
-        return parts[1].strip('0') + ' µs'
-    elif tdelta < timedelta(seconds=1):
-        return parts[1][:3].strip('0') + ' ms'
-    elif tdelta < timedelta(seconds=10):
-        return parts[0][-1] + '.' + parts[1][:2] + ' s'
+    elif seconds < 0.001:
+        return str(seconds * 1000 * 1000) + ' µs'
+    elif seconds < 1:
+        return str(round(seconds * 1000, 1)) + ' ms'
+    elif seconds < 10:
+        return str(round(seconds, 1)) + ' s'
     else:
-        return parts[0]
+        return str(tdelta).split('.')[0]
 
 
 def run(node=None, ctx=None):
