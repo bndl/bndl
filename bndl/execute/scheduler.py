@@ -6,18 +6,11 @@ import logging
 
 from bndl.execute import DependenciesFailed
 from bndl.net.connection import NotConnected
-from bndl.rmi import InvocationException
+from bndl.rmi import root_exc
 from sortedcontainers import SortedSet
 
 
 logger = logging.getLogger(__name__)
-
-
-def rootexc(exc):
-    if isinstance(exc, InvocationException):
-        return exc.__cause__
-    else:
-        return exc
 
 
 class Scheduler(object):
@@ -310,7 +303,7 @@ class Scheduler(object):
             self.abort()
             return
 
-        exc = rootexc(task.exception())
+        exc = root_exc(task.exception())
         if task.executed_on_last:
             logger.info('%r failed on %s with %s: %s, rescheduling',
                         task, task.executed_on_last, exc.__class__.__name__, exc)

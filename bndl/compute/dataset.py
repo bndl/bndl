@@ -28,7 +28,7 @@ from bndl.execute.job import RemoteTask, Job
 from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
-from bndl.rmi import InvocationException
+from bndl.rmi import InvocationException, root_exc
 from bndl.util import serialize, cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
@@ -1599,9 +1599,20 @@ class Partition(object):
                     return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
-            except (NotConnected, InvocationException):
+            except NotConnected:
+                logger.info('Unable to get cached partition %s.%s from %s (not connected)',
+                            self.dset.id, self.idx, self.cache_loc)
+            except InvocationException as exc:
+                exc = root_exc(exc)
+                if isinstance(exc, KeyError):
+                    logger.info('Unable to get cached partition %s.%s from %s (not found)',
+                                self.dset.id, self.idx, self.cache_loc)
+                else:
+                    logger.warning('Unable to get cached partition %s.%s from %s',
+                                   self.dset.id, self.idx, self.cache_loc, exc_info=True)
+            except Exception:
                 logger.warning('Unable to get cached partition %s.%s from %s',
-                               self.dset.id, self.idx, self.cache_loc)
+                               self.dset.id, self.idx, self.cache_loc, exc_info=True)
 
         # compute if not cached
         data = self._compute()
