@@ -17,5 +17,5 @@ class SelectWorkersTest(DatasetTest):
             for worker in self.ctx.workers:
                 worker_name = worker.name
                 targeted[worker_name] += 10
-                dset.require_workers(lambda w: w.name == worker_name).execute()
+                dset.require_workers(lambda workers: [w for w in workers if w.name == worker_name]).execute()
                 self.assertEqual(executed_on.value, targeted)
