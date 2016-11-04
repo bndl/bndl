@@ -317,7 +317,7 @@ class Scheduler(object):
                     try:
                         dependency = self.tasks[task_id]
                     except KeyError:
-                        logger.error('Receive DependenciesFailed for unknown task with id %s' % task_id)
+                        logger.error('Received DependenciesFailed for unknown task with id %s' % task_id)
                         self.abort()
                     else:
                         # mark the worker as failed
@@ -326,7 +326,7 @@ class Scheduler(object):
                             dependency.set_exception(Exception('Marked as failed by %r' % task))
                             self.task_failed(dependency)
                         elif worker == executed_on_last:
-                            logger.info('marking %s as failed for dependency %s of %s',
+                            logger.info('Marking %s as failed for dependency %s of %s',
                                         worker, dependency, task)
                             self.workers_failed.add(executed_on_last)
                             self.workers_idle.discard(executed_on_last)
@@ -337,13 +337,13 @@ class Scheduler(object):
                             # this should only occur with really really short tasks where the failure of a
                             # task noticed by task b is already obsolete because of the dependency was already
                             # restarted (because another task also issued DependenciesFailed)
-                            logger.info('Receive DependenciesFailed for task with id %s and worker name %s '
+                            logger.info('Received DependenciesFailed for task with id %s and worker name %s '
                                         'but the task is last executed on %s',
                                          task_id, worker, executed_on_last)
 
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
-            logger.info('marking %s as failed because %s failed with NotConnected',
+            logger.info('Marking %s as failed because %s failed with NotConnected',
                         task.executed_on_last, task)
             self.workers_failed.add(task.executed_on_last)
 
