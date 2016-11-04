@@ -114,7 +114,7 @@ def fmt_timedelta(tdelta):
     if seconds == 0:
         return '0 µs'
     elif seconds < 0.001:
-        return str(seconds * 1000 * 1000) + ' µs'
+        return str(round(seconds * 1000 * 1000)) + ' µs'
     elif seconds < 1:
         return str(round(seconds * 1000, 1)) + ' ms'
     elif seconds < 10:
