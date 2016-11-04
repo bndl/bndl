@@ -693,7 +693,7 @@ class Dataset(object):
         agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
 
         for _ in range(depth):
-            agg = agg.group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
+            agg = agg._group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
             pcount //= scale
             if pcount < scale:
                 break
@@ -1458,7 +1458,6 @@ class Dataset(object):
         for part in self.parts():
             generate_task(part)
 
-
         taskslist = []
         for task in tasks.values():
             task.group = groups - task.group + 1
@@ -1775,38 +1774,35 @@ def _merge_multisource(others, cls):
     for other in others:
         extend_or_append(other)
 
-    for idx, dset in enumerate(datasets[:]):
-        try:
-            datasets.index(dset, idx + 1)
-            datasets[idx] = dset._with()
-        except ValueError:
-            pass  # not found, not duplicated
-
     return datasets
 
 
 
-class UnionDataset(Dataset):
+class _MultiSourceDataset(Dataset):
     def __init__(self, src):
         assert len(src) > 1
-        super().__init__(src[0].ctx, _merge_multisource(src, UnionDataset))
+        super().__init__(src[0].ctx, _merge_multisource(src, type(self)))
 
 
+class UnionDataset(_MultiSourceDataset):
     def union(self, other, *others):
         return UnionDataset((self, other) + others)
 
 
     def parts(self):
-        return list(chain.from_iterable(src.parts() for src in self.src))
+        parts = chain.from_iterable(src.parts() for src in self.src)
+        return list(UnionPartition(self, idx, part)
+                    for idx, part in enumerate(parts))
 
 
 
-class CartesianProductDataset(Dataset):
-    def __init__(self, src):
-        assert len(src) > 1
-        super().__init__(src[0].ctx, _merge_multisource(src, CartesianProductDataset))
+class UnionPartition(Partition):
+    def _compute(self):
+        return self.src.compute()
 
 
+
+class CartesianProductDataset(_MultiSourceDataset):
     def product(self, other, *others):
         return CartesianProductDataset((self, other) + others)
 
@@ -1825,7 +1821,7 @@ class CartesianProductPartition(Partition):
 
 
 class TransformingDataset(Dataset):
-    def __init__(self, src, *funcs):  # , descs):
+    def __init__(self, src, *funcs):
         super().__init__(src.ctx, src)
         self.funcs = funcs
         self._pickle_funcs()

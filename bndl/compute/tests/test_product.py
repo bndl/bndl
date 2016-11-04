@@ -24,4 +24,7 @@ class CartesianProductTest(DatasetTest):
 
     def test_selfproduct(self):
         dset = self.ctx.collection(string.ascii_letters)
-        self.assertEqual(sorted(dset.product(dset).collect()), sorted(product(*[string.ascii_letters] * 3)))
+        actual = dset.product(dset).collect()
+        actual.sort()
+        expected = sorted(product(*[string.ascii_letters] * 2))
+        self.assertEqual(actual, expected)
