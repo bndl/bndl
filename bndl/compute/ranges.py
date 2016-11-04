@@ -2,9 +2,9 @@ from bndl.compute.dataset import Dataset, IterablePartition
 
 
 class RangeDataset(Dataset):
-    def __init__(self, ctx, start, stop=None, step=1, pcount=None):
+    def __init__(self, ctx, start, stop=None, step=1, pcount=None, dset_id=None):
         # TODO test / fix negative step
-        super().__init__(ctx)
+        super().__init__(ctx, dset_id=dset_id)
         if not stop:
             stop = start
             start = 0
@@ -44,4 +44,4 @@ class RangeDataset(Dataset):
 
 
     def __reduce__(self):
-        return RangeDataset, (self.ctx, self.start, self.stop, self.step, self.pcount)
+        return RangeDataset, (self.ctx, self.start, self.stop, self.step, self.pcount, self.id)
