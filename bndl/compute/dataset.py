@@ -17,12 +17,16 @@ import subprocess
 import threading
 import weakref
 
+from cytoolz.functoolz import compose
+from cytoolz.itertoolz import pluck, take
+
 from bndl.compute import cache
 from bndl.compute.explain import get_callsite, flatten_dset
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled
 from bndl.execute.job import RemoteTask, Job
 from bndl.execute.worker import task_context, current_worker
+from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException
 from bndl.util import serialize, cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
@@ -30,8 +34,6 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
-from cytoolz.functoolz import compose
-from cytoolz.itertoolz import pluck, take
 import numpy as np
 
 
@@ -1384,6 +1386,13 @@ class Dataset(object):
         return self._with(_workers_required=workers_required)
 
 
+    def require_local_workers(self):
+        '''
+        Require that the dataset is computed on the same node as the driver.
+        '''
+        return self.require_workers(partial(map, PeerNode.islocal))
+
+
     def allow_all_workers(self):
         '''
         Create a clone of this dataset which resets the worker filter set by
@@ -1393,7 +1402,6 @@ class Dataset(object):
             return self._with(_workers_required=None)
         else:
             return self
-
 
 
     def _execute(self, ordered=True):
@@ -1412,6 +1420,7 @@ class Dataset(object):
         def generate_task(part):
             nonlocal group, groups
 
+            cached = bool(part.cache_loc)
             task = tasks.get(part.id)
             if task:
                 return task
@@ -1426,10 +1435,13 @@ class Dataset(object):
 
             while stack:
                 p = stack.popleft()
+                cached = cached or bool(p.cache_loc)
                 if p.dset.sync_required:
                     group += 1
                     groups = max(groups, group)
                     dependency = generate_task(p)
+                    if cached:
+                        dependency.mark_done()
                     task.dependencies.append(dependency)
                     dependency.dependents.append(task)
                     group -= 1
@@ -1649,12 +1661,12 @@ class Partition(object):
         dealing with caching and preference/requirements set at the data set
         separately from locality in the 'normal' case.
         '''
-        src = self.src
-        if src:
-            if isinstance(src, Iterable):
+        if self.src:
+            if isinstance(self.src, Iterable):
                 localities = defaultdict(int)
                 forbidden = set()
-                for src in src:
+                for src in self.src:
+
                     for worker, locality in src.locality(workers) or ():
                         if locality == FORBIDDEN:
                             forbidden.append(worker)
@@ -1670,7 +1682,23 @@ class Partition(object):
                 for worker, locality in localities.items():
                     yield worker, locality / src_count
             else:
-                return src.locality(workers)
+                yield from self.src.locality(workers)
+
+
+    def save_cache_location(self, worker):
+        # memorize the cache location for the partition
+        if self.dset.cached and not self.dset._cache_locs.get(self.idx):
+            self.dset._cache_locs[self.idx] = worker
+        # traverse backup up the task (not the entire DAG)
+        if self.src:
+            if isinstance(self.src, Iterable):
+                for src in self.src:
+                    if not src.dset.sync_required:
+                        src.save_cache_location(worker)
+            else:
+                src = self.src
+                if not src.dset.sync_required:
+                    src.save_cache_location(worker)
 
 
     def __lt__(self, other):
@@ -1857,26 +1885,10 @@ class ComputePartitionTask(RemoteTask):
 
 
     def release(self):
-        super().release()
         if self.done and not self.failed:
-            self._save_cacheloc(self.part)
+            self.part.save_cache_location(self.executed_on_last)
         self.part = None
-
-
-    def _save_cacheloc(self, part):
-        # memorize the cache location for the partition
-        if part.dset.cached and not part.dset._cache_locs.get(part.idx):
-            part.dset._cache_locs[part.idx] = self.executed_on_last
-        # traverse backup up the task (not the entire DAG)
-        if part.src:
-            if isinstance(part.src, Iterable):
-                for src in part.src:
-                    if not src.dset.sync_required:
-                        self._save_cacheloc(src)
-            else:
-                src = part.src
-                if not src.dset.sync_required:
-                    self._save_cacheloc(src)
+        super().release()
 
 
 

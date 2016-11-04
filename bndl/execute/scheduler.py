@@ -74,7 +74,7 @@ class Scheduler(object):
         self.locality = {worker:{} for worker in self.workers.keys()}  # worker_name -> task -> locality > 0
         self.forbidden = defaultdict(set)  # task -> set[worker]
         # worker -> SortedList[task] in descending locality order
-        self.executable_on = {worker:SortedSet(key=lambda task, worker=worker:self.locality[worker].get(task, 0))
+        self.executable_on = {worker:SortedSet(key=lambda task, worker=worker:-self.locality[worker].get(task, 0))
                               for worker in self.workers.keys()}
 
         self.executing = set()  # mapping of task -> worker for tasks which are currently executing
@@ -87,74 +87,85 @@ class Scheduler(object):
         self.workers_failed = set()
 
         # perform scheduling under lock
-        with self.lock:
-            logger.debug('calculating which tasks are executable, which are blocked and if there is locality')
+        try:
+            with self.lock:
+                logger.debug('calculating which tasks are executable, which are blocked and if there is locality')
 
-            # create list of executable tasks and set of blocked tasks
-            for task in self.tasks.values():
-                if task.dependencies:
-                    self.blocked[task].update(task.dependencies)
-                else:
-                    self.set_executable(task)
+                # create list of executable tasks and set of blocked tasks
+                for task in self.tasks.values():
+                    # TODO don't ask on a per worker basis for locality, but ask with list of workers
+                    for worker, locality in task.locality(self.workers.values()) or ():
+                        if locality < 0:
+                            self.forbidden[task].add(worker.name)
+                        elif locality > 0:
+                            self.locality[worker.name][task] = locality
 
-                # TODO don't ask on a per worker basis for locality, but ask with list of workers
-                for worker, locality in task.locality(self.workers.values()) or ():
-                    if locality < 0:
-                        self.forbidden[task].add(worker)
-                    elif locality > 0:
-                        self.locality[worker][task] = locality
-
-            if not self.executable:
-                raise Exception('No tasks executable (all tasks have dependencies)')
-            if not self.workers_ready:
-                raise Exception('No workers available (all workers are forbidden by all tasks)')
-
-            logger.debug('starting %s tasks (%s tasks blocked) on %s workers',
-                         len(self.executable), len(self.blocked), len(self.workers_ready))
-
-            while True:
-                # wait for a worker to become available (signals task completion
-                self.condition.wait_for(lambda: self.workers_ready or self._abort)
-
-                if self._abort:
-                    # the abort flag can be set to True to break the loop (in case of emergency)
-                    for task in self.tasks.values():
-                        if task in self.executing:
-                            task.cancel()
-                    break
-
-                worker = self.workers_ready.popleft()
-
-                if worker in self.workers_failed:
-                    # the worker is 'ready' (a task was 'completed'), but with an error
-                    # or the worker was marked as failed because another task depended on an output
-                    # on this worker and the dependency failed
-                    continue
-                elif not (self.executable or self.executing):
-                    # continue work while there are executable tasks or tasks executing or break
-                    break
-                else:
-                    task = self.select_task(worker)
-                    if task:
-                        # execute a task on the given worker and add the task_done callback
-                        # the task is added to the executing set
-                        try:
-                            self.executable.remove(task)
-                            self.executable_on[worker].discard(task)
-                            self.executing.add(task)
-                            future = task.execute(self.workers[worker])
-                            future.add_done_callback(partial(self.task_done, task, worker))
-                        except CancelledError:
-                            pass
+                    if task.done:
+                        self.executed.add(task)
+                        self.done(task)
+                    elif task.dependencies:
+                        not_done = [dep for dep in task.dependencies if not dep.done]
+                        if not_done:
+                            self.blocked[task].update(not_done)
+                        else:
+                            self.set_executable(task)
                     else:
-                        self.workers_idle.add(worker)
+                        self.set_executable(task)
 
-            logger.info('completed %s tasks', len(self.executed))
+                if not self.executable:
+                    raise Exception('No tasks executable (all tasks have dependencies)')
+                if not self.workers_ready:
+                    raise Exception('No workers available (all workers are forbidden by all tasks)')
 
-            if self._abort and self._exc:
-                self.done(self._exc)
-            else:
-                self.done(None)
+                logger.debug('starting %s tasks (%s tasks blocked) on %s workers',
+                             len(self.executable), len(self.blocked), len(self.workers_ready))
+
+                while True:
+                    # wait for a worker to become available (signals task completion
+                    self.condition.wait_for(lambda: self.workers_ready or self._abort)
+
+                    if self._abort:
+                        # the abort flag can be set to True to break the loop (in case of emergency)
+                        for task in self.tasks.values():
+                            if task in self.executing:
+                                task.cancel()
+                        break
+
+                    worker = self.workers_ready.popleft()
+
+                    if worker in self.workers_failed:
+                        # the worker is 'ready' (a task was 'completed'), but with an error
+                        # or the worker was marked as failed because another task depended on an output
+                        # on this worker and the dependency failed
+                        continue
+                    elif not (self.executable or self.executing):
+                        # continue work while there are executable tasks or tasks executing or break
+                        break
+                    else:
+                        task = self.select_task(worker)
+                        if task:
+                            # execute a task on the given worker and add the task_done callback
+                            # the task is added to the executing set
+                            try:
+                                self.executable.remove(task)
+                                self.executable_on[worker].discard(task)
+                                self.executing.add(task)
+                                future = task.execute(self.workers[worker])
+                                future.add_done_callback(partial(self.task_done, task, worker))
+                            except CancelledError:
+                                pass
+                        else:
+                            self.workers_idle.add(worker)
+
+                logger.info('completed %s tasks', len(self.executed))
+
+        except Exception as exc:
+            self._exc = exc
+
+        if self._exc:
+            self.done(self._exc)
+        else:
+            self.done(None)
 
 
     def abort(self, exc=None):
@@ -179,8 +190,7 @@ class Scheduler(object):
             elif task in self.executable:
                 return task
             else:  # task not executable
-                if not self.blocked[task] or (task.done and not task.failed):
-                    self.dump_state()
+                assert False, 'task %s not in executable, executing nor executed' % task
 
         # no task available with locality > 0
         # find task which is allowed to execute on this worker
@@ -198,7 +208,7 @@ class Scheduler(object):
 
         # calculate for each worker which tasks are forbidden or which have locality
         # TODO don't ask on a per worker basis for locality, but ask with list of workers
-        for worker in self.workers:
+        for worker in self.workers.keys():
             # don't bother with 'failed' workers
             if worker not in self.workers_failed:
                 locality = self.locality[worker].get(task, 0)
@@ -283,7 +293,7 @@ class Scheduler(object):
                     task, task.executed_on_last, type(exc))
 
         if isinstance(exc, DependenciesFailed):
-            for worker_name, dependencies in exc.failures.items():
+            for worker, dependencies in exc.failures.items():
                 for task_id in dependencies:
                     try:
                         dependency = self.tasks[task_id]
@@ -293,9 +303,9 @@ class Scheduler(object):
                     else:
                         # mark the worker as failed
                         executed_on_last = dependency.executed_on_last
-                        if worker_name == executed_on_last:
+                        if worker == executed_on_last:
                             logger.info('marking %s as failed for dependency %s of %s',
-                                        worker_name, dependency, task)
+                                        worker, dependency, task)
                             self.workers_failed.add(executed_on_last)
                             self.workers_idle.discard(executed_on_last)
                             # mark task as failed and reschedule
@@ -307,7 +317,7 @@ class Scheduler(object):
                             # restarted (because another task also issued DependenciesFailed)
                             logger.info('Receive DependenciesFailed for task with id %s and worker name %s '
                                         'but the task is last executed on %s',
-                                         task_id, worker_name, executed_on_last)
+                                         task_id, worker, executed_on_last)
 
         elif isinstance(exc, NotConnected):
             # mark the worker as failed

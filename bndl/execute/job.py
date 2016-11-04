@@ -1,10 +1,11 @@
 from concurrent.futures import CancelledError, Future, TimeoutError
+from datetime import datetime
 from functools import lru_cache
 from itertools import count
 import logging
 
-from bndl.util.lifecycle import Lifecycle
 from bndl.net.connection import NotConnected
+from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,12 @@ class Task(Lifecycle):
     @property
     def done(self):
         return self.future and self.future.done()
+
+
+    def mark_done(self):
+        self.future = Future()
+        self.future.set_result(None)
+        self.started_on = self.stopped_on = datetime.now()
 
 
     @property
