@@ -9,7 +9,7 @@ from cytoolz.itertoolz import pluck
 
 
 class ShuffleTest(DatasetTest):
-    worker_count = 15
+    worker_count = 20
 
     # TODO test Dataset.clean
 
@@ -51,6 +51,7 @@ class ShuffleTest(DatasetTest):
 
         # dset_size, pcount, key_count, killers
         test_cases = [
+            [100, 30, 30, [125, 125, 125]],
             [100, 30, 30, [75, 100, 125]],
             [100, 30, 30, [100, 100, 100]],
             [100, 30, 30, [0, 50, 100]],
