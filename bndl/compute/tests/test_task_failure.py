@@ -45,23 +45,22 @@ class TaskFailureTest(DatasetTest):
                 return i
 
         for failure in failures:
-            with self.subTest('failure = %s' % failure):
-                workers = [w.name for w in self.ctx.workers]
-                dset = self.ctx.range(10).require_workers(lambda w: workers)
+            workers = [w.name for w in self.ctx.workers]
+            dset = self.ctx.range(10).require_workers(lambda w: workers)
 
-                # test it can pass
-                self.assertEqual(dset.map(partial(failon, [], failure)).count(), 10)
+            # test it can pass
+            self.assertEqual(dset.map(partial(failon, [], failure)).count(), 10)
 
-                # test that it fails if there is no retry
-                with self.assertRaises(Exception):
-                    dset.map(partial(failon, workers[:1], failure)).count()
+            # test that it fails if there is no retry
+            with self.assertRaises(Exception):
+                dset.map(partial(failon, workers[:1], failure)).count()
 
-                # test that it succeeds with a retry
-                try:
-                    self.ctx.conf['bndl.execute.attempts'] = 2
-                    self.assertEqual(dset.map(partial(failon, workers[1:2], failure)).count(), 10)
-                finally:
-                    self.ctx.conf['bndl.execute.attempts'] = 1
+            # test that it succeeds with a retry
+            try:
+                self.ctx.conf['bndl.execute.attempts'] = 2
+                self.assertEqual(dset.map(partial(failon, workers[1:2], failure)).count(), 10)
+            finally:
+                self.ctx.conf['bndl.execute.attempts'] = 1
 
 
     def test_cancel(self):

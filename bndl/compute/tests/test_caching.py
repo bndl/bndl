@@ -32,31 +32,30 @@ class CachingTest(DatasetTest):
         if serialization == 'binary':
             dset = dset.map(str.encode)
         params = dict(location=location, serialization=serialization, compression=compression)
-        with self.subTest('Caching subtest', **params):
-            self.assertEqual(self.get_cachekeys(), [])
+        self.assertEqual(self.get_cachekeys(), [])
 
-            self.assertNotEqual(dset.collect(), dset.collect())
-            self.assertEqual(self.get_cachekeys(), [])
+        self.assertNotEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [])
 
-            dset.cache(**params)
+        dset.cache(**params)
 
-            self.assertEqual(dset.collect(), dset.collect())
-            self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
+        self.assertEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
 
-            dset.cache(False)
-            self.assertNotEqual(dset.collect(), dset.collect())
-            self.assertEqual(self.get_cachekeys(), [])
+        dset.cache(False)
+        self.assertNotEqual(dset.collect(), dset.collect())
+        self.assertEqual(self.get_cachekeys(), [])
 
-            dset.cache(**params)
-            # check again, a) to check whether a dataset can be 'recached'
-            # and b) with a transformation to test caching a dataset 'not at the end'
-            self.assertEqual(dset.map(lambda i: i).collect(), dset.map(lambda i: i).collect())
-            self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
+        dset.cache(**params)
+        # check again, a) to check whether a dataset can be 'recached'
+        # and b) with a transformation to test caching a dataset 'not at the end'
+        self.assertEqual(dset.map(lambda i: i).collect(), dset.map(lambda i: i).collect())
+        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
 
-            del dset
-            for _ in range(3):
-                gc.collect()
-            self.assertEqual(self.get_cachekeys(), [])
+        del dset
+        for _ in range(3):
+            gc.collect()
+        self.assertEqual(self.get_cachekeys(), [])
 
 
     def get_cachekeys(self):

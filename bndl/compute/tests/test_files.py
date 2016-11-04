@@ -64,9 +64,8 @@ class FilesTest(DatasetTest):
         psize_files = [None, 3]
 
         for psize_bytes, psize_files in product(psize_bytes, psize_files):
-            with self.subTest('psize_bytes = %s, psize_files = %s' % (psize_bytes, psize_files)):
-                self._test_psize(psize_bytes, psize_files,
-                                 self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=psize_files))
+            self._test_psize(psize_bytes, psize_files,
+                             self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=psize_files))
 
 
     def test_count(self):
@@ -118,15 +117,14 @@ class FilesTest(DatasetTest):
 
     def test_lines(self):
         for encoding in ('utf-8', None):
-            with self.subTest('encoding is %r' % encoding):
-                lines = self.dset.lines(encoding)
-                self.assertEqual(lines.count(), self.total_line_count)
-                self.assertEqual(lines.map(len).collect(), [self.line_size] * self.total_line_count)
-                if encoding is None:
-                    expected = list(chain.from_iterable(content.splitlines(keepends=True)for content in self.contents))
-                else:
-                    expected = list(chain.from_iterable(c.decode(encoding).splitlines(keepends=True) for c in self.contents))
-                self.assertEqual(lines.collect(), expected)
+            lines = self.dset.lines(encoding)
+            self.assertEqual(lines.count(), self.total_line_count)
+            self.assertEqual(lines.map(len).collect(), [self.line_size] * self.total_line_count)
+            if encoding is None:
+                expected = list(chain.from_iterable(content.splitlines(keepends=True)for content in self.contents))
+            else:
+                expected = list(chain.from_iterable(c.decode(encoding).splitlines(keepends=True) for c in self.contents))
+            self.assertEqual(lines.collect(), expected)
 
 
     def test_decompress(self):
@@ -141,22 +139,20 @@ class FilesTest(DatasetTest):
 
     def test_split_files(self):
         for factor in (1.9, 2.0, 2.1):
-            with self.subTest('factor is %r' % factor):
-                psize_bytes = int(self.psize_bytes / 2 * factor)
-                dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=True).cache()
-                for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
-                    self.assertLessEqual(psize, psize_bytes)
-                self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
-                self._check_contents(dset)
+            psize_bytes = int(self.psize_bytes / 2 * factor)
+            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=True).cache()
+            for psize in dset.values().map(len).map_partitions(lambda p: [sum(p)]).collect():
+                self.assertLessEqual(psize, psize_bytes)
+            self.assertEqual(len(dset.parts()), math.ceil(self.total_size / psize_bytes))
+            self._check_contents(dset)
 
 
     def test_split_fileslines(self):
         sep = '\n'
         for factor in (1.8, 1.95, 2.0, 2.2):
-            with self.subTest('factor is %r' % factor):
-                psize_bytes = int(self.psize_bytes / 2 * factor)
-                dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
-                self._check_contents(dset)
-                max_lines_per_part = psize_bytes // self.line_size
-                for part in dset.values().collect(parts=True)[:-1]:
-                    self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)
+            psize_bytes = int(self.psize_bytes / 2 * factor)
+            dset = self.ctx.files(self.filenames, psize_bytes=psize_bytes, psize_files=None, split=sep).cache()
+            self._check_contents(dset)
+            max_lines_per_part = psize_bytes // self.line_size
+            for part in dset.values().collect(parts=True)[:-1]:
+                self.assertEqual(b''.join(part).decode().count(sep), max_lines_per_part)

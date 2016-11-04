@@ -60,30 +60,26 @@ class ShuffleTest(DatasetTest):
 
         try:
             for dset_size, pcount, key_count, kill_after in test_cases:
-                print(dset_size, pcount, key_count, *kill_after)
+                self.ctx.conf['bndl.execute.attempts'] = 10 * len(kill_after)
 
-                with self.subTest('dset_size = %r, pcount = %r, key_count = %r, kill_after = %r' \
-                                  % (dset_size, pcount, key_count, kill_after)):
-                    self.ctx.conf['bndl.execute.attempts'] = 10 * len(kill_after)
+                killers = [
+                    self.ctx.accumulator(WorkerKiller(worker, count))
+                    for worker, count in zip(self.ctx.workers, kill_after)
+                ]
 
-                    killers = [
-                        self.ctx.accumulator(WorkerKiller(worker, count))
-                        for worker, count in zip(self.ctx.workers, kill_after)
-                    ]
+                dset = self.ctx \
+                           .range(dset_size, pcount=pcount) \
+                           .map(identity_mapper, killers, key_count) \
+                           .shuffle() \
+                           .map(keyby_mapper, killers, key_count) \
+                           .aggregate_by_key(sum)
 
-                    dset = self.ctx \
-                               .range(dset_size, pcount=pcount) \
-                               .map(identity_mapper, killers, key_count) \
-                               .shuffle() \
-                               .map(keyby_mapper, killers, key_count) \
-                               .aggregate_by_key(sum)
+                result = dset.collect()
+                self.assertEqual(len(result), key_count)
+                self.assertEqual(sorted(pluck(0, result)), list(range(key_count)))
+                self.assertEqual(sum(pluck(1, result)), sum(range(dset_size)))
 
-                    result = dset.collect()
-                    self.assertEqual(len(result), key_count)
-                    self.assertEqual(sorted(pluck(0, result)), list(range(key_count)))
-                    self.assertEqual(sum(pluck(1, result)), sum(range(dset_size)))
-
-                    time.sleep(1)
-                    print('-' * 80)
+                time.sleep(1)
+                print('-' * 80)
         finally:
             self.ctx.conf['bndl.execute.attempts'] = 1

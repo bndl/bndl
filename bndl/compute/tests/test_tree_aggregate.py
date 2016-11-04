@@ -28,6 +28,5 @@ class TreeAggregateTest(DatasetTest):
  
     def test_depth(self):
         for d in range(2, 5):
-            with self.subTest('depth = %r' % d):
-                self.assertEqual(self.dset.tree_aggregate(sum, depth=d),
-                                 self.dset.sum())
+            self.assertEqual(self.dset.tree_aggregate(sum, depth=d),
+                             self.dset.sum())
