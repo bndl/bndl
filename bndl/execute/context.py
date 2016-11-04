@@ -146,6 +146,7 @@ class ExecutionContext(Lifecycle):
 
         step_sleep = .1
         wait_started = datetime.now()
+        max_lookback = wait_started - stable_timeout
 
         def connections_stable():
             count = self.worker_count
@@ -157,28 +158,34 @@ class ExecutionContext(Lifecycle):
                 return True
 
             # calculate a sorted list of when workers have connected
-            connected_on = sorted(worker.connected_on for worker in self.workers)
-            min_connected_since = datetime.now() - connected_on[-1]
+            connected_on = sorted(worker.connected_on for worker in self.workers
+                                  if worker.connected_on > max_lookback)
 
-            if min_connected_since > stable_timeout:
+            if not connected_on:
                 return True
-
-            if count == 1:
-                # if only one worker found, wait at least connect_timeout seconds
-                stable_time = connect_timeout
-            else:
+            elif wait_started - connected_on[-1] > stable_timeout:
+                return True
+            elif len(connected_on) > 1:
                 # otherwise, find out the max time between connects
                 # and wait twice as long
                 stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
                 # but for no longer than connect_timeout
                 stable_time = min(connect_timeout, stable_time)
+            else:
+                stable_time = connect_timeout
 
-            if min_connected_since < max(stable_time, timedelta(seconds=.5)):
-                return False
+            if connected_on[-1] - wait_started < max(stable_time, timedelta(seconds=.5)):
+                return True
 
             expected = self.worker_count ** 2 - self.worker_count
             tasks = [w.run_task(_num_connected) for w in self.workers]
-            actual = sum(t.result() for t in tasks)
+            actual = 0
+            for t in tasks:
+                try:
+                    actual += t.result()
+                except Exception:
+                    logger.debug("Couldn't get num connected from worker", exc_info=True)
+                    return False
 
             return expected == actual
 
@@ -231,6 +238,6 @@ class ExecutionContext(Lifecycle):
         except KeyError:
             pass
 
-    
+
     def __reduce__(self):
         return type(self), (None, self.conf)

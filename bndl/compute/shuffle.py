@@ -23,6 +23,7 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import prefetch
 from bndl.util.hash import portable_hash
 from bndl.util.psutil import process_memory_percent, virtual_memory
+from bndl.rmi import InvocationException, root_exc
 
 
 logger = logging.getLogger(__name__)
@@ -498,6 +499,8 @@ class ShuffleReadingPartition(Partition):
         # if a dependency wasn't executed yet (e.g. cache after shuffle)
         # raise dependencies failed for restart
         if None in dependencies_executed_on:
+            logger.warning('Unable to compute %r because dependency locations are unknown for %r',
+                           self, dependencies_executed_on[None])
             raise DependenciesFailed({None: dependencies_executed_on[None]})
 
         source_names = set(dependencies_executed_on)
@@ -568,9 +571,17 @@ class ShuffleReadingPartition(Partition):
         for worker, future in zip(sources, size_requests):
             try:
                 size = future.result()
-            except (KeyError, NotConnected):
+            except NotConnected:
                 # mark all dependencies of worker as missing
                 dependencies_missing[worker.name] = dependencies_executed_on[worker.name]
+            except InvocationException as exc:
+                root = root_exc(exc)
+                if isinstance(root, KeyError):
+                    dependencies_missing[worker.name] = dependencies_executed_on[worker.name]
+                else:
+                    logger.exception('Unable to compute bucket size %s.%s on %s' %
+                                     (self.dset.src.id, self.idx, worker.name))
+                    raise
             except Exception:
                 logger.exception('Unable to compute bucket size %s.%s on %s' %
                                  (self.dset.src.id, self.idx, worker.name))
@@ -586,20 +597,24 @@ class ShuffleReadingPartition(Partition):
             try:
                 del size_info_missing[src_part_idx]
             except KeyError:
+                logger.warning('Received size info for unexpected source partition %r',
+                               src_part_idx, exc_info=True)
                 raise
 
+        # translate size info missing into missing dependencies
         if size_info_missing:
-            for src_id in size_info_missing.values():
+            for src_idx, src_id in list(size_info_missing.items()):
                 for worker, dependencies in dependencies_executed_on.items():
                     for dependency in dependencies:
                         if dependency == src_id:
                             dependencies_missing[worker].append(src_id)
+                            del size_info_missing[src_idx]
                             break
-            else:
-                raise Exception('Bucket size information from %r could not be retrieved, '
-                                'but can\'t raise DependenciesFailed as one or more source '
-                                'partition ids are not found in dependencies_executed_on %r',
-                                size_info_missing, dependencies_executed_on)
+        if size_info_missing:
+            raise Exception('Bucket size information from %r could not be retrieved, '
+                            'but can\'t raise DependenciesFailed as one or more source '
+                            'partition ids are not found in dependencies_executed_on %r' %
+                            (size_info_missing, dependencies_executed_on))
 
         # raise DependenciesFailed to trigger re-execution of the missing dependencies and
         # subsequently the computation of _this_ partition

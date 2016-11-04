@@ -95,7 +95,8 @@ class Task(Lifecycle):
 
 
     def mark_failed(self, exc):
-        self.future = Future()
+        if not self.future:
+            self.future = Future()
         self.future.set_exception(exc)
         now = datetime.now()
         if not self.started_on:
@@ -168,13 +169,6 @@ class RemoteTask(Task):
         return future
 
 
-    def set_exception(self, exc):
-        if self.future:
-            self.future.set_exception(exc)
-        else:
-            logger.warning('exception occurred in task %s which is not scheduled / already released', self)
-
-
     @property
     def executed_on_last(self):
         if self.executed_on:
@@ -190,7 +184,7 @@ class RemoteTask(Task):
         try:
             self.handle = future.result()
         except Exception as exc:
-            self.set_exception(exc)
+            self.mark_failed(exc)
         else:
             try:
                 future = self._worker_executing_on.get_task_result(self.handle)
@@ -198,7 +192,7 @@ class RemoteTask(Task):
                 # is done before adding callack (callback gets executed in this thread)
                 future.add_done_callback(self._task_completed)
             except NotConnected as exc:
-                self.set_exception(exc)
+                self.mark_failed(exc)
 
 
     def _task_completed(self, future):

@@ -1888,6 +1888,7 @@ class ComputePartitionTask(RemoteTask):
             # created mapping of worker -> list[part_id] for dependency locations
             dependencies_executed_on = defaultdict(list)
             for dep in self.dependencies:
+#                 assert dep.part.id not in dependencies_executed_on[dep.executed_on_last]
                 dependencies_executed_on[dep.executed_on_last].append(dep.part.id)
 
             # set locations as second arguments

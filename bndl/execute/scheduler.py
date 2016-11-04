@@ -13,6 +13,10 @@ from sortedcontainers import SortedSet
 logger = logging.getLogger(__name__)
 
 
+class FailedDependency(Exception):
+    pass
+
+
 class Scheduler(object):
     '''
     TODO
@@ -80,6 +84,7 @@ class Scheduler(object):
 
         self.executing = set()  # mapping of task -> worker for tasks which are currently executing
         self.executed = set()  # tasks which have been executed
+        self.failures = defaultdict(int)  # failure counts per task (task -> int)
 
         # keep a FIFO queue of workers ready
         # and a list of idle workers (ready, but no more tasks to execute)
@@ -174,7 +179,7 @@ class Scheduler(object):
             self.done(self._exc)
         elif self._abort:
             logger.info('aborted after %s tasks', len(self.executed))
-            self.done(None)
+            self.done(Exception('Scheduler aborted'))
         else:
             logger.info('completed %s tasks', len(self.executed))
             self.done(None)
@@ -274,14 +279,15 @@ class Scheduler(object):
                         blocked_by = self.blocked[dependent]
                         blocked_by.discard(task)
                         if not blocked_by:
+                            logger.debug('%r unblocked because %r was executed', dependent, task)
                             self.set_executable(dependent)
 
                 self.workers_ready.append(worker)
                 self.condition.notify()
-        except Exception:
+        except Exception as exc:
             logger.exception('Unable to handle task completion of %r on %r',
                              task, worker)
-            self.abort()
+            self.abort(exc)
 
 
     def task_failed(self, task):
@@ -293,45 +299,32 @@ class Scheduler(object):
 
         # fail its dependencies
         for dependent in task.dependents:
+            logger.debug('%r is blocked by %r because it failed', dependent, task)
             self.blocked[dependent].add(task)
 
-        if len(task.executed_on) >= self.attempts:
-            logger.warning('%r failed on %r after %r attempts ... aborting',
-                           task, task.executed_on_last, len(task.executed_on))
-            # signal done (failed) to allow bubbling up the error and abort
-            self.done(task)
-            self.abort()
-            return
-
         exc = root_exc(task.exception())
-        if task.executed_on_last:
-            logger.info('%r failed on %s with %s: %s, rescheduling',
-                        task, task.executed_on_last, exc.__class__.__name__, exc)
-        else:
-            logger.info('%r failed before being executed with %s: %s, rescheduling',
-                        task, exc.__class__.__name__, exc)
 
         if isinstance(exc, DependenciesFailed):
+            logger.info('%r failed on %s because %r dependencies failed, rescheduling',
+                        task, task.executed_on_last, len(exc.failures))
+
             for worker, dependencies in exc.failures.items():
                 for task_id in dependencies:
                     try:
                         dependency = self.tasks[task_id]
-                    except KeyError:
+                    except KeyError as exc:
                         logger.error('Received DependenciesFailed for unknown task with id %s' % task_id)
-                        self.abort()
+                        self.abort(exc)
                     else:
                         # mark the worker as failed
                         executed_on_last = dependency.executed_on_last
                         if worker is None:
-                            dependency.set_exception(Exception('Marked as failed by %r' % task))
+                            dependency.mark_failed(FailedDependency('Marked as failed by %r' % task))
                             self.task_failed(dependency)
                         elif worker == executed_on_last:
                             logger.info('Marking %s as failed for dependency %s of %s',
                                         worker, dependency, task)
-                            self.workers_failed.add(executed_on_last)
-                            self.workers_idle.discard(executed_on_last)
-                            # mark task as failed and reschedule
-                            dependency.set_exception(Exception('Marked as failed by task %r' % task))
+                            dependency.mark_failed(FailedDependency('Marked as failed by task %r' % task))
                             self.task_failed(dependency)
                         else:
                             # this should only occur with really really short tasks where the failure of a
@@ -341,11 +334,35 @@ class Scheduler(object):
                                         'but the task is last executed on %s',
                                          task_id, worker, executed_on_last)
 
+        elif isinstance(exc, FailedDependency):
+            if task.executed_on_last:
+                self.workers_failed.add(task.executed_on_last)
+                self.workers_idle.discard(task.executed_on_last)
+                # mark task as failed and reschedule
+
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
             logger.info('Marking %s as failed because %s failed with NotConnected',
                         task.executed_on_last, task)
             self.workers_failed.add(task.executed_on_last)
+
+        else:
+            self.failures[task] = failures = self.failures[task] + 1
+            print('---', task, 'failed with', type(exc), exc, '---', failures, 'times now ...')
+            if failures >= self.attempts:
+                logger.warning('%r failed on %r after %r attempts ... aborting',
+                               task, task.executed_on_last, len(task.executed_on))
+                # signal done (failed) to allow bubbling up the error and abort
+                self.done(task)
+                self.abort(task.exception())
+                return
+            elif task.executed_on_last:
+                logger.info('%r failed on %s with %s: %s, rescheduling',
+                            task, task.executed_on_last, exc.__class__.__name__, exc)
+            else:
+                logger.info('%r failed before being executed with %s: %s, rescheduling',
+                            task, exc.__class__.__name__, exc)
+
 
         if len(self.workers_failed) == len(self.workers):
             try:
