@@ -4,6 +4,9 @@ from bndl.compute.run import create_ctx
 from bndl.net.run import argparser
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
+from toolz.itertoolz import groupby
+from operator import attrgetter
+from bndl.util.funcs import identity
 
 
 HEADER = r'''         ___ _  _ ___  _
@@ -32,18 +35,23 @@ def main():
             config['bndl.net.listen_addresses'] = args.listen_addresses
         if args.seeds:
             config['bndl.net.seeds'] = args.seeds
+            config['bndl.compute.worker_count'] = 0
         if args.worker_count is not None:
             config['bndl.compute.worker_count'] = args.worker_count
 
         ctx = create_ctx(config)
         ns = dict(ctx=ctx)
 
+        worker_count = ctx.await_workers(args.worker_count)
+        node_count = len(groupby(identity, [tuple(sorted(worker.ip_addresses)) for worker in ctx.workers]))
+        header = HEADER + '\nConnected with %r workers on %r nodes' % (worker_count, node_count)
+
         try:
             import IPython
-            IPython.embed(header=HEADER, user_ns=ns)
+            IPython.embed(header=header, user_ns=ns)
         except ImportError:
             import code
-            code.interact(HEADER, local=ns)
+            code.interact(header, local=ns)
     finally:
         with catch():
             ctx.stop()
