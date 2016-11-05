@@ -1560,6 +1560,12 @@ class Dataset(object):
         return clone
 
 
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        del state['callsite']
+        return state
+
+
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
 
@@ -1854,7 +1860,7 @@ class TransformingDataset(Dataset):
 
 
     def __getstate__(self):
-        state = dict(self.__dict__)
+        state = super().__getstate__()
         del state['funcs']
         return state
 

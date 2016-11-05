@@ -380,7 +380,7 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
     def __getstate__(self):
-        state = dict(self.__dict__)
+        state = super().__getstate__()
         try:
             del state['_parts']
         except KeyError:

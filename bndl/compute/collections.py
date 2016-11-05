@@ -58,6 +58,6 @@ class DistributedCollection(Dataset):
 
 
     def __getstate__(self):
-        state = dict(self.__dict__)
+        state = super().__getstate__()
         del state['collection']
         return state
