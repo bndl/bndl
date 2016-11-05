@@ -45,7 +45,7 @@ class PeerNode(object):
         self.disconnected_on = None
         self._iotasks = set()
 
-        atexit.register(self.disconnect_async, 'process terminated')
+        atexit.register(self._stop_tasks)
 
 
     @property

@@ -56,7 +56,7 @@ class Node(object):
         self._watchdog = None
         self._iotasks = set()
 
-        atexit.register(self.stop_async)
+        atexit.register(self._stop_tasks)
 
 
     @property
@@ -248,13 +248,13 @@ class Node(object):
     def _notifiy_peers(self, new_peer):
         with(yield from self._peer_table_lock):
             peers = list(self.peers.filter())
-            random.shuffle(peers)
 
-        peer_list = list(
+        random.shuffle(peers)
+        peer_list = [
             (peer.name, peer.addresses)
             for peer in peers
             if peer.name != new_peer.name
-        )
+        ]
 
         try:
             if peer_list:
