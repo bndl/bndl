@@ -69,7 +69,7 @@ def task_stats(tasks):
         # use the average duration times remaining to compute the total time remaining
         # divided by no remaining - it indicates the concurrency
         # count the duration running only half (add a bit of pessimism)
-        time_remaining = max(timedelta(), avg_duration * remaining / running - duration_running / 2)
+        time_remaining = max(timedelta(), avg_duration * remaining / running - duration_running / running)
     else:
         time_remaining = None
 
