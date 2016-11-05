@@ -593,13 +593,22 @@ class ShuffleReadingPartition(Partition):
         # and indicate which tasks/parts aren't available. This assumes that the task ids
         # for the missing source partitions equals the ids of these partitions.
         size_info_missing = {src.idx:src.id for src in self.src}
-        for src_part_idx in pluck(0, chain.from_iterable(pluck(2, sizes))):
-            try:
-                del size_info_missing[src_part_idx]
-            except KeyError:
-                logger.warning('Received size info for unexpected source partition %r',
-                               src_part_idx, exc_info=True)
-                raise
+        # keep track of where a source partition is available
+        source_locations = {}
+
+        for worker_idx, (worker, get_blocks, size) in enumerate(sizes):
+            selected = []
+            for src_part_idx, block_sizes in size:
+                if src_part_idx in size_info_missing:
+                    del size_info_missing[src_part_idx]
+                    source_locations[src_part_idx] = (worker, block_sizes)
+                    selected.append((src_part_idx, block_sizes))
+                else:
+                    other_worker, other_sizes = source_locations[src_part_idx]
+                    logger.warning('Source partition %r available more than once, '
+                                   'at least at %s with block sizes %r and %s with block_sizes %r',
+                                   src_part_idx, worker, block_sizes, other_worker, other_sizes)
+            sizes[worker_idx] = worker, get_blocks, selected
 
         # translate size info missing into missing dependencies
         if size_info_missing:
