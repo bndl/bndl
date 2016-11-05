@@ -106,11 +106,11 @@ class Child(object):
         return self.proc and self.returncode is None
 
 
-    def terminate(self):
+    def terminate(self, force=False):
         if self.running:
             try:
                 logger.info('Terminating child %s (%s:%s) with SIGTERM', self.id , self.module, self.main)
-                self.proc.send_signal(signal.SIGTERM)
+                self.proc.send_signal(signal.SIGKILL if force else signal.SIGTERM)
             except ProcessLookupError:
                 pass  # already terminated
 
@@ -156,6 +156,9 @@ class Supervisor(object):
         self._watcher = None  # signals watcher to stop
         for child in self.children:
             child.terminate()
+        for child in self.children:
+            if child.wait(MIN_RUN_TIME) is None:
+                child.terminate(True)
 
 
     def wait(self, timeout=None):
@@ -194,11 +197,6 @@ class Supervisor(object):
                 time.sleep(self.check_interval)
 
 
-def echo(*args):
-    if __name__ == '__main__':
-        print(*args)
-
-
 def main(supervisor_args=None, child_args=None):
     # parse arguments
     if supervisor_args is None:
@@ -213,13 +211,11 @@ def main(supervisor_args=None, child_args=None):
     # and run until CTRL-C / SIGTERM
     try:
         entry_point = ':'.join(supervisor_args.entry_point)
-        echo('supervisor is starting', supervisor_args.process_count, entry_point, 'child processes ...')
         supervisor.start()
         supervisor.wait()
     except KeyboardInterrupt:
-        echo('supervisor interrupted')
+        pass
     finally:
-        echo('supervisor is stopping', supervisor_args.process_count, entry_point, 'child processes')
         supervisor.stop()
 
 
