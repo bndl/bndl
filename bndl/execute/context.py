@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta
+from queue import Queue
+from threading import Thread
 import logging
 import time
+import warnings
 import weakref
 
 from bndl.execute.profile import CpuProfiling, MemoryProfiling
+from bndl.execute.scheduler import Scheduler
 from bndl.execute.worker import current_worker
 from bndl.util import plugins
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
-from bndl.execute.scheduler import Scheduler
-from queue import Queue
-from threading import Thread
 
 
 logger = logging.getLogger(__name__)
@@ -138,77 +139,87 @@ class ExecutionContext(Lifecycle):
         :param stable_timeout: int or float
             Maximum time in seconds waited until no more workers are discovered.
         '''
-
         if not isinstance(connect_timeout, timedelta):
             connect_timeout = timedelta(seconds=connect_timeout)
         if not isinstance(stable_timeout, timedelta):
             stable_timeout = timedelta(seconds=stable_timeout)
 
+        # workers are awaited in a loop, idling step_sleep each time
+        # step_sleep increases until at most 1 second
         step_sleep = .1
+
+        # remember when we started the wait
         wait_started = datetime.now()
-        max_lookback = wait_started - stable_timeout
+        # and set deadlines for first connect and stability
+        connected_deadline = wait_started + connect_timeout
+        stable_deadline = wait_started + stable_timeout
+        # for stability we don't look back further than the stable timeout
+        stable_max_lookback = wait_started - stable_timeout
 
-        def connections_stable():
-            count = self.worker_count
-            # not 'stable' until at least one worker found
-            if count == 0:
-                return False
+        def is_stable():
+            '''
+            Check whether the cluster of workers is 'stable'.
 
-            if count == worker_count:
-                return True
+            The following heuristics are applied (assuming the default timeout
+            values):
 
-            # calculate a sorted list of when workers have connected
-            connected_on = sorted(worker.connected_on for worker in self.workers
-                                  if worker.connected_on > max_lookback)
-
-            if not connected_on:
-                return True
-            elif wait_started - connected_on[-1] > stable_timeout:
-                return True
-            elif len(connected_on) > 1:
-                # otherwise, find out the max time between connects
-                # and wait twice as long
-                stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
-                # but for no longer than connect_timeout
-                stable_time = min(connect_timeout, stable_time)
+            - The cluster is considered stable if no connects are made in the
+              last 60 seconds.
+            - If there is only one such recent connects, at least 5 seconds
+              has passed.
+            - If there are more recent connects, the cluster is considered
+              stable if at least twice the maximum interval between the
+              connects has passed or 1 second, whichever is longer.
+            '''
+            assert self.worker_count > 0
+            now = datetime.now()
+            recent_connects = sorted(worker.connected_on for worker in self.workers
+                                     if worker.connected_on > stable_max_lookback)
+            if not recent_connects:
+                return False, True
+            elif len(recent_connects) == 1:
+                return True, recent_connects[0] < now - connect_timeout
             else:
-                stable_time = connect_timeout
+                max_connect_gap = max(b - a for a, b in zip(recent_connects, recent_connects[1:]))
+                stable_time = max(2 * max_connect_gap, timedelta(seconds=1))
+                time_since_last_connect = now - recent_connects[-1]
+                return True, time_since_last_connect > stable_time
 
-            if connected_on[-1] - wait_started < max(stable_time, timedelta(seconds=.5)):
-                return True
-
+        def worker_count_consistent():
+            '''Check if the workers all see each other'''
             expected = self.worker_count ** 2 - self.worker_count
-            tasks = [w.run_task(_num_connected) for w in self.workers]
+            tasks = [(w, w.run_task(_num_connected)) for w in self.workers]
             actual = 0
-            for t in tasks:
+            for worker, task in tasks:
                 try:
-                    actual += t.result()
+                    actual += task.result()
                 except Exception:
-                    logger.debug("Couldn't get num connected from worker", exc_info=True)
-                    return False
-
+                    logger.info("Couldn't get connected worker count from %r", worker, exc_info=True)
             return expected == actual
 
-        if self.workers and connections_stable():
-            return self.worker_count
+        while True:
+            if worker_count == self.worker_count:
+                return worker_count
 
-        # wait connect_timeout to find first worker
-        while datetime.now() - wait_started < connect_timeout:
-            if self.workers:
-                break
-            time.sleep(step_sleep)
-        if not self.workers:
-            raise RuntimeError('no workers available')
+            if self.worker_count == 0:
+                if datetime.now() > connected_deadline:
+                    raise RuntimeError('no workers available')
+            else:
+                recent_connects, stable = is_stable()
 
-        # wait stable_timeout to let the discovery complete
-        while datetime.now() - wait_started < stable_timeout:
-            if connections_stable():
-                break
-            time.sleep(step_sleep)
-            if step_sleep < 1:
-                step_sleep *= 2
+                if stable:
+                    if not recent_connects:
+                        return self.worker_count
+                    elif recent_connects:
+                        if worker_count_consistent():
+                            return self.worker_count
 
-        return self.worker_count
+                if datetime.now() > stable_deadline:
+                    warnings.warn('Worker count not stable after %r' % stable_timeout)
+                    return self.worker_count
+
+                time.sleep(step_sleep)
+                step_sleep = min(1, step_sleep * 1.5)
 
 
     @property
