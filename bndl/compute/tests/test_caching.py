@@ -1,7 +1,9 @@
 from collections import Counter
+from itertools import chain
 import gc
 import itertools
 import random
+import time
 
 from bndl.compute import cache
 from bndl.compute.tests import DatasetTest
@@ -11,6 +13,19 @@ from bndl.util.funcs import identity
 
 class CachingTest(DatasetTest):
     worker_count = 3
+
+
+    def get_cachekeys(self):
+        fetches = [worker.run_task(lambda: list(cache._caches.keys()))
+                   for worker in self.ctx.workers]
+        return list(chain.from_iterable(fetch.result() for fetch in fetches))
+
+
+    def gc_collect(self):
+        for _ in range(3):
+            gc.collect()
+            time.sleep(0)
+        time.sleep(1)
 
 
     def test_caching(self):
@@ -28,11 +43,12 @@ class CachingTest(DatasetTest):
 
 
     def caching_subtest(self, dset, location, serialization, compression):
+        self.assertEqual(self.get_cachekeys(), [])
+
         dset = dset.map(identity)
         if serialization == 'binary':
             dset = dset.map(str.encode)
         params = dict(location=location, serialization=serialization, compression=compression)
-        self.assertEqual(self.get_cachekeys(), [])
 
         self.assertNotEqual(dset.collect(), dset.collect())
         self.assertEqual(self.get_cachekeys(), [])
@@ -42,7 +58,7 @@ class CachingTest(DatasetTest):
         self.assertEqual(dset.collect(), dset.collect())
         self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
 
-        dset.cache(False)
+        dset.uncache(True, 5)
         self.assertNotEqual(dset.collect(), dset.collect())
         self.assertEqual(self.get_cachekeys(), [])
 
@@ -53,13 +69,8 @@ class CachingTest(DatasetTest):
         self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
 
         del dset
-        for _ in range(3):
-            gc.collect()
+        self.gc_collect()
         self.assertEqual(self.get_cachekeys(), [])
-
-
-    def get_cachekeys(self):
-        return self.ctx.range(self.worker_count).flatmap(lambda i: cache._caches.keys()).collect()
 
 
     def test_cache_fetch(self):
@@ -79,6 +90,9 @@ class CachingTest(DatasetTest):
 
         second = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w1]).execute()
         self.assertEqual(executed_on.value, Counter({w0:10, w1:10}))
-        self.assertEqual(self.get_cachekeys(), [dset.id])
+        self.assertEqual(self.get_cachekeys(), [dset.id] * 2)
 
         self.assertEqual(first, second)
+
+        del dset
+        self.gc_collect()
