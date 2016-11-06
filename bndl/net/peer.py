@@ -21,14 +21,18 @@ HELLO_TIMEOUT = 60
 
 class PeerTable(dict):
     def filter(self, address=None, node_type=None, connected=True):
-        peers = self.values()
-        if address is not None:
-            peers = filter(lambda p: address in p.addresses, peers)
-        if node_type is not None:
-            peers = filter(lambda p: p.node_type == node_type, peers)
-        if connected is not None:
-            peers = filter(lambda p: p.is_connected == connected, peers)
-        return list(peers)
+        while True:
+            try:
+                peers = self.values()
+                if address is not None:
+                    peers = filter(lambda p: address in p.addresses, peers)
+                if node_type is not None:
+                    peers = filter(lambda p: p.node_type == node_type, peers)
+                if connected is not None:
+                    peers = filter(lambda p: p.is_connected == connected, peers)
+                return list(peers)
+            except RuntimeError:
+                pass
 
 
 class PeerNode(object):
