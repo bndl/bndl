@@ -118,8 +118,9 @@ class Node(object):
 
         # close the servers
         for server in self.servers.values():
-            with catch(RuntimeError):
-                server.close()
+            if server:
+                with catch(RuntimeError):
+                    server.close()
 
 
     @asyncio.coroutine

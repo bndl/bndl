@@ -1,4 +1,4 @@
-from collections import Counter, deque, defaultdict, Iterable, Sized, OrderedDict
+from collections import Counter, defaultdict, Iterable, Sized
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
 from math import sqrt, log, ceil
@@ -1391,7 +1391,7 @@ class Dataset(object):
         '''
         Require that the dataset is computed on the same node as the driver.
         '''
-        return self.require_workers(partial(map, PeerNode.islocal))
+        return self.require_workers(PeerNode.islocal)
 
 
     def allow_all_workers(self):
@@ -1413,61 +1413,11 @@ class Dataset(object):
             yield task.result()
 
 
-    def _tasks(self):
-        tasks = OrderedDict()
-        group = 1
-        groups = 1
-
-        def generate_task(part):
-            nonlocal group, groups
-
-            cached = bool(part.cache_loc)
-            task = tasks.get(part.id)
-            if task:
-                return task
-
-            stack = deque()
-            task = ComputePartitionTask(part, group)
-
-            if isinstance(part.src, Iterable):
-                stack.extend(part.src)
-            elif part.src is not None:
-                stack.append(part.src)
-
-            while stack:
-                p = stack.popleft()
-                cached = cached or bool(p.cache_loc)
-                if p.dset.sync_required:
-                    group += 1
-                    groups = max(groups, group)
-                    dependency = generate_task(p)
-                    if cached:
-                        dependency.mark_done()
-                    task.dependencies.append(dependency)
-                    dependency.dependents.append(task)
-                    group -= 1
-                else:
-                    if isinstance(p.src, Iterable):
-                        stack.extend(p.src)
-                    elif p.src is not None:
-                        stack.append(p.src)
-
-            tasks[part.id] = task
-            return task
-
-        for part in self.parts():
-            generate_task(part)
-
-        taskslist = []
-        for task in tasks.values():
-            task.group = groups - task.group + 1
-            taskslist.append(task)
-        return taskslist
-
-
     def _schedule(self):
         name, desc = get_callsite()
-        job = Job(self.ctx, self._tasks(), name, desc)
+        from . import schedule
+        tasks = schedule.schedule(self)
+        job = Job(self.ctx, tasks, name, desc)
 
         cleanups = []
         for dset in flatten_dset(self):
@@ -1595,29 +1545,30 @@ class Partition(object):
 
         # check cache
         if cached:
+            cache_loc = self.cache_loc()
             try:
-                if self.cache_loc == self.dset.ctx.node.name:
+                if cache_loc == self.dset.ctx.node.name:
                     # read locally
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
-                elif self.cache_loc:
-                    peer = self.dset.ctx.node.peers[self.cache_loc]
+                elif cache_loc:
+                    peer = self.dset.ctx.node.peers[cache_loc]
                     return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
             except NotConnected:
                 logger.info('Unable to get cached partition %s.%s from %s (not connected)',
-                            self.dset.id, self.idx, self.cache_loc)
+                            self.dset.id, self.idx, cache_loc)
             except InvocationException as exc:
                 exc = root_exc(exc)
                 if isinstance(exc, KeyError):
                     logger.info('Unable to get cached partition %s.%s from %s (not found)',
-                                self.dset.id, self.idx, self.cache_loc)
+                                self.dset.id, self.idx, cache_loc)
                 else:
                     logger.warning('Unable to get cached partition %s.%s from %s',
-                                   self.dset.id, self.idx, self.cache_loc, exc_info=True)
+                                   self.dset.id, self.idx, cache_loc, exc_info=True)
             except Exception:
                 logger.warning('Unable to get cached partition %s.%s from %s',
-                               self.dset.id, self.idx, self.cache_loc, exc_info=True)
+                               self.dset.id, self.idx, cache_loc, exc_info=True)
 
         # compute if not cached
         data = self._compute()
@@ -1631,7 +1582,6 @@ class Partition(object):
         return data
 
 
-    @property
     def cache_loc(self):
         return self.dset._cache_locs.get(self.idx, None)
 
@@ -1646,17 +1596,16 @@ class Partition(object):
         
         :return: a generator of worker, locality pairs.
         '''
-        workers_filtered = set(workers)
-
         if self.dset._workers_required is not None:
             allowed = set(self.dset._workers_required(workers))
-            forbidden = set(workers_filtered) - allowed
-            workers_filtered = allowed
+            forbidden = set(workers) - allowed
+            workers = allowed
             for worker in forbidden:
                 yield worker, FORBIDDEN
 
-        cache_loc = self.cache_loc
+        cache_loc = self.cache_loc()
         if cache_loc:
+            workers_filtered = set(workers)
             for worker in workers:
                 if cache_loc == worker.name:
                     yield worker, PROCESS_LOCAL
@@ -1664,9 +1613,10 @@ class Partition(object):
                 elif worker.islocal:
                     yield worker, NODE_LOCAL
                     workers_filtered.remove(worker)
+            workers = workers_filtered
 
-        if workers_filtered:
-            yield from self._locality(workers_filtered)
+        if workers:
+            yield from self._locality(workers)
 
 
     def _locality(self, workers):
@@ -1683,6 +1633,8 @@ class Partition(object):
                 localities = defaultdict(int)
                 forbidden = set()
                 for src in self.src:
+                    if src.dset.sync_required:
+                        continue
 
                     for worker, locality in src.locality(workers) or ():
                         if locality == FORBIDDEN:
@@ -1699,7 +1651,9 @@ class Partition(object):
                 for worker, locality in localities.items():
                     yield worker, locality / src_count
             else:
-                yield from self.src.locality(workers)
+                src = self.src
+                if not src.dset.sync_required:
+                    yield from src.locality(workers)
 
 
     def save_cache_location(self, worker):
@@ -1881,6 +1835,7 @@ class TransformingPartition(Partition):
 
 
 class ComputePartitionTask(RemoteTask):
+
     def __init__(self, part, group):
         name = part.dset.callsite[0]
         super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},

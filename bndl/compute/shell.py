@@ -44,7 +44,7 @@ def main():
         if config['bndl.net.seeds'] or config['bndl.compute.worker_count']:
             print('Connecting with workers ...', end='\r')
             worker_count = ctx.await_workers(args.worker_count)
-            node_count = len(groupby(identity, [tuple(sorted(worker.ip_addresses)) for worker in ctx.workers]))
+            node_count = len(groupby(identity, [tuple(sorted(worker.ip_addresses())) for worker in ctx.workers]))
             header = HEADER + '\nConnected with %r workers on %r nodes' % (worker_count, node_count)
         else:
             header = HEADER

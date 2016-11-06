@@ -17,13 +17,13 @@ from bndl.compute.storage import StorageContainerFactory
 from bndl.execute import DependenciesFailed, TaskCancelled
 from bndl.execute.worker import task_context
 from bndl.net.connection import NotConnected
+from bndl.rmi import InvocationException, root_exc
 from bndl.util.collection import batch as batch_data, ensure_collection
 from bndl.util.conf import Float
 from bndl.util.exceptions import catch
 from bndl.util.funcs import prefetch
 from bndl.util.hash import portable_hash
 from bndl.util.psutil import process_memory_percent, virtual_memory
-from bndl.rmi import InvocationException, root_exc
 
 
 logger = logging.getLogger(__name__)
@@ -481,6 +481,7 @@ class ShuffleReadingDataset(Dataset):
         self.sorted = sorted
 
 
+    @lru_cache()
     def parts(self):
         sources = self.src.parts()
         return [
@@ -751,6 +752,10 @@ class ShuffleReadingPartition(Partition):
                 return merge_sorted(*streams, key=self.dset.src.key)
         else:
             return chain.from_iterable(block.read() for block in blocks)
+
+
+    def _locality(self, workers):
+        return ()
 
 
 

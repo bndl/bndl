@@ -70,7 +70,7 @@ class Scheduler(object):
         logger.info('Executing job with %r tasks', len(self.tasks))
 
         self._abort = False
-        self._exc = False
+        self._exc = None
 
         # containers for states a task can be in
         self.executable = SortedSet(key=lambda task: task.priority)  # sorted executable tasks (sorted by task.id by default)
@@ -88,8 +88,8 @@ class Scheduler(object):
 
         # keep a FIFO queue of workers ready
         # and a list of idle workers (ready, but no more tasks to execute)
-        self.workers_ready = deque()
-        self.workers_idle = set(self.workers.keys())
+        self.workers_ready = deque(self.workers.keys())
+        self.workers_idle = set()
         self.workers_failed = set()
 
         # perform scheduling under lock
@@ -99,24 +99,24 @@ class Scheduler(object):
 
                 # create list of executable tasks and set of blocked tasks
                 for task in self.tasks.values():
-                    # TODO don't ask on a per worker basis for locality, but ask with list of workers
                     for worker, locality in task.locality(self.workers.values()) or ():
                         if locality < 0:
                             self.forbidden[task].add(worker.name)
                         elif locality > 0:
                             self.locality[worker.name][task] = locality
 
-                    if task.done:
+                for task in self.tasks.values():
+                    if task.stopped_on:
                         self.executed.add(task)
                         self.done(task)
                     elif task.dependencies:
-                        not_done = [dep for dep in task.dependencies if not dep.done]
+                        not_done = set(dep for dep in task.dependencies if not dep.stopped_on)
                         if not_done:
-                            self.blocked[task].update(not_done)
+                            self.blocked[task] = not_done
                         else:
-                            self.set_executable(task)
+                            self.executable.add(task)
                     else:
-                        self.set_executable(task)
+                        self.executable.add(task)
 
                 if not self.executable:
                     raise Exception('No tasks executable (all tasks have dependencies)')
@@ -169,7 +169,6 @@ class Scheduler(object):
                         else:
                             self.workers_idle.add(worker)
 
-
         except Exception as exc:
             self._exc = exc
 
@@ -191,7 +190,6 @@ class Scheduler(object):
         self._abort = True
         with self.lock:
             self.condition.notify_all()
-
 
 
     def select_task(self, worker):

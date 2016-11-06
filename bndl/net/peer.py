@@ -48,13 +48,12 @@ class PeerNode(object):
         atexit.register(self._stop_tasks)
 
 
-    @property
     def ip_addresses(self):
         return filter_ip_addresses(*self.addresses)
 
-    @property
+
     def islocal(self):
-        return bool(self.ip_addresses & self.local.ip_addresses)
+        return bool(self.ip_addresses() & self.local.ip_addresses())
 
 
     @asyncio.coroutine

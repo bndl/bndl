@@ -104,7 +104,7 @@ def _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
 
 
 def _ip_addresses(worker):
-    return tuple(sorted(map(str, worker.ip_addresses)))
+    return tuple(sorted(map(str, worker.ip_addresses())))
 
 
 def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
@@ -120,7 +120,7 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
         worker_batches = []
         batches.append(worker_batches)
         for file_chunks in batch_request.result():
-            worker_batches.append((worker.ip_addresses, file_chunks))
+            worker_batches.append((worker.ip_addresses(), file_chunks))
 
     # interleave batches to ease scheduling overhead
     batches = list(interleave(batches))
@@ -403,7 +403,7 @@ class LocalFilesDataset(FilesDataset):
         if not self.split and keepends:
             ds = FilesDataset(self.ctx)
             ds._parts = [
-                LinesFilesPartition(ds, part.idx, part.ip_addresses,
+                LinesFilesPartition(ds, part.idx, part.ip_addresses(),
                                     part.file_chunks, encoding, errors)
                 for part in self._parts
             ]
@@ -447,7 +447,7 @@ class LocalFilesPartition(FilesPartition):
 
     def allowed_workers(self, workers):
         return [worker for worker in workers
-                if worker.ip_addresses & self.ip_addresses]
+                if worker.ip_addresses() & self.ip_addresses]
 
 
 

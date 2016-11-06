@@ -5,30 +5,34 @@ class RangeDataset(Dataset):
     def __init__(self, ctx, start, stop=None, step=1, pcount=None, dset_id=None):
         # TODO test / fix negative step
         super().__init__(ctx, dset_id=dset_id)
+
         if not stop:
             stop = start
             start = 0
+
+        if pcount is None:
+            pcount = ctx.default_pcount
+
+        len_ = len(range(start, stop, step))
+        parts = (
+            IterablePartition(self, idx, range(
+                start + idx * len_ // pcount * step,
+                start + (idx + 1) * len_ // pcount * step,
+                step
+            ))
+            for idx in range(pcount)
+        )
+
+        self._parts = [part for part in parts if part.iterable]
+
         self.start = start
         self.stop = stop
         self.step = step
-        self.len = len(range(start, stop, step))
-        self.pcount = pcount or ctx.default_pcount
+        self.pcount = pcount
 
 
     def parts(self):
-        parts = (
-            IterablePartition(self, idx, range(
-                self._subrange_start(idx),
-                self._subrange_start(idx + 1),
-                self.step
-            ))
-            for idx in range(self.pcount)
-        )
-        return [part for part in parts if part.iterable]
-
-
-    def _subrange_start(self, idx):
-        return self.start + idx * self.len // self.pcount * self.step
+        return self._parts
 
 
     def __str__(self):

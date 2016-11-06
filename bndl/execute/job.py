@@ -36,11 +36,12 @@ class Job(Lifecycle):
 
 class Task(Lifecycle):
 
-    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None):
+    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None):
         super().__init__(name or 'task ' + str(task_id),
                          desc or 'unknown task ' + str(task_id))
         self.ctx = ctx
         self.id = task_id
+        self.group = group
 
         self.priority = task_id if priority is None else priority
         self.future = None
@@ -81,9 +82,10 @@ class Task(Lifecycle):
 
 
     def mark_done(self):
-        self.future = Future()
-        self.future.set_result(None)
-        self.started_on = self.stopped_on = datetime.now()
+        if not self.done:
+            self.future = Future()
+            self.future.set_result(None)
+            self.started_on = self.stopped_on = datetime.now()
 
 
     @property
@@ -118,10 +120,6 @@ class Task(Lifecycle):
         return self.future.exception()
 
 
-    def _future_done(self, future):
-        self.signal_stop()
-
-
     def release(self):
         if not self.failed:
             self.future = None
@@ -148,12 +146,11 @@ class Task(Lifecycle):
 class RemoteTask(Task):
 
     def __init__(self, ctx, task_id, method, args=(), kwargs=None, *, priority=None, name=None, desc=None, group=None):
-        super().__init__(ctx, task_id, priority=priority, name=name, desc=desc)
+        super().__init__(ctx, task_id, priority=priority, name=name, desc=desc, group=group)
         self.method = method
         self.args = args
         self.kwargs = kwargs or {}
         self.handle = None
-        self.group = group
 
 
     def execute(self, worker):

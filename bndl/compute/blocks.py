@@ -240,11 +240,11 @@ class BlockManager:
         blocks = [None] * block_spec.num_blocks
         self._blocks_cache[name] = blocks
 
-        local_ips = self.ip_addresses
+        local_ips = self.ip_addresses()
 
         for _ in blocks:
             idx, candidates = self._next_download(block_spec, peers)
-            candidates = split(candidates, lambda c: bool(c.ip_addresses & local_ips))
+            candidates = split(candidates, lambda c: bool(c.ip_addresses() & local_ips))
             local, remote = candidates[True], candidates[False]
 
             def download(source):
