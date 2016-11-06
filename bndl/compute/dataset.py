@@ -1452,18 +1452,18 @@ class Dataset(object):
 
 
     def uncache(self, block=False, timeout=None):
+        if not self.cached:
+            return
+
+        logger.debug('uncaching %r', self)
+
         # issue uncache tasks
         def clear(provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
 
-        tasks = [
-            worker.run_task
-            for worker in self.ctx.workers
-            if worker.name in set(self._cache_locs.values())]
-
+        tasks = [worker.run_task for worker in self.ctx.workers]
         if timeout:
             tasks = [task.with_timeout(timeout) for task in tasks]
-
         tasks = [task(clear) for task in tasks]
 
         if block:
@@ -1479,16 +1479,20 @@ class Dataset(object):
         # clear cache locations
         self._cache_locs = {}
         self._cache_provider = None
+
         return self
 
 
     def __del__(self):
         if getattr(self, '_cache_provider', None):
-            node = None
-            with catch(RuntimeError):
-                node = self.ctx.node
-            if node and node.node_type == 'driver':
-                self.uncache()
+            try:
+                node = None
+                with catch(RuntimeError):
+                    node = self.ctx.node
+                if node and node.node_type == 'driver':
+                    self.uncache()
+            except:
+                logger.exception('Unable to clear cache')
 
 
     def __hash__(self):
@@ -1542,13 +1546,12 @@ class Partition(object):
 
     def compute(self):
         cached = self.dset.cached
+        cache_loc = self.cache_loc()
 
         # check cache
         if cached:
-            cache_loc = self.cache_loc()
             try:
                 if cache_loc == self.dset.ctx.node.name:
-                    # read locally
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
                 elif cache_loc:
                     peer = self.dset.ctx.node.peers[cache_loc]
