@@ -64,7 +64,6 @@ class Node(object):
         return list(self.servers.keys())
 
 
-    @property
     def ip_addresses(self):
         return filter_ip_addresses(*self.addresses)
 
