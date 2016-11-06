@@ -6,6 +6,7 @@ python:
 
 install:
   - pip install pip --upgrade
+  - pip install pandas
   - pip install -e .[dev]
 
 script: make test
