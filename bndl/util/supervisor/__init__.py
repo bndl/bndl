@@ -1,4 +1,4 @@
-from subprocess import Popen
+from subprocess import Popen, TimeoutExpired
 import argparse
 import atexit
 import itertools
@@ -157,7 +157,9 @@ class Supervisor(object):
         for child in self.children:
             child.terminate()
         for child in self.children:
-            if child.wait(MIN_RUN_TIME) is None:
+            try:
+                child.wait(MIN_RUN_TIME)
+            except TimeoutExpired:
                 child.terminate(True)
 
 
