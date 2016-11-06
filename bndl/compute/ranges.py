@@ -13,18 +13,6 @@ class RangeDataset(Dataset):
         if pcount is None:
             pcount = ctx.default_pcount
 
-        len_ = len(range(start, stop, step))
-        parts = (
-            IterablePartition(self, idx, range(
-                start + idx * len_ // pcount * step,
-                start + (idx + 1) * len_ // pcount * step,
-                step
-            ))
-            for idx in range(pcount)
-        )
-
-        self._parts = [part for part in parts if part.iterable]
-
         self.start = start
         self.stop = stop
         self.step = step
@@ -32,7 +20,17 @@ class RangeDataset(Dataset):
 
 
     def parts(self):
-        return self._parts
+        len_ = len(range(self.start, self.stop, self.step))
+        parts = (
+            IterablePartition(self, idx, range(
+                self.start + idx * len_ // self.pcount * self.step,
+                self.start + (idx + 1) * len_ // self.pcount * self.step,
+                self.step
+            ))
+            for idx in range(self.pcount)
+        )
+
+        return [part for part in parts if part.iterable]
 
 
     def __str__(self):
@@ -45,7 +43,3 @@ class RangeDataset(Dataset):
             s += ',' + str(self.step)
 
         return 'range(' + s + ')'
-
-
-    def __reduce__(self):
-        return RangeDataset, (self.ctx, self.start, self.stop, self.step, self.pcount, self.id)
