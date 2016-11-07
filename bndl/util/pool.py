@@ -1,5 +1,4 @@
 import queue
-from threading import Event
 import threading
 from datetime import timedelta
 import time
