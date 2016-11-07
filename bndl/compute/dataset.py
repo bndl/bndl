@@ -1545,15 +1545,16 @@ class Partition(object):
 
 
     def compute(self):
-        cached = self.dset.cached
         cache_loc = self.cache_loc()
 
         # check cache
-        if cached:
+        if cache_loc:
             try:
                 if cache_loc == self.dset.ctx.node.name:
+                    logger.debug('Using local cache for %r', self)
                     return self.dset._cache_provider.read(self.dset.id, self.idx)
-                elif cache_loc:
+                else:
+                    logger.debug('Using remote cache for %r on %r', self, cache_loc)
                     peer = self.dset.ctx.node.peers[cache_loc]
                     return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
@@ -1574,10 +1575,12 @@ class Partition(object):
                                self.dset.id, self.idx, cache_loc, exc_info=True)
 
         # compute if not cached
+        logger.debug('Computing %r', self)
         data = self._compute()
 
         # cache if requested
-        if cached:
+        if self.dset.cached:
+            logger.debug('Caching %r', self)
             data = ensure_collection(data)
             self.dset._cache_provider.write(self.dset.id, self.idx, data)
 
@@ -1869,10 +1872,10 @@ class ComputePartitionTask(RemoteTask):
 
 
     def release(self):
-#         if self.done and not self.failed:
-#             self.part.save_cache_location(self.executed_on_last)
+        if self.done and not self.failed:
+            self.part.save_cache_location(self.executed_on_last)
         self.part = None
-#         super().release()
+        super().release()
 
 
 
