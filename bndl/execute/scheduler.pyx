@@ -181,7 +181,9 @@ class Scheduler(object):
             self.done(Exception('Scheduler aborted'))
         else:
             logger.info('completed %s tasks', len(self.executed))
-            self.done(None)
+
+        # always issue None (to facilitate e.g. iter(queue.get, None))
+        self.done(None)
 
 
     def abort(self, exc=None):
