@@ -65,7 +65,7 @@ class Dataset(object):
         self.ctx = ctx
         self.src = src
         self.id = dset_id or strings.random(8)
-        self._cache_provider = False
+        self._cache_provider = None
         self._cache_locs = {}
         self._workers_required = None
         self.callsite = get_callsite(type(self))
@@ -1545,10 +1545,11 @@ class Partition(object):
 
 
     def compute(self):
+        cached = self.dset.cached
         cache_loc = self.cache_loc()
 
         # check cache
-        if cache_loc:
+        if cached and cache_loc:
             try:
                 if cache_loc == self.dset.ctx.node.name:
                     logger.debug('Using local cache for %r', self)
@@ -1579,7 +1580,7 @@ class Partition(object):
         data = self._compute()
 
         # cache if requested
-        if self.dset.cached:
+        if cached:
             logger.debug('Caching %r', self)
             data = ensure_collection(data)
             self.dset._cache_provider.write(self.dset.id, self.idx, data)
