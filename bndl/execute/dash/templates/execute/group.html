@@ -22,9 +22,9 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 			</tr>
 		</thead>
 		<tbody>
-			{% for task in tasks %}
+			{% for task in tasks|reverse %}
 			<tr class="{{ 'active' if task.running else '' }}">
-				<td>{{ loop.index }}</td>
+				<td>{{ loop.revindex }}</td>
 				<td>{{ task|task_status }}</td>
 				<td>{{ task.duration|fmt_timedelta }}</td>
 				<td>{{ task.started_on.strftime('%Y-%m-%d %H:%M:%S') if task.started_on else '' }}</td>

@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import pickle
+import re
 import shlex
 import struct
 import subprocess
@@ -21,7 +22,7 @@ from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
 from bndl.compute import cache
-from bndl.compute.explain import get_callsite
+from bndl.compute.explain import get_callsite, callsite, set_callsite
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled
 from bndl.execute.job import RemoteTask, Job, Task
@@ -35,6 +36,7 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
+from bndl.util.strings import camel_to_snake
 import numpy as np
 
 
@@ -497,6 +499,7 @@ class Dataset(object):
             return self.map_partitions(lambda p: (kv for kv in p if kv[1]))
 
 
+    @callsite()
     def nlargest(self, num, key=None):
         '''
         Take the num largest elements from this dataset.
@@ -511,6 +514,7 @@ class Dataset(object):
         return self._take_ordered(num, key, heapq.nlargest)
 
 
+    @callsite()
     def nsmallest(self, num, key=None):
         '''
         Take the num smallest elements from this dataset.
@@ -587,7 +591,8 @@ class Dataset(object):
         '''
         if isinstance(bins, int):
             assert bins >= 1
-            stats = self.stats()
+            with set_callsite(name='histogram.stats'):
+                stats = self.stats()
             if stats.min == stats.max or bins == 1:
                 return np.array([stats.count]), np.array([stats.min, stats.max])
             step = (stats.max - stats.min) / bins
@@ -1125,7 +1130,8 @@ class Dataset(object):
                     return samples[:point_count]
                 else:
                     return samples
-            samples = self.map_partitions(sampler).collect()
+            with set_callsite(name='sort.sampler'):
+                samples = self.map_partitions(sampler).collect()
 
         assert samples
 
@@ -1415,6 +1421,7 @@ class Dataset(object):
 
     def _schedule(self):
         name, desc = get_callsite()
+        name = re.sub('[_.]', ' ', name)
         from . import scheduler
         tasks = scheduler.schedule(self)
         job = Job(self.ctx, tasks, name, desc)
@@ -1525,7 +1532,7 @@ class Dataset(object):
 
 
     def __str__(self):
-        return self.callsite[0]
+        return '%s (%s)' % (self.callsite[0], self.__class__.__name__)
 
 
 FORBIDDEN = -1
@@ -1851,7 +1858,7 @@ class BarrierTask(Task):
 class ComputePartitionTask(RemoteTask):
 
     def __init__(self, part, group):
-        name = part.dset.callsite[0]
+        name = re.sub('[_.]', ' ', part.dset.callsite[0])
         super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
                          name=name, desc=part.dset.callsite, group=group)
         self.part = part

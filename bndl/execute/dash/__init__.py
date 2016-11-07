@@ -25,6 +25,7 @@ class Dash(dash.Dash):
 
 @blueprint.app_template_filter('task_stats')
 def task_stats(tasks):
+    tasks = [task for task in tasks if task.group != 'hidden']
     total = len(tasks)
 
     started = [task.started_on for task in tasks if task.started_on]

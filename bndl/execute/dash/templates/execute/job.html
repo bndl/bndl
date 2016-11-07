@@ -43,7 +43,7 @@ Job {{ job.id }}: {{ job.name }}
 			</tr>
 		</thead>
 		<tbody>
-		{% for group in job.tasks|groupby('group') %}
+		{% for group in job.tasks|rejectattr('group', 'equalto', 'hidden')|groupby('group')|reverse %}
 		<tr class="clickable {{ ' active' if group.running_on else '' }}" data-href='group/{{ group.grouper }}'>
 			<td>{{ group.grouper }}</td>
 			<td>{{ (group.list|first).name }}</td>

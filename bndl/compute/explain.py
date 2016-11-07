@@ -42,6 +42,7 @@ def get_callsite(*internal, name=None):
 
 @contextlib.contextmanager
 def set_callsite(*internal, name=None):
+    internal += (contextlib.contextmanager,)
     if not hasattr(_callsite, 'current'):
         _callsite.current = get_callsite(*internal, name=name)
         yield
@@ -50,13 +51,13 @@ def set_callsite(*internal, name=None):
         yield
 
 
-def callsite(*internal):
+def callsite(*internal, name=None):
     def decorator(func):
         nonlocal internal
-        internal += (func, contextlib.contextmanager)
+        internal += (func,)
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with set_callsite(*internal, name=func.__name__):
+            with set_callsite(*internal, name=name or func.__name__):
                 return func(*args, **kwargs)
         return wrapper
     return decorator

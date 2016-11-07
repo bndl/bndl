@@ -9,8 +9,10 @@
 	<td>
 		{% if stats.tasks %}
 		{% set completed = (stats.completed * 100 / stats.total) %}
+		{% set failed = (stats.failed * 100 / stats.total) %}
 		<div class="progress{{ ' progress-striped' if stats.running else '' }}" style="width: 100%; margin: 0;">
 		  <div class="progress-bar progress-bar-success" style="width: {{ completed }}%">{% if completed > 10 %}{{ completed|round(0)|int }}%{% endif %}</div>
+		  <div class="progress-bar progress-bar-danger" style="width: {{ failed }}%"></div>
 		  <div class="progress-bar" style="background-color: rgba(20, 20, 20, .2); width: {{ stats.cancelled * 100 / stats.total }}%"></div>
 		  <div class="progress-bar progress-bar-default" style="{% if stats.running %}min-width: 5px;{% endif %} width: {{ (stats.running) * 100 / stats.total }}%"></div>
 		  <div style="text-align: center;"></div>
