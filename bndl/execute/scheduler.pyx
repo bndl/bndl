@@ -156,11 +156,11 @@ class Scheduler(object):
                                 self.executable.remove(task)
                                 self.executable_on[worker].discard(task)
                                 self.executing.add(task)
-                                future = task.execute(self.workers[worker])
-                                future.add_done_callback(partial(self.task_done, task, worker))
                                 if logger.isEnabledFor(logging.DEBUG):
                                     logger.debug('%r executing on %r with locality %r',
                                                  task, worker, self.locality[worker].get(task, 0))
+                                future = task.execute(self.workers[worker])
+                                future.add_done_callback(partial(self.task_done, task, worker))
                             except CancelledError:
                                 pass
                             except Exception as exc:
@@ -348,7 +348,6 @@ class Scheduler(object):
 
         else:
             self.failures[task] = failures = self.failures[task] + 1
-            print('---', task, 'failed with', type(exc), exc, '---', failures, 'times now ...')
             if failures >= self.attempts:
                 logger.warning('%r failed on %r after %r attempts ... aborting',
                                task, task.executed_on_last, len(task.executed_on))
