@@ -4,7 +4,6 @@ from threading import Thread
 import logging
 import time
 import warnings
-import weakref
 
 from bndl.execute.profile import CpuProfiling, MemoryProfiling
 from bndl.execute.scheduler import Scheduler
@@ -24,7 +23,7 @@ def _num_connected():
 
 
 class ExecutionContext(Lifecycle):
-    instances = weakref.WeakSet()
+    instances = set()
 
     def __init__(self, node, config=Config()):
         # Make sure the BNDL plugins are loaded
