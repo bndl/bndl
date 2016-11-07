@@ -180,10 +180,10 @@ class Container(object):
         self.provider = provider
 
     def read(self):
-        ...
+        raise Exception('not implemented')
 
     def write(self, data):
-        ...
+        raise Exception('not implemented')
 
 
 class InMemory(Container):
@@ -296,7 +296,7 @@ class OnDisk(SerializedContainer):
     def clear(self):
         try:
             os.remove(self.filepath)
-        except FileNotFoundError:
+        except (AttributeError, FileNotFoundError):
             pass
         except Exception:
             logger.exception('Unable to clear file %s for id %s' %
