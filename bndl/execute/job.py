@@ -108,15 +108,12 @@ class Task(Lifecycle):
 
 
     def result(self):
-        assert self.future, 'task not yet scheduled'
-        try:
-            return self.future.result()
-        finally:
-            self._release_resources()
+        assert self.future, 'task %r not yet scheduled' % self
+        return self.future.result()
 
 
     def exception(self):
-        assert self.future, 'task not yet started'
+        assert self.future, 'task %r not yet started' % self
         return self.future.exception()
 
 
@@ -221,11 +218,6 @@ class RemoteTask(Task):
 
         if self.future:
             self.future = None
-
-
-    def result(self):
-        assert self.future, 'task %r not yet scheduled' % self
-        return self.future.result()
 
 
     def release(self):
