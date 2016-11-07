@@ -20,7 +20,7 @@ cdef tuple generate_tasks(tasks, dset, int group, int groups):
         if d.sync_required:
             cached = d.cached and d._cache_locs
             groups, dependencies = generate_tasks(tasks, d, group + 1, max(groups, group + 1))
-            barrier = BarrierTask(d.ctx, (d.id, -1), group='hidden')
+            barrier = BarrierTask(d.ctx, (d.id, len(dependencies)), group='hidden')
             tasks[barrier.id] = barrier
             barrier.dependents = dset_tasks
             barrier.dependencies = dependencies
@@ -29,8 +29,7 @@ cdef tuple generate_tasks(tasks, dset, int group, int groups):
             for dependency in dependencies:
                 if cached:
                     dependency.mark_done()
-                for task in dset_tasks:
-                    dependency.dependents.append(barrier)
+                dependency.dependents.append(barrier)
         else:
             d_src = d.src
             if d_src:
