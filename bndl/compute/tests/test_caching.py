@@ -96,3 +96,4 @@ class CachingTest(DatasetTest):
 
         del dset
         self.gc_collect()
+        self.assertEqual(self.get_cachekeys(), [])
