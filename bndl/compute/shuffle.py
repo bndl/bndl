@@ -438,7 +438,7 @@ class ShuffleWritingPartition(Partition):
                     if spilled:
                         # update the check frequency according to the size of
                         # the serialized (and possibly combined) records
-                        check_interval = calc_check_interval(buckets)
+                        check_interval = calc_check_interval()
 
                     logger.debug('memory usage from %.2f%% down to %.2f%% after spilling %.2f mb',
                                  mem_used, process_memory_percent(), spilled / 1024 / 1024)
