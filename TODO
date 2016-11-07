@@ -1,70 +1,34 @@
-Communicate worker list in scheduling task
- - (pin a job on workers or check that shuffles are ok after workers join)
+heartbeat at task level to identify failed tasks ?
 
-Detect missing data on shuffle read (building on #1) and fail task
- - but with rescheduling the dependency
-
-reschedule failed tasks on other hosts
- - heartbeat at task level to identify failed tasks
-
-don't propagate CTRL+C to workers in ipython shell
-
-dset.sort().first() is waaaay slower than dset.sort().count()
 
 sort should be lazy
-
-
-check on cancelling jobs
- - use https://docs.python.org/2/reference/expressions.html#generator.close ?
-
-check on partial iteration with e.g. itake and friends
-
-check stable ids for nodes
- - it causes a new node on an old address to be rejected
- - perhaps drop node id and use hostname and port?
-   then use each address as key in peertable (node.peers)
-   might just as well have issues with multiple hostnames resolving to the same machine ... 
+ - perhaps even learn buckets while sorting ... ? (i.e. single pass sort?)
+ 
 
 the rx tx rates aren't updated on sp-dev
 only start gui on driver by default
 
-investigate cassandra retry policy
 
-pickle ops in the map / filter partitions
- - this may cloudpickle functions so that this 'requirement' doesn't ripple out into the entire dset dag
-same for filenames, nparrays, etc.
+Enhance dashboard with info from https://pypi.python.org/pypi/psutil
+Perhaps display skipped tasks clearer
+Display task locality
 
 
 Limit resource usage from supervisor with: https://docs.python.org/3.4/library/resource.html
-Enhance dashboard with info from https://pypi.python.org/pypi/psutil
 
 
-Show cancellation of tasks / stages / jobs
-
-Don't skip job ids for branches
-(assign them on execute?)
-
-
-wait for gossip to settle before starting a node / the shell
- - e.g. with ctx.worker_count
-   and/or sum(t.result() for t in [w.run_task(lambda w: sum(1 for w in w.peers.filter())) for w in ctx.workers])
- - or perhaps show this as measure in the dashboard?   
-
+check dependency graph for dependencies going packages down/up in wrong places
+ - e.g. bndl.compute.schedule to .base
+move caching aspect of datasets to one module (not spread over .schedule and .base)
 
 move caches, broadcast values etc down to execute layer
 use hierarchical namespace for set / del
 
 
-Use custom pickler to set node in Execute/ComputeContext
- - allow ...Context to be more easily used in e.g. a mapper
- - ex. ctx.range(20).map(lambda i: ctx.node...)
- 
- 
 Possibly introduce a control and data layer
  - i.e. to allow sending large volumes out of band from the control comms
  - this allows the watchdog to operate better as well
  - should improve stability
- 
  
 
 Consider not using 1 fixed worker per core, but 1 worker per node which forks per task
@@ -83,16 +47,15 @@ Consider not using 1 fixed worker per core, but 1 worker per node which forks pe
    - the two points above are prohibitive
    - figure out an alternative memory efficient broadcast   
  
- 
 Consider a communication architecture with a core cross node network and a on node inter process network
  - perhaps supplemented by (temporary) direct connections on a data layer
- 
+
  
 Make entire compute.dataset api asynchronous
  - i.e. some_action() returns a future
  - use some_action().result() to get the results (may be an iterable)
  - use some_action().cancel() to cancel the job
- 
+
 
 Allow stages to be composed of an undetermined amount of tasks
  - i.e. allow a generator / queue of tasks
@@ -102,81 +65,38 @@ Allow jobs to be composed of an undetermined amount of stages
  
 The API / data model might change into a job which yields 1+ tasks and 0+ barriers.
 
+
 Consider changing the task execution model from push to pull. 
  - could easy implementing having a task in flight
  - might be difficult with a generator / queue of tasks in combination with worker preferences
 
  
-Spill shuffles to disk
- - and do the sorting in place
- 
- 
-Implement checkpointing
+Implement check pointing
  - perform cleanup of stages before the stage of the checkpointed dset 
- 
- 
+
+
 add pickle options to broadcast_pickle
- 
- 
-decouple yielding results from job/stage/task executions from driving their execution
-  - yield returns when the receiver is done ... all that time, no tasks are scheduled
-  - may check the hypotheses above ...
  
  
 Prevent occurences of:
  27158 : OpenBLAS blas_thread_init: RLIMIT_NPROC 4096 current, 4127376 max
-27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
+ 27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
  
  
-make ctx.files scan dir faster
-make ctx.files read files faster
-
- 
-ctx.shuffle isn't cached ?
- 
- 
- 
-CTRL+C in bndl-shell causes hangs
- 
- 
- 
-Sometimes a job/stage doesn't complete without errors ...
-- Is there a race condition somewhere in job/stage execution?
-
 PeerTable.filter is not threadsafe!
-
-canceling a job with two+ stages only cancels the current stage? 
-
 
 
 support cassandra.coscan with _asdicts
 
 try to implement read retry in cassandra scan without materializing an entire token range
 
-implement collect_as_json
-
 
 implement drop function to drop columns / fields
 
 
-implement icollect_unordered
-use icollect_unordered for collect_as_pickles / collect_as_json
-
-
-
 check partition sizes for cassandra scan
-
-
 cassandra scan .parts() is not stable
 
-
-show cancelled state of job, stage and task
-show amount cancelled in status bar for job and stage
-
-
-check dependency graph for dependencies going packages down/up in wrong places
- - e.g. bndl.compute.schedule to .base
-move caching aspect of datasets to one module (not spread over .schedule and .base)
 
 consider driving the tasks from another process / do something about liveness of the driver during jobs
 
@@ -376,21 +296,7 @@ cache van cass partitioner moet rekening houden met bndl_cassandra.part_size_key
 check token ranges in cassandra scan - is everything covered?
 
 
-investigate if we can do something better than yielding entire groups (from e.g. grouop_by_key) in a tuple
-
-
-Revive:
-    def prefer_workers(self, fltr):
-        return self._with(_worker_preference=fltr)
-
-    def require_workers(self, fltr):
-        return self._with(_worker_filter=fltr)
-
-    def require_local_workers(self):
-        return self.require_workers(PeerNode.islocal)
-
-    def allow_all_workers(self):
-        return self.allow_workers(None)
+investigate if we can do something better than yielding entire groups (from e.g. group_by_key) in a tuple
 
 
 
@@ -402,3 +308,31 @@ Reconsider shuffle implementation for keywise aggregation:
 
 join_with_cassandra with a single element key doesn't work
   (getter should return an iterable)
+
+  
+remote cache read raw and decode on reading worker if was serialized in memory or on disk
+
+
+speed up calculating which tasks are executable, which are blocked and if there is locality
+ - way to slow for even a moderate number of tasks (e.g. 240 in five-way shuffle on 20 workers)
+ 
+ 
+ 
+Traceback (most recent call last):
+  File "/home/frens.jan.rumph/venv/bin/bndl-compute-shell", line 11, in <module>
+    load_entry_point('bndl==0.3.0.dev1', 'console_scripts', 'bndl-compute-shell')()
+  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/compute/shell.py", line 46, in main
+    worker_count = ctx.await_workers(args.worker_count)
+  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/execute/context.py", line 204, in await_workers
+    if self.worker_count == 0:
+  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/execute/context.py", line 227, in worker_count
+    return len(self.workers)
+  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/execute/context.py", line 232, in workers
+    return list(self.node.peers.filter(node_type='worker'))
+  File "/home/frens.jan.rumph/venv/lib/python3.4/site-packages/bndl/net/peer.py", line 31, in filter
+    return list(peers)
+RuntimeError: dictionary changed size during iteration
+ 
+ 
+ 
+ 
