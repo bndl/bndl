@@ -1,6 +1,6 @@
 from collections import deque, Iterable, OrderedDict
 
-from bndl.compute.dataset import ComputePartitionTask, Partition
+from bndl.compute.dataset import BarrierTask, ComputePartitionTask, Partition
 
 
 cdef tuple generate_tasks(tasks, dset, int group, int groups):
@@ -19,14 +19,18 @@ cdef tuple generate_tasks(tasks, dset, int group, int groups):
         d = stack.popleft()
         if d.sync_required:
             cached = d.cached and d._cache_locs
-            groups, dependencies = generate_tasks(tasks, d, group + 1, max(groups, group+1))
+            groups, dependencies = generate_tasks(tasks, d, group + 1, max(groups, group + 1))
+            barrier = BarrierTask(d.ctx, (d.id, -1), group='hidden')
+            tasks[barrier.id] = barrier
+            barrier.dependents = dset_tasks
+            barrier.dependencies = dependencies
             for task in dset_tasks:
-                task.dependencies.extend(dependencies)
+                task.dependencies.append(barrier)
             for dependency in dependencies:
                 if cached:
                     dependency.mark_done()
                 for task in dset_tasks:
-                    dependency.dependents.append(task)
+                    dependency.dependents.append(barrier)
         else:
             d_src = d.src
             if d_src:
@@ -46,6 +50,20 @@ def schedule(dset):
     groups, _ = generate_tasks(tasks, dset, 1, 1)
     taskslist = []
     for task in tasks.values():
-        task.group = groups - task.group + 1
+        if task.group != 'hidden':
+            task.group = groups - task.group + 1
         taskslist.append(task)
     return taskslist
+
+
+def flatten(root):
+    datasets = []
+    stack = [root]
+    while stack:
+        dset = stack.pop()
+        datasets.append(dset)
+        if isinstance(dset.src, Iterable):
+            stack.extend(dset.src)
+        elif dset.src is not None:
+            stack.append(dset.src)
+    return datasets

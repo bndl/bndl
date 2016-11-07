@@ -21,10 +21,10 @@ from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
 from bndl.compute import cache
-from bndl.compute.explain import get_callsite, flatten_dset
+from bndl.compute.explain import get_callsite
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled
-from bndl.execute.job import RemoteTask, Job
+from bndl.execute.job import RemoteTask, Job, Task
 from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
@@ -1415,12 +1415,12 @@ class Dataset(object):
 
     def _schedule(self):
         name, desc = get_callsite()
-        from . import schedule
-        tasks = schedule.schedule(self)
+        from . import scheduler
+        tasks = scheduler.schedule(self)
         job = Job(self.ctx, tasks, name, desc)
 
         cleanups = []
-        for dset in flatten_dset(self):
+        for dset in scheduler.flatten(self):
             if dset.cleanup:
                 cleanups.append(dset.cleanup)
 
@@ -1837,6 +1837,13 @@ class TransformingPartition(Partition):
 
 
 
+class BarrierTask(Task):
+    def execute(self, worker):
+        self.future = concurrent.futures.Future()
+        self.future.set_result(None)
+        return self.future
+
+
 class ComputePartitionTask(RemoteTask):
 
     def __init__(self, part, group):
@@ -1849,22 +1856,23 @@ class ComputePartitionTask(RemoteTask):
 
     def execute(self, worker):
         if self.dependencies:
+            assert len(self.dependencies) == 1 and isinstance(self.dependencies[0], BarrierTask)
+            dependencies = self.dependencies[0].dependencies
             # created mapping of worker -> list[part_id] for dependency locations
             dependencies_executed_on = defaultdict(list)
-            for dep in self.dependencies:
-#                 assert dep.part.id not in dependencies_executed_on[dep.executed_on_last]
+            for dep in dependencies:
+                assert dep.part.id not in dependencies_executed_on[dep.executed_on_last]
                 dependencies_executed_on[dep.executed_on_last].append(dep.part.id)
-
             # set locations as second arguments
             self.args[1] = dependencies_executed_on
         return super().execute(worker)
 
 
     def release(self):
-        if self.done and not self.failed:
-            self.part.save_cache_location(self.executed_on_last)
+#         if self.done and not self.failed:
+#             self.part.save_cache_location(self.executed_on_last)
         self.part = None
-        super().release()
+#         super().release()
 
 
 

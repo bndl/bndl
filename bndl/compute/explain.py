@@ -60,34 +60,3 @@ def callsite(*internal):
                 return func(*args, **kwargs)
         return wrapper
     return decorator
-
-
-def flatten_dset(root):
-    datasets = []
-    stack = [root]
-    while stack:
-        dset = stack.pop()
-        datasets.append(dset)
-        if isinstance(dset.src, Iterable):
-            stack.extend(dset.src)
-        elif dset.src is not None:
-            stack.append(dset.src)
-    return datasets
-
-
-def group_dsets(root):
-    group = []
-    groups = [group]
-    stack = [root]
-    while stack:
-        dset = stack.pop()
-        group.append(dset)
-        src = dset.src
-        if isinstance(src, Iterable):
-            stack.extend(src)
-        elif src is not None:
-            if src.sync_required:
-                groups.extend(group_dsets(src))
-            else:
-                stack.append(src)
-    return groups
