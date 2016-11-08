@@ -136,7 +136,7 @@ class Task(Lifecycle):
             state = ' running'
         else:
             state = ''
-        return '<Task %s%s>' % (task_id, state)
+        return '<%s %s%s>' % (self.__class__.__name__, task_id, state)
 
 
 

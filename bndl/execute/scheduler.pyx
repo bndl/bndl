@@ -95,7 +95,7 @@ class Scheduler(object):
         # perform scheduling under lock
         try:
             with self.lock:
-                logger.debug('calculating which tasks are executable, which are blocked and if there is locality')
+                logger.debug('Calculating which tasks are executable, which are blocked and if there is locality')
 
                 # create list of executable tasks and set of blocked tasks
                 for task in self.tasks.values():
@@ -123,7 +123,7 @@ class Scheduler(object):
                 if not self.workers_ready:
                     raise Exception('No workers available (all workers are forbidden by all tasks)')
 
-                logger.debug('starting %s tasks (%s tasks blocked) on %s workers (%s tasks already done)',
+                logger.debug('Starting %r tasks (%r tasks blocked) on %r workers (%r tasks already done)',
                              len(self.executable), len(self.blocked), len(self.workers_ready), len(self.executed))
 
                 while True:
@@ -173,14 +173,14 @@ class Scheduler(object):
             self._exc = exc
 
         if self._exc:
-            logger.info('failed after %s tasks with %s: %s',
+            logger.info('Failed after %r tasks with %s: %s',
                         len(self.executed), self._exc.__class__.__name__, self._exc)
             self.done(self._exc)
         elif self._abort:
-            logger.info('aborted after %s tasks', len(self.executed))
+            logger.info('Aborted after %r tasks', len(self.executed))
             self.done(Exception('Scheduler aborted'))
         else:
-            logger.info('completed %s tasks', len(self.executed))
+            logger.info('Completed %r tasks', len(self.executed))
 
         # always issue None (to facilitate e.g. iter(queue.get, None))
         self.done(None)
@@ -313,25 +313,25 @@ class Scheduler(object):
                     try:
                         dependency = self.tasks[task_id]
                     except KeyError as exc:
-                        logger.error('Received DependenciesFailed for unknown task with id %s' % task_id)
+                        logger.error('Received DependenciesFailed for unknown task with id %r', task_id)
                         self.abort(exc)
                     else:
                         # mark the worker as failed
                         executed_on_last = dependency.executed_on_last
-                        if worker is None:
+                        if worker or worker == executed_on_last:
+                            if worker == executed_on_last:
+                                logger.info('Marking %r as failed for dependency %s of %s',
+                                            worker, dependency, task)
+                                self.workers_failed.add(worker)
+                                self.workers_idle.discard(worker)
                             dependency.mark_failed(FailedDependency('Marked as failed by %r' % task))
-                            self.task_failed(dependency)
-                        elif worker == executed_on_last:
-                            logger.info('Marking %s as failed for dependency %s of %s',
-                                        worker, dependency, task)
-                            dependency.mark_failed(FailedDependency('Marked as failed by task %r' % task))
                             self.task_failed(dependency)
                         else:
                             # this should only occur with really really short tasks where the failure of a
                             # task noticed by task b is already obsolete because of the dependency was already
                             # restarted (because another task also issued DependenciesFailed)
-                            logger.info('Received DependenciesFailed for task with id %s and worker name %s '
-                                        'but the task is last executed on %s',
+                            logger.info('Received DependenciesFailed for task with id %r and worker %r '
+                                        'but the task is last executed on %r',
                                          task_id, worker, executed_on_last)
 
         elif isinstance(exc, FailedDependency):
@@ -342,7 +342,7 @@ class Scheduler(object):
 
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
-            logger.info('Marking %s as failed because %s failed with NotConnected',
+            logger.info('Marking %r as failed because %r failed with NotConnected',
                         task.executed_on_last, task)
             self.workers_failed.add(task.executed_on_last)
 
@@ -356,7 +356,7 @@ class Scheduler(object):
                 self.abort(task.exception())
                 return
             elif task.executed_on_last:
-                logger.info('%r failed on %s with %s: %s, rescheduling',
+                logger.info('%r failed on %r with %s: %s, rescheduling',
                             task, task.executed_on_last, exc.__class__.__name__, exc)
             else:
                 logger.info('%r failed before being executed with %s: %s, rescheduling',

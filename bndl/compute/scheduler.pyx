@@ -27,9 +27,9 @@ cdef tuple generate_tasks(tasks, dset, int group, int groups):
             for task in dset_tasks:
                 task.dependencies.append(barrier)
             for dependency in dependencies:
+                dependency.dependents.append(barrier)
                 if cached:
                     dependency.mark_done()
-                dependency.dependents.append(barrier)
         else:
             d_src = d.src
             if d_src:
