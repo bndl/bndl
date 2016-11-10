@@ -24,8 +24,9 @@ from cytoolz.itertoolz import pluck, take
 from bndl.compute import cache
 from bndl.compute.explain import get_callsite, callsite, set_callsite
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
-from bndl.execute import TaskCancelled
-from bndl.execute.job import RemoteTask, Job, Task
+from bndl.execute import TaskCancelled, DependenciesFailed
+from bndl.execute.job import RmiTask, Job, Task
+from bndl.execute.scheduler import FailedDependency
 from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
@@ -36,7 +37,6 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
-from bndl.util.strings import camel_to_snake
 import numpy as np
 
 
@@ -1462,13 +1462,13 @@ class Dataset(object):
         if not self.cached:
             return
 
-        logger.debug('uncaching %r', self)
+        logger.info('Uncaching %r', self)
 
         # issue uncache tasks
         def clear(provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
 
-        tasks = [worker.run_task for worker in self.ctx.workers]
+        tasks = [worker.execute for worker in self.ctx.workers]
         if timeout:
             tasks = [task.with_timeout(timeout) for task in tasks]
         tasks = [task(clear) for task in tasks]
@@ -1481,7 +1481,7 @@ class Dataset(object):
                 except concurrent.futures.TimeoutError:
                     pass
                 except Exception:
-                    logger.warning('error while uncaching %s', self, exc_info=True)
+                    logger.warning('Error while uncaching %s', self, exc_info=True)
 
         # clear cache locations
         self._cache_locs = {}
@@ -1564,7 +1564,7 @@ class Partition(object):
                 else:
                     logger.debug('Using remote cache for %r on %r', self, cache_loc)
                     peer = self.dset.ctx.node.peers[cache_loc]
-                    return peer.run_task(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
+                    return peer.execute(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
             except NotConnected:
@@ -1850,17 +1850,19 @@ class TransformingPartition(Partition):
 
 class BarrierTask(Task):
     def execute(self, worker):
-        self.future = concurrent.futures.Future()
-        self.future.set_result(None)
-        return self.future
+        self.set_executing(worker)
+        future = self.future = concurrent.futures.Future()
+        future.set_result(None)
+        self.signal_stop()
+        return future
 
 
-class ComputePartitionTask(RemoteTask):
+class ComputePartitionTask(RmiTask):
 
-    def __init__(self, part, group):
+    def __init__(self, part, **kwargs):
         name = re.sub('[_.]', ' ', part.dset.callsite[0])
         super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
-                         name=name, desc=part.dset.callsite, group=group)
+                         name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
 
@@ -1870,13 +1872,22 @@ class ComputePartitionTask(RemoteTask):
             assert len(self.dependencies) == 1 and isinstance(self.dependencies[0], BarrierTask)
             dependencies = self.dependencies[0].dependencies
             # created mapping of worker -> list[part_id] for dependency locations
-            dependencies_executed_on = defaultdict(list)
+            dependency_locations = {}
             for dep in dependencies:
-                assert dep.part.id not in dependencies_executed_on[dep.executed_on_last]
-                dependencies_executed_on[dep.executed_on_last].append(dep.part.id)
+                dependency_locations.setdefault(dep.executed_on_last, []).append(dep.part.id)
+                assert dependency_locations[dep.executed_on_last].count(dep.part.id) == 1
             # set locations as second arguments
-            self.args[1] = dependencies_executed_on
+            self.args[1] = dependency_locations
         return super().execute(worker)
+
+
+    def signal_stop(self):
+        if self.dependencies:
+            exc = root_exc(self.exception())
+            if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):
+                logger.debug('Marking barrier %r before %r as failed', self.dependencies[0], self)
+                self.dependencies[0].mark_failed(FailedDependency())
+        super().signal_stop()
 
 
     def release(self):
@@ -1887,10 +1898,10 @@ class ComputePartitionTask(RemoteTask):
 
 
 
-def compute_part(part, dependencies_executed_on):
+def compute_part(part, dependency_locations):
     try:
         # communicate out of band on which workers dependencies of this task were executed
-        task_context()['dependencies_executed_on'] = dependencies_executed_on
+        task_context()['dependency_locations'] = dependency_locations
         # generate data
         data = part.compute()
         # 'materialize' iterators and such for pickling
@@ -1900,7 +1911,9 @@ def compute_part(part, dependencies_executed_on):
             return data
     except TaskCancelled:
         return None
+    except DependenciesFailed:
+        raise
     except Exception:
-        logger.info('error while computing part %s on worker %s',
+        logger.info('Error while computing part %s on worker %s',
                     part, current_worker(), exc_info=True)
         raise

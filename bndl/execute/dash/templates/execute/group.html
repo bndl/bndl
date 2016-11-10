@@ -23,7 +23,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 		</thead>
 		<tbody>
 			{% for task in tasks|reverse %}
-			<tr class="{{ 'active' if task.running else '' }}">
+			<tr class="{{ 'active' if task.pending else '' }}">
 				<td>{{ loop.revindex }}</td>
 				<td>{{ task|task_status }}</td>
 				<td>{{ task.duration|fmt_timedelta }}</td>

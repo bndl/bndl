@@ -33,7 +33,7 @@ def current_worker():
         raise RuntimeError(_TASK_CTX_ERR_MSG)
 
 
-class TaskRunner(threading.Thread):
+class TaskExecutor(threading.Thread):
     def __init__(self, worker, task, args, kwargs):
         super().__init__()
         self.worker = worker
@@ -45,7 +45,7 @@ class TaskRunner(threading.Thread):
 
     def run(self):
         try:
-            result = self.worker._run_task(self.task, *self.args, **self.kwargs)
+            result = self.worker._execute(self.task, *self.args, **self.kwargs)
             exc = None
         except Exception as e:
             exc = e
@@ -65,10 +65,10 @@ class TaskRunner(threading.Thread):
 class Worker(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.tasks_running = {}
+        self.tasks = {}
 
 
-    def _run_task(self, task, *args, **kwargs):
+    def _execute(self, task, *args, **kwargs):
         # set worker context
         _TASK_CTX.worker = self
         _TASK_CTX.data = {}
@@ -80,38 +80,41 @@ class Worker(RMINode):
             del _TASK_CTX.data
 
 
-    def run_task(self, src, task, *args, **kwargs):
-        logger.debug('running task %s from %s', task, src.name)
-        return self._run_task(task, *args, **kwargs)
+    def execute(self, src, task, *args, **kwargs):
+        logger.debug('Executing task %s from %s', task, src.name)
+        return self._execute(task, *args, **kwargs)
 
 
     @asyncio.coroutine
-    def run_task_async(self, src, task, *args, **kwargs):
-        logger.debug('running task %s from %s asynchronously', task, src.name)
+    def execute_async(self, src, task, *args, **kwargs):
+        executor = TaskExecutor(self, task, args, kwargs)
+        task_id = id(executor)
+        self.tasks[task_id] = executor
 
-        runner = TaskRunner(self, task, args, kwargs)
-        runner.start()
-
-        task_id = id(runner)
-        self.tasks_running[task_id] = runner
+        logger.debug('Executing task %s from %s asynchronously with id %r',
+                     task, src.name, task_id)
+        executor.start()
         return task_id
 
 
     @asyncio.coroutine
     def get_task_result(self, src, task_id):
-        logger.debug('waiting for result of task %s for %s', task_id, src.name)
+        logger.debug('Collecting result of task %r for %r', task_id, src.name)
         try:
-            task = self.tasks_running.get(task_id)
+            task = self.tasks[task_id]
             return (yield from task.result)
+        except KeyError:
+            logger.error('No task with id %r', task_id)
+            raise
         finally:
-            self.tasks_running.pop(task_id, None)
+            self.tasks.pop(task_id, None)
 
 
     @asyncio.coroutine
     def cancel_task(self, src, task_id):
-        logger.debug('canceling task %s on request of %s', task_id, src.name)
+        logger.debug('Canceling task %r on request of %r', task_id, src.name)
         try:
-            task = self.tasks_running.pop(task_id)
+            task = self.tasks.pop(task_id)
         except KeyError:
             return False
         else:

@@ -187,7 +187,7 @@ class ExecutionContext(Lifecycle):
         def worker_count_consistent():
             '''Check if the workers all see each other'''
             expected = self.worker_count ** 2 - self.worker_count
-            tasks = [(w, w.run_task(_num_connected)) for w in self.workers]
+            tasks = [(w, w.execute(_num_connected)) for w in self.workers]
             actual = 0
             for worker, task in tasks:
                 try:

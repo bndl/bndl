@@ -1,5 +1,5 @@
 <div class="row">
-	<div class="col-xs-2">Running:</div>
+	<div class="col-xs-2">Pending:</div>
 	<div class="col-xs-1">{{ (g.ctx.jobs)|rejectattr('stopped_on')|filtercount('started_on') }}</div>
 </div>
 

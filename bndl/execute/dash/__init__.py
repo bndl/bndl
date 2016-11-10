@@ -36,9 +36,9 @@ def task_stats(tasks):
     stopped_on = max(stopped) if stopped else None
     stopped = len(stopped)
     all_stopped = stopped == total
-    non_running = stopped == started
+    not_pending = stopped == started
 
-    running = sum(1 for task in tasks if task.started_on and not task.stopped_on)
+    pending = sum(1 for task in tasks if task.started_on and not task.stopped_on)
     cancelled = sum(1 for task in tasks if task.cancelled)
     failed = sum(1 for task in tasks if task.failed)
 
@@ -47,34 +47,34 @@ def task_stats(tasks):
     idle = total - started
 
     if started:
-        if non_running:
+        if not_pending:
             duration = stopped_on - started_on
         else:
             duration = datetime.now() - started_on
     else:
         duration = None
 
-    if completed and remaining and running:
-        # get durations for tasks stopped and those currently running
+    if completed and remaining and pending:
+        # get durations for tasks stopped and those currently pending
         durations_stopped = [task.duration for task in tasks if task.stopped_on]
-        durations_running = [task.duration for task in tasks if task.started_on and not task.stopped_on]
+        durations_pending = [task.duration for task in tasks if task.started_on and not task.stopped_on]
         # sum them together
         duration_stopped = sum(durations_stopped, timedelta())
-        duration_running = sum(durations_running, timedelta())
-        # for the initial tasks use the duration of the tasks still running as well
+        duration_pending = sum(durations_pending, timedelta())
+        # for the initial tasks use the duration of the tasks still pending as well
         # it will be an underestimate, but less of an underestimate than using duration_stopped
-        if duration_running > duration_stopped:
-            avg_duration = (duration_stopped + duration_running) / (len(durations_stopped) + len(durations_running))
+        if duration_pending > duration_stopped:
+            avg_duration = (duration_stopped + duration_pending) / (len(durations_stopped) + len(durations_pending))
         else:
             avg_duration = duration_stopped / len(durations_stopped)
         # use the average duration times remaining to compute the total time remaining
         # divided by no remaining - it indicates the concurrency
-        # count the duration running only half (add a bit of pessimism)
-        time_remaining = max(timedelta(), avg_duration * remaining / running - duration_running / running)
+        # count the duration pending only half (add a bit of pessimism)
+        time_remaining = max(timedelta(), avg_duration * remaining / pending - duration_pending / pending)
     else:
         time_remaining = None
 
-    if non_running:
+    if not_pending:
         finished_on = stopped_on
     elif time_remaining:
         finished_on = datetime.now() + time_remaining
@@ -93,7 +93,7 @@ def task_status(task):
     elif task.stopped_on:
         return 'done'
     elif task.started_on:
-        return 'running'
+        return 'pending'
     else:
         return ''
 

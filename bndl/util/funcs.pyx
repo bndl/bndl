@@ -96,6 +96,9 @@ def prefetch(function, sequence):
 def neg(x):
     return -x
 
+def noop(*args, **kwargs):
+    pass
+
 # functions from https://github.com/pytoolz/toolz/blob/master/toolz/tests/test_itertoolz.py
 
 def identity(x):

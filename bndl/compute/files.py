@@ -112,7 +112,7 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
     workers = sorted(ctx.workers, key=_ip_addresses)
     for _, workers in groupby(workers, key=_ip_addresses):
         worker = next(workers)
-        batch_requests.append((worker, worker.run_task(_batches, root, recursive, dfilter,
+        batch_requests.append((worker, worker.execute(_batches, root, recursive, dfilter,
                                                        ffilter, psize_bytes, psize_files, split)))
 
     batches = []
@@ -508,6 +508,6 @@ class RemoteFilesPartition(FilesPartition):
 
 
     def _compute(self):
-        request = self.dset.ctx.node.peers[self.source].run_task(_RemoteFilesSender, self.file_chunks)
+        request = self.dset.ctx.node.peers[self.source].execute(_RemoteFilesSender, self.file_chunks)
         contents = request.result().data
         return zip(self.file_chunks.keys(), contents)

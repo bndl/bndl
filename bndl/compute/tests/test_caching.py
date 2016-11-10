@@ -16,7 +16,7 @@ class CachingTest(DatasetTest):
 
 
     def get_cachekeys(self):
-        fetches = [worker.run_task(lambda: list(cache._caches.keys()))
+        fetches = [worker.execute(lambda: list(cache._caches.keys()))
                    for worker in self.ctx.workers]
         return list(chain.from_iterable(fetch.result() for fetch in fetches))
 

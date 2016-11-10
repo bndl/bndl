@@ -4,7 +4,7 @@ from bndl.compute.dataset import BarrierTask, ComputePartitionTask, Partition
 
 
 cdef tuple generate_tasks(tasks, dset, int group, int groups):
-    dset_tasks = [ComputePartitionTask(part, group)
+    dset_tasks = [ComputePartitionTask(part, group=group)
                   for part in dset.parts()]
 
     stack = deque()
@@ -48,9 +48,10 @@ def schedule(dset):
     tasks = OrderedDict()
     groups, _ = generate_tasks(tasks, dset, 1, 1)
     taskslist = []
-    for task in tasks.values():
+    for priority, task in enumerate(tasks.values()):
         if task.group != 'hidden':
             task.group = groups - task.group + 1
+        task.priority = priority
         taskslist.append(task)
     return taskslist
 

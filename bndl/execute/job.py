@@ -52,7 +52,15 @@ class Task(Lifecycle):
 
 
     def execute(self, worker):
+        pass
+
+
+    def set_executing(self, worker):
+        if self.cancelled:
+            raise CancelledError()
+        assert not self.pending, '%r pending' % self
         self.executed_on.append(worker.name)
+        self.signal_start()
 
 
     def cancel(self):
@@ -81,11 +89,23 @@ class Task(Lifecycle):
         return self.future and self.future.done()
 
 
-    def mark_done(self):
+    def mark_done(self, result=None):
         if not self.done:
-            self.future = Future()
-            self.future.set_result(None)
-            self.started_on = self.stopped_on = datetime.now()
+            future = self.future = Future()
+            future.set_result(result)
+            if not self.started_on:
+                self.started_on = datetime.now()
+            self.signal_stop()
+
+
+    @property
+    def pending(self):
+        return self.future and not self.future.done()
+
+
+    @property
+    def succeeded(self):
+        return self.future and not self.failed
 
 
     @property
@@ -97,14 +117,9 @@ class Task(Lifecycle):
 
 
     def mark_failed(self, exc):
-        if not self.future:
-            self.future = Future()
-        self.future.set_exception(exc)
-        now = datetime.now()
-        if not self.started_on:
-            self.started_on = now
-        if not self.stopped_on:
-            self.stopped_on = now
+        future = self.future = Future()
+        future.set_exception(exc)
+        self.signal_stop()
 
 
     def result(self):
@@ -117,13 +132,21 @@ class Task(Lifecycle):
         return self.future.exception()
 
 
+    @property
+    def executed_on_last(self):
+        if self.executed_on:
+            return self.executed_on[-1]
+
+
     def release(self):
         if not self.failed:
             self.future = None
-        self.dependencies = len(self.dependencies)
-        self.dependents = len(self.dependents)
+        self.dependencies = []
+        self.dependents = []
         if self.executed_on:
             self.executed_on = [self.executed_on[-1]]
+        self.started_listeners.clear()
+        self.stopped_listeners.clear()
 
 
     def __repr__(self):
@@ -132,15 +155,15 @@ class Task(Lifecycle):
             state = ' failed'
         elif self.done:
             state = ' done'
-        elif self.running:
-            state = ' running'
+        elif self.pending:
+            state = ' pending'
         else:
             state = ''
         return '<%s %s%s>' % (self.__class__.__name__, task_id, state)
 
 
 
-class RemoteTask(Task):
+class RmiTask(Task):
 
     def __init__(self, ctx, task_id, method, args=(), kwargs=None, *, priority=None, name=None, desc=None, group=None):
         super().__init__(ctx, task_id, priority=priority, name=name, desc=desc, group=group)
@@ -151,25 +174,18 @@ class RemoteTask(Task):
 
 
     def execute(self, worker):
-        if self.cancelled:
-            raise CancelledError()
-        self.signal_start()
-        super().execute(worker)
+        self.set_executing(worker)
         future = self.future = Future()
-        future2 = worker.run_task_async(self.method, *self.args, **self.kwargs)
+        future2 = worker.execute_async(self.method, *self.args, **self.kwargs)
+        # TODO remove future.worker, just for checking
+        future2.worker = worker
         # TODO put time sleep here to test what happens if task
-        # is done before adding callback (callback gets executed in this thread)
+        # is done before adding callback (callback runs in this thread)
         future2.add_done_callback(self._task_scheduled)
         return future
 
-
     @property
-    def executed_on_last(self):
-        if self.executed_on:
-            return self.executed_on[-1]
-
-    @property
-    def _worker_executing_on(self):
+    def _last_worker(self):
         if self.executed_on:
             return self.ctx.node.peers.get(self.executed_on[-1])
 
@@ -181,7 +197,9 @@ class RemoteTask(Task):
             self.mark_failed(exc)
         else:
             try:
-                future = self._worker_executing_on.get_task_result(self.handle)
+                # TODO remove future.worker
+                # assert future.worker == self._last_worker, '%r != %r' % (future.worker, self._last_worker)
+                future = self._last_worker.get_task_result(self.handle)
                 # TODO put time sleep here to test what happens if task
                 # is done before adding callack (callback gets executed in this thread)
                 future.add_done_callback(self._task_completed)
@@ -213,7 +231,7 @@ class RemoteTask(Task):
 
         if self.handle:
             logger.debug('canceling %s', self)
-            self._worker_executing_on.cancel_task(self.handle)
+            self._last_worker.cancel_task(self.handle)
             self.handle = None
 
         if self.future:

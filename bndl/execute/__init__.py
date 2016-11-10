@@ -13,7 +13,7 @@ class DependenciesFailed(Exception):
     def __init__(self, failures):
         '''
         Indicate that a task failed due to dependencies not being 'available'. This will cause the dependencies
-        to be re-executed and the task which raises DependenciesFailed will be scheduled to run once the
+        to be re-executed and the task which raises DependenciesFailed will be scheduled to execute once the
         dependencies complete.
 
         :param failures: Mapping[worker: Sequence[task_id]]

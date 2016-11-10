@@ -495,16 +495,16 @@ class ShuffleReadingPartition(Partition):
     def get_sources(self):
         worker = self.dset.ctx.node
 
-        dependencies_executed_on = task_context()['dependencies_executed_on']
+        dependency_locations = task_context()['dependency_locations']
 
         # if a dependency wasn't executed yet (e.g. cache after shuffle)
         # raise dependencies failed for restart
-        if None in dependencies_executed_on:
+        if None in dependency_locations:
             logger.warning('Unable to compute %r because dependency locations are unknown for %r',
-                           self, dependencies_executed_on[None])
-            raise DependenciesFailed({None: dependencies_executed_on[None]})
+                           self, dependency_locations[None])
+            raise DependenciesFailed({None: dependency_locations[None]})
 
-        source_names = set(dependencies_executed_on)
+        source_names = set(dependency_locations)
 
         local_source = worker.name in source_names
         if local_source:
@@ -525,7 +525,7 @@ class ShuffleReadingPartition(Partition):
         for peer_name in source_names:
             peer = peers.get(peer_name)
             if not peer or not peer.is_connected:
-                dependencies_missing[peer_name] = dependencies_executed_on[peer_name]
+                dependencies_missing[peer_name] = dependency_locations[peer_name]
             else:
                 sources.append(peer)
 
@@ -554,8 +554,8 @@ class ShuffleReadingPartition(Partition):
 
 
     def get_sizes(self):
-        dependencies_executed_on = task_context()['dependencies_executed_on']
-        dependencies_missing = defaultdict(list)
+        dependency_locations = task_context()['dependency_locations']
+        dependencies_missing = defaultdict(set)
 
         local_source, sources = self.get_sources()
         sizes = []
@@ -574,11 +574,11 @@ class ShuffleReadingPartition(Partition):
                 size = future.result()
             except NotConnected:
                 # mark all dependencies of worker as missing
-                dependencies_missing[worker.name] = dependencies_executed_on[worker.name]
+                dependencies_missing[worker.name] = list(dependency_locations[worker.name])
             except InvocationException as exc:
                 root = root_exc(exc)
                 if isinstance(root, KeyError):
-                    dependencies_missing[worker.name] = dependencies_executed_on[worker.name]
+                    dependencies_missing[worker.name] = list(dependency_locations[worker.name])
                 else:
                     logger.exception('Unable to compute bucket size %s.%s on %s' %
                                      (self.dset.src.id, self.idx, worker.name))
@@ -606,15 +606,15 @@ class ShuffleReadingPartition(Partition):
                     selected.append((src_part_idx, block_sizes))
                 else:
                     other_worker, other_sizes = source_locations[src_part_idx]
-                    logger.warning('Source partition %r available more than once, '
+                    logger.warning('Source partition %r.%r available more than once, '
                                    'at least at %s with block sizes %r and %s with block_sizes %r',
-                                   src_part_idx, worker, block_sizes, other_worker, other_sizes)
+                                   self.dset.src.id, src_part_idx, worker, block_sizes, other_worker, other_sizes)
             sizes[worker_idx] = worker, get_blocks, selected
 
         # translate size info missing into missing dependencies
         if size_info_missing:
             for src_idx, src_id in list(size_info_missing.items()):
-                for worker, dependencies in dependencies_executed_on.items():
+                for worker, dependencies in dependency_locations.items():
                     for dependency in dependencies:
                         if dependency == src_id:
                             dependencies_missing[worker].append(src_id)
@@ -623,8 +623,8 @@ class ShuffleReadingPartition(Partition):
         if size_info_missing:
             raise Exception('Bucket size information from %r could not be retrieved, '
                             'but can\'t raise DependenciesFailed as one or more source '
-                            'partition ids are not found in dependencies_executed_on %r' %
-                            (size_info_missing, dependencies_executed_on))
+                            'partition ids are not found in dependency_locations %r' %
+                            (size_info_missing, dependency_locations))
 
         # raise DependenciesFailed to trigger re-execution of the missing dependencies and
         # subsequently the computation of _this_ partition
@@ -687,7 +687,7 @@ class ShuffleReadingPartition(Partition):
                     raise
                 except NotConnected:
                     # consider all data from the worker lost
-                    failed = task_context()['dependencies_executed_on'][worker.name]
+                    failed = task_context()['dependency_locations'][worker.name]
                     raise DependenciesFailed({worker.name: failed})
                 except Exception:
                     logger.exception('unable to retrieve blocks from %s', worker.name)

@@ -31,10 +31,10 @@ Job {{ job.id }}: {{ job.name }}
 				<th width="3%">#</th>
 				<th width="17%">Group</th>
 				<th width="12%">
-					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Tasks</span>
+					<span data-toggle="tooltip" data-original-title="Completed, pending and total number of tasks">Tasks</span>
 				</th>
 				<th width="26%">
-					<span data-toggle="tooltip" data-original-title="Completed, running and total number of tasks">Progress</span>
+					<span data-toggle="tooltip" data-original-title="Completed, pending and total number of tasks">Progress</span>
 				</th>
 				<th width="8%">Duration</th>
 				<th width="8%">Remaining</th>
@@ -44,7 +44,7 @@ Job {{ job.id }}: {{ job.name }}
 		</thead>
 		<tbody>
 		{% for group in job.tasks|rejectattr('group', 'equalto', 'hidden')|groupby('group')|reverse %}
-		<tr class="clickable {{ ' active' if group.running_on else '' }}" data-href='group/{{ group.grouper }}'>
+		<tr class="clickable {{ ' active' if (group.list|first).running else '' }}" data-href='group/{{ group.grouper }}'>
 			<td>{{ group.grouper }}</td>
 			<td>{{ (group.list|first).name }}</td>
 			{{ stats_row.stats_row(group, group.list|task_stats) }}			
