@@ -90,9 +90,7 @@ class ExecutionContext(Lifecycle):
         early = {}
 
         for task in self._execute_unordered(job, done):
-            if task.failed:
-                raise task.exception()
-            elif task.id != next_taskid:
+            if task.id != next_taskid:
                 early[task.id] = task
             else:
                 early.pop(task.id, None)
@@ -117,6 +115,8 @@ class ExecutionContext(Lifecycle):
         for task in iter(done.get, None):
             if isinstance(task, Exception):
                 raise task
+            elif task.failed:
+                raise task.exception()
             elif task not in seen:
                 seen.add(task)
                 yield task
