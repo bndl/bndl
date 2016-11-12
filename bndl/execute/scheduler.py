@@ -14,19 +14,31 @@ logger = logging.getLogger(__name__)
 
 
 class FailedDependency(Exception):
+    '''
+    Exception to be raised by task (i.e. returned from task.exception for tasks which have failed)
+    to indicate that the task has been marked as failed post-hoc by the execution of another task.
+
+    The worker_failed argument indicates whether the worker which executed the task should be
+    considered lost or not.
+    '''
     def __init__(self, worker_failed=None):
         self.worker_failed = worker_failed
 
 
 class Scheduler(object):
     '''
-    TODO
-    
-    Worker assignment takes into account
+    This scheduler executes Tasks taking into account their dependencies and worker locality.
+
+    Worker assignment takes into account:
     - concurrency (how many tasks must a worker execute concurrently)
     - and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
       as locality 0 is likely to be common, this is assumed throughout the scheduler
       to reduce the memory cost for scheduling
+
+    The most important component in the computational complexity of the scheduler is the number of
+    dependencies to track. Many-to-many dependencies should be kept to the thousands or tens of
+    thousands (i.e. 100 * 100 tasks). Such issues can be resolved by introducing a 'barrier task'
+    as is done in bndl.compute (this reduced the number of dependencies to n+m instead of n*m).
     '''
 
     def __init__(self, ctx, tasks, done, workers=None, concurrency=None, attempts=None):
