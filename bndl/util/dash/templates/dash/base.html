@@ -7,8 +7,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 	
 	<title>{% block title %}BNDL{% endblock %}</title>
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha.2/css/bootstrap.min.css" />
-	<link rel="stylesheet" href="https://bootswatch.com/superhero/bootstrap.min.css" />
+	<link rel="stylesheet" href="/static/dash/bootstrap.min.css" />
 	
 	{% block css %}
 	<style type="text/css">
@@ -47,7 +46,7 @@
 				<ul class="nav navbar-nav">
 					{% for key in g.dashes %}
 					<li class="{% if key == current_dash %}active{% endif %}">
-						<a href="/{{ key }}">{{ key }} <span class="sr-only">(current)</span></a>
+						<a href="/{{ key }}/">{{ key }} <span class="sr-only">(current)</span></a>
 					</li>
 					{% endfor %}
 				</ul>
@@ -74,8 +73,8 @@
 	{% endblock %}
 
 	{% block scripts %}
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
+	<script src="/static/dash/jquery.min.js"></script>
+	<script src="/static/dash/bootstrap.min.js"></script>
 	<script type="text/javascript">
 		jQuery(document).ready(function($) {
 			$('[data-toggle="tooltip"]').tooltip()
