@@ -1353,7 +1353,7 @@ class Dataset(object):
         '''
         assert self.ctx.running, 'context of dataset is not running'
         remaining = num
-        sliced = self.map_partitions(partial(take, remaining)).itake_parts()
+        sliced = self.map_partitions(partial(take, remaining))._itake_parts()
         try:
             for part in sliced:
                 if part is None:
@@ -1367,7 +1367,7 @@ class Dataset(object):
             sliced.close()
 
 
-    def itake_parts(self):
+    def _itake_parts(self):
         mask = slice(0, 1)
         pcount = len(self.parts())
         while mask.start < pcount:
@@ -1539,7 +1539,7 @@ FORBIDDEN = -1
 NON_LOCAL = 0
 LOCAL = 1
 NODE_LOCAL = 3
-PROCESS_LOCAL = 4
+PROCESS_LOCAL = 5
 
 
 @total_ordering
@@ -1635,12 +1635,18 @@ class Partition(object):
 
     def _locality(self, workers):
         '''
-        Determine locality of computing this partition. Cache locality
-        
+        Determine locality of computing this partition. Cache locality is dealt
+        with when this method is invoked by Partition.locality(workers).
+
         Typically source partition implementations which inherit from Partition
         indicate here whether computing on a worker shows locality. This allows
         dealing with caching and preference/requirements set at the data set
         separately from locality in the 'normal' case.
+
+        :param workers: An iterable of workers.
+        :returns: An iterable of (worker, locality:int) tuples indicating the
+        worker locality; locality 0 can be omitted as this is the default
+        locality.
         '''
         if self.src:
             if isinstance(self.src, Iterable):
@@ -1860,7 +1866,7 @@ class BarrierTask(Task):
 class ComputePartitionTask(RmiTask):
 
     def __init__(self, part, **kwargs):
-        name = re.sub('[_.]', ' ', part.dset.callsite[0])
+        name = re.sub('[_.]', ' ', part.dset.callsite[0] or '')
         super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part

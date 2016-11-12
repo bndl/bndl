@@ -352,9 +352,9 @@ class Scheduler(object):
                 for task_id in dependencies:
                     try:
                         dependency = self.tasks[task_id]
-                    except KeyError as exc:
+                    except KeyError as e:
                         logger.error('Received DependenciesFailed for unknown task with id %r', task_id)
-                        self.abort(exc)
+                        self.abort(e)
                     else:
                         # mark the worker as failed
                         executed_on_last = dependency.executed_on_last

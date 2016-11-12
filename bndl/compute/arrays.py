@@ -24,7 +24,7 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
 
     def take(self, num):
         sliced = self.map_partitions(lambda p: p[0:num])
-        parts = sliced.itake_parts()
+        parts = sliced._itake_parts()
         try:
             collected = [next(parts)]
             remaining = num - len(collected[0])

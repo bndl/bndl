@@ -31,7 +31,7 @@ def _concat(frames):
 
 class DistributedNDFrame(Dataset):
     def take(self, num):
-        heads = self.map_partitions(lambda frame: frame.head(num)).icollect(eager=False, parts=True)
+        heads = self.map_partitions(lambda frame: frame.head(num))._itake_parts()
         try:
             rows = 0
             frames = []

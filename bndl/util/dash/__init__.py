@@ -1,22 +1,21 @@
 from collections import OrderedDict
 from datetime import datetime, timedelta
-import errno
 from functools import lru_cache
+from threading import Event
+import errno
 import logging
+import math
+import os
 import threading
 
-from flask import Flask
-import flask
-from flask.templating import render_template
-from werkzeug.utils import import_string, ImportStringError
-
 from bndl.util.dash import status
-import math
-import werkzeug
-import os
-from werkzeug.serving import make_server
-from threading import Event
 from bndl.util.plugins import load_plugins
+from flask import Flask
+from flask.templating import render_template
+from werkzeug.serving import make_server
+from werkzeug.utils import import_string, ImportStringError
+import flask
+import werkzeug
 
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,6 @@ class StatusPanel(object):
 app = Flask(__name__)
 app.config.from_object('bndl.util.dash.settings')
 _srv = None
-
-# toolbar = DebugToolbarExtension(app)
 
 
 dashes = OrderedDict()
