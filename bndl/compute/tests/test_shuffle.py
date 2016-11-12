@@ -1,11 +1,16 @@
+import logging
 import os
 import signal
 import threading
 import time
 
+from cytoolz.itertoolz import pluck
+
 from bndl.compute.tests import DatasetTest
 from bndl.net.connection import NotConnected
-from cytoolz.itertoolz import pluck
+
+
+logger = logging.getLogger(__name__)
 
 
 class ShuffleTest(DatasetTest):
@@ -33,7 +38,8 @@ class ShuffleTest(DatasetTest):
                     self.count -= i
                     if self.count == 0:
                         try:
-                            self.worker.run_task(lambda: os.kill(os.getpid(), signal.SIGKILL)).result()
+                            logger.info('Killing %r', self.worker.name)
+                            self.worker.execute(lambda: os.kill(os.getpid(), signal.SIGKILL)).result()
                         except NotConnected:
                             pass
 
@@ -61,7 +67,7 @@ class ShuffleTest(DatasetTest):
 
         try:
             for dset_size, pcount, key_count, kill_after in test_cases:
-                self.ctx.conf['bndl.execute.attempts'] = 10 * len(kill_after)
+                self.ctx.conf['bndl.execute.attempts'] = 2
 
                 killers = [
                     self.ctx.accumulator(WorkerKiller(worker, count))
