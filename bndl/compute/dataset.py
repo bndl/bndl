@@ -1421,7 +1421,7 @@ class Dataset(object):
 
     def _schedule(self):
         name, desc = get_callsite()
-        name = re.sub('[_.]', ' ', name)
+        name = re.sub('[_.]', ' ', name or '')
         from . import scheduler
         tasks = scheduler.schedule(self)
         job = Job(self.ctx, tasks, name, desc)
