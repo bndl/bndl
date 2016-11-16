@@ -21,6 +21,7 @@ check dependency graph for dependencies going packages down/up in wrong places
  - e.g. bndl.compute.schedule to .base
 move caching aspect of datasets to one module (not spread over .schedule and .base)
 
+
 move caches, broadcast values etc down to execute layer
 use hierarchical namespace for set / del
 
@@ -83,15 +84,13 @@ Prevent occurences of:
  27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
  
  
-PeerTable.filter is not threadsafe!
-
-
 support cassandra.coscan with _asdicts
 
 try to implement read retry in cassandra scan without materializing an entire token range
 
 
 implement drop function to drop columns / fields
+ - like pluck?
 
 
 check partition sizes for cassandra scan
@@ -99,13 +98,6 @@ cassandra scan .parts() is not stable
 
 
 consider driving the tasks from another process / do something about liveness of the driver during jobs
-
-
-check for a possibility to cancel jobs
-
-
-make run_task async (return a handle)
-
 
 support caching also for cancelled jobs / stages / tasks
 
@@ -335,4 +327,12 @@ RuntimeError: dictionary changed size during iteration
  
  
  
+Checking group.executing_on in 
+ <tr class="clickable {{ ' active' if group.executing_on else '' }}" data-href='group/{{ group.grouper }}'>
  
+ 
+ 
+Caching of collections is broken since the collection is sent anyway ...
+
+
+Compatibility with yappi 0.94
