@@ -57,7 +57,7 @@ setup(
         'psutil',
         'tblib',
         'marisa_trie',
-        'yappi',
+        'yappi<=0.93',
     ],
     extras_require=dict(
         dev=[
