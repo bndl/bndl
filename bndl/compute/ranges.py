@@ -1,4 +1,4 @@
-from bndl.compute.dataset import Dataset, IterablePartition
+from bndl.compute.dataset import Dataset, Partition
 
 
 class RangeDataset(Dataset):
@@ -21,16 +21,14 @@ class RangeDataset(Dataset):
 
     def parts(self):
         len_ = len(range(self.start, self.stop, self.step))
-        parts = (
-            IterablePartition(self, idx, range(
+        return [
+            RangePartition(self, idx, range(
                 self.start + idx * len_ // self.pcount * self.step,
                 self.start + (idx + 1) * len_ // self.pcount * self.step,
                 self.step
             ))
             for idx in range(self.pcount)
-        )
-
-        return [part for part in parts if part.iterable]
+        ]
 
 
     def __str__(self):
@@ -43,3 +41,14 @@ class RangeDataset(Dataset):
             s += ',' + str(self.step)
 
         return 'range(' + s + ')'
+
+
+
+class RangePartition(Partition):
+    def __init__(self, dset, idx, subrange):
+        super().__init__(dset, idx)
+        self.subrange = subrange
+
+
+    def _compute(self):
+        return self.subrange

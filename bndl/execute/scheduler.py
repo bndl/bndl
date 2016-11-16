@@ -116,10 +116,12 @@ class Scheduler(object):
                 # create list of executable tasks and set of blocked tasks
                 for task in self.tasks.values():
                     for worker, locality in task.locality(self.workers.values()) or ():
+                        worker = worker.name
                         if locality < 0:
-                            self.forbidden[task].add(worker.name)
+                            self.forbidden[task].add(worker)
                         elif locality > 0:
-                            self.locality[worker.name][task] = locality
+                            self.locality[worker][task] = locality
+                            self.executable_on[worker].add(task)
 
                 for task in self.tasks.values():
                     if task.succeeded:

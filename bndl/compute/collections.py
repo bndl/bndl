@@ -1,14 +1,14 @@
 from collections import Sized
 from math import ceil
 
-from bndl.compute.dataset import Dataset, IterablePartition
-from bndl.util.collection import batch
+from bndl.compute.dataset import Dataset, Partition
+from bndl.util import serialize
+from bndl.util.collection import batch, ensure_collection
 
 
 class DistributedCollection(Dataset):
     def __init__(self, ctx, collection, pcount=None, psize=None):
         super().__init__(ctx)
-        self.collection = collection
 
         if pcount is not None and pcount <= 0:
             raise ValueError('pcount must be None or > 0')
@@ -25,39 +25,58 @@ class DistributedCollection(Dataset):
             self.psize = None
 
 
-    def parts(self):
+
         if self.psize:
-            parts = [
-                IterablePartition(self, i, list(b))
-                for i, b in enumerate(batch(self.collection, self.psize))
-            ]
+            parts = [(len(part),) + serialize.dumps(part) for part in
+                     map(ensure_collection, batch(collection, self.psize))]
             self.pcount = len(parts)
-            return parts
         else:
             if not self.pcount:
-                pcount = self.ctx.default_pcount
+                self.pcount = pcount = self.ctx.default_pcount
                 if pcount <= 0:
                     raise Exception("can't use default_pcount, no workers available")
-            else:
-                pcount = self.pcount
 
-            if not isinstance(self.collection, Sized):
-                self.collection = list(self.collection)
+            if not hasattr(collection, '__len__') and not hasattr(collection, '__getitem__'):
+                collection = ensure_collection(collection)
 
-            step = max(1, ceil(len(self.collection) / pcount))
-            slices = (
-                (idx, self.collection[idx * step: (idx + 1) * step])
-                for idx in range(pcount)
-            )
-
-            return [
-                IterablePartition(self, idx, slice)
-                for idx, slice in slices  # @ReservedAssignment
-                if len(slice)
+            step = max(1, ceil(len(collection) / pcount))
+            parts = [
+                (len(part),) + serialize.dumps(part) for part in
+                (collection[idx * step: (idx + 1) * step] for idx in range(pcount))
+                if len(part)
             ]
+
+        self.blocks = [
+            (length, marshalled, ctx.node.serve_blocks((self.id, idx), [part]))
+            for idx, (length, marshalled, part) in enumerate(parts)
+        ]
+
+
+    def parts(self):
+        return [BlocksPartition(self, idx, block, marshalled, length)
+                for idx, (length, marshalled, block) in enumerate(self.blocks)]
 
 
     def __getstate__(self):
         state = super().__getstate__()
-        del state['collection']
+        del state['blocks']
         return state
+
+
+    def __del__(self):
+        for block in getattr(self, 'blocks', ()):
+            self.ctx.node.remove_blocks(block[-1].name)
+
+
+
+class BlocksPartition(Partition):
+    def __init__(self, dset, idx, block_spec, marshalled, length):
+        super().__init__(dset, idx)
+        self.block_spec = block_spec
+        self.marshalled = marshalled
+        self.length = length
+
+
+    def _compute(self):
+        block = self.dset.ctx.node.get_blocks(self.block_spec)[0]
+        return serialize.loads(self.marshalled, block)

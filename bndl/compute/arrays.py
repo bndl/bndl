@@ -28,11 +28,11 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
         try:
             collected = [next(parts)]
             remaining = num - len(collected[0])
-            while remaining>0:
+            while remaining > 0:
                 try:
                     part = next(parts)
                     collected.append(part)
-                    remaining -=len(part)
+                    remaining -= len(part)
                 except StopIteration:
                     break
             collected = np.concatenate(collected)
@@ -250,8 +250,13 @@ class SourceDistributedArray(DistributedArray, DistributedCollection):
     def parts(self):
         parts = super().parts()
         for part in parts:
-            part.shape = (len(part.iterable),) + self.shape[1:]
+            part.shape = (part.length,) + self.shape[1:]
         return parts
+
+    def __getstate__(self):
+        state = super().__getstate__()
+        del state['arr']
+        return state
 
 
 class CtorDistributedArray(DistributedArray):

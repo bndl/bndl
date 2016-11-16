@@ -1707,32 +1707,6 @@ class Partition(object):
 
 
 
-class IterablePartition(Partition):
-    def __init__(self, dset, idx, iterable):
-        super().__init__(dset, idx)
-        self.iterable = iterable
-
-
-    # TODO look into e.g. https://docs.python.org/3.4/library/pickle.html#persistence-of-external-objects
-    # for attachments? Or perhaps separate the control and the data paths?
-    def __getstate__(self):
-        state = dict(self.__dict__)
-        iterable = state.pop('iterable')
-        state['iterable'] = serialize.dumps(iterable)
-        return state
-
-
-    def __setstate__(self, state):
-        iterable = state.pop('iterable')
-        self.__dict__.update(state)
-        self.iterable = serialize.loads(*iterable)
-
-
-    def _compute(self):
-        return self.iterable
-
-
-
 class MaskedDataset(Dataset):
     def __init__(self, src, mask):
         super().__init__(src.ctx, src)
