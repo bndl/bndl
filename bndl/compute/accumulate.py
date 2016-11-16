@@ -1,5 +1,3 @@
-from functools import partial
-from types import MethodType
 import logging
 import threading
 import weakref
@@ -20,6 +18,7 @@ class AccumulatorService:
         aid = accumulator.id
         def remove_lock(x):
             del self.locks[aid]
+            del self.accumulators[aid]
         self.accumulators[aid] = weakref.proxy(accumulator, remove_lock)
         self.locks[aid] = threading.Lock()
 
@@ -113,3 +112,7 @@ class Accumulator(object):
 
     def __reduce__(self):
         return AccumulatorProxy, (self.ctx, self.host, self.id)
+
+
+    def unpersist(self):
+        self.ctx._deregister_accumulator(self.id)
