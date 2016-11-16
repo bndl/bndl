@@ -73,7 +73,7 @@ class Scheduler(object):
 
         self.concurrency = concurrency or ctx.conf['bndl.execute.concurrency']
         # failed tasks are retried on error, but they are executed at most attempts
-        self.attempts = attempts or ctx.conf['bndl.execute.attempts']
+        self.max_attempts = attempts or ctx.conf['bndl.execute.attempts']
 
         # task completion is (may be) executed on another thread, this lock serializes access
         # on the containers below and workers_idle
@@ -392,7 +392,7 @@ class Scheduler(object):
 
         else:
             self.failures[task] = failures = self.failures[task] + 1
-            if failures >= self.attempts:
+            if failures >= self.max_attempts:
                 logger.warning('%r failed on %r after %r attempts ... aborting',
                                task, task.executed_on_last, len(task.executed_on))
                 # signal done (failed) to allow bubbling up the error and abort

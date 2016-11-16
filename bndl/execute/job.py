@@ -49,6 +49,7 @@ class Task(Lifecycle):
         self.dependencies = []
         self.dependents = []
         self.executed_on = []
+        self.attempts = 0
 
 
     def execute(self, worker):
@@ -60,6 +61,7 @@ class Task(Lifecycle):
             raise CancelledError()
         assert not self.pending, '%r pending' % self
         self.executed_on.append(worker.name)
+        self.attempts += 1
         self.signal_start()
 
 

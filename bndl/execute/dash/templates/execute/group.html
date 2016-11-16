@@ -14,6 +14,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 		<thead>
 			<tr>
 				<th width="4%">Task</th>
+				<th width="6%">Attempt</th>
 				<th width="6%">Status</th>
 				<th width="10%">Duration</th>
 				<th width="20%">Started</th>
@@ -25,6 +26,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 			{% for task in tasks|reverse %}
 			<tr class="{{ 'active' if task.pending else '' }}">
 				<td>{{ loop.revindex }}</td>
+				<td>{{ task.attempts }}</td>
 				<td>{{ task|task_status }}</td>
 				<td>{{ task.duration|fmt_timedelta }}</td>
 				<td>{{ task.started_on.strftime('%Y-%m-%d %H:%M:%S') if task.started_on else '' }}</td>
