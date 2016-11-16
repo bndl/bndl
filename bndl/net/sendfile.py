@@ -24,7 +24,8 @@ def file_attachment(filename, offset, size):
             '''
             with open(filename, 'rb') as file:
                 yield from aio.drain(writer)
-                socket = writer.get_extra_info('socket')
+                socket = writer.get_extra_info('socket').dup()
+                socket.setblocking(False)
                 yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
         yield size, sender
 
