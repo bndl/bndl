@@ -181,8 +181,8 @@ class Scheduler(object):
                                 assert not self.blocked[task], '%r blocked' % task
 
                                 assert self.locality[worker].get(task, 0) >= 0, '%r forbidden on %r' % (task, worker)
-                                assert all(dep.succeeded for dep in task.dependencies)
-                                assert all(self.blocked[dep] for dep in task.dependents)
+                                assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded' % task
+                                assert all(self.blocked[dep] for dep in task.dependents), 'not all dependents of %r blocked' % task
 
                                 self.executable.remove(task)
                                 self.executable_on[worker].discard(task)
