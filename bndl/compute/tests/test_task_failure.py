@@ -30,36 +30,28 @@ class TaskFailureTest(DatasetTest):
 
 
     def test_retry(self):
-        def raise_exception():
-            raise Exception()
-
-        failures = [
-            raise_exception,
-            kill_self,
-        ]
-
-        def failon(workers, failure, i):
+        def failon(workers, i):
             if current_worker().name in workers:
-                failure()
+                raise Exception()
             else:
                 return i
 
-        for failure in failures:
-            dset = self.ctx.range(10, pcount=self.ctx.worker_count)
+        dset = self.ctx.range(10, pcount=self.ctx.worker_count)
 
-            # test it can pass
-            self.assertEqual(dset.map(partial(failon, [], failure)).count(), 10)
+        # test it can pass
+        self.assertEqual(dset.map(partial(failon, [])).count(), 10)
 
-            # test that it fails if there is no retry
-            with self.assertRaises(Exception):
-                dset.map(failon, [w.name for w in self.ctx.workers[:1]], failure).count()
+        # test that it fails if there is no retry
 
-            # test that it succeeds with a retry
-            try:
-                self.ctx.conf['bndl.execute.attempts'] = 2
-                self.assertEqual(dset.map(failon, [w.name for w in self.ctx.workers[:1]], failure).count(), 10)
-            finally:
-                self.ctx.conf['bndl.execute.attempts'] = 1
+        with self.assertRaises(Exception):
+            print(dset.map(failon, [w.name for w in self.ctx.workers[:1]]).count())
+
+        # test that it succeeds with a retry
+        try:
+            self.ctx.conf['bndl.execute.attempts'] = 2
+            self.assertEqual(dset.map(failon, [w.name for w in self.ctx.workers[:1]]).count(), 10)
+        finally:
+            self.ctx.conf['bndl.execute.attempts'] = 1
 
 
     def test_cancel(self):
