@@ -31,7 +31,7 @@ from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException, root_exc
-from bndl.util import serialize, cycloudpickle as cloudpickle, strings
+from bndl.util import cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter
