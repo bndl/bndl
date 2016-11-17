@@ -6,6 +6,7 @@ from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from toolz.itertoolz import groupby
 from bndl.util.funcs import identity
+import bndl
 
 
 HEADER = r'''         ___ _  _ ___  _
@@ -13,7 +14,8 @@ Welcome | _ ) \| |   \| |
 to the  | _ \ .` | |) | |__
         |___/_|\_|___/|____| shell.
 
-ComputeContext available as ctx.'''
+Running BNDL version %s.
+ComputeContext available as ctx.''' % bndl.__version__
 
 
 argparser = copy.copy(argparser)
