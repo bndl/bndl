@@ -18,12 +18,24 @@ class ppluck(object):
         self.ind = ind
         self.seqs = seqs
         self.default = default
-        
+
     def __iter__(self):
         return pluck(self.ind, self.seqs, self.default)
-    
+
     def __reduce__(self):
         return identity, (tuple(iter(self)),)
+
+
+def partial_func(func, *args, **kwargs):
+    if args:
+        if kwargs:
+            return partial(func, *args, **kwargs)
+        else:
+            return partial(func, *args)
+    elif kwargs:
+        return partial(func, **kwargs)
+    else:
+        return func
 
 
 def _getter(key, obj):

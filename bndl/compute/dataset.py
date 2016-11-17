@@ -34,7 +34,7 @@ from bndl.rmi import InvocationException, root_exc
 from bndl.util import cycloudpickle as cloudpickle, strings
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
-from bndl.util.funcs import identity, getter, key_or_getter
+from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
 import numpy as np
@@ -86,8 +86,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before element).
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions(partial(map, func))
 
 
@@ -100,8 +99,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before element).
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions(partial(starmap, func))
 
 
@@ -162,8 +160,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before iterator).
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions_with_part(lambda p, iterator: func(iterator))
 
 
@@ -177,8 +174,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before index and iterator).
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
 
 
@@ -193,8 +189,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before partition and iterator).
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return TransformingDataset(self, func)
 
 
@@ -316,8 +311,7 @@ class Dataset(object):
 
         Any extra *args or **kwargs are passed to func (args before element)
         '''
-        if args or kwargs:
-            func = partial(func, *args, **kwargs)
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions(lambda p: (e for e in p if func(*e)))
 
 
@@ -429,23 +423,25 @@ class Dataset(object):
         return self.pluck(1)
 
 
-    def map_keys(self, func):
+    def map_keys(self, func, *args, **kwargs):
         '''
         Transform the keys of this dataset.
 
         :param func: callable(key)
             Transformation to apply to the keys
         '''
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions(lambda p: ((func(k), v) for k, v in p))
 
 
-    def map_values(self, func):
+    def map_values(self, func, *args, **kwargs):
         '''
         Transform the values of this dataset.
 
         :param func: callable(value)
             Transformation to apply to the values
         '''
+        func = partial_func(func, *args, **kwargs)
         return self.map_partitions(lambda p: ((k, func(v)) for k, v in p))
 
 
@@ -462,16 +458,17 @@ class Dataset(object):
         return self.map_values(lambda value: pluck(ind, value, **kwargs))
 
 
-    def flatmap_values(self, func=None):
+    def flatmap_values(self, func=None, *args, **kwargs):
         '''
         :param func: callable(value) or None
             The callable which flattens the values of this dataset or None in
             order to use the values as iterables to flatten.
         '''
+        func = partial_func(func, *args, **kwargs)
         return self.values().flatmap(func)
 
 
-    def filter_bykey(self, func=None):
+    def filter_bykey(self, func=None, *args, **kwargs):
         '''
         Filter the dataset by testing the keys.
 
@@ -480,12 +477,13 @@ class Dataset(object):
             will be retained.
         '''
         if func:
+            func = partial_func(func, *args, **kwargs)
             return self.map_partitions(lambda p: (kv for kv in p if func(kv[0])))
         else:
             return self.map_partitions(lambda p: (kv for kv in p if kv[0]))
 
 
-    def filter_byvalue(self, func=None):
+    def filter_byvalue(self, func=None, *args, **kwargs):
         '''
         Filter the dataset by testing the values.
 
@@ -494,6 +492,7 @@ class Dataset(object):
             will be retained.
         '''
         if func:
+            func = partial_func(func, *args, **kwargs)
             return self.map_partitions(lambda p: (kv for kv in p if func(kv[1])))
         else:
             return self.map_partitions(lambda p: (kv for kv in p if kv[1]))
