@@ -356,10 +356,10 @@ class Dataset(object):
             >>> ctx.collection('abcdef').with_value(1).collect()
             [('a', 1), ('b', 1), ('c', 1), ('d', 1), ('e', 1), ('f', 1)]
         '''
-        if not callable(val):
-            return self.map_partitions(lambda p: ((e, val) for e in p))
-        else:
+        if callable(val):
             return self.map_partitions(lambda p: ((e, val(e)) for e in p))
+        else:
+            return self.map_partitions(lambda p: ((e, val) for e in p))
 
 
     def key_by_id(self):
@@ -1442,13 +1442,13 @@ class Dataset(object):
 
     def cache(self, location='memory', serialization=None, compression=None, provider=None):
         assert self.ctx.node.node_type == 'driver'
-        if not location:
-            self.uncache()
-        else:
+        if location:
             assert not self._cache_provider
             if location == 'disk' and not serialization:
                 serialization = 'pickle'
             self._cache_provider = cache.CacheProvider(location, serialization, compression)
+        else:
+            self.uncache()
         return self
 
 
@@ -1676,9 +1676,15 @@ class Partition(object):
 
 
     def save_cache_location(self, worker):
+        try:
+            dset = self.dset
+            dset.id
+        except ReferenceError:
+            return
+
         # memorize the cache location for the partition
-        if self.dset.cached and not self.dset._cache_locs.get(self.idx):
-            self.dset._cache_locs[self.idx] = worker
+        if dset.cached and not dset._cache_locs.get(self.idx):
+            dset._cache_locs[self.idx] = worker
         # traverse backup up the task (not the entire DAG)
         if self.src:
             if isinstance(self.src, Iterable):
@@ -1788,15 +1794,15 @@ class TransformingDataset(Dataset):
 
 
     def map_partitions_with_part(self, func):
-        if not self.cached:
+        if self.cached:
+            return TransformingDataset(self, func)
+        else:
             callsite = get_callsite()
             # TODO name = self.callsite[0] + ' -> ' + name
             funcs = self.funcs + (func,)
             dset = self._with(funcs=funcs, callsite=callsite)
             dset._pickle_funcs()
             return dset
-        else:
-            return TransformingDataset(self, func)
 
 
     def _pickle_funcs(self):
