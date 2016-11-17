@@ -108,26 +108,16 @@ nodes are 'in error' very quickly after starting a job
 
 allow for easier debugging by reporting the failed partition (or more)
 
-
-don't animate progress bar in dash, costs cpu cycles
-
-
-Sort cassandra scan parts from larger to smaller
- - what about performance of .first()
-
  
 add psize for ctx.range
 
 
-add max pcount / psize for ctx.range / ctx.connection
+add max pcount / psize for ctx.range / ctx.collection
+
 
 why stage.tasks.sort(key=lambda t: t.id) ? costs time for a large numer of tasksc
 
 
-stable_time = max(b - a for a, b in zip(connected_on, connected_on[1:])) * 2
- ... is killing when nodes join late!
- 
- 
 add protocol version in hello
 
 
@@ -303,12 +293,8 @@ join_with_cassandra with a single element key doesn't work
 
   
 remote cache read raw and decode on reading worker if was serialized in memory or on disk
+Caching on multiple nodes
 
-
-speed up calculating which tasks are executable, which are blocked and if there is locality
- - way to slow for even a moderate number of tasks (e.g. 240 in five-way shuffle on 20 workers)
- 
- 
  
 Traceback (most recent call last):
   File "/home/frens.jan.rumph/venv/bin/bndl-compute-shell", line 11, in <module>
@@ -331,8 +317,18 @@ Checking group.executing_on in
  <tr class="clickable {{ ' active' if group.executing_on else '' }}" data-href='group/{{ group.grouper }}'>
  
  
- 
-Caching of collections is broken since the collection is sent anyway ...
-
 
 Compatibility with yappi 0.94
+
+
+
+collect_as_files and friends -> save_as ... on worker
+
+
+callsite for k-means doesn't work ... everything is a k-means iteration
+
+implement k-means ||
+implement k-means for sparse matrices
+
+
+collect_as_files should check if directory exists before launching
