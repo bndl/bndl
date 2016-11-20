@@ -180,7 +180,7 @@ class ExecutionContext(Lifecycle):
                 return True, recent_connects[0] < now - connect_timeout
             else:
                 max_connect_gap = max(b - a for a, b in zip(recent_connects, recent_connects[1:]))
-                stable_time = max(2 * max_connect_gap, timedelta(seconds=1))
+                stable_time = 2 * max_connect_gap
                 time_since_last_connect = now - recent_connects[-1]
                 return True, time_since_last_connect > stable_time
 
