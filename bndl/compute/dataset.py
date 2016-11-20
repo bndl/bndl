@@ -1522,7 +1522,7 @@ class Dataset(object):
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        del state['callsite']
+        state.pop('callsite', None)
         return state
 
 

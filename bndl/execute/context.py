@@ -251,6 +251,11 @@ class ExecutionContext(Lifecycle):
 
     def __getstate__(self):
         state = super().__getstate__()
-        del state['_node']
-        del state['jobs']
+        state.pop('_node', None)
+        state.pop('jobs', None)
         return state
+
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._node = None
