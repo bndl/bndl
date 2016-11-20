@@ -71,6 +71,9 @@ class Scheduler(object):
         self.done = done
         self.workers = {worker.name:worker for worker in (workers or ctx.workers)}
 
+        if not self.workers:
+            raise Exception('No workers available')
+
         self.concurrency = concurrency or ctx.conf['bndl.execute.concurrency']
         # failed tasks are retried on error, but they are executed at most attempts
         self.max_attempts = attempts or ctx.conf['bndl.execute.attempts']
