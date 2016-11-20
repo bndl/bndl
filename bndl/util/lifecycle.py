@@ -26,8 +26,8 @@ class Lifecycle(object):
             self.signal_stop()
 
     def signal_start(self):
-        if not self.started_on:
-            self.started_on = datetime.now()
+        self.started_on = datetime.now()
+        self.stopped_on = None
         for listener in self.started_listeners:
             listener(self)
 
