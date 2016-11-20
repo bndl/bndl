@@ -253,6 +253,10 @@ class ExecutionContext(Lifecycle):
         state = super().__getstate__()
         state.pop('_node', None)
         state.pop('jobs', None)
+        state.pop('cancelled', None)
+        state.pop('name', None)
+        state.pop('started_on', None)
+        state.pop('stopped_on', None)
         return state
 
 
