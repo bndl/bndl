@@ -16,7 +16,7 @@ class ComputeContext(ExecutionContext):
             return pcount
         if self.worker_count == 0:
             self.await_workers()
-        return self.worker_count * self.conf['bndl.execute.concurrency'] * 2
+        return self.worker_count * self.conf['bndl.execute.concurrency']
 
 
     def collection(self, collection, pcount=None, psize=None):
@@ -45,4 +45,3 @@ class ComputeContext(ExecutionContext):
     zeros = as_method(DistributedArray.zeros)
     ones = as_method(DistributedArray.ones)
     arange = as_method(DistributedArray.arange)
-

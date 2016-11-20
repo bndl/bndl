@@ -60,8 +60,3 @@ class Lifecycle(object):
         state.pop('stopped_listeners', None)
         state.pop('desc', None)
         return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.started_listeners = set()
-        self.stopped_listeners = set()

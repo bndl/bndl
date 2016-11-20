@@ -249,5 +249,8 @@ class ExecutionContext(Lifecycle):
             pass
 
 
-    def __reduce__(self):
-        return type(self), (None, self.conf)
+    def __getstate__(self):
+        state = super().__getstate__()
+        del state['_node']
+        del state['jobs']
+        return state

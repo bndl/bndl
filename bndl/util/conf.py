@@ -104,7 +104,7 @@ class Config(object):
         return '<Conf %r>' % self.values
 
     def __reduce__(self):
-        return Config, (self.values,)
+        return Config, (self.values, False)
 
 
 class Setting(object):
