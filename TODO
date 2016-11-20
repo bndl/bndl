@@ -332,3 +332,7 @@ implement k-means for sparse matrices
 
 
 collect_as_files should check if directory exists before launching
+
+
+shuffle is to slow ... also just a plain shuffle(n, sort=False)
+
