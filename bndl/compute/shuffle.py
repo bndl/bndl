@@ -21,7 +21,7 @@ from bndl.rmi import InvocationException, root_exc
 from bndl.util.collection import batch as batch_data, ensure_collection
 from bndl.util.conf import Float
 from bndl.util.exceptions import catch
-from bndl.util.funcs import prefetch
+from bndl.util.funcs import star_prefetch
 from bndl.util.hash import portable_hash
 from bndl.util.psutil import process_memory_percent, virtual_memory
 
@@ -680,7 +680,7 @@ class ShuffleReadingPartition(Partition):
             new_batch()
 
             # perform the multi-gets for this source and apply pre-fetching / read-ahead
-            for request in prefetch(get_blocks, requests):
+            for request in star_prefetch(get_blocks, requests):
                 try:
                     blocks = request.result()
                 except TaskCancelled:
