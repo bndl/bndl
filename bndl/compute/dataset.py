@@ -1531,7 +1531,11 @@ class Dataset(object):
 
 
     def __str__(self):
-        return '%s (%s)' % (self.callsite[0], self.__class__.__name__)
+        callsite = getattr(self, 'callsite')
+        if callsite and callsite[0]:
+            return '%s (%s)' % (callsite[0], self.__class__.__name__)
+        else:
+            self.__class__.__name__
 
 
 FORBIDDEN = -1
