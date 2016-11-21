@@ -1443,10 +1443,12 @@ class Dataset(object):
     def cache(self, location='memory', serialization=None, compression=None, provider=None):
         assert self.ctx.node.node_type == 'driver'
         if location:
-            assert not self._cache_provider
             if location == 'disk' and not serialization:
                 serialization = 'pickle'
-            self._cache_provider = cache.CacheProvider(location, serialization, compression)
+            if self._cache_provider:
+                self._cache_provider.modify(location, serialization, compression)
+            else:
+                self._cache_provider = cache.CacheProvider(location, serialization, compression)
         else:
             self.uncache()
         return self
@@ -1535,7 +1537,7 @@ class Dataset(object):
         if callsite and callsite[0]:
             return '%s (%s)' % (callsite[0], self.__class__.__name__)
         else:
-            self.__class__.__name__
+            return self.__class__.__name__
 
 
 FORBIDDEN = -1

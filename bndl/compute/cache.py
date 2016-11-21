@@ -21,7 +21,12 @@ def clear_all():
 
 class CacheProvider(object):
     def __init__(self, location, serialization, compression):
+        self.modify(location, serialization, compression)
+
+
+    def modify(self, location, serialization, compression):
         self.storage_container_factory = StorageContainerFactory(location, serialization, compression)
+
 
     def read(self, cache_key, obj_key):
         container = _caches[cache_key][obj_key]
