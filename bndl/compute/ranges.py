@@ -35,7 +35,7 @@ class RangeDataset(Dataset):
         if self.start == 0:
             s = str(self.stop)
         else:
-            s = ','.join((self.start, self.stop))
+            s = '%s,%s' % (self.start, self.stop)
 
         if self.step != 1:
             s += ',' + str(self.step)
