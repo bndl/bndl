@@ -63,18 +63,17 @@ class Config(object):
 
     def get(self, key, fmt=None, default=_NOT_SET):
         setting = self._get_setting(key)
-        if setting:
-            if fmt is None:
-                fmt = setting.fmt
-            if default is _NOT_SET:
-                default = setting.default
         value = self.values.get(key, _NOT_SET)
         if value is _NOT_SET:
+            if setting and default is _NOT_SET:
+                default = setting.default
             if default is not _NOT_SET:
                 return default
             else:
                 return None
         else:
+            if fmt is None and setting:
+                fmt = setting.fmt
             return fmt(value) if fmt else value
 
     def get_int(self, *args, **kwargs):

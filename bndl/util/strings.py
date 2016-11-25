@@ -11,6 +11,10 @@ def camel_to_snake(name):
 
 
 def random(length=64, alphabet=string.ascii_lowercase + string.digits, rng=None, seed=None):
-    if not rng:
-        rng = rand.Random(seed)
-    return ''.join(rng.choice(alphabet) for _ in range(length))
+    if rng:
+        choice = rng.choice
+    elif seed is None:
+        choice = rand.choice
+    else:
+        choice = rand.Random(seed).choice
+    return ''.join(choice(alphabet) for _ in range(length))
