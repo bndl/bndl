@@ -1,4 +1,4 @@
-from collections import Sized
+from collections import Mapping
 from math import ceil
 
 from bndl.compute.dataset import Dataset, Partition
@@ -36,7 +36,9 @@ class DistributedCollection(Dataset):
                 if pcount <= 0:
                     raise Exception("can't use default_pcount, no workers available")
 
-            if not hasattr(collection, '__len__') and not hasattr(collection, '__getitem__'):
+            if isinstance(collection, Mapping):
+                collection = list(collection.items())
+            elif not hasattr(collection, '__len__') and not hasattr(collection, '__getitem__'):
                 collection = ensure_collection(collection)
 
             step = max(1, ceil(len(collection) / pcount))
