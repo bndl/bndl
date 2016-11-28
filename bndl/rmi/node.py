@@ -120,7 +120,7 @@ class RMIPeerNode(PeerNode):
             except asyncio.futures.CancelledError:
                 logger.debug('handling message from %s cancelled: %s', self, request)
                 return
-            except Exception as e:
+            except Exception:
                 logger.debug('unable to invoke method %s', request.method, exc_info=True)
                 exc = sys.exc_info()
 
@@ -156,9 +156,7 @@ class RMIPeerNode(PeerNode):
     def _handle_response(self, response):
         try:
             handler = self.handlers.pop(response.req_id)
-            coro = handler.set_result(response)
-            if asyncio.iscoroutine(coro):
-                yield from coro
+            handler.set_result(response)
         except KeyError:
             logger.warning('Response %r received for unknown request id %r', response, response.req_id)
         except Exception:
