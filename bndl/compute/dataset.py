@@ -830,7 +830,7 @@ class Dataset(object):
         key = key_or_getter(key)
         return (self.key_by(key)
                     .group_by_key(partitioner=partitioner, pcount=pcount, **shuffle_opts)
-                    .map_values(tuple))
+                    .map_values(list))
 
 
     def group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
@@ -844,7 +844,7 @@ class Dataset(object):
         '''
         def strip_key(key, value):
             return key, pluck(1, value)
-        return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key).map_values(tuple)
+        return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key).map_values(list)
 
 
     def _group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
@@ -988,7 +988,7 @@ class Dataset(object):
         def local_join(group):
             key, groups = group
             if all(groups):
-                yield key, tuple(product(*groups))
+                yield key, list(product(*groups))
 
         return (self.cogroup(other, key=key, partitioner=partitioner, pcount=pcount, **shuffle_opts)
                     .flatmap(local_join))
@@ -996,7 +996,6 @@ class Dataset(object):
 
     def product(self, other, *others):
         return CartesianProductDataset((self, other) + others)
-
 
 
     def distinct(self, pcount=None, key=None, **shuffle_opts):
@@ -1202,6 +1201,7 @@ class Dataset(object):
 
         sampling = sample_with_replacement if with_replacement else sample_without_replacement
         return self.map_partitions(partial(sampling, rng, fraction))
+
 
     # TODO implement stratified sampling
 
@@ -1781,7 +1781,7 @@ class CartesianProductDataset(_MultiSourceDataset):
 
 class CartesianProductPartition(Partition):
     def _compute(self):
-        yield from product(*tuple(src.compute() for src in self.src))
+        yield from product(*list(src.compute() for src in self.src))
 
 
 
