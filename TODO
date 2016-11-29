@@ -82,6 +82,7 @@ add pickle options to broadcast_pickle
 Prevent occurences of:
  27158 : OpenBLAS blas_thread_init: RLIMIT_NPROC 4096 current, 4127376 max
  27158 : OpenBLAS blas_thread_init: pthread_create: Resource temporarily unavailable
+Is triggered by import of numpy
  
  
 support cassandra.coscan with _asdicts
@@ -335,4 +336,10 @@ collect_as_files should check if directory exists before launching
 
 
 shuffle is to slow ... also just a plain shuffle(n, sort=False)
+
+
+Implement versions of itake (take and first) for cassandra coscan
+
+
+Add named tuple like format for bndl_cassandra which supports __getitem__ to access fields.
 
