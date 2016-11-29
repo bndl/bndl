@@ -52,7 +52,7 @@ class Task(Lifecycle):
         self.attempts = 0
 
 
-    def execute(self, worker):
+    def execute(self, scheduler, worker):
         pass
 
 
@@ -175,7 +175,7 @@ class RmiTask(Task):
         self.handle = None
 
 
-    def execute(self, worker):
+    def execute(self, scheduler, worker):
         self.set_executing(worker)
         future = self.future = Future()
         future2 = worker.execute_async(self.method, *self.args, **self.kwargs)

@@ -22,7 +22,6 @@ from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
 from bndl.compute import cache
-from bndl.compute.explain import get_callsite, callsite, set_callsite
 from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled, DependenciesFailed
 from bndl.execute.job import RmiTask, Job, Task
@@ -32,6 +31,7 @@ from bndl.net.connection import NotConnected
 from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException, root_exc
 from bndl.util import cycloudpickle as cloudpickle, strings
+from bndl.util.callsite import get_callsite, callsite, set_callsite
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
@@ -1419,7 +1419,7 @@ class Dataset(object):
 
 
     def _schedule(self):
-        name, desc = get_callsite()
+        name, desc = get_callsite(__file__)
         name = re.sub('[_.]', ' ', name or '')
         from . import scheduler
         tasks = scheduler.schedule(self)
@@ -1803,7 +1803,7 @@ class TransformingDataset(Dataset):
         if self.cached:
             return TransformingDataset(self, func)
         else:
-            callsite = get_callsite()
+            callsite = get_callsite(__file__)
             # TODO name = self.callsite[0] + ' -> ' + name
             funcs = self.funcs + (func,)
             dset = self._with(funcs=funcs, callsite=callsite)
@@ -1840,7 +1840,7 @@ class TransformingPartition(Partition):
 
 
 class BarrierTask(Task):
-    def execute(self, worker):
+    def execute(self, scheduler, worker):
         self.set_executing(worker)
         future = self.future = concurrent.futures.Future()
         future.set_result(None)
@@ -1858,7 +1858,7 @@ class ComputePartitionTask(RmiTask):
         self.locality = part.locality
 
 
-    def execute(self, worker):
+    def execute(self, scheduler, worker):
         if self.dependencies:
             assert len(self.dependencies) == 1 and isinstance(self.dependencies[0], BarrierTask)
             dependencies = self.dependencies[0].dependencies
@@ -1869,7 +1869,7 @@ class ComputePartitionTask(RmiTask):
                 assert dependency_locations[dep.executed_on_last].count(dep.part.id) == 1
             # set locations as second arguments
             self.args[1] = dependency_locations
-        return super().execute(worker)
+        return super().execute(scheduler, worker)
 
 
     def signal_stop(self):

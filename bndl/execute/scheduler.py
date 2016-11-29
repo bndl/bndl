@@ -185,7 +185,8 @@ class Scheduler(object):
 
                                 assert self.locality[worker].get(task, 0) >= 0, '%r forbidden on %r' % (task, worker)
                                 assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded' % task
-                                assert all(self.blocked[dep] for dep in task.dependents), 'not all dependents of %r blocked' % task
+                                assert all(dep.id not in self.tasks or self.blocked[dep] for dep in task.dependents), \
+                                       'not all dependents of %r blocked' % task
 
                                 self.executable.remove(task)
                                 self.executable_on[worker].discard(task)
@@ -193,7 +194,7 @@ class Scheduler(object):
                                 if logger.isEnabledFor(logging.DEBUG):
                                     logger.debug('%r executing on %r with locality %r',
                                                  task, worker, self.locality[worker].get(task, 0))
-                                task.execute(self.workers[worker])
+                                task.execute(self, self.workers[worker])
                             except CancelledError:
                                 pass
                             except AssertionError:
@@ -255,6 +256,9 @@ class Scheduler(object):
 
 
     def set_executable(self, task):
+        if task.id not in self.tasks:
+            return
+
         assert not self.blocked[task], '%r isn\'t executable because it is blocked'
         assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded: %r' \
             % (task, [dep for dep in task.dependencies if not dep.succeeded])
@@ -318,7 +322,7 @@ class Scheduler(object):
                     for dependent in task.dependents:
                         blocked_by = self.blocked[dependent]
                         blocked_by.discard(task)
-                        if not blocked_by:
+                        if not blocked_by and dependent:
                             if dependent in self.succeeded:
                                 logger.debug('%r unblocked because %r was executed, but already succeeded', dependent, task)
                             else:
