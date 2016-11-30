@@ -24,8 +24,6 @@ class DistributedCollection(Dataset):
             self.pcount = pcount
             self.psize = None
 
-
-
         if self.psize:
             parts = [(len(part),) + serialize.dumps(part) for part in
                      map(ensure_collection, batch(collection, self.psize))]
