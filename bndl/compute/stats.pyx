@@ -152,12 +152,14 @@ cdef class Stats:
  
     cpdef add(self, Stats b):
         cdef Stats a = self
-         
         cdef Stats c = Stats()
+        
+        c._n = a._n + b._n
+        if c._n == 0:
+            return c 
+    
         c._min = min(a._min, b._min)
         c._max = max(a._max, b._max)
-        
-        c._n = self._n + b._n
          
         cdef double d = b._m1 - a._m1;
         cdef double d2 = d * d;
