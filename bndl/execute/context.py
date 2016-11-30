@@ -50,7 +50,7 @@ class ExecutionContext(Lifecycle):
 
         if workers is None:
             self.await_workers()
-            workers = self.workers[:]
+            workers = self.workers
 
         if not job.tasks:
             return
@@ -58,7 +58,11 @@ class ExecutionContext(Lifecycle):
         self.jobs.append(job)
 
         done = Queue()
-        scheduler = Scheduler(self, job.tasks, done.put, workers, concurrency, attempts)
+
+        concurrency = concurrency or self.conf['bndl.execute.concurrency']
+        attempts = attempts or self.conf['bndl.execute.attempts']
+
+        scheduler = Scheduler(job.tasks, done.put, workers, concurrency, attempts)
         scheduler_driver = Thread(target=scheduler.run,
                                   name='bndl-scheduler-%s' % (job.id),
                                   daemon=True)

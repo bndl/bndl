@@ -41,21 +41,20 @@ class Scheduler(object):
     as is done in bndl.compute (this reduced the number of dependencies to n+m instead of n*m).
     '''
 
-    def __init__(self, ctx, tasks, done, workers=None, concurrency=None, attempts=None):
+    def __init__(self, tasks, done, workers, concurrency=1, attempts=1):
         '''
         Execute tasks in the given context and invoke done(task) when a task completes.
         
-        :param ctx: ComputeContext
         :param tasks: iterable[task]
         :param done: callable(task)
             Invoked when a task completes. Must be thread safe. May be called multiple times
             if a task is reran (e.g. in case a worker fails). done(None) is called to signal
             completion of the last task.
-        :param: workers: sequence[Peer] or None
-            Optional sequence of workers to execute on. ctx.workers is used if not provided.
-        :param: concurrency: int or None
+        :param: workers: sequence[Peer]
+            Sequence of workers to execute on.
+        :param: concurrency: int (defaults to 1)
             @see: bndl.execute.concurrency
-        :param: attempts: int or None
+        :param: attempts: int (defaults to 1)
             @see: bndl.execute.attempts
         '''
         self.tasks = OrderedDict((task.id, task) for task
@@ -69,14 +68,14 @@ class Scheduler(object):
             task.add_listener(noop, self.task_done)
 
         self.done = done
-        self.workers = {worker.name:worker for worker in (workers or ctx.workers)}
+        self.workers = {worker.name:worker for worker in workers}
 
         if not self.workers:
             raise Exception('No workers available')
 
-        self.concurrency = concurrency or ctx.conf['bndl.execute.concurrency']
+        self.concurrency = concurrency
         # failed tasks are retried on error, but they are executed at most attempts
-        self.max_attempts = attempts or ctx.conf['bndl.execute.attempts']
+        self.max_attempts = attempts
 
         # task completion is (may be) executed on another thread, this lock serializes access
         # on the containers below and workers_idle
