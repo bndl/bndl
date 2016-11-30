@@ -1396,7 +1396,7 @@ class Dataset(object):
         '''
         Require that the dataset is computed on the same node as the driver.
         '''
-        return self.require_workers(PeerNode.islocal)
+        return self.require_workers(lambda workers: [worker.islocal() for worker in workers])
 
 
     def allow_all_workers(self):
