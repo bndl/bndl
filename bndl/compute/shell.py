@@ -1,10 +1,11 @@
-import copy
+import argparse
+
+from toolz.itertoolz import groupby
 
 from bndl.compute.run import create_ctx
-from bndl.net.run import argparser
+from bndl.net import run
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from toolz.itertoolz import groupby
 from bndl.util.funcs import identity
 import bndl
 
@@ -18,7 +19,7 @@ Running BNDL version %s.
 ComputeContext available as ctx.''' % bndl.__version__
 
 
-argparser = copy.copy(argparser)
+argparser = argparse.ArgumentParser(parents=[run.argparser])
 argparser.prog = 'bndl.compute.shell'
 argparser.add_argument('--worker-count', nargs='?', type=int, default=None, dest='worker_count')
 argparser.add_argument('--conf', nargs='*', default=())
