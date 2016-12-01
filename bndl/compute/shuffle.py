@@ -804,11 +804,9 @@ class ShuffleManager(object):
 
 
     def _buckets_for_dset(self, src_dset_id):
-        buckets = self.buckets[src_dset_id]
-        if not buckets:
-            msg = 'No buckets for dataset %r' % src_dset_id
-            logger.error(msg)
-            raise KeyError(msg)
+        buckets = self.buckets.get(src_dset_id)
+        if buckets is None:
+            raise KeyError('No buckets for dataset %r' % src_dset_id)
         return buckets
 
 
@@ -820,19 +818,29 @@ class ShuffleManager(object):
         :param dset_id: The id of the source data set.
         :param dest_part_idx: The index of the destination partition.
         '''
-        sizes = []
-        for src_part_idx, buckets in self._buckets_for_dset(src_dset_id).items():
-            bucket = buckets[dest_part_idx]
-            sizes.append((src_part_idx, [[block.size for block in batch]
-                                         for batch in bucket.batches]))
-        return sizes
+        try:
+            dset_buckets = self._buckets_for_dset(src_dset_id)
+        except KeyError:
+            return []
+        else:
+            sizes = []
+            for src_part_idx, buckets in dset_buckets.items():
+                bucket = buckets[dest_part_idx]
+                sizes.append((src_part_idx, [[block.size for block in batch]
+                                             for batch in bucket.batches]))
+            return sizes
 
 
     def get_bucket_block(self, src, src_dset_id, src_part_idx, dest_part_idx, batch_idx, block_idx):
         '''
         Retrieve a block from a batch in a bucket.
         '''
-        buckets = self._buckets_for_dset(src_dset_id)
+        try:
+            buckets = self._buckets_for_dset(src_dset_id)
+        except KeyError:
+            logger.error('Unable to return block, buckets for dset %s missing', src_dset_id)
+            raise
+
         buckets = buckets.get(src_part_idx)
         if not buckets:
             msg = 'No buckets for source partition %s in dataset %s' % (src_part_idx, src_dset_id)
