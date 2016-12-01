@@ -1860,7 +1860,8 @@ class ComputePartitionTask(RmiTask):
 
     def execute(self, scheduler, worker):
         if self.dependencies:
-            assert len(self.dependencies) == 1 and isinstance(self.dependencies[0], BarrierTask)
+            assert all(isinstance(dep, BarrierTask) for dep in self.dependencies), \
+                'Dependencies of task %s.%s %r is aren\'t BarrierTasks' % (self.id + (self.dependencies,))
             dependencies = self.dependencies[0].dependencies
             # created mapping of worker -> list[part_id] for dependency locations
             dependency_locations = {}
