@@ -55,7 +55,7 @@ cdef class Stats:
     '''
     Calculates a running mean, variance, standard deviation, skew and
     kurtosis for a metric. The metric can be updated by calling the metric.
-     
+
     Based on http://www.johndcook.com/blog/skewness_kurtosis/
     and https://github.com/apache/spark/blob/master/python/pyspark/statcounter.py
     '''

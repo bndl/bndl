@@ -150,7 +150,7 @@ __all__.extend([x for x in dir() if re.match("[A-Z][A-Z0-9_]+$", x)])
 
 cdef class _Framer:
     _FRAME_SIZE_TARGET = 64 * 1024
-    
+
     def __init__(self, file_write):
         self.file_write = file_write
         self.current_frame = None

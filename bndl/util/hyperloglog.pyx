@@ -56,7 +56,7 @@ estimates = [
     estimates_17,
     estimates_18,
 ]
- 
+
 cdef double bias_4[79]
 cdef double bias_5[159]
 cdef double bias_6[200]
@@ -161,7 +161,7 @@ def _reconstruct_hll(error_rate, M):
 
 class HyperLogLog:
     __slots__ = ('alpha', 'p', 'm', 'M', 'mask', 'max_width')
-    
+
     def __init__(self, error_rate, M=None):
         assert 0 < error_rate < 1
         self.p = ceil(log((1.04 / error_rate) ** 2, 2))
@@ -171,7 +171,7 @@ class HyperLogLog:
         self.mask = self.m - 1
         self.max_width = 64 - self.p
 
-    
+
     def add(self, value):
         cdef unsigned long x = hash64(value)[0] + maxint
         cdef long j = x & self.mask
@@ -184,28 +184,28 @@ class HyperLogLog:
         cdef unsigned long x
         cdef long j
         cdef long w
-        
+
         cdef int mask = self.mask
         cdef int max_width = self.max_width
-        
+
         for value in values:
             x = hash64(value)[0] + maxint
             j = x & mask
             w = x >> self.p
             self.M[j] = max(self.M[j], get_rho(w, max_width))
-        
+
         return self
 
-    
+
     def merge(self, *others):
         for other in others:
             if self.m != other.m:
                 raise ValueError('Counters precisions should be equal')
-        
+
         for other in others:
             for i in range(self.m):
                 self.M[i] = max(self.M[i], other.M[i])
-        
+
         return self
 
 

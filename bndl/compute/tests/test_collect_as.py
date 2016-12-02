@@ -28,7 +28,7 @@ class CollectAsTest(DatasetTest):
                 fnames = sorted(listdirabs(d))
                 pickles = (pickle.load(open(fname, 'rb')) for fname in fnames)
                 elements = list(chain.from_iterable(pickles))
-            self.check_elements(dset, fnames, elements,'.p')
+            self.check_elements(dset, fnames, elements, '.p')
 
 
     def test_collect_as_json(self):
@@ -38,7 +38,7 @@ class CollectAsTest(DatasetTest):
                 fnames = sorted(listdirabs(d))
                 data = b''.join(read_file(fname) for fname in fnames).decode()
                 elements = [json.loads(line) for line in StringIO(data)]
-            self.check_elements(dset, fnames, elements,'.json')
+            self.check_elements(dset, fnames, elements, '.json')
 
 
     def test_collect_gzipped(self):

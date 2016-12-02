@@ -63,13 +63,13 @@ class AccumulatorTest(DatasetTest):
         self.assertAlmostEqual(muldiv_accum.value, 1)
         self.assertEqual(shift_accum.value, sys.maxsize // 2)
 
-    
+
     def test_set(self):
         accum = self.ctx.accumulator(set())
-        
+
         def update(i):
             accum.update('add', i)
-            
+
         self.ctx.range(10).map(update).execute()
-        
+
         self.assertEqual(accum.value, set(range(10)))

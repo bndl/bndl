@@ -43,7 +43,7 @@ def files(ctx, root, recursive=True, dfilter=None, ffilter=None,
         to True.
     :param dfilter: function(dir_name)
         A function to filter out directories by name, return a trueish or falsy
-        value to indicate whether to use or the directory or not. 
+        value to indicate whether to use or the directory or not.
     :param ffilter: function(file_name)
         A function to filter out files by name, return a trueish or falsy
         value to indicate whether to use or the file or not.
@@ -158,7 +158,7 @@ def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
                 yield name, getsize(name)
         else:
             subdirs.append(name)
-            
+
     if dfilter:
         dfilter = serialize.dumps(dfilter)
     if ffilter:

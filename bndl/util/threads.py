@@ -7,12 +7,12 @@ from bndl.util.exceptions import catch
 class OnDemandThreadedExecutor(concurrent.futures.Executor):
     '''
     An minimal - almost primitive - Executor, that spawns a thread per task.
-    
+
     Used only because concurrent.futures.ThreadPoolExecutor isn't able to
     scale down the number of active threads, deciding on a maximum number of
     concurrent tasks may be difficult and keeping max(concurrent tasks) threads
     lingering around seems wasteful.
-    
+
     TODO: replace with a proper executor with min and max threads, etc.
     '''
 

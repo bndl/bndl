@@ -813,7 +813,7 @@ class ShuffleManager(object):
     def get_bucket_sizes(self, src, src_dset_id, dest_part_idx):
         '''
         Return the sizes and coordinates of the buckets for the destination partition.
-        
+
         :param src: The (rmi) peer node requesting the finalization.
         :param dset_id: The id of the source data set.
         :param dest_part_idx: The index of the destination partition.

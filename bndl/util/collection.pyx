@@ -34,7 +34,7 @@ def is_stable_iterable(obj):
     '''
     Determine if an obj is a stable iterable, excluding string/bytes like
     objects (so may be 'stable collection').
-    
+
     This rule is supposed to catch generators, islices, map objects and the
     lot. They aren't serializable unless materialized in e.g. a list are there
     cases where a) an unserializable type is missed? or b) materializing data

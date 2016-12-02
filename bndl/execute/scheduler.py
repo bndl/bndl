@@ -44,7 +44,7 @@ class Scheduler(object):
     def __init__(self, tasks, done, workers, concurrency=1, attempts=1):
         '''
         Execute tasks in the given context and invoke done(task) when a task completes.
-        
+
         :param tasks: iterable[task]
         :param done: callable(task)
             Invoked when a task completes. Must be thread safe. May be called multiple times

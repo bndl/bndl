@@ -10,7 +10,7 @@ class ObjectPool(object):
                  destroy=lambda x: None, min_size=0, max_size=0,
                  max_idle=None):
         '''
-        
+
         :param factory: func()
             Functino to create a new obj
         :param check: func(obj)
@@ -18,9 +18,9 @@ class ObjectPool(object):
         :param destroy: func(obj)
             Optional function to clean up for obj
         :param min_size: int
-            The minimum and initial size of the pool. 
+            The minimum and initial size of the pool.
         :param max_size: int
-            The maximum size of the pool. 
+            The maximum size of the pool.
         :param max_idle: int, float or timedelta
             The maximum time an object may reside in the pool. After this time,
             the obj will be removed and destroy(obj) will be invoked.
@@ -49,8 +49,8 @@ class ObjectPool(object):
             pass
         self._ensure_size()
         self._clean()
-            
-            
+
+
     def _ensure_size(self):
         try:
             while self.objects.qsize() < self.min_size:

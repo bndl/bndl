@@ -184,11 +184,11 @@ cdef class CloudPickler(Pickler):
             self.modules.add(themodule)
             if getattr(themodule, name, None) is obj:
                 return self.save_global(obj, name)
-            
+
         # a builtin_function_or_method which comes in as an attribute of some
         # object (e.g., object.__new__, itertools.chain.from_iterable) will end
         # up with modname "__main__" and so end up here. But these functions
-        # have no __code__ attribute in CPython, so the handling for 
+        # have no __code__ attribute in CPython, so the handling for
         # user-defined functions below will fail.
         # So we pickle them here using save_reduce; have to do it differently
         # for different python versions.
