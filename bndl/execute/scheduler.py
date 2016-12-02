@@ -175,17 +175,17 @@ class Scheduler(object):
                             # execute a task on the given worker and add the task_done callback
                             # the task is added to the pending set
                             try:
-                                assert task in self.executable, '%r is not executable' % task
-                                assert task not in self.succeeded, '%r already executed successfully' % task
-                                assert task not in self.pending, '%r already pending' % task
-                                assert not task.pending, '%r already pending' % task
-                                assert not task.done or task.failed, '%r done or failed' % task
-                                assert not self.blocked[task], '%r blocked' % task
+                                # assert task in self.executable, '%r is not executable' % task
+                                # assert task not in self.succeeded, '%r already executed successfully' % task
+                                # assert task not in self.pending, '%r already pending' % task
+                                # assert not task.pending, '%r already pending' % task
+                                # assert not task.done or task.failed, '%r done or failed' % task
+                                # assert not self.blocked[task], '%r blocked' % task
 
-                                assert self.locality[worker].get(task, 0) >= 0, '%r forbidden on %r' % (task, worker)
-                                assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded' % task
-                                assert all(dep.id not in self.tasks or self.blocked[dep] for dep in task.dependents), \
-                                       'not all dependents of %r blocked' % task
+                                # assert self.locality[worker].get(task, 0) >= 0, '%r forbidden on %r' % (task, worker)
+                                # assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded' % task
+                                # assert all(dep.id not in self.tasks or self.blocked[dep] for dep in task.dependents), \
+                                #        'not all dependents of %r blocked' % task
 
                                 self.executable.remove(task)
                                 self.executable_on[worker].discard(task)
@@ -245,7 +245,7 @@ class Scheduler(object):
                 pass
             else:  # task not executable
                 logger.error('%r not executable, blocked, pending nor executed', task)
-                assert False, '%r not executable, blocked, pending nor executed' % task
+                # assert False, '%r not executable, blocked, pending nor executed' % task
 
         # no task available with locality > 0
         # find task which is allowed to execute on this worker
@@ -258,10 +258,10 @@ class Scheduler(object):
         if task.id not in self.tasks:
             return
 
-        assert not self.blocked[task], '%r isn\'t executable because it is blocked'
-        assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded: %r' \
-            % (task, [dep for dep in task.dependencies if not dep.succeeded])
-        assert task not in self.succeeded, '%r already succeeded'
+        # assert not self.blocked[task], '%r isn\'t executable because it is blocked'
+        # assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded: %r' \
+        #     % (task, [dep for dep in task.dependencies if not dep.succeeded])
+        # assert task not in self.succeeded, '%r already succeeded'
 
         if task in self.executable or task in self.pending or task.succeeded:
             return
@@ -311,8 +311,8 @@ class Scheduler(object):
                 if task.failed:
                     self.task_failed(task)
                 else:
-                    assert task.succeeded, '%r not failed and not succeeded' % task
-                    assert task not in self.succeeded, '%r completed while already in succeeded list' % task
+                    # assert task.succeeded, '%r not failed and not succeeded' % task
+                    # assert task not in self.succeeded, '%r completed while already in succeeded list' % task
                     logger.debug('%r was executed on %r', task, task.executed_on_last)
                     # add to executed and signal done
                     self.succeeded.add(task)
@@ -345,12 +345,12 @@ class Scheduler(object):
             logger.debug('%r failed with %s, but already pending', task, type(root_exc(task.exception())))
             return
 
-        assert task.failed, "Can't reschedule task %r which hasn't failed." % task
+        # assert task.failed, "Can't reschedule task %r which hasn't failed." % task
 
         exc = root_exc(task.exception())
 
         if isinstance(exc, DependenciesFailed):
-            assert task not in self.succeeded, 'Dependencies of %r failed which already completed successfully' % task
+            # assert task not in self.succeeded, 'Dependencies of %r failed which already completed successfully' % task
             logger.info('%r failed on %s because %r failed, rescheduling',
                         task, task.executed_on_last,
                         ', '.join(worker + ': ' + ','.join(map(str, dependencies))
@@ -424,4 +424,4 @@ class Scheduler(object):
         if not self.blocked[task] and task not in self.executable and task not in self.pending:
             self.set_executable(task)
 
-        assert self.blocked[task] or task in self.executable or task in self.pending
+        # assert self.blocked[task] or task in self.executable or task in self.pending
