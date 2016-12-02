@@ -1,11 +1,10 @@
 from bndl.compute.accumulate import Accumulator
-from bndl.compute.arrays import SourceDistributedArray, DistributedArray
+from bndl.compute.dense import sources as dense
 from bndl.compute.broadcast import broadcast
 from bndl.compute.collections import DistributedCollection
 from bndl.compute.files import files
 from bndl.compute.ranges import RangeDataset
 from bndl.execute.context import ExecutionContext
-from bndl.util.funcs import as_method
 
 
 class ComputeContext(ExecutionContext):
@@ -117,11 +116,5 @@ class ComputeContext(ExecutionContext):
 
 
     broadcast = broadcast
-
     files = files
-
-    array = as_method(SourceDistributedArray)
-    empty = DistributedArray.empty
-    zeros = DistributedArray.zeros
-    ones = DistributedArray.ones
-    arange = DistributedArray.arange
+    dense = property(dense)

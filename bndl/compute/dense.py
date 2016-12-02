@@ -4,6 +4,8 @@ import numpy as np
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.collections import DistributedCollection
+from bndl.util.funcs import as_method
+from bndl.util.objects import ExtensionGroup
 
 
 class DistributedArray(Dataset, metaclass=abc.ABCMeta):
@@ -336,3 +338,14 @@ class TransformedDistributedArray(DistributedArray):
 
     def parts(self):
         return self.derivation.parts()
+
+
+class sources(ExtensionGroup):
+    '''
+    Create numpy based distributed, partitioned, dense arrays.
+    '''
+    array = as_method(SourceDistributedArray)
+    empty = DistributedArray.empty
+    zeros = DistributedArray.zeros
+    ones = DistributedArray.ones
+    range = DistributedArray.arange

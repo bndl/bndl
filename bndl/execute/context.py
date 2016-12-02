@@ -12,6 +12,7 @@ from bndl.util import plugins
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.lifecycle import Lifecycle
+from bndl.util.funcs import as_method
 
 
 logger = logging.getLogger(__name__)
@@ -255,22 +256,8 @@ class ExecutionContext(Lifecycle):
         return self.node.peers.filter(node_type='worker')
 
 
-    @property
-    def cpu_profiling(self):
-        '''
-        Start and stop CPU profiling on the cluster of workers. See further
-        :class:`bndl.execute.profile.CpuProfiling`.
-        '''
-        return CpuProfiling(self)
-
-
-    @property
-    def memory_profiling(self):
-        '''
-        Start and stop memory profiling on the cluster of workers. See further
-        :class:`bndl.execute.profile.MemoryProfiling`.
-        '''
-        return MemoryProfiling(self)
+    cpu_profiling = property(as_method(CpuProfiling))
+    memory_profiling = property(as_method(MemoryProfiling))
 
 
     def stop(self):

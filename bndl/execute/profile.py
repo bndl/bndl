@@ -3,7 +3,6 @@ import linecache
 import os
 import sys
 import tracemalloc
-import weakref
 
 from cytoolz import pluck
 import yappi
@@ -87,10 +86,10 @@ def print_yappi_stats(stats, max_rows=100, sort_by=None, sort_dir=None,
 
 class CpuProfiling(object):
     '''
-    Perform CPU profing across the cluster with ``yappi``.
+    Perform CPU profiling across the cluster with ``yappi``.
     '''
     def __init__(self, ctx):
-        self.ctx = weakref.proxy(ctx)
+        self.ctx = ctx
 
 
     def start(self):
@@ -192,7 +191,7 @@ class MemoryProfiling(object):
     Perform memory profiling on the cluster with ``tracemalloc``.
     '''
     def __init__(self, ctx):
-        self.ctx = weakref.proxy(ctx)
+        self.ctx = ctx
 
 
     def start(self):

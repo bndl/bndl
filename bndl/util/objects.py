@@ -1,3 +1,6 @@
+from types import MethodType
+
+
 class _Destructor(object):
     def __init__(self, obj, factory, destructor, destructor_key):
         self.obj = obj
@@ -36,3 +39,46 @@ class LazyObject(object):
             setattr(self, destructor_key, _Destructor(self, factory, destructor, destructor_key))
 
         return object.__getattribute__(self_orig, name)
+
+
+
+class Property(object):
+    def __init__(self, p):
+        self.p = p
+
+    def __get__(self, obj, objtype=None):
+        return self.p.fget(obj._extended)
+
+    def __set__(self, obj, value):
+        return self.p.fset(obj._extended, value)
+
+    def __delete__(self, obj):
+        return self.p.fdel(obj._extended)
+
+
+class Function(object):
+    def __init__(self, f):
+        self.f = f
+        self.__doc__ = f.__doc__
+
+    def __get__(self, obj, objtype=None):
+        return MethodType(self.f, obj._extended)
+
+
+class ExtensionGroupMeta(type):
+    def __new__(cls, name, parents, dct):
+        for key, value in dct.items():
+            if key[0] != '_':
+                if callable(value):
+                    dct[key] = Function(value)
+                elif isinstance(value, property):
+                    dct[key] = Property(value)
+                else:
+                    raise NotImplemented('Unable to proxy %s of type %s' %
+                                         (key, value))
+        return super().__new__(cls, name, parents, dct)
+
+
+class ExtensionGroup(metaclass=ExtensionGroupMeta):
+    def __init__(self, extended):
+        self._extended = extended
