@@ -4,6 +4,7 @@ import os
 import re
 
 from setuptools import setup, find_packages, Extension
+import pkg_resources
 
 import bndl
 
@@ -35,6 +36,18 @@ dev_requires = [
     'sphinx-rtd-theme',
     'sphinxcontrib-programoutput',
 ]
+
+
+def get_distributions(requirements):
+    packages = set(p.name for p in pkg_resources.parse_requirements(requirements))
+    for p in packages:
+        yield pkg_resources.get_distribution(p)
+
+
+def print_distributions(requirements):
+    dists = sorted(get_distributions(requirements), key=lambda d: d.project_name)
+    for dist in dists:
+        print(dist.project_name.ljust(30), dist.version)
 
 
 ext = re.compile(r'\.pyx$')
