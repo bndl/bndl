@@ -10,9 +10,9 @@ class _Destructor(object):
         self.obj.__class__ = LazyObject
 
 
+
 class LazyObject(object):
     def __init__(self, factory, destructor=None):
-        setattr(self, '__getattribute__', LazyObject.__getattribute__)
         self._factory = factory
         self._destructor_key = destructor
 
