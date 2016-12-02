@@ -17,7 +17,9 @@ class DisconnectingNode(RMINode):
 
     @asyncio.coroutine
     def exit(self, src):
-        exit(0)
+        for peer in self.peers.values():
+            yield from peer.disconnect('', active=False)
+        yield from self.stop()
 
 
 class DisconnectedTest(NetTest):
