@@ -37,10 +37,11 @@ Create some data sets::
 See :doc:`./datasets` for more on data sets.
 
 
-Profile the CPU usage of the cluster::
+Profile the CPU and memory usage of the cluster::
 
    >>> ctx.cpu_profiling.start()
-   >>> ctx.cpu_profiling.print_stats(10, include=('bndl'))
+   >>> ctx.memory_profiling.start()
+   >>> ctx.cpu_profiling.print_stats(3, include=('bndl'))
    
    Clock type: CPU
    Ordered by: totaltime, desc
@@ -49,11 +50,14 @@ Profile the CPU usage of the cluster::
    bndl/util/threads.py:21 work                       40/36         0.000524  1.552147  0.038804
    bndl/execute/worker.py:83 Worker.execute           40/36         0.001045  1.548825  0.038721
    bndl/execute/worker.py:71 Worker._execute          40/36         0.000953  1.546604  0.038665
-   bndl/net/watchdog.py:121 Watchdog._monitor         148           0.005501  0.150095  0.001014
-   bndl/net/watchdog.py:140 Watchdog._check           148           0.010773  0.109384  0.000739
-   bndl/net/peer.py:63 RMIPeerNode.send               52            0.001444  0.102460  0.001970
-   bndl/net/connection.py:132 Connection.send         52            0.002976  0.098297  0.001890
-   bndl/rmi/node.py:135 RMIPeerNode._send_response    40            0.000636  0.096662  0.002417
-   bndl/net/watchdog.py:156 Watchdog._check_peer      592           0.015429  0.092849  0.000157
-   bndl/net/serialize.py:51 dump 
+   >>> ctx.memory_profiling.print_top(limit=3)
+   #1 <frozen importlib._bootstrap_external>:484 136.0 KiB
+   #2 home/frens-jan/Workspaces/ext/cpython3.5/Lib/abc.py:133 14.9 KiB
+       cls = super().__new__(mcls, name, bases, namespace)
+   #3 home/frens-jan/Workspaces/ext/cpython3.5/Lib/tracemalloc.py:68 10.2 KiB
+       class StatisticDiff:
+   158 other: 199.5 KiB
+   Total allocated size: 360.7 KiB
+   <tracemalloc.Snapshot object at 0x7f89686c7898>
    >>> ctx.cpu_profiling.stop()
+   >>> ctx.memory_profiling.stop()
