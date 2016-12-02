@@ -14,9 +14,10 @@ clean:
 test:
 	rm -fr .coverage .coverage.* htmlcov
 	COVERAGE_PROCESS_START=.coveragerc \
-	coverage run -m pytest bndl
+	coverage run -m pytest --junitxml build/junit.xml bndl
 	coverage combine
-	coverage html
+	coverage html -d build/htmlcov
+	coverage xml -o build/coverage.xml
 
 codestyle:
 	pylint bndl > build/pylint.html
