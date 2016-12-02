@@ -7,6 +7,35 @@ from setuptools import setup, find_packages, Extension
 
 import bndl
 
+
+install_requires = [
+    'sortedcontainers',
+    'cloudpickle>=0.2.1',
+    'cytoolz',
+    'numpy',
+    'pandas',
+    'flask',
+    'mmh3',
+    'scandir',
+    'psutil',
+    'tblib',
+    'marisa_trie',
+    'yappi<=0.93',
+]
+
+dev_requires = [
+    'cython',
+    'pytest',
+    'pytest-cov',
+    'pylint',
+    'flake8',
+    'sphinx',
+    'sphinx-autobuild',
+    'sphinx-rtd-theme',
+    'sphinxcontrib-programoutput',
+]
+
+
 ext = re.compile(r'\.pyx$')
 
 extensions = [
@@ -20,8 +49,9 @@ extensions = [
     if ext.search(f)
 ]
 
+
 try:
-    from Cython.Build.Dependencies import cythonize
+    from Cython.Build import cythonize
     extensions = cythonize(extensions, compiler_directives={
         'language_level': 3
     })
@@ -29,62 +59,42 @@ except ImportError:
     pass
 
 
+if __name__ == '__main__':
+    setup(
+        name='bndl',
+        version=bndl.__version__,
+        url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
+        description='Bundle compute resources with BNDL',
+        long_description=open('README.rst').read(),
+        author='Frens Jan Rumph',
+        author_email='mail@frensjan.nl',
 
-setup(
-    name='bndl',
-    version=bndl.__version__,
-    url='https://stash.tgho.nl/projects/THCLUSTER/repos/bndl/browse',
-    description='Bundle compute resources with BNDL',
-    long_description=open('README.rst').read(),
-    author='Frens Jan Rumph',
-    author_email='mail@frensjan.nl',
+        packages=(
+            find_packages(exclude=["*.tests", "*.tests.*"])
+        ),
 
-    packages=(
-        find_packages(exclude=["*.tests", "*.tests.*"])
-    ),
+        include_package_data=True,
+        zip_safe=False,
 
-    include_package_data=True,
-    zip_safe=False,
+        install_requires=install_requires,
+        extras_require=dict(
+            dev=dev_requires,
+        ),
+        ext_modules=extensions,
 
-    install_requires=[
-        'sortedcontainers',
-        'cloudpickle>=0.2.1',
-        'cytoolz',
-        'numpy',
-        'flask',
-        'mmh3',
-        'scandir',
-        'psutil',
-        'tblib',
-        'marisa_trie',
-        'yappi<=0.93',
-    ],
-    extras_require=dict(
-        dev=[
-            'cython',
-            'pytest',
-            'pytest-cov',
-            'pylint',
-            'flake8',
-            'sphinx',
-            'sphinx-autobuild',
+        entry_points=dict(
+            console_scripts=[
+                'bndl-compute-shell = bndl.compute.shell:main',
+                'bndl-compute-workers = bndl.compute.worker:run_workers',
+            ],
+        ),
+
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'Intended Audience :: Developers',
+            'Operating System :: OS Independent',
+            'Programming Language :: Python',
+            'Programming Language :: Python :: 3.4',
+            'Programming Language :: Python :: 3.5',
         ],
-    ),
-    ext_modules=extensions,
-
-    entry_points=dict(
-        console_scripts=[
-            'bndl-compute-shell = bndl.compute.shell:main',
-            'bndl-compute-workers = bndl.compute.worker:run_workers',
-        ],
-    ),
-
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-    ],
-)
+    )
