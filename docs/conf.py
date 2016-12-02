@@ -38,7 +38,6 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
-    'sphinxcontrib.plantuml',
     'sphinxcontrib.programoutput',
 ]
 
