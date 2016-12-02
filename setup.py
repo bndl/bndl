@@ -25,7 +25,7 @@ install_requires = [
 ]
 
 dev_requires = [
-    'cython',
+    'cython<0.25',
     'pytest',
     'pytest-cov',
     'pylint',
