@@ -32,7 +32,9 @@ class StatsTest(DatasetTest):
 
     def test_empty_parts(self):
         self.assertEqual(self.dset.filter(lambda i: i < 500).count(), 500)
-        self.assertEqual(self.dset.map_partitions(lambda p: p if p[0] < 500 else None).count(), 500)
+        self.assertEqual(self.dset.map_partitions(
+            lambda p: [e for e in p if e < 500] or None).count(), 500
+        )
 
     def test_calc_stats(self):
         try:
