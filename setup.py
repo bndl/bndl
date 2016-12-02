@@ -13,6 +13,7 @@ install_requires = [
     'cloudpickle>=0.2.1',
     'cytoolz',
     'numpy',
+    'scipy',
     'pandas',
     'flask',
     'mmh3',
