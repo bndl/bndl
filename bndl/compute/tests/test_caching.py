@@ -90,7 +90,7 @@ class CachingTest(DatasetTest):
 
         second = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w1]).execute()
         self.assertEqual(executed_on.value, Counter({w0:10, w1:10}))
-        self.assertEqual(self.get_cachekeys(), [dset.id] * 2)
+        self.assertEqual(self.get_cachekeys(), [dset.id])
 
         self.assertEqual(first, second)
 
