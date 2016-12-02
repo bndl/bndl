@@ -63,7 +63,7 @@ class BroadcastTest(DatasetTest):
     def test_pickled(self):
         lst = list(range(1000 * 1000))
         pickled = pickle.dumps(lst)
-        bc_list = self.ctx.broadcast_pickled(pickled)
+        bc_list = self.ctx.broadcast(pickled, None, pickle.loads)
         self.assertEqual(self.ctx.range(len(lst)).map(lambda i: bc_list.value[i]).collect(), lst)
 
     def test_multiblock(self):
@@ -73,7 +73,7 @@ class BroadcastTest(DatasetTest):
         lst = list(range(1024 * 1024))  # 10+ blocks
         pickled = pickle.dumps(lst)
 
-        bc_list = self.ctx.broadcast_pickled(pickled)
+        bc_list = self.ctx.broadcast(pickled, None, pickle.loads)
         pcount = self.ctx.worker_count * 16
         dset = self.ctx.range(pcount).map(lambda _: bc_list.value)
         for e in dset.icollect():
