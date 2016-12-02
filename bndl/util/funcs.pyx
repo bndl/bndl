@@ -1,5 +1,6 @@
+from functools import partial, wraps
 import inspect
-from functools import partial
+
 from cytoolz import pluck
 from cytoolz.utils import no_default
 
@@ -7,10 +8,11 @@ from cytoolz.utils import no_default
 def as_method(o):
     if inspect.ismethod(o):
         return o
-    proxy = lambda *args, **kwargs: o(*args, **kwargs)
-    proxy.__name__ = o.__name__
-    proxy.__doc__ = proxy.__doc__
-    return proxy
+    else:
+        @wraps(o)
+        def proxy(*args, **kwargs):
+            return o(*args, **kwargs)
+        return proxy
 
 
 class ppluck(object):
