@@ -16,7 +16,6 @@ but using more iron is 'easy' with BNDL :)
    execute
    rmi
    net
-   compute/run
    configuration
    logging
    dash

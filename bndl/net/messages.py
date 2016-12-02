@@ -44,6 +44,9 @@ class Message(metaclass=MessageType):
 
 
 class Hello(Message):
+    '''
+    Message shake hands with a peer node.
+    '''
     # str, name of node
     name = Field()
     # str, cluster of node
@@ -55,18 +58,30 @@ class Hello(Message):
 
 
 class Discovered(Message):
+    '''
+    Notify another node of the discovery of one or more peer nodes
+    '''
     # list of name, addresses tuples
     peers = Field()
 
 
 class Disconnect(Message):
+    '''
+    Notify a node that the sending node is disconnecting.
+    '''
     # str for debug perposes
     reason = Field()
 
 
 class Ping(Message):
+    '''
+    Message sent to check if a node is 'alive'.
+    '''
     pass
 
 
 class Pong(Message):
+    '''
+    Response to a :class:`Ping` to indicate that the node is 'alive'.
+    '''
     pass

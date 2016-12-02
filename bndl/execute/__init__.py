@@ -1,6 +1,13 @@
 '''
-The ``bndl.execute`` module provides a means to execute :class:`Jobs <bndl.execute.job.Job>` (consisting of
-:class:`Tasks <bndl.execute.job.Task>`) on a cluster of workers.
+The ``bndl.execute`` module provides a means to execute :class:`Jobs <bndl.execute.job.Job>` on a
+cluster of workers.
+
+:class:`Jobs <bndl.execute.job.Job>` consists of :class:`Tasks <bndl.execute.job.Task>` which are
+interconnected in a directed acyclic graph (traversable in both directions). ``bndl.execute``
+provides a :class:`Scheduler <bndl.execute.scheduler.Scheduler>` which executes jobs and ensure
+that tasks are executed in dependency order, tasks are executed with locality (if any) to a worker
+and tasks are restarted (if configured), also when a (possibly indirect) dependent task marks a
+dependency as failed.
 '''
 
 from bndl.util.conf import Int

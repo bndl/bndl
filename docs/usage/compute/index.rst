@@ -13,6 +13,7 @@ Build computation jobs from data sets and transformations on them
    :maxdepth: 1
 
    getting_started
+   context
    datasets
    transformations
    oob

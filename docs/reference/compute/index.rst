@@ -7,5 +7,7 @@ Compute
    :maxdepth: 1
    :glob:
 
+   context
    dataset
+   oob
    execute

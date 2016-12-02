@@ -1,52 +1,30 @@
-Installing
-==========
+Installation
+============
 
 BNDL builds are currently distributed through Target Holding's (internal)
 `localshop <https://localshop.tgho.nl>`_.
 
-BNDL can be installed through pip:
-
-.. code:: bash
+BNDL can be installed through pip::
 
     pip install bndl
 
-Install development dependencies with:
+Install development dependencies from a cloned git repository into a virtual environment::
 
-.. code:: bash 
-
-    pip install bndl[dev]
+    pyvenv-3.4 venv
+    source venv/bin/activate
+    git clone ssh://git@stash.tgho.nl:7999/thcluster/bndl.git
+    pip install -e bndl[dev]
     
+
+See :doc:`/compatibility` what modules are installed and BNDL is compatible with.
 
 Plugins
 -------
 
-.. todo::
+BNDL supports plugins, e.g. for connecting with an external system, providing additional
+computations, etc. The can be installed like normal python modules through e.g. pip::
 
-    Add plugin install docs
-
-
-Install with pip
-
-.. code:: bash
-
-   $ pip install bndl
-
-   # plugins extend Dataset and ComputeContext with various methods
    $ pip install bndl_cassandra
    $ pip install bndl_elastic
-
-   # normal module, import and use
    $ pip install bndl_ml
-
-
-
-
-Compatibility
--------------
-
-BNDL is compatible with python 3.4 and 3.5.
-
-.. todo::
-   
-   .. program-output:: python3 -c 'import setup ; print("\n".join(setup.install_requires))'
-      :cwd: ..
+   $ pip install bndl_http

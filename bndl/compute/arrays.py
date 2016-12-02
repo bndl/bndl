@@ -200,14 +200,23 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
 
     @staticmethod
     def empty(ctx, shape, dtype=float, pcount=None):
+        '''
+        A distributed and partitioned version of `np.empty`.
+        '''
         return DistributedArray.fill(ctx, np.empty, shape, dtype, pcount)
 
     @staticmethod
     def zeros(ctx, shape, dtype=float, pcount=None):
+        '''
+        A distributed and partitioned version of `np.zeros`.
+        '''
         return DistributedArray.fill(ctx, np.zeros, shape, dtype, pcount)
 
     @staticmethod
     def ones(ctx, shape, dtype=float, pcount=None):
+        '''
+        A distributed and partitioned version of `np.ones`.
+        '''
         return DistributedArray.fill(ctx, np.ones, shape, dtype, pcount)
 
     @staticmethod
@@ -218,6 +227,16 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
 
     @staticmethod
     def arange(ctx, start, stop=None, step=1, dtype=None, pcount=None):
+        '''
+        A distributed and partitioned `np.arange` like data set.
+
+        Args:
+            start (int): The start or stop value (if no stop value is given).
+            stop (int): The stop value or None if start is the stop value.
+            step (int): The step between each value in the range.
+            dtype: The type of the elements in the array.
+            pcount (int): The number of partitions to partition the range into.
+        '''
         if not stop:
             stop, start = start, 0
 
@@ -239,6 +258,15 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
 
 
 class SourceDistributedArray(DistributedArray, DistributedCollection):
+    '''
+    Distribute a numpy array across pcount partitions or in psize partitions. Note that the array
+    is partitioned along axis 0.
+
+    Args:
+        arr (np.ndarray): The array to partition and distribute.
+        pcount (int or None): The number of partitions.
+        psize (int or None): The maximum size of the partitions.
+    '''
     def __init__(self, ctx, arr, pcount=None, psize=None):
         if not isinstance(arr, np.ndarray):
             arr = np.array(arr)

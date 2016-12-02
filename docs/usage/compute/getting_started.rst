@@ -18,7 +18,7 @@ For example to take the mean of 0 through 9:
     4.5
 
 Or to count the number of bytes in the files of the current working directory and everything below
-it: 
+it:
 
 .. code :: pycon
 
@@ -31,11 +31,34 @@ Starting the Compute shell
 --------------------------
 
 The BNDL Compute Shell is an interactive python shell (using ipython if installed) which starts
-local workers and/or connects with worker seed nodes. 
+local workers and/or connects with worker seed nodes.
 
 .. program-output:: bndl-compute-shell --help
 
 By default the Compute shell starts workers as ``bndl-compute-workers`` unless ``--seeds`` is set.
+
+The shell (with ipython) after start::
+   
+   $ bndl-compute-shell 
+   Python 3.5.2+ (default, Nov  7 2016, 07:16:13) 
+   Type "copyright", "credits" or "license" for more information.
+   
+   IPython 5.0.0 -- An enhanced Interactive Python.
+   ?         -> Introduction and overview of IPython's features.
+   %quickref -> Quick reference.
+   help      -> Python's own help system.
+   object?   -> Details about 'object', use 'object??' for extra details.
+   
+   
+            ___ _  _ ___  _
+   Welcome | _ ) \| |   \| |
+   to the  | _ \ .` | |) | |__
+           |___/_|\_|___/|____| shell.
+   
+   Running BNDL version 0.3.2.dev1.
+   ComputeContext available as ctx.
+   
+   In [1]: 
 
 
 Starting Compute workers

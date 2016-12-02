@@ -3,10 +3,17 @@ Welcome to the BNDL documentation!
 
 BNDL is a python library for map-reduce based distributed processing akin to Apache Spark.
 
-The key module for users to interact with BNDL is ``bndl.compute``. This module provides
-operators for distributed (partitioned) datasets. Once you get BNDL up and running,
-:doc:`/usage/compute/index` is the main area of these docs to read.
+.. note::
 
+   Get BNDL up and running by following :doc:`install` and :doc:`usage/compute/getting_started`.
+
+The key module for users to interact with BNDL is ``bndl.compute``. This module provides
+operators for distributed (partitioned) datasets. Accordingly, the main area of these docs to read
+is :doc:`/usage/compute/index`.
+
+
+Contents
+--------
 
 .. toctree::
    :hidden:
@@ -19,7 +26,7 @@ operators for distributed (partitioned) datasets. Once you get BNDL up and runni
    :titlesonly:
 
    install
-   usage/compute/getting_started
+   compatibility
    usage/index
    plugins
    reference/index

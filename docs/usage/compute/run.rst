@@ -1,43 +1,18 @@
 Running a cluster
 =================
 
+A BNDL cluster consists of one or more workers and a driver in a fully interconnected network. The
+driver node is where your 'program' lives, i.e. the node which puts the workers to work. Typically
+1 worker per core is executed.
 
-Workers
-typically 1 per core
-fully interconnected
-Driver
-your application
-to put them to work
+Driver nodes are (typically) accessable through a :class:`ComputeContext, <bndl.compute.context.ComputeContext>`
+(see :doc:`./context`). The basic steps to starting a driver, creating a compute context and
+running workers are described in :doc:`./getting_started`.
 
+The easiest way to do start a driver and create a compute context is to create a Compute shell
+through the `bndl-compute-shell` command which is available after installation of BNDL. Workers can
+be started with the `bndl-compute-workers` command.
 
-$ bndl-compute-workers &
-[1] 17780
+.. todo::
 
-$ bndl-compute-workers 2 &
-[1] 17805
-
-$ bndl-compute-shell --seeds localhost
-......................................
-In [1]: ctx.worker_count
-Out[1]: 6
-
-
-
-
-
-me @ node1 $ bndl-compute-workers -- --seeds node1:5000 node2:5000
-me @ node2 $ bndl-compute-workers -- --seeds node1:5000 node2:5000
-me @ node3 $ bndl-compute-workers -- --seeds node1:5000 node2:5000
-me @ node4 $ bndl-compute-workers -- --seeds node1:5000 node2:5000
-me @ node5 $ bndl-compute-workers -- --seeds node1:5000 node2:5000
-
-me @ node6 $ cat my_script.py
-from bndl.compute.run import ctx
-print(ctx.range(10000).mean())
-
-me @ node6 $ export BNDL_CONF="bndl.net.seeds=node1:5000,node2:5000"
-me @ node6 $ python my_script.py
-4999.5
-
-
-
+   Describe typicall setups, data locality, etc.

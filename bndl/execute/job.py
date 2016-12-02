@@ -75,10 +75,13 @@ class Task(Lifecycle):
     def locality(self, workers):
         '''
         Indicate locality for executing this task on workers.
-        :param workers: The workers to determine the locality for.
-        :return: Sequence[(worker, locality), ...].
-            A sequence of worker - locality tuples. 0 is indifferent and can be
-            skipped, -1 is forbidden, 1+ increasing locality.
+
+        Args:
+            workers (sequence[worker]): The workers to determine the locality for.
+
+        Returns:
+            Sequence[(worker, locality), ...]: A sequence of worker - locality tuples. 0 is
+            indifferent and can be skipped, -1 is forbidden, 1+ increasing locality.
         '''
         return ()
 

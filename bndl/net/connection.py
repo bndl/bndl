@@ -59,7 +59,7 @@ def gethostbyname(hostname):
 @functools.lru_cache(maxsize=1)
 def getlocalhostname():
     '''
-    Provides a local hostname using :method:`gethostbyname` by attempting to get it from
+    Provides a local hostname using :meth:`gethostbyname` by attempting to get it from
 
      * `gethostbyname(socket.getfqdn())`
      * `gethostbyname(socket.gethostname())`
@@ -132,14 +132,13 @@ class Connection(object):
     @asyncio.coroutine
     def send(self, msg, drain=True):
         '''
-        Send a message
-        :param msg: Message
-            The message to send.
-        :param drain: bool
-            Whether to drain the socket after sending the message, defaults to
-            True. If False there is no guarantee that the message will be sent
-            unless more messages are sent (due to watermarks at the level of
-            the asyncio transport)
+        Send a message on this connection.
+
+        Args:
+            msg (:class:`bndl.net.messages.Message`): The message to send.
+            drain (bool): Whether to drain the socket after sending the message, defaults to True.
+            If False there is no guarantee that the message will be sent unless more messages are
+            sent (due to watermarks at the level of the asyncio transport)
         '''
         if not self.is_connected:
             raise NotConnected()
@@ -213,8 +212,9 @@ class Connection(object):
     def recv(self, timeout=None):
         '''
         Receive a message from the connection.
-        :param timeout: int or float
-            timeout in seconds
+
+        Args:
+            timeout (float): timeout in seconds
         '''
         if not self.is_connected:
             raise NotConnected()

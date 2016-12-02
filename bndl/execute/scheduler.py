@@ -30,10 +30,10 @@ class Scheduler(object):
     This scheduler executes Tasks taking into account their dependencies and worker locality.
 
     Worker assignment takes into account:
-    - concurrency (how many tasks must a worker execute concurrently)
-    - and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
-      as locality 0 is likely to be common, this is assumed throughout the scheduler
-      to reduce the memory cost for scheduling
+     * concurrency (how many tasks must a worker execute concurrently)
+     * and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
+       as locality 0 is likely to be common, this is assumed throughout the scheduler
+       to reduce the memory cost for scheduling
 
     The most important component in the computational complexity of the scheduler is the number of
     dependencies to track. Many-to-many dependencies should be kept to the thousands or tens of
