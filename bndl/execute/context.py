@@ -23,6 +23,9 @@ def _num_connected():
 
 
 class ExecutionContext(Lifecycle):
+    '''
+    Entry point for executing :class:`Jobs <bndl.execute.job.Job>` across workers.
+    '''
     instances = set()
 
     def __init__(self, node, config=Config()):
@@ -46,7 +49,26 @@ class ExecutionContext(Lifecycle):
 
 
     def execute(self, job, workers=None, order_results=True, concurrency=None, attempts=None):
+        '''
+        Execute a :class:`Job <bndl.execute.job.Job>` on workers and get the results of each
+        :class:`Task <bndl.execute.job.Task>` as it is executed.
+
+        Args:
+            job (bndl.execute.job.Job): The job to execute.
+            workers (sequence): A sequence of :class:`RMIPeerNodes <bndl.rmi.node.RMIPeerNode>`
+                peer nodes to execute the job on.
+            order_results (bool): Whether the results of the task are to be yielded in order or not
+                (defaults to True).
+            concurrency (int >= 1): The number of tasks to execute concurrently on each worker.
+                Defaults to the ``bndl.execute.concurrency`` configuration parameter.
+            attempts (int >= 1): The maximum number of attempts per task (not counting worker failure
+                as induced from a task failing with NotConnected or a task marked as failed through
+                :class:`bndl.execute.exceptions.DependenciesFailed`). Defaults to the
+                ``bndl.execute.attempts`` configuration parameter.
+        '''
         assert self.running, 'context is not running'
+        assert concurrency is None or concurrency >= 1
+        assert attempts is None or attempts >= 1
 
         if workers is None:
             self.await_workers()
@@ -128,19 +150,15 @@ class ExecutionContext(Lifecycle):
 
     def await_workers(self, worker_count=None, connect_timeout=5, stable_timeout=60):
         '''
-        await_workers waits for workers to be available. If not in
-        connect_timeout a RuntimeError is raised. Once a worker is found, at
-        most stable_timeout seconds will be waited for the cluster to settle.
-        That is, until no new workers are discovered / the worker count is
-        stable.
+        Waits for workers to be available. If not in connect_timeout a RuntimeError is raised. Once
+        a worker is found, at most stable_timeout seconds will be waited for the cluster to settle.
+        That is, until no new workers are discovered / the worker count is stable.
 
-        :param worker_count: int or None
-            The expected worker count. When connected to exactly worker_count
-            workers, this method will return faster.
-        :param connect_timeout: int or float
-            Maximum time in seconds waited until the first worker is discovered.
-        :param stable_timeout: int or float
-            Maximum time in seconds waited until no more workers are discovered.
+        Args:
+            worker_count (float or None): The expected worker count. When connected to exactly worker_count
+                workers, this method will return faster.
+            connect_timeout (float): Maximum time in seconds waited until the first worker is discovered.
+            stable_timeout (float): Maximum time in seconds waited until no more workers are discovered.
         '''
         if not isinstance(connect_timeout, timedelta):
             connect_timeout = timedelta(seconds=connect_timeout)
@@ -227,21 +245,31 @@ class ExecutionContext(Lifecycle):
 
     @property
     def worker_count(self):
+        '''The number of workers connected with'''
         return len(self.workers)
 
 
     @property
     def workers(self):
-        return list(self.node.peers.filter(node_type='worker'))
+        '''All peers of the local node with ``node_type`` `worker`.'''
+        return self.node.peers.filter(node_type='worker')
 
 
     @property
     def cpu_profiling(self):
+        '''
+        Start and stop CPU profiling on the cluster of workers. See further
+        :class:`bndl.execute.profile.CpuProfiling`.
+        '''
         return CpuProfiling(self)
 
 
     @property
     def memory_profiling(self):
+        '''
+        Start and stop memory profiling on the cluster of workers. See further
+        :class:`bndl.execute.profile.MemoryProfiling`.
+        '''
         return MemoryProfiling(self)
 
 

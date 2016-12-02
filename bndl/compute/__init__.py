@@ -1,3 +1,9 @@
+'''
+The ``bndl.compute`` module provides a means to construct partitioned
+:class:`Datasets <bndl.compute.dataset.Dataset>` from a variety of sources and provides operators
+which transform and combine these data sets.
+'''
+
 from bndl.util import conf
 
 

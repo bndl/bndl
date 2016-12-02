@@ -31,6 +31,11 @@ class Invocation(object):
 
 
     def with_timeout(self, timeout):
+        '''
+        Apply a time out in performing the remote method invocation. When the time out expires
+        ``concurrent.futures.TimeoutError`` is raised.
+        :param timeout:
+        '''
         self._timeout = timeout
         return self
 
@@ -176,4 +181,8 @@ class RMIPeerNode(PeerNode):
 
 
 class RMINode(Node):
+    '''
+    A :class:`bndl.net.Node` which expects it's peers to support remote method invocation as
+    implemented in :class:`RMIPeerNode`.
+    '''
     PeerNode = RMIPeerNode

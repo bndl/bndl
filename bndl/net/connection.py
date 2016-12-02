@@ -20,7 +20,9 @@ def urlparse(address):
     '''
     Parse an address with urllib.parse.urlparse and checking validity in the
     context of bndl.
-    :param address: str
+
+    Args:
+        address (str): The address to parse
     '''
     if '://' not in address:
         address = 'tcp://' + address
@@ -50,11 +52,21 @@ def urlcheck(address):
 
 @functools.lru_cache(maxsize=1024)
 def gethostbyname(hostname):
+    '''A cached version of `socket.gethostbyname`'''
     return socket.gethostbyname(hostname)
 
 
 @functools.lru_cache(maxsize=1)
 def getlocalhostname():
+    '''
+    Provides a local hostname using :method:`gethostbyname` by attempting to get it from
+
+     * `gethostbyname(socket.getfqdn())`
+     * `gethostbyname(socket.gethostname())`
+     * `gethostbyname('localhost')`
+
+    If the above options fail, this method falls back to 127.0.0.1.
+    '''
     options = (socket.getfqdn, socket.gethostname, lambda: 'localhost')
     for option in options:
         try:
@@ -71,7 +83,9 @@ def filter_ip_addresses(*addresses):
     '''
     Filter out IP addresses from a list of addresses. IP addresses are only
     selected from addresses with the tcp:// scheme.
-    :param addresses: iterable of URL strings (parsable by urlparse)
+
+    Args:
+        *addresses (iterable): URL strings (parsable by urlparse)
     '''
     return set(
         gethostbyname(a.hostname)

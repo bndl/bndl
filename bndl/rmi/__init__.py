@@ -1,20 +1,9 @@
-class InvocationException(Exception):
-    '''
-    Exception indicating a RMI failed. This exception is 'raised from' a 'reconstructed'
-    exception as raised in the remote method
-    '''
+'''
+The BNDL RMI module builds on :mod:`bndl.net` to allow for Remote Method Invocations.
 
-def root_exc(exc):
-    '''
-    Returns the __cause__ of exc if exc is an InvocationException or just exc otherwise.
+The implementation is rather straight forward: :class:`RMIPeerNode` provides is the means to send
+and receive Request and Response Methods. Requests are targeting a method of the remote node by
+name. It is simply looked up by ``getattr``.
+'''
 
-    Can be used when both local and remote exceptions need to be handled and their
-    semantics are the same (whether the exception was raised locally or on a remote
-    worker doesn't matter).
-
-    :param exc: The exception which _might_ be an InvocationException
-    '''
-    if isinstance(exc, InvocationException):
-        return exc.__cause__
-    else:
-        return exc
+from .exceptions import *

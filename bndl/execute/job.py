@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class Job(Lifecycle):
+    '''
+    A set of :class:`Tasks <Task>` which can be executed on a cluster of workers.
+    '''
     _job_ids = count(1)
 
     def __init__(self, ctx, tasks, name=None, desc=None):
@@ -35,6 +38,9 @@ class Job(Lifecycle):
 
 
 class Task(Lifecycle):
+    '''
+    Execution of a Task on a worker is the basic unit of scheduling in ``bndl.execute``.
+    '''
 
     def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None):
         super().__init__(name or 'task ' + str(task_id),
@@ -53,19 +59,15 @@ class Task(Lifecycle):
 
 
     def execute(self, scheduler, worker):
-        pass
-
-
-    def set_executing(self, worker):
-        if self.cancelled:
-            raise CancelledError()
-        assert not self.pending, '%r pending' % self
-        self.executed_on.append(worker.name)
-        self.attempts += 1
-        self.signal_start()
+        '''
+        Execute the task on a worker. The scheduler is provided as 'context' for the task.
+        '''
 
 
     def cancel(self):
+        '''
+        Cancel execution (if not already done) of this task.
+        '''
         if not self.done:
             super().cancel()
 
@@ -83,21 +85,14 @@ class Task(Lifecycle):
 
     @property
     def started(self):
+        '''Whether the task has started'''
         return bool(self.future)
 
 
     @property
     def done(self):
+        '''Whether the task has completed execution'''
         return self.future and self.future.done()
-
-
-    def mark_done(self, result=None):
-        if not self.done:
-            future = self.future = Future()
-            future.set_result(result)
-            if not self.started_on:
-                self.started_on = datetime.now()
-            self.signal_stop()
 
 
     @property
@@ -118,29 +113,62 @@ class Task(Lifecycle):
             return False
 
 
+    def set_executing(self, worker):
+        '''Utility for sub-classes to register the task as executing on a worker.'''
+        if self.cancelled:
+            raise CancelledError()
+        assert not self.pending, '%r pending' % self
+        self.executed_on.append(worker.name)
+        self.attempts += 1
+        self.signal_start()
+
+
+    def mark_done(self, result=None):
+        ''''
+        Externally' mark the task as done. E.g. because its 'side effect' (result) is already
+        available).
+        '''
+        if not self.done:
+            future = self.future = Future()
+            future.set_result(result)
+            if not self.started_on:
+                self.started_on = datetime.now()
+            self.signal_stop()
+
+
     def mark_failed(self, exc):
+        '''
+        'Externally' mark the task as failed. E.g. because the worker which holds the tasks' result
+        has failed / can't be reached.
+        '''
         future = self.future = Future()
         future.set_exception(exc)
         self.signal_stop()
 
 
     def result(self):
+        '''
+        Get the result of the task (blocks). Raises an exception if the task failed with one.
+        '''
         assert self.future, 'task %r not yet scheduled' % self
         return self.future.result()
 
 
     def exception(self):
+        '''Get the exception of the task (blocks).'''
         assert self.future, 'task %r not yet started' % self
         return self.future.exception()
 
 
     @property
     def executed_on_last(self):
+        '''The name of the worker this task executed on last (if any).'''
         if self.executed_on:
             return self.executed_on[-1]
 
 
     def release(self):
+        '''Release most resources of the task. Invoked after a job's execution is complete.'''
         if not self.failed:
             self.future = None
         self.dependencies = []
@@ -166,6 +194,9 @@ class Task(Lifecycle):
 
 
 class RmiTask(Task):
+    '''
+    A task which performs a Remote Method Invocation to execute a method with positional and keyword arguments.
+    '''
 
     def __init__(self, ctx, task_id, method, args=(), kwargs=None, *, priority=None, name=None, desc=None, group=None):
         super().__init__(ctx, task_id, priority=priority, name=name, desc=desc, group=group)

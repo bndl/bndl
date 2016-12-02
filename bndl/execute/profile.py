@@ -86,15 +86,20 @@ def print_yappi_stats(stats, max_rows=100, sort_by=None, sort_dir=None,
 
 
 class CpuProfiling(object):
+    '''
+    Perform CPU profing across the cluster with ``yappi``.
+    '''
     def __init__(self, ctx):
         self.ctx = weakref.proxy(ctx)
 
 
     def start(self):
+        '''Stop CPU profiling.'''
         _each(self.ctx, yappi.start)
 
 
     def stop(self):
+        '''Stop CPU profiling.'''
         _each(self.ctx, yappi.stop)
 
 
@@ -129,30 +134,23 @@ class CpuProfiling(object):
                     columns=COLMUMNS, per_worker=False, strip_dirs=True,
                     include=(), exclude=(), file=sys.stdout):
         '''
-        :param max_rows: int
-            The maximum number of rows to print. Set to None to print all.
-        :param sort_by: str or None
-            The field to sort by, e.g. 'subtime' or 'tottime'
-        :param sort_dir: 'asc', 'desc' or None
-            Sort direction (ascending or descending).
-        :param columns: sequence of (name:str, width:int) tuples
-            The names and widths (in characters) of the columns to print.
-        :param per_worker: bool
-            Whether to print per worker individualy or to print the totals.
-            Defaults to printing totals.
-        :param strip_dirs: bool
-            Whether to strip directories (only show packages / modules and line
-            numbers). Defaults to True.
-        :param include: str sequence
-            Limit stats to these (root) modules. E.g. 'bndl' will yield any
-            modules under bndl, e.g. bndl.util.
-            Requires that strip_dirs is True.
-        :param exclude: str sequence
-            Filter out these (root) modules. E.g. 'bndl' will yield any
-            modules except thos under bndl, e.g. bndl.util.
-            Requires that strip_dirs is True.
-        :param file: fileobj
-            Where to print to. Defaults to sys.stdout.
+        Print the top CPU consumers.
+
+        Args:
+            max_rows (int): The maximum number of rows to print. Set to None to print all.
+            sort_by (str or None): The field to sort by, e.g. 'subtime' or 'tottime'
+            sort_dir ('asc', 'desc' or None): Sort direction (ascending or descending).
+            columns (sequence of (name:str, width:int) tuples): The names and widths (in
+                characters) of the columns to print.
+            per_worker (bool): Whether to print per worker individualy or to print the totals.
+                Defaults to printing totals.
+            strip_dirs (bool): Whether to strip directories (only show packages / modules and line
+                numbers). Defaults to True.
+            include (str sequence): Limit stats to these (root) modules. E.g. 'bndl' will yield any
+                modules under bndl, e.g. bndl.util. Requires that strip_dirs is True.
+            exclude (str sequence): Filter out these (root) modules. E.g. 'bndl' will yield any
+                modules except thos under bndl, e.g. bndl.util. Requires that strip_dirs is True.
+            file (fileobj): Where to print to. Defaults to sys.stdout.
         '''
         stats = self.get_stats(per_worker)
 
@@ -190,15 +188,20 @@ def print_tracemalloc_stats(top_stats, limit=30, file=sys.stdout, strip_dirs=Tru
 
 
 class MemoryProfiling(object):
+    '''
+    Perform memory profiling on the cluster with ``tracemalloc``.
+    '''
     def __init__(self, ctx):
         self.ctx = weakref.proxy(ctx)
 
 
     def start(self):
+        '''Start memory profiling.'''
         _each(self.ctx, tracemalloc.start)
 
 
     def stop(self):
+        '''Stop memory profiling.'''
         _each(self.ctx, tracemalloc.stop)
 
 
@@ -215,6 +218,19 @@ class MemoryProfiling(object):
 
     def print_top(self, group_by='lineno', limit=30, compare_to=None, per_worker=False,
                   strip_dirs=True, include=(), exclude=(), file=sys.stdout):
+        '''
+        Take a snapshot across the cluster and print the top memory allocations.
+
+        Args:
+            group_by (str): Defaults to 'lineno'.
+            limit (int): The number of lines to print. Defaults to 30.
+            compare_to (snapshot): A snapshot to compare the memory usage to.
+            per_worker (bool): Whether to print the top per worker or not. Defaults to False.
+            strip_dirs (bool): Whether to strip directories. Defaults to True.
+            include (sequence[str]): The modules to include.
+            exclude (sequence[str]): The modules to exclude.
+            file (fileobj): The file to print to. Defaults to ``sys.stdout``.
+        '''
         assert not (compare_to and per_worker)
 
         if per_worker:

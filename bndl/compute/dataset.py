@@ -1,4 +1,4 @@
-from collections import Counter, defaultdict, Iterable, Sized
+from collections import Counter, defaultdict, deque, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
 from math import sqrt, log, ceil
@@ -28,7 +28,6 @@ from bndl.execute.job import RmiTask, Job, Task
 from bndl.execute.scheduler import FailedDependency
 from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
-from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException, root_exc
 from bndl.util import cycloudpickle as cloudpickle, strings
 from bndl.util.callsite import get_callsite, callsite, set_callsite
@@ -84,7 +83,7 @@ class Dataset(object):
         :param func: callable(element)
             applied to each element of the dataset
 
-        Any extra *args or **kwargs are passed to func (args before element).
+        Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         func = partial_func(func, *args, **kwargs)
         return self.map_partitions(partial(map, func))
@@ -97,7 +96,7 @@ class Dataset(object):
         :param func: callable(element)
             applied to each element of the dataset
 
-        Any extra *args or **kwargs are passed to func (args before element).
+        Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         func = partial_func(func, *args, **kwargs)
         return self.map_partitions(partial(starmap, func))
@@ -133,7 +132,7 @@ class Dataset(object):
             The transformation to apply. Defaults to none; i.e. consider the
             elements in this the iterables to chain.
 
-        Any extra *args or **kwargs are passed to func (args before element).
+        Any extra \*args or \**kwargs are passed to func (args before element).
 
         For example::
 
@@ -158,7 +157,7 @@ class Dataset(object):
         :param func: callable(iterator)
             The transformation to apply.
 
-        Any extra *args or **kwargs are passed to func (args before iterator).
+        Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         func = partial_func(func, *args, **kwargs)
         return self.map_partitions_with_part(lambda p, iterator: func(iterator))
@@ -168,11 +167,11 @@ class Dataset(object):
         '''
         Transform the partitions - with their index - of this dataset.
 
-        :param func: callable(*args, index, iterator, **kwargs)
+        :param func: callable(\*args, index, iterator, \**kwargs)
             The transformation to apply on the partition index and the iterator
             over the partition's elements.
 
-        Any extra *args or **kwargs are passed to func (args before index and iterator).
+        Any extra \*args or \**kwargs are passed to func (args before index and iterator).
         '''
         func = partial_func(func, *args, **kwargs)
         return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
@@ -183,11 +182,11 @@ class Dataset(object):
         Transform the partitions - with the source partition object as argument - of
         this dataset.
 
-        :param func: callable(partition, iterator)
+        :param func: callable(\*args, partition, iterator, \**kwargs)
             The transformation to apply on the partition object and the iterator
             over the partition's elements.
 
-        Any extra *args or **kwargs are passed to func (args before partition and iterator).
+        Any extra \*args or \**kwargs are passed to func (args before partition and iterator).
         '''
         func = partial_func(func, *args, **kwargs)
         return TransformingDataset(self, func)
@@ -227,12 +226,12 @@ class Dataset(object):
         '''
         Transforms each partition into a partition with one element being the
         contents of the partition as a 'stable iterable' (e.g. a list).
-        
+
         See the bndl.util.collection.is_stable_iterable function for details on
         what constitutes a stable iterable.
-        
+
         Example::
-        
+
             >>> ctx.range(10, pcount=4).map_partitions(list).glom().collect()
             [[0, 1], [2, 3, 4], [5, 6], [7, 8, 9]]
         '''
@@ -289,11 +288,11 @@ class Dataset(object):
         '''
         Filter out elements from this dataset
 
-        :param func: callable(element)
-            The test function to filter this dataset with. An element is
-            retained in the dataset if the test is positive.
+        Args:
+            func (callable(element)): The test function to filter this dataset with. An element is
+                retained in the dataset if the test is positive.
 
-        Any extra *args or **kwargs are passed to func (args before element)
+        Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         if func:
             func = partial(func, *args, **kwargs)
@@ -304,12 +303,12 @@ class Dataset(object):
         '''
         Variadic form of Dataset.filter.
 
-        :param func: callable(*element)
+        :param func: callable(\*element)
             The test function to filter this dataset with. An element is
             retained in the dataset if the test is positive. The element is
             provided as star args.
 
-        Any extra *args or **kwargs are passed to func (args before element)
+        Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         func = partial_func(func, *args, **kwargs)
         return self.map_partitions(lambda p: (e for e in p if func(*e)))
@@ -365,9 +364,9 @@ class Dataset(object):
     def key_by_id(self):
         '''
         Key the elements of this data set with a unique integer id.
-        
+
         Example:
-        
+
             >>> ctx.collection(['a', 'b', 'c', 'd', 'e'], pcount=2).key_by_id().collect()
             [(0, 'a'), (2, 'b'), (4, 'c'), (1, 'd'), (3, 'e')]
         '''
@@ -380,13 +379,13 @@ class Dataset(object):
     def key_by_idx(self):
         '''
         Key the elements of this data set with their index.
-        
+
         This operation starts a job when the data set contains more than 1
         partition to calculate offsets for each of the partitions. Use
         key_by_id or cache the data set to speed up processing.
-        
+
         Example:
-        
+
             >>> ctx.collection(['a', 'b', 'c', 'd', 'e']).key_by_idx().collect()
             [(0, 'a'), (1, 'b'), (2, 'c'), (3, 'd'), (4, 'e')]
         '''
@@ -625,7 +624,7 @@ class Dataset(object):
         '''
         Aggregate the dataset by merging element-wise starting with a zero
         value and finally merge the intermediate results.
-        
+
         :param zero: obj
             The object to merge values into.
         :param merge_value:
@@ -634,9 +633,9 @@ class Dataset(object):
         :param merge_combs:
             The operation to pairwise combine the intermediate values into one
             final value.
-            
+
         Example:
-        
+
             >>> strings = ctx.range(1000*1000).map(lambda i: i%1000).map(str)
             >>> sorted(strings.combine(set(), lambda s, e: s.add(e) or s, lambda a, b: a|b)))
             ['0',
@@ -655,11 +654,11 @@ class Dataset(object):
         '''
         Reduce the dataset into a final element by applying a pairwise
         reduction as with functools.reduce(...)
-        
+
         :param reduction: The reduction to apply.
-        
+
         Example:
-        
+
             >>> ctx.range(100).reduce(lambda a,b: a+b)
             4950
         '''
@@ -748,12 +747,13 @@ class Dataset(object):
     def max(self, key=None):
         '''
         Take the largest element of this dataset.
-        :param key: callable(element) or object
-            The (optional) key to apply in comparing element. If key is an
-            object, it is used to pluck from the element with the given to get
-            the comparison key.
 
-        Example:
+        Args:
+            key (callable(element) or object): The (optional) key to apply in comparing element. If
+            key is an object, it is used to pluck from the element with the given to get the
+            comparison key.
+
+        Example::
 
             >>> ctx.range(10).max()
             9
@@ -770,10 +770,11 @@ class Dataset(object):
     def min(self, key=None):
         '''
         Take the smallest element of this dataset.
-        :param key: callable(element) or object
-            The (optional) key to apply in comparing element. If key is an
-            object, it is used to pluck from the element with the given to get
-            the comparison key.
+
+        Args:
+            key (callable(element) or object): The (optional) key to apply in comparing element. If
+            key is an object, it is used to pluck from the element with the given to get the
+            comparison key.
         '''
         key = key_or_getter(key)
         return self.aggregate(partial(min, key=key) if key else min)
@@ -814,7 +815,7 @@ class Dataset(object):
 
         :param key: callable(element) or obj
             The callable producing the key to group on or an index / indices
-            for plucking the key from the elements. 
+            for plucking the key from the elements.
         :param partitioner: callable(element)
             A callable producing an integer which is used to determine to which
             partition the group is assigned.
@@ -1038,7 +1039,7 @@ class Dataset(object):
         '''
         Approximate the count of distinct elements in this Dataset through
         the hyperloglog++ algorithm based on https://github.com/svpcom/hyperloglog.
-        
+
         :param error_rate: float
             The absolute error / cardinality
         '''
@@ -1066,7 +1067,7 @@ class Dataset(object):
             index in the elements for getting the sort key.
         :param reverse: bool
             If True perform a sort in descending order, or False to sort in
-            ascending order. 
+            ascending order.
         :param pcount:
             Optionally the number of partitions to sort into.
 
@@ -1282,7 +1283,7 @@ class Dataset(object):
     def collect_as_files(self, directory=None, ext='', mode='b', compress=None):
         '''
         Collect each element in this data set into a file into directory.
-        
+
         :param directory: str
             The directory to save this data set to.
         :param ext:
@@ -1383,8 +1384,8 @@ class Dataset(object):
     def require_workers(self, workers_required):
         '''
         Create a clone of this dataset which is only computable on the workers
-        which are returned by the workers_required argument. 
-        
+        which are returned by the workers_required argument.
+
         :param workers_required: function(iterable[PeerNode]): -> iterable[PeerNode]
             A function which is given an iterable of workers (PeerNodes) which is to
             return only those which are allowed to compute this dataset.
@@ -1418,17 +1419,72 @@ class Dataset(object):
             yield task.result()
 
 
+    def _generate_tasks(self, tasks, group, groups):
+        dset_tasks = [ComputePartitionTask(part, group=group)
+                      for part in self.parts()]
+
+        stack = deque()
+        src = self.src
+        if src:
+            if isinstance(src, Iterable):
+                stack.extend(src)
+            else:
+                stack.append(src)
+
+        while stack:
+            d = stack.popleft()
+            if d.sync_required:
+                cached = d.cached and d._cache_locs
+                groups, dependencies = d._generate_tasks(tasks, group + 1, max(groups, group + 1))
+                barrier = BarrierTask(d.ctx, (d.id, len(dependencies)), group='hidden')
+                tasks[barrier.id] = barrier
+                barrier.dependents = dset_tasks
+                barrier.dependencies = dependencies
+                for task in dset_tasks:
+                    task.dependencies.append(barrier)
+                for dependency in dependencies:
+                    dependency.dependents.append(barrier)
+                    if cached:
+                        dependency.mark_done()
+            else:
+                d_src = d.src
+                if d_src:
+                    if isinstance(d_src, Iterable):
+                        stack.extend(d_src)
+                    else:
+                        stack.append(d_src)
+
+        for task in dset_tasks:
+            tasks[task.id] = task
+
+        return groups, dset_tasks
+
+
     def _schedule(self):
+        tasks = OrderedDict()
+        groups, _ = self._generate_tasks(tasks, 1, 1)
+        taskslist = []
+        for priority, task in enumerate(tasks.values()):
+            if task.group != 'hidden':
+                task.group = groups - task.group + 1
+            task.priority = priority
+            taskslist.append(task)
+        tasks = taskslist
+
         name, desc = get_callsite(__file__)
         name = re.sub('[_.]', ' ', name or '')
-        from . import scheduler
-        tasks = scheduler.schedule(self)
         job = Job(self.ctx, tasks, name, desc)
 
         cleanups = []
-        for dset in scheduler.flatten(self):
+        stack = [self]
+        while stack:
+            dset = stack.pop()
             if dset.cleanup:
                 cleanups.append(dset.cleanup)
+            if isinstance(dset.src, Iterable):
+                stack.extend(dset.src)
+            elif dset.src is not None:
+                stack.append(dset.src)
 
         if cleanups:
             def cleanup(job):
@@ -1611,8 +1667,8 @@ class Partition(object):
 
     def locality(self, workers):
         '''
-        Determine locality of computing this partition at the given workers. 
-        
+        Determine locality of computing this partition at the given workers.
+
         :return: a generator of worker, locality pairs.
         '''
         if self.dset._workers_required is not None:
@@ -1840,6 +1896,21 @@ class TransformingPartition(Partition):
 
 
 class BarrierTask(Task):
+    '''
+    An 'artificial' task which disconnects
+    :class:`ComputePartitionTasks <bndl.compute.dataset.ComputePartitionTask>` in order to reduce
+    computational complexity in :mod:`bndl.execute.scheduler`. As this scheduler tracks individual
+    dependencies the scheduling overhead goes through the roof when even a moderate amount of tasks
+    which depend on another set of tasks (which is the case for a shuffle). E.g. consider
+
+    .. code:: python
+
+        ctx.range(1000, pcount=1000).map(lambda i: (i//10, i)).aggregate_by_key(sum).count()
+
+    This would result in 1000 mapper and 1000 reducer tasks and thus in 1.000.000 dependencies to
+    be tracked. After introducing the BarrierTask, there are 1000 + 1000 + 1 tasks and 1000 + 1000
+    dependencies to track.
+    '''
     def execute(self, scheduler, worker):
         self.set_executing(worker)
         future = self.future = concurrent.futures.Future()
@@ -1849,10 +1920,14 @@ class BarrierTask(Task):
 
 
 class ComputePartitionTask(RmiTask):
+    '''
+    A RMI task to compute a partition (and it's 'narrow' sources). It adds some dependency location
+    tracking and communications as well as memorizing where a partition was computed and cached.
+    '''
 
     def __init__(self, part, **kwargs):
         name = re.sub('[_.]', ' ', part.dset.callsite[0] or '')
-        super().__init__(part.dset.ctx, part.id, compute_part, [part, None], {},
+        super().__init__(part.dset.ctx, part.id, _compute_part, [part, None], {},
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
@@ -1890,7 +1965,18 @@ class ComputePartitionTask(RmiTask):
 
 
 
-def compute_part(part, dependency_locations):
+def _compute_part(part, dependency_locations):
+    '''
+    Compute a partition; this method calls compute for a partition (which calls comppute on its
+    source partition(s), reads data from some external source, from cache, from other workers,
+    etc.). This method is the method to execute by :class:`bndl.compute.dataset.ComputePartitionTask`
+    (which delegates the RMI part to :class:`bndl.execute.jobs.RmiTask`.
+
+    Args:
+        part: The partition to compute.
+        dependency_locations (mapping[str,object]): A mapping of worker name to a sequence of
+            partition ids executed by this worker.
+    '''
     try:
         # communicate out of band on which workers dependencies of this task were executed
         task_context()['dependency_locations'] = dependency_locations
