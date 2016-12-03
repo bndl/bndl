@@ -45,6 +45,7 @@ class LazyObject(object):
 class Property(object):
     def __init__(self, p):
         self.p = p
+        self.__doc__ = p.__doc__
 
     def __get__(self, obj, objtype=None):
         return self.p.fget(obj._extended)
