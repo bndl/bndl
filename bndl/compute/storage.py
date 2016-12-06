@@ -132,7 +132,7 @@ class StorageContainerFactory(object):
                 self.mode = 'b'
             elif isinstance(serialization, (list, tuple)) \
                 and len(serialization) != 3 \
-                and all(callable, serialization):
+                and all(callable, serialization[:2]):
                 self.serialize, self.deserialize, self.mode = serialization
             else:
                 raise ValueError('serialization must one of json, marshal, pickle or a 3-tuple of'
