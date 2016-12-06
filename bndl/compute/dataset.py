@@ -252,6 +252,12 @@ class Dataset(object):
 
 
     def concat(self, sep):
+        '''
+        Concattenate the elements in this dataset with sep
+
+        Args:
+            sep (str, bytes or bytarray): the value to use to concattenate.
+        '''
         if isinstance(sep, str):
             def f(part):
                 out = io.StringIO()
@@ -1160,6 +1166,11 @@ class Dataset(object):
 
 
     def shuffle(self, pcount=None, partitioner=None, bucket=None, key=None, comb=None, sort=None, **opts):
+        '''
+        .. todo::
+
+            Document shuffle
+        '''
         key = key_or_getter(key)
         from .shuffle import ShuffleReadingDataset, ShuffleWritingDataset, ListBucket
         if bucket is None and sort == False:
@@ -1204,6 +1215,11 @@ class Dataset(object):
 
 
     def sample(self, fraction, with_replacement=False, seed=None):
+        '''
+        .. todo::
+
+            Document sample
+        '''
         if fraction == 0.0:
             return self.ctx.range(0)
         elif fraction == 1.0:
@@ -1350,6 +1366,10 @@ class Dataset(object):
 
 
     def icollect(self, parts=False, ordered=True):
+        '''
+        An iterable version of :meth:`collect` which can be cheaper memory-wise and faster in terms
+        of latency (especially of ordered=False).
+        '''
         result = self._execute(ordered)
         result = filter(lambda p: p is not None, result)  # filter out empty parts
         if not parts:

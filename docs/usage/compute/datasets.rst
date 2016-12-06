@@ -1,8 +1,10 @@
+.. currentmodule:: bndl.compute
+
 Datasets
 ========
 
-The key datastructure in BNDL Compute is the :class:`Dataset <bndl.compute.dataset.Dataset>`. It is
-a distributed partitioned collection of values. The :class:`Partitions <bndl.compute.dataset.Partition>`
+The key datastructure in BNDL Compute is the :class:`Dataset <dataset.Dataset>`. It is
+a distributed partitioned collection of values. The :class:`Partitions <dataset.Partition>`
 yield an iterable of values which may be arbitrary python objects (which in cases need to be
 pickleable / serializable). Datasets can be specialized with optimized partitions e.g.
 `numpy.ndarray` instances instead of lists. Datasets can be transformed, reduced (also key-wise),
@@ -19,13 +21,13 @@ external system.
 Collections
 ~~~~~~~~~~~
 Python iterables can be partitioned and distributed with
-:meth:`ctx.collection(...) <bndl.compute.context.ComputeContext.collection>`.
-:meth:`ctx.range(...) <bndl.compute.context.ComputeContext.range>` provides a way to get a
+:meth:`ctx.collection() <context.ComputeContext.collection>`.
+:meth:`ctx.range() <context.ComputeContext.range>` provides a way to get a
 distributed and partitioned range of integers. For example::
 
    >>> ctx.collection('abcd').max()
    'd'
-   ... ctx.collection({'x':1, 'y':2, 'z': 3}).collect()
+   >>> ctx.collection({'x':1, 'y':2, 'z': 3}).collect()
    [('y', 2), ('x', 1), ('z', 3)]
    >>> ctx.range(10).mean()
    4.5
@@ -34,9 +36,9 @@ distributed and partitioned range of integers. For example::
 Files
 ~~~~~
 Files on the filesystem can be read as BNDL Dataset with
-:meth:`ctx.files(...) <bndl.compute.context.ComputeContext.files>`. This method can be given a
-path to a single file, a list of filepaths or a path of a directory (which is scanned recursively
-by default). For example::
+:meth:`ctx.files() <context.ComputeContext.files>`. This method can be given a path to a single
+file, a list of filepaths or a path of a directory (which is scanned recursively by default). For
+example::
 
    >>> files = ctx.files('.')
    >>> files.filecount
@@ -47,13 +49,13 @@ by default). For example::
 Dense arrays
 ~~~~~~~~~~~~
 Dense distributed and partitioned Numpy based array datasets can be created through
-:meth:`ctx.dense <bndl.compute.context.ComputeContext.dense>`::
+:meth:`ctx.dense <context.ComputeContext.dense>`::
 
-   ctx.dense.array(...)
-   ctx.dense.range(...)
-   ctx.dense.empty(...)
-   ctx.dense.zeros(...)
-   ctx.dense.ones(...)
+   ctx.dense.array()
+   ctx.dense.range()
+   ctx.dense.empty()
+   ctx.dense.zeros()
+   ctx.dense.ones()
 
 
 Key-value pair datasets
@@ -63,7 +65,7 @@ something like generics. :pep:`484` may change this, but python is still far fro
 typed language.
 
 Quite a few operators expect key value pairs, e.g.
-:meth:`reduce_by_key(...) <bndl.compute.dataset.Dataset.reduce_by_key>` reduces a dataset key-wise.
+:meth:`reduce_by_key() <dataset.Dataset.reduce_by_key>` reduces a dataset key-wise.
 I.e. the reduction function is applied on all the values with the same key in the dataset. E.g.
 in::
 
@@ -101,6 +103,10 @@ consider whether the the dataset actually contains key-value pairs.
 
 Caching
 -------
-Datasets can be cached by calling :meth:`Dataset.cache <bndl.compute.dataset.Dataset.cache>`. They can be
+Datasets can be cached by calling :meth:`Dataset.cache <dataset.Dataset.cache>`. They can be
 cached in memory or on disk using various serializations ('json', 'marshal', 'pickle', 'msgpack',
 'text' and 'binary') as well as unserialized in memory.
+
+cache
+cached
+uncache
