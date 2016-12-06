@@ -41,6 +41,8 @@ class DashTestCase(DatasetTest):
                 data = main.get_data().decode('utf-8')
                 links = re.findall(r'''<a.+href=["']([^"']+)["']''', data) + re.findall(r'''<.+data-href=["']([^"']+)["']''', data)
                 for link in links:
+                    if 'docs' in link:
+                        continue
                     if not link[0] == '/':
                         link = url + '/' + link
                     if link not in seen:
