@@ -1,0 +1,5 @@
+#!/bin/bash
+make clean
+while true ; do
+    find .. -name '*.rst' -o -name '*.py' | entr -dc make html
+done
