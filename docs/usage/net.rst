@@ -1,13 +1,12 @@
 Networking
 ==========
 
-Form clusters through seed nodes and gossip
-Build with asyncio, so fairly scalable
-#connections = cores * (cores-1) / 2
-for 100 cores: 4950 connections
-each core has 99 peers
+BNDL nodes form fully interconnected clusters through seed nodes and gossip. They communicate over
+TCP. See :doc:`./compute/getting_started` and :doc:`./configuration` on how to configure seed nodes
+(and listen addresses)
 
-Serialization through marshall / pickle / cloudpickle
-fairly optimistic: check if marshalling is viable, if not pickle, try cloudpickle on failure
-marshall for basic bndl.net protocol
-pickle for
+The networking part of the stack is built with ``asyncio`` so it consumes one thread to do the
+network IO. Serialization in the network protocol is based on ``marshal.dumps``, if the data to be
+sent can be marshalled, or ``pickle.dumps`` if not. If even pickle fails using a cythonized version
+of ``cloudpickle`` is attempted. The protocol itself is framed with a length field and includes one
+flag for whether the marshal was used or not (pickle being the only other option).

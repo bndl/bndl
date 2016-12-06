@@ -21,10 +21,12 @@ class Config(object):
 
             # read from .bndl.ini files
             config = ConfigParser()
-            config.read(['~/bndl.ini',
-                         './bndl.ini',
-                         '~/.bndl.ini',
-                         './.bndl.ini', ])
+            config.read([
+                '~/.bndl.ini',
+                '~/bndl.ini',
+                './.bndl.ini',
+                './bndl.ini',
+            ])
             for section in config.sections():
                 for key, value in config[section].items():
                     self.values['%s.%s' % (section, key)] = value
@@ -92,12 +94,18 @@ class Config(object):
         attr = self.get(*args, fmt=str, **kwargs)
         return getattr(obj, attr)
 
-    def __setitem__(self, key, value):
+    def set(self, key, value):
         self.values[key] = value
         return self
 
-    def __getitem__(self, key):
-        return self.get(key)
+    __getitem__ = get
+    __setitem__ = set
+
+    def keys(self):
+        return self.values.keys()
+
+    def values(self):
+        return self.values.values()
 
     def __repr__(self):
         return '<Conf %r>' % self.values
@@ -113,7 +121,10 @@ class Setting(object):
 
     def __init__(self, default=_NOT_SET, fmt=None, desc=None):
         self.default = default
+        if default != _NOT_SET and desc:
+            desc += ' Defaults to %r.' % default
         self.desc = desc
+        self.__doc__ = desc
         if fmt is not None:
             assert callable(fmt)
             self.fmt = fmt

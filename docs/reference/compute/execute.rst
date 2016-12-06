@@ -41,10 +41,5 @@ two reducer tasks which would read from these buckets and take the sum over the 
 .. autofunction:: bndl.compute.dataset._compute_part
    
 .. autoclass:: bndl.compute.dataset.ComputePartitionTask
-   :members:
-   
 .. autoclass:: bndl.compute.dataset.BarrierTask
-   :members:
-
-
    

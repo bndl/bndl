@@ -26,8 +26,8 @@ Take a look at the BNDL source files::
    <Stats count=14584, mean=37.7018650575974, min=1.0, max=2991.0, ...>
       
       
-      
 Stuff with orcid::
+
    jsons = ctx.files('./orcid/').decode().values().map(json.loads)
    orcid = ctx.broadcast(jsons.flatmap(orcid_recs).group_by_key().collect())
    
@@ -43,10 +43,9 @@ Stuff with orcid::
 Scrape some urls::
 
    def scrape_urls(part_idx, urls):
-       driver = get_driver(part_idx)
+       client = get_client(part_idx)
        for url in urls:
-           driver.get(url)
-           yield url, driver.execute_script(GET_TEXT)
+           yield url, client.execute_script(GET_TEXT)
       
    urls = list(open('adis_urls.txt'))
    
@@ -59,9 +58,7 @@ Scrape some urls::
    
 Grid search CV::
    
-   from bndl.compute.run import ctx
    from bndl_ml.gridsearch import GridSearchCV
-   
    search = GridSearchCV(ctx, estimator, param_grid, scoring, fit_params, iid,
                          refit, cv, error_score)
    search.fit(X, y)

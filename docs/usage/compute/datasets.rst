@@ -47,12 +47,13 @@ by default). For example::
 Dense arrays
 ~~~~~~~~~~~~
 Dense distributed and partitioned Numpy based array datasets can be created through
-:meth:`ctx.dense <bndl.compute.context.ComputeContext.dense>`
-array
-range
-empty
-ones
-zeros
+:meth:`ctx.dense <bndl.compute.context.ComputeContext.dense>`::
+
+   ctx.dense.array(...)
+   ctx.dense.range(...)
+   ctx.dense.empty(...)
+   ctx.dense.zeros(...)
+   ctx.dense.ones(...)
 
 
 Key-value pair datasets
@@ -96,3 +97,10 @@ When using such operators fails with exceptions like::
    bndl.rmi.exceptions.InvocationException: An exception was raised on localdomain.localhost.worker.27110.0.3: TypeError
 
 consider whether the the dataset actually contains key-value pairs.
+
+
+Caching
+-------
+Datasets can be cached by calling :meth:`Dataset.cache <bndl.compute.dataset.Dataset.cache>`. They can be
+cached in memory or on disk using various serializations ('json', 'marshal', 'pickle', 'msgpack',
+'text' and 'binary') as well as unserialized in memory.

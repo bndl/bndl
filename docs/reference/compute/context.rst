@@ -2,9 +2,9 @@ Compute Context
 ===============
 
 .. automodule:: bndl.compute.context
+   :no-members:
 
 .. autoclass:: bndl.compute.context.ComputeContext
-   :members:
    :exclude-members: dense
    
    .. attribute:: dense
@@ -19,5 +19,4 @@ Compute Context
    does an okay job ...
 
 .. autoclass:: bndl.compute.dense.sources
-   :members:
    :undoc-members:

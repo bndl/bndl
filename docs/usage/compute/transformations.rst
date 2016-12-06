@@ -60,10 +60,42 @@ Combinations
    - etc.
 
 
-Collecting data
----------------
-.. todo::
-   - collect
-   - icollect
-   - first
-   - take
+Collecting a dataset to the driver
+----------------------------------
+Peeking
+~~~~~~~
+During development / exploration it can be very convenient to 'peek' into a dataset. This can be\
+done using ``first()`` and ``take(num)`` on a dataset::
+
+   >>> r = ctx.range(100)
+   >>> r.first()
+   0
+   >>> r.take(3)
+   [0, 1, 2]
+
+
+Collecting the total dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Datasets can be collected to the driver using :meth:`collect <bndl.compute.dataset.Dataset.collect>`
+to collect into a list, :meth:`icollect <bndl.compute.dataset.Dataset.icollect>` to collect into an
+iterator, :meth:`collect_as_map <bndl.compute.dataset.Dataset.collect_as_map>` and
+:meth:`collect_as_set <bndl.compute.dataset.Dataset.collect_as_set>` to collect into a dict or set
+respectively.
+
+.. code::
+   
+   >>> r = ctx.range(10)
+   >>> r.collect()
+   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+   >>> r.icollect()
+   <generator object Dataset.icollect at 0x7f5385f25308>
+   >>> next(_)
+   0
+   >>> ctx.range(97, 107).key_by(chr).collect()
+   [('a', 97), ('b', 98), ('c', 99), ('d', 100), ('e', 101), ('f', 102), ('g', 103), ('h', 104), ('i', 105), ('j', 106)]
+
+Datasets can be written to files (one per partition) on the driver node in pickle or json format
+with :meth:`collect_as_json <bndl.compute.Dataset.collect_as_json>` and
+:meth:`collect_as_pickles <bndl.compute.Dataset.collect_as_pickles>`. Collecting as raw files can
+be done with :meth:`collect_as_files <bndl.compute.Dataset.collect_as_files>` (each element must
+be bytes or str depending on the mode).

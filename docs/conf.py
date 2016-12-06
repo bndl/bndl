@@ -117,7 +117,7 @@ todo_include_todos = True
 
 # -- Options for autodoc --------------------------------------------------
 autodoc_member_order = 'bysource'
-
+autodoc_default_flags = ['members', 'show-inheritance']
 
 # -- Options for plantuml -------------------------------------------------
 plantuml_output_format = 'svg'

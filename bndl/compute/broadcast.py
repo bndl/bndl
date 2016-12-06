@@ -11,8 +11,8 @@ from bndl.util.funcs import identity
 from cytoolz.functoolz import compose
 
 
-min_block_size = Float(4)  # MB
-max_block_size = Float(16)  # MB
+min_block_size = Float(4, desc='The maximum size of a block in megabytes.')  # MB
+max_block_size = Float(16, desc='The minimum size of a block in megabytes.')  # MB
 
 
 logger = logging.getLogger(__name__)

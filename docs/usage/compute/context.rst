@@ -1,63 +1,53 @@
 Context
 =======
 
-:class:`bndl.compute.context.ComputeContext` is the main 'handle' into a cluster of BNDL workers
+:class:`bndl.compute.context.ComputeContext` is the entry point into a cluster of BNDL workers
 from the 'driver' node. It provides a means to create partitioned distributed data sets (which can
 be then transformed and combined), broadcast data, create accumulators to collect data into, etc.
 
 See :doc:`./getting_started` for creating a compute context.
 
-Example usage:
---------------
 
-Get the number of workers the driver (local node) is connected to::
-
-   >>> ctx.worker_count
-   4
-   
-Wait for the cluster gossip to stabilize::
-
-   >>> ctx.await_workers()
-   4   
-
-Create some data sets::
+Datasets
+--------
+See :doc:`./datasets` for more on data sets. ComputeContext is the main handle into creating some
+data sets (although most functionality is enclosed in the implementations of
+:class:`bndl.compute.dataset.Dataset`. Some examples::
 
    >>> r = ctx.range(10)
    >>> r
    <RangeDataset 38s8n3ym>
+   >>> r.collect()
+   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
    
-   >>> c = ctx.collection('abcdefghijkl')
+   >>> c = ctx.collection('The quick brown fox jumps over the lazy dog')
    >>> c
    <DistributedCollection 3kuycn22>
+   >>> for char, count in c.with_value(1).aggregate_by_key(sum).nlargest(4, key=1):
+   ...     print(char, count)
+   ... 
+     8
+   o 4
+   e 3
+   u 2
 
-   >>> f = ctx.files('.')
+   >>> f = ctx.files('.') # key value pairs of (filename:str, contents:bytes)
    >>> f
    <RemoteFilesDataset o4p97hrt>
-
-See :doc:`./datasets` for more on data sets.
-
-
-Profile the CPU and memory usage of the cluster::
-
-   >>> ctx.cpu_profiling.start()
-   >>> ctx.memory_profiling.start()
-   >>> ctx.cpu_profiling.print_stats(3, include=('bndl'))
+   >>> f.values().map(len).stats()
+   <Stats count=4495, mean=23657.52413793103, min=0.0, max=5709296.0, var=45209392506.7967, stdev=212625.00442515386, skew=17.166050243279887, kurt=356.5405806659577>
    
-   Clock type: CPU
-   Ordered by: totaltime, desc
-   
-   name                                               ncall         tsub      ttot      tavg      
-   bndl/util/threads.py:21 work                       40/36         0.000524  1.552147  0.038804
-   bndl/execute/worker.py:83 Worker.execute           40/36         0.001045  1.548825  0.038721
-   bndl/execute/worker.py:71 Worker._execute          40/36         0.000953  1.546604  0.038665
-   >>> ctx.memory_profiling.print_top(limit=3)
-   #1 <frozen importlib._bootstrap_external>:484 136.0 KiB
-   #2 home/frens-jan/Workspaces/ext/cpython3.5/Lib/abc.py:133 14.9 KiB
-       cls = super().__new__(mcls, name, bases, namespace)
-   #3 home/frens-jan/Workspaces/ext/cpython3.5/Lib/tracemalloc.py:68 10.2 KiB
-       class StatisticDiff:
-   158 other: 199.5 KiB
-   Total allocated size: 360.7 KiB
-   <tracemalloc.Snapshot object at 0x7f89686c7898>
-   >>> ctx.cpu_profiling.stop()
-   >>> ctx.memory_profiling.stop()
+
+Distributed global variables
+----------------------------
+On occasions it's convinient to share (broadcast) some data with all workers (and not have it
+serialized and set for every task again). Or the opposite: let every worker (e.g. in a mapper or
+reducer task) send data 'out of band' to (accumulate on) the driver. See :doc:`oob` for more on
+these topics.
+
+
+Workers / cluster and Profiling
+-------------------------------
+:class:`ComputeContext <bndl.compute.context.ComputeContext>` inherits from
+:class:`ExecuteContext <bndl.execute.context.ExecuteContext>` and thus exposes functions and
+properties for e.g. waiting for workers and profiling see :doc:`../execute` for more.

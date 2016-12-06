@@ -193,6 +193,19 @@ class Dataset(object):
 
 
     def pipe(self, command, reader=io.IOBase.readlines, writer=io.IOBase.writelines, **opts):
+        '''
+        Transform partitions by sending partition data to an external program over stdout/stdin and
+        read back its output.
+
+        Args:
+            command (str): Command to execute (is 'parsed' by ``shlex.split``).
+            reader (callable -> iterable): Called with :attr:`subprocess.Popen.stdout` to read and
+                iterate over the program's output.
+            writer (callable): Called with :attr:`subprocess.Popen.stdin` and the partition
+                iterable to write the partition's contents to the program.
+                iterate over the program's output.
+            **opts: Options to provide to :class:`subprocess.Popen`.
+        '''
         if isinstance(command, str):
             command = shlex.split(command)
 
@@ -1245,10 +1258,21 @@ class Dataset(object):
 
 
     def collect(self, parts=False, ordered=True):
+        '''
+        Collect the dataset as list.
+
+        Args:
+            parts (bool): Collect the individual partitions (``True``) into a list with an element
+                per partition or a 'flattened' list of the elements in the dataset (``False``).
+            ordered (bool): Collect partitions (and thus their elements) in order or not.
+        '''
         return list(self.icollect(parts, ordered))
 
 
     def collect_as_map(self, parts=False):
+        '''
+        Collect a dataset of key-value pairs as dict.
+        '''
         dicts = self.map_partitions(dict)
         if parts:
             return dicts.collect(True, True)
@@ -1260,6 +1284,9 @@ class Dataset(object):
 
 
     def collect_as_set(self):
+        '''
+        Collect the elements of the dataset into a set.
+        '''
         s = set()
         for part in self.map_partitions(set).icollect(True, False):
             s.update(part)
@@ -1497,6 +1524,18 @@ class Dataset(object):
 
 
     def cache(self, location='memory', serialization=None, compression=None, provider=None):
+        '''
+        Cache the dataset in the workers. Each partition is cached in the memory / on the disk of
+        the worker which computed it.
+
+        Args:
+            location (str): 'memory' or 'disk'.
+            serialization (str): The serialization format must be one of 'json', 'marshal',
+                'pickle', 'msgpack', 'text', 'binary' or None to cache the data unserialized.
+            compression (str): 'gzip' or None
+            provider (:class:`CacheProvider <bndl.compute.cache.CacheProvider>`): Ignore location,
+                serialization and compression and use this custom ``CacheProvider``.
+        '''
         assert self.ctx.node.node_type == 'driver'
         if location:
             if location == 'disk' and not serialization:
