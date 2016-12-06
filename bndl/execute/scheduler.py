@@ -408,6 +408,7 @@ class Scheduler(object):
             elif task.executed_on_last:
                 logger.info('%r failed on %r with %s: %s, rescheduling',
                             task, task.executed_on_last, exc.__class__.__name__, exc)
+                self.forbidden[task].add(task.executed_on_last)
             else:
                 logger.info('%r failed before being executed with %s: %s, rescheduling',
                             task, exc.__class__.__name__, exc)
