@@ -16,7 +16,7 @@ construct is useful for e.g. broadcast joins a.k.a. lookup table for small relat
 Accumulators
 ------------
 Mostly data is communicated back to the driver using
-:meth:`Dataset.collect <bndl.compute.dataset.Dataset.collect>`. However occacially this is
+:meth:`Dataset.collect() <bndl.compute.dataset.Dataset.collect>`. However occacially this is
 inconvenient when you want to collect data from a transformation before a reduction, e.g. a count::
 
    >>> lines = ctx.collection([
