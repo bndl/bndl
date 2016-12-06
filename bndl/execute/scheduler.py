@@ -313,7 +313,8 @@ class Scheduler(object):
                 else:
                     # assert task.succeeded, '%r not failed and not succeeded' % task
                     # assert task not in self.succeeded, '%r completed while already in succeeded list' % task
-                    logger.debug('%r was executed on %r', task, task.executed_on_last)
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug('%r was executed on %r', task, task.executed_on_last())
                     # add to executed and signal done
                     self.succeeded.add(task)
                     self.done(task)
@@ -328,11 +329,11 @@ class Scheduler(object):
                                 logger.debug('%r unblocked because %r was executed', dependent, task)
                                 self.set_executable(dependent)
 
-                self.workers_ready.append(task.executed_on_last)
+                self.workers_ready.append(task.executed_on_last())
                 self.condition.notify()
         except Exception as exc:
             logger.exception('Unable to handle task completion of %r on %r',
-                             task, task.executed_on_last)
+                             task, task.executed_on_last())
             self.abort(exc)
 
 
@@ -351,10 +352,11 @@ class Scheduler(object):
 
         if isinstance(exc, DependenciesFailed):
             # assert task not in self.succeeded, 'Dependencies of %r failed which already completed successfully' % task
-            logger.info('%r failed on %s because %r failed, rescheduling',
-                        task, task.executed_on_last,
-                        ', '.join(worker + ': ' + ','.join(map(str, dependencies))
-                                  for worker, dependencies in exc.failures.items()))
+            if logger.isEnabledFor(logging.INFO):
+                logger.info('%r failed on %s because %r failed, rescheduling',
+                            task, task.executed_on_last(),
+                            ', '.join(worker + ': ' + ','.join(map(str, dependencies))
+                                      for worker, dependencies in exc.failures.items()))
 
             for worker, dependencies in exc.failures.items():
                 for task_id in dependencies:
@@ -365,7 +367,7 @@ class Scheduler(object):
                         self.abort(e)
                     else:
                         # mark the worker as failed
-                        executed_on_last = dependency.executed_on_last
+                        executed_on_last = dependency.executed_on_last()
                         if not worker or worker == executed_on_last:
                             if worker == executed_on_last:
                                 logger.info('Marking %r as failed for dependency %s of %s',
@@ -392,23 +394,24 @@ class Scheduler(object):
 
         elif isinstance(exc, NotConnected):
             # mark the worker as failed
-            logger.info('%r failed with NotConnected, marking %r as failed',
-                        task, task.executed_on_last)
-            self.workers_failed.add(task.executed_on_last)
+            if logger.isEnabledFor(logging.INFO):
+                logger.info('%r failed with NotConnected, marking %r as failed',
+                            task, task.executed_on_last())
+            self.workers_failed.add(task.executed_on_last())
 
         else:
             self.failures[task] = failures = self.failures[task] + 1
             if failures >= self.max_attempts:
                 logger.warning('%r failed on %r after %r attempts ... aborting',
-                               task, task.executed_on_last, len(task.executed_on))
+                               task, task.executed_on_last(), len(task.executed_on))
                 # signal done (failed) to allow bubbling up the error and abort
                 self.done(task)
                 self.abort(task.exception())
                 return
-            elif task.executed_on_last:
+            elif task.executed_on_last():
                 logger.info('%r failed on %r with %s: %s, rescheduling',
-                            task, task.executed_on_last, exc.__class__.__name__, exc)
-                self.forbidden[task].add(task.executed_on_last)
+                            task, task.executed_on_last(), exc.__class__.__name__, exc)
+                self.forbidden[task].add(task.executed_on_last())
             else:
                 logger.info('%r failed before being executed with %s: %s, rescheduling',
                             task, exc.__class__.__name__, exc)

@@ -105,7 +105,10 @@ class Task(Lifecycle):
 
     @property
     def succeeded(self):
-        return self.future and not self.failed
+        try:
+            return bool(self.future and not self.future.exception(0))
+        except (CancelledError, TimeoutError):
+            return False
 
 
     @property
@@ -163,16 +166,17 @@ class Task(Lifecycle):
         return self.future.exception()
 
 
-    @property
     def executed_on_last(self):
         '''The name of the worker this task executed on last (if any).'''
-        if self.executed_on:
+        try:
             return self.executed_on[-1]
+        except ValueError:
+            return None
 
 
     def release(self):
         '''Release most resources of the task. Invoked after a job's execution is complete.'''
-        if not self.failed:
+        if self.succeeded:
             self.future = None
         self.dependencies = []
         self.dependents = []
@@ -251,8 +255,9 @@ class RmiTask(Task):
             if self.future:
                 self.future.set_exception(exc)
             elif not isinstance(exc, NotConnected):
-                logger.info('execution of %s on %s failed, but not expecting result',
-                            self, self.executed_on_last, exc_info=True)
+                if logger.isEnabledFor(logging.INFO):
+                    logger.info('execution of %s on %s failed, but not expecting result',
+                                self, self.executed_on_last(), exc_info=True)
         else:
             if self.future and not self.future.cancelled():
                 self.future.set_result(result)

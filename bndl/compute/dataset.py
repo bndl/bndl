@@ -1668,7 +1668,6 @@ class Partition(object):
         self.dset = weakref.proxy(dset)
         self.idx = idx
         self.src = src
-        self.id = (dset.id, idx)
 
 
     def compute(self):
@@ -1816,6 +1815,11 @@ class Partition(object):
                 src = self.src
                 if not src.dset.sync_required:
                     src.save_cache_location(worker)
+
+
+    @property
+    def id(self):
+        return (self.dset.id, self.id)
 
 
     def __lt__(self, other):
@@ -1970,7 +1974,21 @@ class BarrierTask(Task):
     be tracked. After introducing the BarrierTask, there are 1000 + 1000 + 1 tasks and 1000 + 1000
     dependencies to track.
     '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dependency_locations = None
+
     def execute(self, scheduler, worker):
+        # administer where dependencies were executed
+        by_worker = self.dependency_locations = {}
+        for dep in self.dependencies:
+            executed_on = dep.executed_on_last()
+            locs = by_worker.get(executed_on)
+            if locs is None:
+                by_worker[executed_on] = locs = []
+            part = dep.part
+            locs.append((part.dset.id, part.idx))
+        # 'execute' the barrier
         self.set_executing(worker)
         future = self.future = concurrent.futures.Future()
         future.set_result(None)
@@ -1986,7 +2004,7 @@ class ComputePartitionTask(RmiTask):
 
     def __init__(self, part, **kwargs):
         name = re.sub('[_.]', ' ', part.dset.callsite[0] or '')
-        super().__init__(part.dset.ctx, part.id, _compute_part, [part, None], {},
+        super().__init__(part.dset.ctx, (part.dset.id, part.idx), _compute_part, [part, None], {},
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
@@ -1994,15 +2012,11 @@ class ComputePartitionTask(RmiTask):
 
     def execute(self, scheduler, worker):
         if self.dependencies:
-            assert all(isinstance(dep, BarrierTask) for dep in self.dependencies), \
-                'Dependencies of task %s.%s %r is aren\'t BarrierTasks' % (self.id + (self.dependencies,))
-            dependencies = self.dependencies[0].dependencies
             # created mapping of worker -> list[part_id] for dependency locations
             dependency_locations = {}
-            for dep in dependencies:
-                dependency_locations.setdefault(dep.executed_on_last, []).append(dep.part.id)
-                assert dependency_locations[dep.executed_on_last].count(dep.part.id) == 1
-            # set locations as second arguments
+            for barrier in self.dependencies:
+                dependency_locations.update(barrier.dependency_locations)
+            # set locations as second arguments to _compute_part
             self.args[1] = dependency_locations
         return super().execute(scheduler, worker)
 
@@ -2017,8 +2031,8 @@ class ComputePartitionTask(RmiTask):
 
 
     def release(self):
-        if self.done and not self.failed:
-            self.part.save_cache_location(self.executed_on_last)
+        if self.succeeded:
+            self.part.save_cache_location(self.executed_on_last())
         self.part = None
         super().release()
 

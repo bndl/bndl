@@ -492,6 +492,11 @@ class ShuffleReadingDataset(Dataset):
 
 
 class ShuffleReadingPartition(Partition):
+    def __init__(self, dset, idx, src):
+        super().__init__(dset, idx)
+        self.src_count = len(src)
+
+
     def get_sources(self):
         worker = self.dset.ctx.node
 
@@ -593,7 +598,7 @@ class ShuffleReadingPartition(Partition):
         # if size info is missing for any source partitions, fail computing this partition
         # and indicate which tasks/parts aren't available. This assumes that the task ids
         # for the missing source partitions equals the ids of these partitions.
-        size_info_missing = {src.idx:src.id for src in self.src}
+        size_info_missing = set(range(self.src_count))
         # keep track of where a source partition is available
         source_locations = {}
 
@@ -601,7 +606,7 @@ class ShuffleReadingPartition(Partition):
             selected = []
             for src_part_idx, block_sizes in size:
                 if src_part_idx in size_info_missing:
-                    del size_info_missing[src_part_idx]
+                    size_info_missing.remove(src_part_idx)
                     source_locations[src_part_idx] = (worker, block_sizes)
                     selected.append((src_part_idx, block_sizes))
                 else:
@@ -613,11 +618,11 @@ class ShuffleReadingPartition(Partition):
 
         # translate size info missing into missing dependencies
         if size_info_missing:
-            for src_idx, src_id in list(size_info_missing.items()):
+            for src_idx in list(size_info_missing):
                 for worker, dependencies in dependency_locations.items():
                     for dependency in dependencies:
-                        if dependency == src_id:
-                            dependencies_missing[worker].append(src_id)
+                        if dependency == src_idx:
+                            dependencies_missing[worker].append((self.dset.src.id, src_idx))
                             del size_info_missing[src_idx]
                             break
         if size_info_missing:
