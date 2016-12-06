@@ -2,3 +2,4 @@ include README.rst
 recursive-include bndl/**/templates *
 recursive-include bndl/**/static *
 recursive-include bndl *.pyx *.pxd
+graft docs/build/html
