@@ -1251,7 +1251,9 @@ class Dataset(object):
         rng = np.random.RandomState(seed)
 
         if (not with_replacement) and num >= count:
-            return rng.shuffle(self.collect())
+            samples = self.collect()
+            rng.shuffle(samples)
+            return samples
 
         fraction = float(num) / count
         if with_replacement:
