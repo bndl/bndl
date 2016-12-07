@@ -1821,7 +1821,7 @@ class Partition(object):
 
     @property
     def id(self):
-        return (self.dset.id, self.id)
+        return (self.dset.id, self.idx)
 
 
     def __lt__(self, other):
