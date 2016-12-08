@@ -1,13 +1,14 @@
 language: python
 
 python:
+  - 3.4
   - 3.5-dev
   - 3.6-dev
 
 sudo: required
 
 before_install:
-  - sudo apt-get install libopenblas-dev
+  - sudo apt-get install liblapack-dev libopenblas-dev
 
 install:
   - pip install pip --upgrade
