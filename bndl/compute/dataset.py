@@ -22,7 +22,8 @@ from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
 from bndl.compute import cache
-from bndl.compute.stats import iterable_size, Stats, sample_with_replacement, sample_without_replacement
+from bndl.compute.stats import iterable_size, Stats, MultiVariateStats, \
+                               sample_with_replacement, sample_without_replacement
 from bndl.execute import TaskCancelled, DependenciesFailed
 from bndl.execute.job import RmiTask, Job, Task
 from bndl.execute.scheduler import FailedDependency
@@ -808,10 +809,20 @@ class Dataset(object):
 
     def stats(self):
         '''
-        Calculate count, mean, min, max, variance, stdev, skew and kurtosis of
-        this dataset.
+        Calculate count, mean, min, max, variance, stdev, skew and kurtosis of this dataset.
         '''
         return self.aggregate(Stats, partial(reduce, add))
+
+
+    def mvstats(self, width):
+        '''
+        Calculate count and the multivariate mean, min, max, variance, stdev, skew and kurtosis of
+        this dataset.
+
+        Args:
+            width (int): The width of the vectors in the dataset to calculate the statistics on.
+        '''
+        return self.aggregate(partial(MultiVariateStats, width), partial(reduce, add))
 
 
     def union(self, other, *others):

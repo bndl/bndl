@@ -64,16 +64,30 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
         else:
             return np.array(self.map_partitions(lambda a: a.mean(axis=axis)).collect())
 
+
     def min(self, axis=None):
         if axis not in (None, 0):
             raise ValueError("Can't determine max over axis other than the distribution axis")
         return np.array(self.map_partitions(lambda p: [p.min(axis=axis)]).collect()).min(axis=axis)
+
 
     def max(self, axis=None):
         if axis not in (None, 0):
             raise ValueError("Can't determine max over axis other than the distribution axis")
             # TODO possibly implement this through a transpose (shuffle) ...
         return np.array(self.map_partitions(lambda p: [p.max(axis=axis)]).collect()).max(axis=axis)
+
+
+    def mvstats(self, width=None):
+        '''
+        Calculate multivariate statistics. See also :meth:`bndl.compute.dataset.Dataset.mvstats`.
+
+        With a two dimensional distributed array (matrix), the width is a given, so there's no need
+        to provide it. The width argument is only kept for compatibility.
+        '''
+        assert len(self.shape) == 2
+        assert width is None or width == self.shape[1]
+        return Dataset.mvstats(self, self.shape[1])
 
 
     def astype(self, dtype):

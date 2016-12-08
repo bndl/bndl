@@ -6,6 +6,7 @@ Change log
  * Optimizations task/partition IO for shuffles
  * Bug in take_sample for tiny datasets
  * Added random distributed numpy arrays
+ * Added multivariate summary statistics
 
 0.3.2
 -----
