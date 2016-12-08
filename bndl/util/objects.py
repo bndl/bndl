@@ -75,7 +75,7 @@ class ExtensionGroupMeta(type):
                 elif isinstance(value, property):
                     dct[key] = Property(value)
                 else:
-                    raise NotImplemented('Unable to proxy %s of type %s' %
+                    raise NotImplementedError('Unable to proxy %s of type %s' %
                                          (key, value))
         return super().__new__(cls, name, parents, dct)
 
