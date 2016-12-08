@@ -20,5 +20,5 @@ test:
 	coverage xml -o build/coverage.xml
 
 codestyle:
-	pylint bndl > build/pylint.html || ;
-	flake8 bndl > build/flake8.txt || ;
+	pylint bndl > build/pylint.html || :
+	flake8 bndl > build/flake8.txt || :
