@@ -10,7 +10,7 @@ Compute Context
    .. attribute:: dense
       
       Create numpy based distributed, partitioned, dense arrays. See
-      :class:`dense.sources <bndl.compute.dense.arrays>`.
+      :class:`dense.arrays <bndl.compute.dense.arrays>`.
 
 .. todo::
    
@@ -18,5 +18,5 @@ Compute Context
    *are* rendered correctly in ipython with e.g. `ctx.dense.array?`and also `help(ctx.dense.array)`
    does an okay job ...
 
-.. autoclass:: bndl.compute.dense.sources
+.. autoclass:: bndl.compute.dense.arrays
    :undoc-members:
