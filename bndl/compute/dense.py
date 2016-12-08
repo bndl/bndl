@@ -1,11 +1,12 @@
+from functools import partial
 import abc
 import collections
-import numpy as np
 
-from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.collections import DistributedCollection
+from bndl.compute.dataset import Dataset, Partition
 from bndl.util.funcs import as_method
 from bndl.util.objects import ExtensionGroup
+import numpy as np
 
 
 class DistributedArray(Dataset, metaclass=abc.ABCMeta):
@@ -199,63 +200,10 @@ class DistributedArray(Dataset, metaclass=abc.ABCMeta):
         arr.shape = shape or self.shape
         return arr
 
-
-    @staticmethod
-    def empty(ctx, shape, dtype=float, pcount=None):
-        '''
-        A distributed and partitioned version of `np.empty`.
-        '''
-        return DistributedArray.fill(ctx, np.empty, shape, dtype, pcount)
-
-    @staticmethod
-    def zeros(ctx, shape, dtype=float, pcount=None):
-        '''
-        A distributed and partitioned version of `np.zeros`.
-        '''
-        return DistributedArray.fill(ctx, np.zeros, shape, dtype, pcount)
-
-    @staticmethod
-    def ones(ctx, shape, dtype=float, pcount=None):
-        '''
-        A distributed and partitioned version of `np.ones`.
-        '''
-        return DistributedArray.fill(ctx, np.ones, shape, dtype, pcount)
-
     @staticmethod
     def fill(ctx, fill, shape, dtype=float, pcount=None):
-        def ctor(part, shape, dtype):
-            return fill(shape, dtype=dtype)
-        return CtorDistributedArray(ctx, ctor, shape, dtype, pcount)
-
-    @staticmethod
-    def arange(ctx, start, stop=None, step=1, dtype=None, pcount=None):
-        '''
-        A distributed and partitioned `np.arange` like data set.
-
-        Args:
-            start (int): The start or stop value (if no stop value is given).
-            stop (int): The stop value or None if start is the stop value.
-            step (int): The step between each value in the range.
-            dtype: The type of the elements in the array.
-            pcount (int): The number of partitions to partition the range into.
-        '''
-        if not stop:
-            stop, start = start, 0
-
-        shape = int(
-            np.ceil((stop - start) / step)
-            if start < stop and step > 0
-            else 0
-        )
-
-        def ctor(part, shape, dtype):
-            offset = part.dset._slice_start(part.idx)
-            part_start = start + step * offset
-            # part_stop is actually correct end of the sub range (last value in the sub range)
-            # but rounding causes it to vary whether np.arange will include part_stop or not
-            # therefore half the step is added to ensure that it _is_ added
-            part_stop = part_start + (shape[0] - 1) * step + step / 2
-            return np.arange(part_start, part_stop, step, dtype)
+        def ctor(part, shape):
+            return fill(shape)
         return CtorDistributedArray(ctx, ctor, shape, dtype, pcount)
 
 
@@ -325,7 +273,7 @@ class CtorPartition(Partition):
         self.shape = shape
 
     def _compute(self):
-        return self.ctor(self, self.shape, self.dset.dtype)
+        return self.ctor(self, self.shape)
 
 
 
@@ -340,12 +288,245 @@ class TransformedDistributedArray(DistributedArray):
         return self.derivation.parts()
 
 
-class sources(ExtensionGroup):
+class random(ExtensionGroup):
+    # ==============================================================================
+    # Utility functions
+    # ==============================================================================
+    def random(self, size, pcount=None):
+        '''Uniformly distributed values of a given shape.'''
+        return DistributedArray.fill(self, np.random.random, size, pcount=pcount)
+
+    def random_integers(self, low, high, size, pcount=None):
+        '''Uniformly distributed integers in a given range.'''
+        return DistributedArray.fill(self, partial(np.random.random_integers, low, high), size, pcount=pcount)
+
+    def random_sample(self, size, pcount=None):
+        '''Uniformly distributed floats in a given range.'''
+        return DistributedArray.fill(self, np.random.random_sample, size, pcount=pcount)
+
+
+    # ==============================================================================
+    # Compatibility functions
+    # ==============================================================================
+
+    def rand(self, size, pcount=None):
+        '''Uniformly distributed values.'''
+        return DistributedArray.fill(self, lambda size: np.random.rand(*size), size, pcount=pcount)
+
+    def randn(self, size, pcount=None):
+        '''Normally distributed values.'''
+        return DistributedArray.fill(self, lambda size: np.random.randn(*size), size, pcount=pcount)
+
+    def ranf(self, size, pcount=None):
+        '''Uniformly distributed floating point numbers.'''
+        return DistributedArray.fill(self, np.random.ranf, size, pcount=pcount)
+
+    def randint(self, low, high, size, dtype=np.int, pcount=None):
+        '''Uniformly distributed integers in a given range.'''
+        return DistributedArray.fill(self, partial(np.random.randint, low, high), size, dtype, pcount)
+
+
+    # ==============================================================================
+    # Univariate distributions
+    # ==============================================================================
+
+    def beta(self, a, b, size, pcount=None):
+        '''Beta distribution over ``[0, 1]``.'''
+        return DistributedArray.fill(self, partial(np.random.beta, a, b), size, pcount=pcount)
+
+    def binomial(self, n, p, size, pcount=None):
+        '''Binomial distribution.'''
+        return DistributedArray.fill(self, partial(np.random.binomial, n, p), size, pcount=pcount)
+
+    def chisquare(self, df, size, pcount=None):
+        ''':math:`\\chi^2` distribution.'''
+        return DistributedArray.fill(self, partial(np.random.chisquare, df), size, pcount=pcount)
+
+    def exponential(self, scale, size, pcount=None):
+        '''Exponential distribution.'''
+        return DistributedArray.fill(self, partial(np.random.exponential, scale), size, pcount=pcount)
+
+    def f(self, dfnum, dfden, size, pcount=None):
+        '''F (Fisher-Snedecor) distribution.'''
+        return DistributedArray.fill(self, partial(np.random.f, dfnum, dfden), size, pcount=pcount)
+
+    def gamma(self, shape, scale, size, pcount=None):
+        '''Gamma distribution.'''
+        return DistributedArray.fill(self, partial(np.random.gamma, shape, scale), size, pcount=pcount)
+
+    def geometric(self, p, size, pcount=None):
+        '''Geometric distribution.'''
+        return DistributedArray.fill(self, partial(np.random.geometric, p), size, pcount=pcount)
+
+    def gumbel(self, loc, scale, size, pcount=None):
+        '''Gumbel distribution.'''
+        return DistributedArray.fill(self, partial(np.random.gumbel, loc, scale), size, pcount=pcount)
+
+    def hypergeometric(self, ngood, nbad, nsample, size, pcount=None):
+        '''Hypergeometric distribution.'''
+        return DistributedArray.fill(self, partial(np.random.hypergeometric, ngood, nbad, nsample), size, pcount=pcount)
+
+    def laplace(self, loc, scale, size, pcount=None):
+        '''Laplace distribution.'''
+        return DistributedArray.fill(self, partial(np.random.laplace, loc, scale), size, pcount=pcount)
+
+    def logistic(self, loc, scale, size, pcount=None):
+        '''Logistic distribution.'''
+        return DistributedArray.fill(self, partial(np.random.logistic, loc, scale), size, pcount=pcount)
+
+    def lognormal(self, mean, sigma, size, pcount=None):
+        '''Log-normal distribution.'''
+        return DistributedArray.fill(self, partial(np.random.lognormal, mean, sigma), size, pcount=pcount)
+
+    def logseries(self, p, size, pcount=None):
+        '''Logarithmic series distribution.'''
+        return DistributedArray.fill(self, partial(np.random.logseries, p), size, pcount=pcount)
+
+    def negative_binomial(self, n, p, size, pcount=None):
+        '''Negative binomial distribution.'''
+        return DistributedArray.fill(self, partial(np.random.negative_binomial, n, p), size, pcount=pcount)
+
+    def noncentral_chisquare(self, df, nonc, size, pcount=None):
+        '''Non-central chi-square distribution.'''
+        return DistributedArray.fill(self, partial(np.random.noncentral_chisquare, df, nonc), size, pcount=pcount)
+
+    def noncentral_f(self, dfnum, dfden, nonc, size, pcount=None):
+        '''Non-central F distribution.'''
+        return DistributedArray.fill(self, partial(np.random.noncentral_f, dfnum, dfden, nonc), size, pcount=pcount)
+
+    def normal(self, loc, scale, size, pcount=None):
+        '''Normal / Gaussian distribution.'''
+        return DistributedArray.fill(self, partial(np.random.normal, loc, scale), size, pcount=pcount)
+
+    def pareto(self, a, size, pcount=None):
+        '''Pareto distribution.'''
+        return DistributedArray.fill(self, partial(np.random.pareto, a), size, pcount=pcount)
+
+    def poisson(self, lam, size, pcount=None):
+        '''Poisson distribution.'''
+        return DistributedArray.fill(self, partial(np.random.poisson, lam), size, pcount=pcount)
+
+    def power(self, a, size, pcount=None):
+        '''Power distribution.'''
+        return DistributedArray.fill(self, partial(np.random.power, a), size, pcount=pcount)
+
+    def rayleigh(self, scale, size, pcount=None):
+        '''Rayleigh distribution.'''
+        return DistributedArray.fill(self, partial(np.random.rayleigh, scale), size, pcount=pcount)
+
+    def triangular(self, left, mode, right, size, pcount=None):
+        '''Triangular distribution.'''
+        return DistributedArray.fill(self, partial(np.random.triangular, left, mode, right), size, pcount=pcount)
+
+    def uniform(self, low, high, size, pcount=None):
+        '''Uniform distribution.'''
+        return DistributedArray.fill(self, partial(np.random.uniform, low, high), size, pcount=pcount)
+
+    def vonmises(self, mu, kappa, size, pcount=None):
+        '''Von Mises circular distribution.'''
+        return DistributedArray.fill(self, partial(np.random.vonmises, mu, kappa), size, pcount=pcount)
+
+    def wald(self, mean, scale, size, pcount=None):
+        '''Wald (inverse Gaussian) distribution.'''
+        return DistributedArray.fill(self, partial(np.random.wald, mean, scale), size, pcount=pcount)
+
+    def weibull(self, a, size, pcount=None):
+        '''Weibull distribution.'''
+        return DistributedArray.fill(self, partial(np.random.weibull, a), size, pcount=pcount)
+
+    def zipf(self, a, size, pcount=None):
+        '''Zipf's distribution over ranked data.'''
+        return DistributedArray.fill(self, partial(np.random.zipf, a), size, pcount=pcount)
+
+
+    # ==============================================================================
+    # Multivariate distributions
+    # ==============================================================================
+
+    def dirichlet(self, alpha, size, pcount=None):
+        '''Multivariate generalization of Beta distribution.'''
+        return DistributedArray.fill(self, partial(np.random.dirichlet, alpha), size, pcount=pcount)
+
+    def multinomial(self, n, pvals, size, pcount=None):
+        '''Multivariate generalization of the binomial distribution.'''
+        return DistributedArray.fill(self, partial(np.random.multinomial, n, pvals), size, pcount=pcount)
+
+    def multivariate_normal(self, mean, cov, size, pcount=None):
+        '''Multivariate generalization of the normal distribution.'''
+        return DistributedArray.fill(self, partial(np.random.multivariate_normal, mean, cov), size, pcount=pcount)
+
+
+    # ==============================================================================
+    # Standard distributions
+    # ==============================================================================
+
+    def standard_cauchy(self, size, pcount=None):
+        '''Standard Cauchy-Lorentz distribution.'''
+        return DistributedArray.fill(self, np.random.standard_cauchy, size, pcount=pcount)
+
+    def standard_exponential(self, size, pcount=None):
+        '''Standard exponential distribution.'''
+        return DistributedArray.fill(self, np.random.standard_cauchy, size, pcount=pcount)
+
+    def standard_gamma(self, shape, size, pcount=None):
+        '''Standard Gamma distribution.'''
+        return DistributedArray.fill(self, partial(np.random.standard_gamma, shape), size, pcount=pcount)
+
+    def standard_normal(self, size, pcount=None):
+        '''Standard normal distribution.'''
+        return DistributedArray.fill(self, np.random.standard_normal, size, pcount=pcount)
+
+    def standard_t(self, df, size, pcount=None):
+        '''Standard Student's t-distribution.'''
+        return DistributedArray.fill(self, partial(np.random.standard_t, df), size, pcount=pcount)
+
+
+
+class arrays(ExtensionGroup):
     '''
     Create numpy based distributed, partitioned, dense arrays.
     '''
+    random = property(random)
     array = as_method(SourceDistributedArray)
-    empty = DistributedArray.empty
-    zeros = DistributedArray.zeros
-    ones = DistributedArray.ones
-    range = DistributedArray.arange
+
+    def range(self, start, stop=None, step=1, dtype=None, pcount=None):
+        '''
+        A distributed and partitioned `np.arange` like data set.
+
+        Args:
+            start (int): The start or stop value (if no stop value is given).
+            stop (int): The stop value or None if start is the stop value.
+            step (int): The step between each value in the range.
+            dtype: The type of the elements in the array.
+            pcount (int): The number of partitions to partition the range into.
+        '''
+        if not stop:
+            stop, start = start, 0
+
+        shape = int(
+            np.ceil((stop - start) / step)
+            if start < stop and step > 0
+            else 0
+        )
+
+        def ctor(part, shape):
+            offset = part.dset._slice_start(part.idx)
+            part_start = start + step * offset
+            # part_stop is actually correct end of the sub range (last value in the sub range)
+            # but rounding causes it to vary whether np.arange will include part_stop or not
+            # therefore half the step is added to ensure that it _is_ added
+            part_stop = part_start + (shape[0] - 1) * step + step / 2
+            return np.arange(part_start, part_stop, step, dtype)
+        return CtorDistributedArray(self, ctor, shape, dtype, pcount)
+
+    def empty(self, shape, dtype=float, pcount=None):
+        '''A distributed and partitioned version of `np.empty`.'''
+        return DistributedArray.fill(self, partial(np.empty, dtype=dtype), shape, dtype, pcount)
+
+    def zeros(self, shape, dtype=float, pcount=None):
+        '''A distributed and partitioned version of `np.zeros`.'''
+        return DistributedArray.fill(self, partial(np.zeros, dtype=dtype), shape, dtype, pcount)
+
+    def ones(self, shape, dtype=float, pcount=None):
+        '''A distributed and partitioned version of `np.ones`.'''
+        return DistributedArray.fill(self, partial(np.ones, dtype=dtype), shape, dtype, pcount)

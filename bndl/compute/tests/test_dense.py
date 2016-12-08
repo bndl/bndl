@@ -3,6 +3,7 @@ from statistics import mean
 from bndl.compute.dense import DistributedArray
 from bndl.compute.tests import DatasetTest
 import numpy as np
+import inspect
 
 
 NUMERIC_TYPES = (
@@ -194,3 +195,29 @@ class ArrayTest(DatasetTest):
                     first, second, rtol, atol
                 )
             )
+
+
+    def test_random(self):
+        vals = {
+            'binomial': {'p': .5},
+            'dirichlet': {'alpha': (2, 2)},
+            'geometric': {'p': .5},
+            'logseries': {'p': .5},
+            'multinomial': {'pvals': list(range(3))},
+            'multivariate_normal': {'mean': np.random.rand(3), 'cov': np.random.rand(3, 3)},
+            'negative_binomial': {'p': .5},
+            'randint': {'low': 0},
+            'triangular': {'left': 0, 'mode': 2, 'right': 4},
+        }
+        
+        for member in dir(self.ctx.dense.random):
+            if member.startswith('_'):
+                continue
+            member = getattr(self.ctx.dense.random, member)
+            sig = inspect.signature(member)
+            args = []
+            for param in sig.parameters:
+                if param not in ('size', 'dtype', 'pcount'):
+                    args.append(vals.get(member.__name__, {}).get(param, 3))
+            print(member.__name__, sig, args)
+            member(*args, size=(10, 10), pcount=3).collect()
