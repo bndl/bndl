@@ -4,7 +4,6 @@ import concurrent.futures
 import os
 import threading
 
-from bndl.util import dash
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
 from bndl.net.run import run_nodes
@@ -16,6 +15,8 @@ from bndl.util.supervisor import Supervisor
 
 
 def create_ctx(config=Config(), daemon=True):
+    from bndl.util import dash
+
     listen_addresses = config.get('bndl.net.listen_addresses')
     seeds = config.get('bndl.net.seeds')
     worker_count = config.get('bndl.compute.worker_count')
