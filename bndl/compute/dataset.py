@@ -1246,7 +1246,7 @@ class Dataset(object):
 
     # TODO implement stratified sampling
 
-    def take_sample(self, num, with_replacement=False, seed=None):
+    def take_sample(self, num, with_replacement=False, seed=None, count=None):
         '''
         based on https://github.com/apache/spark/blob/master/python/pyspark/rdd.py#L425
         '''
@@ -1255,7 +1255,8 @@ class Dataset(object):
         if num == 0:
             return []
 
-        count = self.count()
+        if count is None:
+            count = self.count()
         if count == 0:
             return []
 
