@@ -66,11 +66,13 @@ extensions = [
 
 try:
     from Cython.Build import cythonize
+    import numpy as np
     extensions = cythonize(extensions, compiler_directives={
         'language_level': 3
     })
+    include_dirs = [np.get_include()]
 except ImportError:
-    pass
+    include_dirs = None
 
 
 if __name__ == '__main__':
@@ -94,6 +96,9 @@ if __name__ == '__main__':
         extras_require=dict(
             dev=dev_requires,
         ),
+
+        setup_requires=['numpy'],
+        include_dirs=include_dirs,
         ext_modules=extensions,
 
         entry_points=dict(
