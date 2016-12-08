@@ -10,7 +10,7 @@ Compute Context
    .. attribute:: dense
       
       Create numpy based distributed, partitioned, dense arrays. See
-      :class:`dense.sources <bndl.compute.dense.sources>`.
+      :class:`dense.sources <bndl.compute.dense.arrays>`.
 
 .. todo::
    
