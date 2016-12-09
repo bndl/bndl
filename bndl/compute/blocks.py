@@ -1,6 +1,6 @@
 from asyncio.futures import TimeoutError
 from collections import defaultdict
-from concurrent.futures._base import as_completed
+from concurrent.futures import as_completed
 from operator import itemgetter
 import asyncio
 import contextlib

@@ -1,6 +1,6 @@
 import argparse
 
-from toolz.itertoolz import groupby
+from cytoolz.itertoolz import groupby
 
 from bndl.compute.run import create_ctx
 from bndl.net import run
