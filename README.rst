@@ -3,6 +3,13 @@ BNDL
 
 Bundle compute resources in Python across cores and machines.
 
+.. image:: https://travis-ci.org/bndl/bndl.svg?branch=master
+   :target: https://travis-ci.org/bndl/bndl
+
+.. image:: https://codecov.io/gh/bndl/bndl/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/bndl/bndl
+
+
 Install
 -------
 
