@@ -162,7 +162,7 @@ class StorageContainerFactory(object):
                 self.container_cls = InMemory
         elif location == 'disk':
             if serialization is None:
-                raise ValueError('can\'t specify location without specifying serialization')
+                serialization = 'pickle'
             self.container_cls = OnDisk
         elif isinstance(location, type):
             self.container_cls = location
