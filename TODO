@@ -344,3 +344,6 @@ readd prefer_workers?
 
 Require workers at job / dataset level
 
+
+Add dataset.cache context manager (with block)
+
