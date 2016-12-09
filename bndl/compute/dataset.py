@@ -814,14 +814,17 @@ class Dataset(object):
         return self.aggregate(Stats, partial(reduce, add))
 
 
-    def mvstats(self, width):
+    def mvstats(self, width=None):
         '''
         Calculate count and the multivariate mean, min, max, variance, stdev, skew and kurtosis of
         this dataset.
 
         Args:
-            width (int): The width of the vectors in the dataset to calculate the statistics on.
+            width (int): The width of the vectors in the dataset to calculate the statistics on. If
+                no width is given, the width is determined through peeking at the first record.
         '''
+        if width is None:
+            width = len(self.first())
         return self.aggregate(partial(MultiVariateStats, width), partial(reduce, add))
 
 
