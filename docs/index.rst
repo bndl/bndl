@@ -1,13 +1,9 @@
-Welcome to the BNDL documentation!
-==================================
+==================
+BNDL Documentation
+==================
 
-BNDL is a python library for map-reduce based distributed processing akin to Apache Spark.
-
-.. image:: https://travis-ci.org/bndl/bndl.svg?branch=master
-   :target: https://travis-ci.org/bndl/bndl
-
-.. image:: https://codecov.io/gh/bndl/bndl/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/bndl/bndl
+.. include:: ../README.rst
+   :start-line: 4
 
 .. note::
 
