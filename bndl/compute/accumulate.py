@@ -32,32 +32,33 @@ class AccumulatorService:
         try:
             lock = self.locks[accumulator_id]
         except KeyError:
-            logger.debug('received update for unknown accumulator %s',
+            logger.warning('received update for unknown accumulator %s',
                          accumulator_id)
-        try:
-            with lock:
-                accumulator = self.accumulators[accumulator_id]
-                if op == '+':
-                    accumulator.value += value
-                elif op == '-':
-                    accumulator.value -= value
-                elif op == '*':
-                    accumulator.value *= value
-                elif op == '/':
-                    accumulator.value /= value
-                elif op == '<':
-                    accumulator.value <<= value
-                elif op == '>':
-                    accumulator.value >>= value
-                elif op == '&':
-                    accumulator.value &= value
-                elif op == '|':
-                    accumulator.value |= value
-                else:
-                    getattr(accumulator.value, op)(value)
-        except Exception:
-            logger.exception('Unable to update_accumulator with id %s with operator '
-                             '%s and value %s', accumulator_id, op, value)
+        else:
+            try:
+                with lock:
+                    accumulator = self.accumulators[accumulator_id]
+                    if op == '+':
+                        accumulator.value += value
+                    elif op == '-':
+                        accumulator.value -= value
+                    elif op == '*':
+                        accumulator.value *= value
+                    elif op == '/':
+                        accumulator.value /= value
+                    elif op == '<':
+                        accumulator.value <<= value
+                    elif op == '>':
+                        accumulator.value >>= value
+                    elif op == '&':
+                        accumulator.value &= value
+                    elif op == '|':
+                        accumulator.value |= value
+                    else:
+                        getattr(accumulator.value, op)(value)
+            except Exception:
+                logger.exception('Unable to update_accumulator with id %s with operator '
+                                 '%s and value %s', accumulator_id, op, value)
 
 
 
