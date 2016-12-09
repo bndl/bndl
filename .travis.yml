@@ -8,7 +8,8 @@ python:
 sudo: required
 
 before_install:
-  - sudo apt-get install liblapack-dev libopenblas-dev
+  - sudo apt-get -qq update
+  - sudo apt-get install liblapack-dev libopenblas-dev libatlas-base-dev gfortran
 
 install:
   - pip install pip --upgrade
