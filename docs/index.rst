@@ -16,13 +16,6 @@ is :doc:`/usage/compute/index`.
 
 Contents
 --------
-
-.. toctree::
-   :hidden:
-
-   self
-
-
 .. toctree::
    :maxdepth: 2
    :titlesonly:
