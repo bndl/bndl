@@ -21,7 +21,6 @@ process_iter = psutil.process_iter
 swap_memory = psutil.swap_memory
 test = psutil.test
 users = psutil.users
-virtual_memory = psutil.virtual_memory
 wait_procs = psutil.wait_procs
 
 
@@ -93,3 +92,6 @@ if tuple(map(int, psutil.__version__.split('.'))) < (4, 4):
         percent = usage_percent((total - avail), total, _round=1)
         return svmem(total, avail, percent, used, free,
                      active, inactive, buffers, cached, shared)
+
+else:
+    virtual_memory = psutil.virtual_memory

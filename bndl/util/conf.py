@@ -101,12 +101,6 @@ class Config(object):
     __getitem__ = get
     __setitem__ = set
 
-    def keys(self):
-        return self.values.keys()
-
-    def values(self):
-        return self.values.values()
-
     def __repr__(self):
         return '<Conf %r>' % self.values
 

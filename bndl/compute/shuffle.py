@@ -159,22 +159,22 @@ class Bucket:
         blocks_spilled = 0
 
         batch_no = len(self.batches)
-        container = self.disk_container if disk else self.memory_container
+        Container = self.disk_container if disk else self.memory_container
 
         while blocks:
             # write the block out to disk
             block = blocks.pop()
-            c = container(self.id + ('%r.%r' % (batch_no, len(batch)),))
-            c.write(block)
+            container = Container(self.id + ('%r.%r' % (batch_no, len(batch)),))
+            container.write(block)
 
             # add references to the block in the batch and the {memory,disk}_blocks list
-            batch.append(c)
-            area_append(c)
+            batch.append(container)
+            area_append(container)
 
             # keep stats
             blocks_spilled += 1
             elements_spilled += len(block)
-            bytes_spilled += c.size
+            bytes_spilled += container.size
 
             # trigger memory release
             block = None
@@ -623,7 +623,7 @@ class ShuffleReadingPartition(Partition):
                     for dependency in dependencies:
                         if dependency == src_idx:
                             dependencies_missing[worker].append((self.dset.src.id, src_idx))
-                            del size_info_missing[src_idx]
+                            size_info_missing.remove(src_idx)
                             break
         if size_info_missing:
             raise Exception('Bucket size information from %r could not be retrieved, '

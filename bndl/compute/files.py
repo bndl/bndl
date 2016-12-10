@@ -13,15 +13,15 @@ import os.path
 import struct
 import sys
 
+from cytoolz import pluck, interleave
+import marisa_trie
+import scandir
+
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
-from cytoolz import pluck, interleave
-import marisa_trie
-import scandir
-from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)

@@ -192,13 +192,13 @@ class PeerNode(object):
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
                 logger.info('%s %s', type(exc).__name__, url)
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
+            except TimeoutError:
+                logger.warning('hello not received in time from %s on %s', url, self.conn)
+                yield from self.disconnect(reason='hello timed out')
             except OSError as exc:
                 logger.info('unable to connect with %s on %s', url, self.conn,
                             exc_info=bool(exc.errno in (errno.ECONNREFUSED, errno.ECONNRESET)))
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
-            except TimeoutError:
-                logger.warning('hello not received in time from %s on %s', url, self.conn)
-                yield from self.disconnect(reason='hello timed out')
             except Exception as exc:
                 logger.exception('unable to connect with %s on %s', url, self.conn)
                 yield from self.disconnect(reason=str(type(exc)))

@@ -16,20 +16,9 @@ max_block_size = Float(16, desc='The minimum size of a block in megabytes.')  # 
 
 
 logger = logging.getLogger(__name__)
-
+download_coordinator = threads.Coordinator()
 
 MISSING = 'bndl.compute.broadcast.MISSING'
-
-
-# TODO implement alternative encodings
-# as with caching
-
-
-# TODO move such 'caches' outside of modules
-# much better to keep them local to Nodes
-# if deleted, GC will kick in
-
-download_coordinator = threads.Coordinator()
 
 
 def broadcast(ctx, value, serialization='auto', deserialization=None):
