@@ -4,8 +4,8 @@ import pickle
 import sys
 import types
 
-from bndl.util import cycloudpickle as cloudpickle
 from bndl.util.marshalable import marshalable
+import cycloudpickle as cloudpickle
 
 
 def dumps(obj):

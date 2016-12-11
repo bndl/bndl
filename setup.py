@@ -11,7 +11,7 @@ import bndl
 
 install_requires = [
     'sortedcontainers',
-    'cloudpickle>=0.2.1',
+    'cycloudpickle',
     'cytoolz',
     'numpy',
     'scipy',

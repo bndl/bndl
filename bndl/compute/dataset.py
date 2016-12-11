@@ -30,13 +30,14 @@ from bndl.execute.scheduler import FailedDependency
 from bndl.execute.worker import task_context, current_worker
 from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException, root_exc
-from bndl.util import cycloudpickle as cloudpickle, strings
+from bndl.util import strings
 from bndl.util.callsite import get_callsite, callsite, set_callsite
 from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
 from bndl.util.hyperloglog import HyperLogLog
+import cycloudpickle as cloudpickle
 import numpy as np
 
 
