@@ -1,0 +1,326 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bndl.compute.context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>bndl.compute.context</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bndl.compute.context</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">bndl.compute.accumulate</span> <span class="k">import</span> <span class="n">Accumulator</span>
+<span class="kn">from</span> <span class="nn">bndl.compute.dense</span> <span class="k">import</span> <span class="n">arrays</span> <span class="k">as</span> <span class="n">dense</span>
+<span class="kn">from</span> <span class="nn">bndl.compute.broadcast</span> <span class="k">import</span> <span class="n">broadcast</span>
+<span class="kn">from</span> <span class="nn">bndl.compute.collections</span> <span class="k">import</span> <span class="n">DistributedCollection</span>
+<span class="kn">from</span> <span class="nn">bndl.compute.files</span> <span class="k">import</span> <span class="n">files</span>
+<span class="kn">from</span> <span class="nn">bndl.compute.ranges</span> <span class="k">import</span> <span class="n">RangeDataset</span>
+<span class="kn">from</span> <span class="nn">bndl.execute.context</span> <span class="k">import</span> <span class="n">ExecutionContext</span>
+
+
+<div class="viewcode-block" id="ComputeContext"><a class="viewcode-back" href="../../../reference/compute/context.html#bndl.compute.context.ComputeContext">[docs]</a><span class="k">class</span> <span class="nc">ComputeContext</span><span class="p">(</span><span class="n">ExecutionContext</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    :class:`ComputeContext` is the main &#39;handle&#39; into a cluster of BNDL workers from the &#39;driver&#39; node.</span>
+
+<span class="sd">    It provides a means to create partitioned distributed data sets (which can be then transformed and</span>
+<span class="sd">    combined), broadcast data, create accumulators to collect data into, etc.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default_pcount</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        The default number of partitions for data sets. This either the `bndl.compute.pcount`</span>
+<span class="sd">        configuration value or the number of workers (`ctx.worker_count`) times the</span>
+<span class="sd">        `bndl.execute.concurrency` configuration value (which defaults to 1).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">pcount</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.compute.pcount&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">pcount</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pcount</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.execute.concurrency&#39;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="ComputeContext.collection"><a class="viewcode-back" href="../../../reference/compute/context.html#bndl.compute.context.ComputeContext.collection">[docs]</a>    <span class="k">def</span> <span class="nf">collection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">psize</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Create a data set from a python iterable (e.g. a list, dict or iterator).</span>
+
+<span class="sd">        Note that iterators are consumed immediately since data sets need to be deterministic in</span>
+<span class="sd">        their output.</span>
+
+<span class="sd">        By default pcount (or `ctx.default_pcount`) partitions are created. pcount must *not* be</span>
+<span class="sd">        set when psize is set.</span>
+
+<span class="sd">        Args:</span>
+
+<span class="sd">            collection (iterable): The iterable to partition and distribute.</span>
+<span class="sd">            pcount (int or None): The number of partition to build.</span>
+<span class="sd">            psize (int or None): The maximum number of records per partition.</span>
+
+<span class="sd">        Example::</span>
+
+<span class="sd">            &gt;&gt;&gt; ctx.collection(list(&#39;abcd&#39;)).nlargest(2)</span>
+<span class="sd">            [&#39;d&#39;, &#39;c&#39;]</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="nb">range</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="n">collection</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">stop</span><span class="p">,</span> <span class="n">collection</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="n">pcount</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">DistributedCollection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collection</span><span class="p">,</span> <span class="n">pcount</span><span class="p">,</span> <span class="n">psize</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ComputeContext.range"><a class="viewcode-back" href="../../../reference/compute/context.html#bndl.compute.context.ComputeContext.range">[docs]</a>    <span class="k">def</span> <span class="nf">range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Create a distributed partitioned data set of a range of numbers.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start (int): The start or stop value (if no stop value is given).</span>
+<span class="sd">            stop (int): The stop value or None if start is the stop value.</span>
+<span class="sd">            step (int): The step between each value in the range.</span>
+<span class="sd">            pcount (int): The number of partitions to partition the range into.</span>
+
+<span class="sd">        Examples::</span>
+
+<span class="sd">            &gt;&gt;&gt; ctx.range(10).collect()</span>
+<span class="sd">            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+<span class="sd">            &gt;&gt;&gt; ctx.range(10).glom().collect()</span>
+<span class="sd">            [range(0, 2), range(2, 5), range(5, 7), range(7, 10)]</span>
+<span class="sd">            &gt;&gt;&gt; ctx.range(5, 20).glom().map(len).collect()</span>
+<span class="sd">            [3, 4, 4, 4]</span>
+<span class="sd">            &gt;&gt; ctx.range(5, 10).stats()</span>
+<span class="sd">            &lt;Stats count=5, mean=7.0, min=5.0, max=9.0, var=2.0, stdev=1.4142135623730951, skew=0.0, kurt=-1.3&gt;</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">RangeDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">pcount</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ComputeContext.accumulator"><a class="viewcode-back" href="../../../reference/compute/context.html#bndl.compute.context.ComputeContext.accumulator">[docs]</a>    <span class="k">def</span> <span class="nf">accumulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Create an :class:`Accumulator &lt;bndl.compute.accumulate.Accumulator&gt;` with an initial value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            initial: The initial value of the accumulator.</span>
+
+<span class="sd">        Example::</span>
+
+<span class="sd">            &gt;&gt;&gt; from bndl.compute.run import ctx</span>
+<span class="sd">            &gt;&gt;&gt; accum = ctx.accumulator(0)</span>
+<span class="sd">            &gt;&gt;&gt; def mapper(i):</span>
+<span class="sd">            ...     global accum</span>
+<span class="sd">            ...     accum += i</span>
+<span class="sd">            ...     return i</span>
+<span class="sd">            ...</span>
+<span class="sd">            &gt;&gt;&gt; ctx.range(10).sum()</span>
+<span class="sd">            45</span>
+<span class="sd">            &gt;&gt;&gt; accum.value</span>
+<span class="sd">            0</span>
+<span class="sd">            &gt;&gt;&gt; ctx.range(10).map(mapper).sum()</span>
+<span class="sd">            45</span>
+<span class="sd">            &gt;&gt;&gt; accum.value</span>
+<span class="sd">            45</span>
+<span class="sd">            &gt;&gt;&gt; ctx.range(10).map(mapper).sum()</span>
+<span class="sd">            45</span>
+<span class="sd">            &gt;&gt;&gt; accum.value</span>
+<span class="sd">            90</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">accumulator</span> <span class="o">=</span> <span class="n">Accumulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">initial</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">_register_accumulator</span><span class="p">(</span><span class="n">accumulator</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">accumulator</span></div>
+
+
+    <span class="n">broadcast</span> <span class="o">=</span> <span class="n">broadcast</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">files</span>
+    <span class="n">dense</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">dense</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

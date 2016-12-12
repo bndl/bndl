@@ -1,0 +1,637 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bndl.execute.scheduler &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>bndl.execute.scheduler</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bndl.execute.scheduler</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">collections</span>  <span class="k">import</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">deque</span><span class="p">,</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="k">import</span> <span class="n">CancelledError</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Condition</span><span class="p">,</span> <span class="n">RLock</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">bndl.execute</span> <span class="k">import</span> <span class="n">DependenciesFailed</span>
+<span class="kn">from</span> <span class="nn">bndl.net.connection</span> <span class="k">import</span> <span class="n">NotConnected</span>
+<span class="kn">from</span> <span class="nn">bndl.rmi</span> <span class="k">import</span> <span class="n">root_exc</span>
+<span class="kn">from</span> <span class="nn">bndl.util.funcs</span> <span class="k">import</span> <span class="n">noop</span>
+<span class="kn">from</span> <span class="nn">sortedcontainers</span> <span class="k">import</span> <span class="n">SortedSet</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="FailedDependency"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.scheduler.FailedDependency">[docs]</a><span class="k">class</span> <span class="nc">FailedDependency</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Exception to be raised by task (i.e. returned from task.exception for tasks which have failed)</span>
+<span class="sd">    to indicate that the task has been marked as failed post-hoc by the execution of another task.</span>
+
+<span class="sd">    The worker_failed argument indicates whether the worker which executed the task should be</span>
+<span class="sd">    considered lost or not.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker_failed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker_failed</span> <span class="o">=</span> <span class="n">worker_failed</span></div>
+
+
+<div class="viewcode-block" id="Scheduler"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.scheduler.Scheduler">[docs]</a><span class="k">class</span> <span class="nc">Scheduler</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This scheduler executes Tasks taking into account their dependencies and worker locality.</span>
+
+<span class="sd">    Worker assignment takes into account:</span>
+<span class="sd">     * concurrency (how many tasks must a worker execute concurrently)</span>
+<span class="sd">     * and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)</span>
+<span class="sd">       as locality 0 is likely to be common, this is assumed throughout the scheduler</span>
+<span class="sd">       to reduce the memory cost for scheduling</span>
+
+<span class="sd">    The most important component in the computational complexity of the scheduler is the number of</span>
+<span class="sd">    dependencies to track. Many-to-many dependencies should be kept to the thousands or tens of</span>
+<span class="sd">    thousands (i.e. 100 * 100 tasks). Such issues can be resolved by introducing a &#39;barrier task&#39;</span>
+<span class="sd">    as is done in bndl.compute (this reduced the number of dependencies to n+m instead of n*m).</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tasks</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">workers</span><span class="p">,</span> <span class="n">concurrency</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">attempts</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Execute tasks in the given context and invoke done(task) when a task completes.</span>
+
+<span class="sd">        :param tasks: iterable[task]</span>
+<span class="sd">        :param done: callable(task)</span>
+<span class="sd">            Invoked when a task completes. Must be thread safe. May be called multiple times</span>
+<span class="sd">            if a task is reran (e.g. in case a worker fails). done(None) is called to signal</span>
+<span class="sd">            completion of the last task.</span>
+<span class="sd">        :param: workers: sequence[Peer]</span>
+<span class="sd">            Sequence of workers to execute on.</span>
+<span class="sd">        :param: concurrency: int (defaults to 1)</span>
+<span class="sd">            @see: bndl.execute.concurrency</span>
+<span class="sd">        :param: attempts: int (defaults to 1)</span>
+<span class="sd">            @see: bndl.execute.attempts</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">((</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span> <span class="k">for</span> <span class="n">task</span>
+                                 <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">tasks</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">priority</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tasks must provide at least one task to execute&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">tasks</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Tasks must have a unique task ID&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">add_listener</span><span class="p">(</span><span class="n">noop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">task_done</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="n">done</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers</span> <span class="o">=</span> <span class="p">{</span><span class="n">worker</span><span class="o">.</span><span class="n">name</span><span class="p">:</span><span class="n">worker</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="n">workers</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;No workers available&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span> <span class="o">=</span> <span class="n">concurrency</span>
+        <span class="c1"># failed tasks are retried on error, but they are executed at most attempts</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_attempts</span> <span class="o">=</span> <span class="n">attempts</span>
+
+        <span class="c1"># task completion is (may be) executed on another thread, this lock serializes access</span>
+        <span class="c1"># on the containers below and workers_idle</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock</span> <span class="o">=</span> <span class="n">RLock</span><span class="p">()</span>
+        <span class="c1"># a condition is used to signal that a worker is available or the scheduler is aborted</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">condition</span> <span class="o">=</span> <span class="n">Condition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Executing job with </span><span class="si">%r</span><span class="s1"> tasks on </span><span class="si">%r</span><span class="s1"> workers&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># containers for states a task can be in</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="o">=</span> <span class="n">SortedSet</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">task</span><span class="p">:</span> <span class="n">task</span><span class="o">.</span><span class="n">priority</span><span class="p">)</span>  <span class="c1"># sorted executable tasks (sorted by task.id by default)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>  <span class="c1"># blocked tasks task -&gt; dependencies executable or pending</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">locality</span> <span class="o">=</span> <span class="p">{</span><span class="n">worker</span><span class="p">:{}</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>  <span class="c1"># worker_name -&gt; task -&gt; locality &gt; 0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>  <span class="c1"># task -&gt; set[worker]</span>
+        <span class="c1"># worker -&gt; SortedList[task] in descending locality order</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">executable_on</span> <span class="o">=</span> <span class="p">{</span><span class="n">worker</span><span class="p">:</span><span class="n">SortedSet</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">task</span><span class="p">,</span> <span class="n">worker</span><span class="o">=</span><span class="n">worker</span><span class="p">:</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">locality</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                              <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>  <span class="c1"># mapping of task -&gt; worker for tasks which are currently in progress</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>  <span class="c1"># tasks which have been executed successfully</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">failures</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>  <span class="c1"># failure counts per task (task -&gt; int)</span>
+
+        <span class="c1"># keep a FIFO queue of workers ready</span>
+        <span class="c1"># and a list of idle workers (ready, but no more tasks to execute)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="c1"># perform scheduling under lock</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Calculating which tasks are executable, which are blocked and if there is locality&#39;</span><span class="p">)</span>
+
+                <span class="c1"># create list of executable tasks and set of blocked tasks</span>
+                <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">locality</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">locality</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="ow">or</span> <span class="p">():</span>
+                        <span class="n">worker</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">name</span>
+                        <span class="k">if</span> <span class="n">locality</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">[</span><span class="n">task</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">locality</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">locality</span><span class="p">[</span><span class="n">worker</span><span class="p">][</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">locality</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">executable_on</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">task</span><span class="o">.</span><span class="n">dependencies</span><span class="p">:</span>
+                        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dep</span> <span class="k">for</span> <span class="n">dep</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">dependencies</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">dep</span><span class="o">.</span><span class="n">succeeded</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">remaining</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">remaining</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;No tasks executable (all tasks have dependencies)&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;No workers available (all workers are forbidden by all tasks)&#39;</span><span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Starting </span><span class="si">%r</span><span class="s1"> tasks (</span><span class="si">%r</span><span class="s1"> tasks blocked) on </span><span class="si">%r</span><span class="s1"> workers (</span><span class="si">%r</span><span class="s1"> tasks already done)&#39;</span><span class="p">,</span>
+                             <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">))</span>
+
+                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="c1"># wait for a worker to become available (signals task completion</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span><span class="p">:</span>
+                        <span class="c1"># the abort flag can be set to True to break the loop (in case of emergency)</span>
+                        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                            <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">:</span>
+                                <span class="n">task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+                        <span class="k">break</span>
+
+                    <span class="n">worker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+
+                    <span class="k">if</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="p">:</span>
+                        <span class="c1"># the worker is &#39;ready&#39; (a task was &#39;completed&#39;), but with an error</span>
+                        <span class="c1"># or the worker was marked as failed because another task depended on an output</span>
+                        <span class="c1"># on this worker and the dependency failed</span>
+                        <span class="k">continue</span>
+                    <span class="k">elif</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;No more tasks to execute or pending (</span><span class="si">%r</span><span class="s1"> tasks blocked)&#39;</span><span class="p">,</span>
+                                         <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
+                        <span class="k">break</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_task</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">task</span><span class="p">:</span>
+                            <span class="c1"># execute a task on the given worker and add the task_done callback</span>
+                            <span class="c1"># the task is added to the pending set</span>
+                            <span class="k">try</span><span class="p">:</span>
+                                <span class="c1"># assert task in self.executable, &#39;%r is not executable&#39; % task</span>
+                                <span class="c1"># assert task not in self.succeeded, &#39;%r already executed successfully&#39; % task</span>
+                                <span class="c1"># assert task not in self.pending, &#39;%r already pending&#39; % task</span>
+                                <span class="c1"># assert not task.pending, &#39;%r already pending&#39; % task</span>
+                                <span class="c1"># assert not task.done or task.failed, &#39;%r done or failed&#39; % task</span>
+                                <span class="c1"># assert not self.blocked[task], &#39;%r blocked&#39; % task</span>
+
+                                <span class="c1"># assert self.locality[worker].get(task, 0) &gt;= 0, &#39;%r forbidden on %r&#39; % (task, worker)</span>
+                                <span class="c1"># assert all(dep.succeeded for dep in task.dependencies), &#39;not all dependencies of %r succeeded&#39; % task</span>
+                                <span class="c1"># assert all(dep.id not in self.tasks or self.blocked[dep] for dep in task.dependents), \</span>
+                                <span class="c1">#        &#39;not all dependents of %r blocked&#39; % task</span>
+
+                                <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">executable_on</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                                <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                                    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> executing on </span><span class="si">%r</span><span class="s1"> with locality </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span>
+                                                 <span class="n">task</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">locality</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                                <span class="n">task</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">[</span><span class="n">worker</span><span class="p">])</span>
+                            <span class="k">except</span> <span class="n">CancelledError</span><span class="p">:</span>
+                                <span class="k">pass</span>
+                            <span class="k">except</span> <span class="ne">AssertionError</span><span class="p">:</span>
+                                <span class="k">raise</span>
+                            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                                <span class="n">task</span><span class="o">.</span><span class="n">mark_failed</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">task_done</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span> <span class="o">=</span> <span class="n">exc</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Failed after </span><span class="si">%r</span><span class="s1"> tasks with </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span>
+                        <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_exc</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Aborted after </span><span class="si">%r</span><span class="s1"> tasks&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Scheduler aborted&#39;</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Completed </span><span class="si">%r</span><span class="s1"> tasks&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">))</span>
+
+        <span class="c1"># always issue None (to facilitate e.g. iter(queue.get, None))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">abort</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_exc</span> <span class="o">=</span> <span class="n">exc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
+
+
+    <span class="k">def</span> <span class="nf">select_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># select a task for the worker</span>
+        <span class="n">worker_queue</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable_on</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">worker_queue</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="ow">or</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
+                <span class="c1"># task executed by another worker</span>
+                <span class="n">worker_queue</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">task</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="n">task</span><span class="p">]:</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>  <span class="c1"># task not executable</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> not executable, blocked, pending nor executed&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+                <span class="c1"># assert False, &#39;%r not executable, blocked, pending nor executed&#39; % task</span>
+
+        <span class="c1"># no task available with locality &gt; 0</span>
+        <span class="c1"># find task which is allowed to execute on this worker</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">worker</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">[</span><span class="n">task</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">task</span>
+
+
+    <span class="k">def</span> <span class="nf">set_executable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># assert not self.blocked[task], &#39;%r isn\&#39;t executable because it is blocked&#39;</span>
+        <span class="c1"># assert all(dep.succeeded for dep in task.dependencies), &#39;not all dependencies of %r succeeded: %r&#39; \</span>
+        <span class="c1">#     % (task, [dep for dep in task.dependencies if not dep.succeeded])</span>
+        <span class="c1"># assert task not in self.succeeded, &#39;%r already succeeded&#39;</span>
+
+        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="ow">or</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span> <span class="ow">or</span> <span class="n">task</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># calculate for each worker which tasks are forbidden or which have locality</span>
+        <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="c1"># don&#39;t bother with &#39;failed&#39; workers</span>
+            <span class="k">if</span> <span class="n">worker</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="p">:</span>
+                <span class="n">locality</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">locality</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">locality</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># make sure the worker isn&#39;t &#39;stuck&#39; in the idle set</span>
+                    <span class="k">if</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">concurrency</span><span class="p">):</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="o">.</span><span class="n">notify</span><span class="p">()</span>
+
+                    <span class="c1"># the task has a preference for this worker</span>
+                    <span class="k">if</span> <span class="n">locality</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">executable_on</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+        <span class="c1"># check if there is a worker allowed to execute the task</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">[</span><span class="n">task</span><span class="p">])</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> cannot be executed on any available workers&#39;</span> <span class="o">%</span> <span class="n">task</span><span class="p">)</span>
+
+        <span class="c1"># add the task to the executable queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Scheduler.task_done"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.scheduler.Scheduler.task_done">[docs]</a>    <span class="k">def</span> <span class="nf">task_done</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        When a task completes, delete it from pending, add it to done</span>
+<span class="sd">        and set dependent tasks as executable if this task was the last dependency.</span>
+<span class="sd">        Reschedule failed tasks or abort scheduling if failed to often.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># nothing to do, scheduling was aborted</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abort</span><span class="p">:</span>
+                <span class="k">return</span>
+
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">failed</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">task_failed</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># assert task.succeeded, &#39;%r not failed and not succeeded&#39; % task</span>
+                    <span class="c1"># assert task not in self.succeeded, &#39;%r completed while already in succeeded list&#39; % task</span>
+                    <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> was executed on </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+                    <span class="c1"># add to executed and signal done</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                    <span class="c1"># check for unblocking of dependents</span>
+                    <span class="k">for</span> <span class="n">dependent</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">dependents</span><span class="p">:</span>
+                        <span class="n">blocked_by</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="n">dependent</span><span class="p">]</span>
+                        <span class="n">blocked_by</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">blocked_by</span> <span class="ow">and</span> <span class="n">dependent</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">dependent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="p">:</span>
+                                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> unblocked because </span><span class="si">%r</span><span class="s1"> was executed, but already succeeded&#39;</span><span class="p">,</span> <span class="n">dependent</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> unblocked because </span><span class="si">%r</span><span class="s1"> was executed&#39;</span><span class="p">,</span> <span class="n">dependent</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">set_executable</span><span class="p">(</span><span class="n">dependent</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">workers_ready</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">condition</span><span class="o">.</span><span class="n">notify</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s1">&#39;Unable to handle task completion of </span><span class="si">%r</span><span class="s1"> on </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span>
+                             <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">task_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">):</span>
+        <span class="c1"># in these cases we consider the task already re-scheduled</span>
+        <span class="k">if</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed with </span><span class="si">%s</span><span class="s1">, but already marked as executable&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">root_exc</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">exception</span><span class="p">()))</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">elif</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed with </span><span class="si">%s</span><span class="s1">, but already pending&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">root_exc</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">exception</span><span class="p">())))</span>
+            <span class="k">return</span>
+
+        <span class="c1"># assert task.failed, &quot;Can&#39;t reschedule task %r which hasn&#39;t failed.&quot; % task</span>
+
+        <span class="n">exc</span> <span class="o">=</span> <span class="n">root_exc</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">exception</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">DependenciesFailed</span><span class="p">):</span>
+            <span class="c1"># assert task not in self.succeeded, &#39;Dependencies of %r failed which already completed successfully&#39; % task</span>
+            <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed on </span><span class="si">%s</span><span class="s1"> because </span><span class="si">%r</span><span class="s1"> failed, rescheduling&#39;</span><span class="p">,</span>
+                            <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">(),</span>
+                            <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">worker</span> <span class="o">+</span> <span class="s1">&#39;: &#39;</span> <span class="o">+</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">dependencies</span><span class="p">))</span>
+                                      <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">dependencies</span> <span class="ow">in</span> <span class="n">exc</span><span class="o">.</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+            <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">dependencies</span> <span class="ow">in</span> <span class="n">exc</span><span class="o">.</span><span class="n">failures</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">dependencies</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">dependency</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tasks</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Received DependenciesFailed for unknown task with id </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">task_id</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># mark the worker as failed</span>
+                        <span class="n">executed_on_last</span> <span class="o">=</span> <span class="n">dependency</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">worker</span> <span class="ow">or</span> <span class="n">worker</span> <span class="o">==</span> <span class="n">executed_on_last</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">worker</span> <span class="o">==</span> <span class="n">executed_on_last</span><span class="p">:</span>
+                                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Marking </span><span class="si">%r</span><span class="s1"> as failed for dependency </span><span class="si">%s</span><span class="s1"> of </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span>
+                                            <span class="n">worker</span><span class="p">,</span> <span class="n">dependency</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                            <span class="n">dependency</span><span class="o">.</span><span class="n">mark_failed</span><span class="p">(</span><span class="n">FailedDependency</span><span class="p">(</span><span class="n">worker</span><span class="p">))</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">task_failed</span><span class="p">(</span><span class="n">dependency</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="c1"># this should only occur with really really short tasks where the failure of a</span>
+                            <span class="c1"># task noticed by task b is already obsolete because of the dependency was already</span>
+                            <span class="c1"># restarted (because another task also issued DependenciesFailed)</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Received DependenciesFailed for task with id </span><span class="si">%r</span><span class="s1"> and worker </span><span class="si">%r</span><span class="s1"> &#39;</span>
+                                        <span class="s1">&#39;but the task is last executed on </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span>
+                                         <span class="n">task_id</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="n">executed_on_last</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">FailedDependency</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">succeeded</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+            <span class="n">worker</span> <span class="o">=</span> <span class="n">exc</span><span class="o">.</span><span class="n">worker_failed</span>
+            <span class="k">if</span> <span class="n">worker</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> marked as failed post-hoc, marking </span><span class="si">%r</span><span class="s1"> as failed&#39;</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">workers_idle</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">NotConnected</span><span class="p">):</span>
+            <span class="c1"># mark the worker as failed</span>
+            <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed with NotConnected, marking </span><span class="si">%r</span><span class="s1"> as failed&#39;</span><span class="p">,</span>
+                            <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">failures</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">=</span> <span class="n">failures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">failures</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">failures</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_attempts</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed on </span><span class="si">%r</span><span class="s1"> after </span><span class="si">%r</span><span class="s1"> attempts ... aborting&#39;</span><span class="p">,</span>
+                               <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">executed_on</span><span class="p">))</span>
+                <span class="c1"># signal done (failed) to allow bubbling up the error and abort</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">exception</span><span class="p">())</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">():</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed on </span><span class="si">%r</span><span class="s1"> with </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">, rescheduling&#39;</span><span class="p">,</span>
+                            <span class="n">task</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">(),</span> <span class="n">exc</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">[</span><span class="n">task</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">executed_on_last</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%r</span><span class="s1"> failed before being executed with </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">, rescheduling&#39;</span><span class="p">,</span>
+                            <span class="n">task</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+
+        <span class="c1"># block its dependencies</span>
+        <span class="k">for</span> <span class="n">dependent</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">dependents</span><span class="p">:</span>
+            <span class="c1"># logger.debug(&#39;%r is blocked by %r because it failed&#39;, dependent, task)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="n">dependent</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">executable</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">dependent</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers_failed</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">abort</span><span class="p">(</span><span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Unable to complete job, all workers failed&#39;</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="n">task</span><span class="p">]</span> <span class="ow">and</span> <span class="n">task</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">executable</span> <span class="ow">and</span> <span class="n">task</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_executable</span><span class="p">(</span><span class="n">task</span><span class="p">)</span></div>
+
+        <span class="c1"># assert self.blocked[task] or task in self.executable or task in self.pending</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

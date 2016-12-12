@@ -1,0 +1,344 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bndl.compute.broadcast &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>bndl.compute.broadcast</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bndl.compute.broadcast</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">uuid</span> <span class="k">import</span> <span class="n">uuid4</span>
+<span class="kn">import</span> <span class="nn">concurrent.futures</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">marshal</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">from</span> <span class="nn">bndl.util</span> <span class="k">import</span> <span class="n">serialize</span><span class="p">,</span> <span class="n">threads</span>
+<span class="kn">from</span> <span class="nn">bndl.util.conf</span> <span class="k">import</span> <span class="n">Float</span>
+<span class="kn">from</span> <span class="nn">bndl.util.funcs</span> <span class="k">import</span> <span class="n">identity</span>
+<span class="kn">from</span> <span class="nn">cytoolz.functoolz</span> <span class="k">import</span> <span class="n">compose</span>
+
+
+<span class="n">min_block_size</span> <span class="o">=</span> <span class="n">Float</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;The maximum size of a block in megabytes.&#39;</span><span class="p">)</span>  <span class="c1"># MB</span>
+<span class="n">max_block_size</span> <span class="o">=</span> <span class="n">Float</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;The minimum size of a block in megabytes.&#39;</span><span class="p">)</span>  <span class="c1"># MB</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">download_coordinator</span> <span class="o">=</span> <span class="n">threads</span><span class="o">.</span><span class="n">Coordinator</span><span class="p">()</span>
+
+<span class="n">MISSING</span> <span class="o">=</span> <span class="s1">&#39;bndl.compute.broadcast.MISSING&#39;</span>
+
+
+<div class="viewcode-block" id="broadcast"><a class="viewcode-back" href="../../../reference/compute/oob.html#bndl.compute.context.broadcast">[docs]</a><span class="k">def</span> <span class="nf">broadcast</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">serialization</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="n">deserialization</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Broadcast data to workers.</span>
+
+<span class="sd">    Args:</span>
+
+<span class="sd">        value (object): The value to broadcast.</span>
+<span class="sd">        serialization (str): The format to serialize the broadcast value into. Must be one of auto,</span>
+<span class="sd">            pickle, marshal, json, binary or text.</span>
+<span class="sd">        deserialization (None or function(bytes)):</span>
+
+<span class="sd">    Data can be &#39;shipped&#39; along to workers in the closure of e.g. a mapper function, but in that</span>
+<span class="sd">    case the data is sent once for every partition (task to be precise). For &#39;larger&#39; values this</span>
+<span class="sd">    may be wasteful. Use this for instance with lookup tables of e.g. a MB or more.</span>
+
+<span class="sd">    Note that the broadcast data is loaded on each worker (but only if the broadcast variable is</span>
+<span class="sd">    used). The machine running the workers should thus have enough memory to spare.</span>
+
+<span class="sd">    If deserialization is set serialization must *not* be set and value must be of type `bytes`.</span>
+<span class="sd">    Otherwise serialize is used to serialize value and its natural deserialization counterpart is</span>
+<span class="sd">    used (e.g. bytes.decode followed by json.loads for the &#39;json&#39; serialization format).</span>
+
+<span class="sd">    Example usage::</span>
+
+<span class="sd">        &gt;&gt;&gt; tbl = ctx.broadcast(dict(zip(range(4), &#39;abcd&#39;)))</span>
+<span class="sd">        &gt;&gt;&gt; ctx.range(4).map(lambda i: tbl.value[i]).collect()</span>
+<span class="sd">        [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d&#39;]</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">serialization</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">deserialization</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Can&#39;t specify both serialization and deserialization&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;auto&#39;</span><span class="p">:</span>
+            <span class="n">marshalled</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">serialize</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">loads</span> <span class="k">if</span> <span class="n">marshalled</span> <span class="k">else</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;pickle&#39;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;marshal&#39;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="n">marshal</span><span class="o">.</span><span class="n">loads</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;json&#39;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="n">compose</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">decode</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;binary&#39;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="n">identity</span>
+        <span class="k">elif</span> <span class="n">serialization</span> <span class="o">==</span> <span class="s1">&#39;text&#39;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+            <span class="n">deserialization</span> <span class="o">=</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">decode</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unsupported serialization </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">serialization</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">deserialization</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Must specify either serialization or deserialization&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="n">key</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid4</span><span class="p">())</span>
+    <span class="n">min_block_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bndl.compute.broadcast.min_block_size&#39;</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
+    <span class="n">max_block_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;bndl.compute.broadcast.max_block_size&#39;</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">min_block_size</span> <span class="o">==</span> <span class="n">max_block_size</span><span class="p">:</span>
+        <span class="n">block_spec</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">serve_data</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_block_size</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">block_spec</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">serve_data</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="n">min_block_size</span><span class="p">,</span> <span class="n">max_block_size</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">BroadcastValue</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">block_spec</span><span class="p">,</span> <span class="n">deserialization</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">BroadcastValue</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">seeder</span><span class="p">,</span> <span class="n">block_spec</span><span class="p">,</span> <span class="n">deserialize</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">ctx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seeder</span> <span class="o">=</span> <span class="n">seeder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span> <span class="o">=</span> <span class="n">block_spec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">deserialize</span> <span class="o">=</span> <span class="n">deserialize</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">download_coordinator</span><span class="o">.</span><span class="n">coordinate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">_get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">node</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">peers</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">node_type</span><span class="o">=</span><span class="s1">&#39;worker&#39;</span><span class="p">))</span>
+
+        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">deserialize</span><span class="p">(</span><span class="n">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">blocks</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">seeder</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">remove_blocks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">from_peers</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">val</span>
+
+
+    <span class="k">def</span> <span class="nf">unpersist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">node</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">assert</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">seeder</span>
+        <span class="n">node</span><span class="o">.</span><span class="n">unpersist_broadcast_values</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">requests</span> <span class="o">=</span> <span class="p">[</span><span class="n">peer</span><span class="o">.</span><span class="n">unpersist_broadcast_values</span>
+                   <span class="k">for</span> <span class="n">peer</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">peers</span><span class="o">.</span><span class="n">filter</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="n">requests</span> <span class="o">=</span> <span class="p">[</span><span class="n">request</span><span class="o">.</span><span class="n">with_timeout</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="k">for</span> <span class="n">request</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">]</span>
+        <span class="n">requests</span> <span class="o">=</span> <span class="p">[</span><span class="n">request</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">request</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">block</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">request</span> <span class="ow">in</span> <span class="n">requests</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">request</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="k">except</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;error while unpersisting </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">node</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_spec</span><span class="o">.</span><span class="n">seeder</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">unpersist</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

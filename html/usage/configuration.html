@@ -1,0 +1,407 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Configuration &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="Usage" href="index.html"/>
+        <link rel="next" title="Logging" href="logging.html"/>
+        <link rel="prev" title="Networking" href="net.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="net.html">Networking</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">Usage</a> &raquo;</li>
+      
+    <li>Configuration</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/usage/configuration.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="configuration">
+<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h1>
+<p>Various BNDL components can be configured (which often also can be set programmatically as
+parameters). At runtime BNDL configuration data is kept in a <code class="xref py py-class docutils literal"><span class="pre">bndl.util.conf.Config</span></code>
+instance. <cite>bndl.compute</cite> and <cite>bndl.execute</cite> have such an instance located in the
+<cite>Compute/ExecuteContext</cite>.</p>
+<div class="section" id="configuration-data">
+<h2>Configuration data<a class="headerlink" href="#configuration-data" title="Permalink to this headline">¶</a></h2>
+<p>Configuration can be supplied
+- directly in python (<code class="xref py py-class docutils literal"><span class="pre">bndl.util.conf.Config</span></code> supports the <cite>__get/setitem__</cite> protocol).
+- through a configuration file
+- through the BNDL_CONF environment variable
+- command line options</p>
+<div class="section" id="configuration-object">
+<h3>Configuration object<a class="headerlink" href="#configuration-object" title="Permalink to this headline">¶</a></h3>
+<p><code class="xref py py-class docutils literal"><span class="pre">bndl.util.conf.Config</span></code> is a dict like object (it supports the <cite>__get/setitem__</cite> protocol).
+<cite>bndl.compute</cite> and <cite>bndl.execute</cite> have such an instance located in the <cite>Compute/ExecuteContext</cite>.
+For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.compute.worker_count&#39;</span><span class="p">]</span>
+<span class="go">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;foo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;bar&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">conf</span>
+<span class="go">&lt;Conf {&#39;bndl.compute.worker_count&#39;: &#39;2&#39;, &#39;foo&#39;: &#39;bar&#39;, &#39;bndl.net.listen_addresses&#39;: &#39;localhost:1234&#39;}&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="config-file">
+<h3>Config file<a class="headerlink" href="#config-file" title="Permalink to this headline">¶</a></h3>
+<p>Configuration data is read from bndl.ini / .bndl.ini from the home directory (to whatever <code class="docutils literal"><span class="pre">~</span></code>
+expands) through <code class="docutils literal"><span class="pre">configparser.ConfigParser</span></code>. ini sections and keys are simply joined with a .
+For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ cat bndl.ini
+[bndl]
+compute.worker_count = 2
+
+[bndl.net]
+listen_addresses = localhost:1234
+
+$ bndl-compute-shell
+...
+In [1]: ctx.conf
+Out[1]: &lt;Conf {&#39;bndl.compute.worker_count&#39;: &#39;2&#39;, &#39;bndl.net.listen_addresses&#39;: &#39;localhost:1234&#39;}&gt;
+
+In [2]: ctx.worker_count
+Out[2]: 2
+
+In [3]: ctx.node.addresses
+Out[3]: [&#39;localhost:1234&#39;]
+</pre></div>
+</div>
+</div>
+<div class="section" id="environment-variable">
+<h3>Environment variable<a class="headerlink" href="#environment-variable" title="Permalink to this headline">¶</a></h3>
+<p>Configuration data is read from the <code class="docutils literal"><span class="pre">BNDL_CONF</span></code> environment variable. Configuration data can be
+supplied as <code class="docutils literal"><span class="pre">key=value</span> <span class="pre">other=value</span> <span class="pre">foo=bar</span></code>. Spacing is parsed through <code class="docutils literal"><span class="pre">shlex.split</span></code>. For
+example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ BNDL_CONF=&#39;bndl.compute.worker_count=3 foo=bar&#39; python
+&gt;&gt;&gt; from bndl.compute.run import ctx
+&gt;&gt;&gt; ctx.await_workers()
+3
+&gt;&gt;&gt; ctx.conf[&#39;foo&#39;]
+&#39;bar&#39;
+</pre></div>
+</div>
+</div>
+<div class="section" id="command-line-options">
+<h3>Command line options<a class="headerlink" href="#command-line-options" title="Permalink to this headline">¶</a></h3>
+<p><cite>bndl-compute-workers</cite> and <cite>bndl-compute-shell</cite> set:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#bndl.net.listen_addresses" title="bndl.net.listen_addresses"><code class="xref py py-data docutils literal"><span class="pre">bndl.net.listen_addresses</span></code></a>,</li>
+<li><a class="reference internal" href="#bndl.net.seeds" title="bndl.net.seeds"><code class="xref py py-data docutils literal"><span class="pre">bndl.net.seeds</span></code></a> and</li>
+<li><code class="xref py py-data docutils literal"><span class="pre">bndl.compute.worker_count</span></code></li>
+</ul>
+<p>through the <cite>&#8211;listen-addresses</cite>, <cite>seeds</cite> and <cite>worker-count</cite> flags. See also
+<a class="reference internal" href="compute/getting_started.html"><span class="doc">Getting started</span></a>.</p>
+</div>
+<div class="section" id="precedence">
+<h3>Precedence<a class="headerlink" href="#precedence" title="Permalink to this headline">¶</a></h3>
+<p>Configuration data is read in the following order:</p>
+<ul class="simple">
+<li>Default values set as global data</li>
+<li>Config files<ul>
+<li>~/bndl.ini,</li>
+<li>~/.bndl.ini,</li>
+<li>./bndl.ini and then</li>
+<li>./.bndl.ini</li>
+</ul>
+</li>
+<li>BNDL_CONF environment variable</li>
+<li>Configuration object __init__</li>
+<li>Values set on the configuration object after it&#8217;s created</li>
+</ul>
+<p>I.e. as configuration data is read (updated) in this order, in a way these sources of configuration
+data can be considered as layers of defaults / values.</p>
+</div>
+</div>
+<div class="section" id="configuration-options">
+<h2>Configuration options<a class="headerlink" href="#configuration-options" title="Permalink to this headline">¶</a></h2>
+<p>The following keys are used throughout BNDL. As this list is manually curated, it <em>may</em> become
+stale (PR&#8217;s for improvements are very welcome!).</p>
+<div class="section" id="networking">
+<h3>Networking<a class="headerlink" href="#networking" title="Permalink to this headline">¶</a></h3>
+<dl class="data">
+<dt id="bndl.net.listen_addresses">
+<code class="descclassname">bndl.net.</code><code class="descname">listen_addresses</code><em class="property"> = &lt;bndl.util.conf.CSV object&gt;</em><a class="headerlink" href="#bndl.net.listen_addresses" title="Permalink to this definition">¶</a></dt>
+<dd><p><a href="#id1"><span class="problematic" id="id2">**</span></a>The addresses for the local BNDL node to listen on. Defaults to [&#8216;tcp* &#8211; //localhost.localdomain* &#8211; 5000&#8217;].</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="bndl.net.seeds">
+<code class="descclassname">bndl.net.</code><code class="descname">seeds</code><em class="property"> = &lt;bndl.util.conf.CSV object&gt;</em><a class="headerlink" href="#bndl.net.seeds" title="Permalink to this definition">¶</a></dt>
+<dd><p>The seed addresses for BNDL nodes to form a cluster through gossip.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="execute">
+<h3>Execute<a class="headerlink" href="#execute" title="Permalink to this headline">¶</a></h3>
+<p>BNDL executes tasks on workers (to compute a DAG of datasets and their partitions); if a task fails
+<code class="docutils literal"><span class="pre">attempts</span></code> times, the job fails.</p>
+<dl class="data">
+<dt id="bndl.execute.attempts">
+<code class="descclassname">bndl.execute.</code><code class="descname">attempts</code><em class="property"> = &lt;bndl.util.conf.Int object&gt;</em><a class="headerlink" href="#bndl.execute.attempts" title="Permalink to this definition">¶</a></dt>
+<dd><p>the number of times a task is attempted before the job is cancelled Defaults to 1.</p>
+</dd></dl>
+
+<p>Workers execute <code class="docutils literal"><span class="pre">concurrency</span></code> tasks simultaneously for each job started.</p>
+<dl class="data">
+<dt id="bndl.execute.concurrency">
+<code class="descclassname">bndl.execute.</code><code class="descname">concurrency</code><em class="property"> = &lt;bndl.util.conf.Int object&gt;</em><a class="headerlink" href="#bndl.execute.concurrency" title="Permalink to this definition">¶</a></dt>
+<dd><p>the number of tasks which can be scheduled at a worker process at the same time Defaults to 1.</p>
+</dd></dl>
+
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Currently worker-task assignment is orchestrated on a per-job basis. So when multiple jobs are
+executed, workers will run tasks from each job concurrently, regardless of the <code class="docutils literal"><span class="pre">concurrency</span></code>
+settings.</p>
+</div>
+</div>
+<div class="section" id="shuffle">
+<h3>Shuffle<a class="headerlink" href="#shuffle" title="Permalink to this headline">¶</a></h3>
+<p>Shuffles are executed in memory for as long as a worker consumes less than <code class="docutils literal"><span class="pre">max_mem_pct</span></code> /
+<code class="docutils literal"><span class="pre">os.cpu_count()</span></code> (in the assumption that one worker per core is used. Over this limit, shuffle
+data is spilled to disk. Not that shuffle data is also spilled when less than 10% or 1 GB of system
+wide memory is available. Shuffle data is spilled in blocks (approximately) no larger than
+<code class="docutils literal"><span class="pre">block_size_mb</span></code>.</p>
+<dl class="data">
+<dt id="bndl.compute.shuffle.max_mem_pct">
+<code class="descclassname">bndl.compute.shuffle.</code><code class="descname">max_mem_pct</code><em class="property"> = &lt;bndl.util.conf.Float object&gt;</em><a class="headerlink" href="#bndl.compute.shuffle.max_mem_pct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Percentage (1-100) indicating the amount of memory to be used for shuffling. Defaults to 50.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="bndl.compute.shuffle.block_size_mb">
+<code class="descclassname">bndl.compute.shuffle.</code><code class="descname">block_size_mb</code><em class="property"> = &lt;bndl.util.conf.Float object&gt;</em><a class="headerlink" href="#bndl.compute.shuffle.block_size_mb" title="Permalink to this definition">¶</a></dt>
+<dd><p>Target (maximum) size (in megabytes) of blocks created by spilling / serializing elements to disk Defaults to 4.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="broadcast">
+<h3>Broadcast<a class="headerlink" href="#broadcast" title="Permalink to this headline">¶</a></h3>
+<p>Broadcast variables are exchanged in blocks somwhere between:</p>
+<dl class="data">
+<dt id="bndl.compute.broadcast.min_block_size">
+<code class="descclassname">bndl.compute.broadcast.</code><code class="descname">min_block_size</code><em class="property"> = &lt;bndl.util.conf.Float object&gt;</em><a class="headerlink" href="#bndl.compute.broadcast.min_block_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum size of a block in megabytes. Defaults to 4.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="bndl.compute.broadcast.max_block_size">
+<code class="descclassname">bndl.compute.broadcast.</code><code class="descname">max_block_size</code><em class="property"> = &lt;bndl.util.conf.Float object&gt;</em><a class="headerlink" href="#bndl.compute.broadcast.max_block_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The minimum size of a block in megabytes. Defaults to 16.</p>
+</dd></dl>
+
+<p>When <code class="docutils literal"><span class="pre">min_block_size</span></code> &lt; <code class="docutils literal"><span class="pre">max_block_size</span></code> the number of blocks is <code class="docutils literal"><span class="pre">ctx.worker_count</span></code> unless
+they would be to small or large.</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="logging.html" class="btn btn-neutral float-right" title="Logging" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="net.html" class="btn btn-neutral" title="Networking" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

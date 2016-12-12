@@ -1,0 +1,297 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Execute &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="Usage" href="index.html"/>
+        <link rel="next" title="Remote Method Invocation" href="rmi.html"/>
+        <link rel="prev" title="Examples" href="compute/examples.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">Usage</a> &raquo;</li>
+      
+    <li>Execute</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/usage/execute.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="execute">
+<h1>Execute<a class="headerlink" href="#execute" title="Permalink to this headline">¶</a></h1>
+<p>Execute tasks on workers
+Tasks run as part of a Job
+Jobs may be composed of multiple Stages
+BSP model</p>
+<div class="section" id="workers-cluster">
+<h2>Workers / cluster<a class="headerlink" href="#workers-cluster" title="Permalink to this headline">¶</a></h2>
+<p>Get the number of workers the driver (local node) is connected to:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">worker_count</span>
+<span class="go">4</span>
+</pre></div>
+</div>
+<p>Wait for the cluster gossip to stabilize (5 seconds to initial connect ans 60 seconds for the list
+to stabilize (peer discovery to stop and the peer list in sync with the others)):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
+<span class="go">4</span>
+</pre></div>
+</div>
+<p>Access the list of peers:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">workers</span>
+<span class="go">[&lt;Peer: localdomain.localhost.worker.29235.0.1&gt;, &lt;Peer: localdomain.localhost.worker.29235.0.3&gt;, &lt;Peer: localdomain.localhost.worker.29235.0.2&gt;, &lt;Peer: localdomain.localhost.worker.29235.0.0&gt;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="profiling">
+<h2>Profiling<a class="headerlink" href="#profiling" title="Permalink to this headline">¶</a></h2>
+<p>Profile the CPU and memory usage of the cluster:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">cpu_profiling</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">memory_profiling</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">cpu_profiling</span><span class="o">.</span><span class="n">print_stats</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;bndl&#39;</span><span class="p">))</span>
+
+<span class="go">Clock type: CPU</span>
+<span class="go">Ordered by: totaltime, desc</span>
+
+<span class="go">name                                               ncall         tsub      ttot      tavg</span>
+<span class="go">bndl/util/threads.py:21 work                       40/36         0.000524  1.552147  0.038804</span>
+<span class="go">bndl/execute/worker.py:83 Worker.execute           40/36         0.001045  1.548825  0.038721</span>
+<span class="go">bndl/execute/worker.py:71 Worker._execute          40/36         0.000953  1.546604  0.038665</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">memory_profiling</span><span class="o">.</span><span class="n">print_top</span><span class="p">(</span><span class="n">limit</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">#1 &lt;frozen importlib._bootstrap_external&gt;:484 136.0 KiB</span>
+<span class="go">#2 home/frens-jan/Workspaces/ext/cpython3.5/Lib/abc.py:133 14.9 KiB</span>
+<span class="go">    cls = super().__new__(mcls, name, bases, namespace)</span>
+<span class="go">#3 home/frens-jan/Workspaces/ext/cpython3.5/Lib/tracemalloc.py:68 10.2 KiB</span>
+<span class="go">    class StatisticDiff:</span>
+<span class="go">158 other: 199.5 KiB</span>
+<span class="go">Total allocated size: 360.7 KiB</span>
+<span class="go">&lt;tracemalloc.Snapshot object at 0x7f89686c7898&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">cpu_profiling</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">memory_profiling</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="job-and-task-execution">
+<h2>Job and task execution<a class="headerlink" href="#job-and-task-execution" title="Permalink to this headline">¶</a></h2>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p>Descibe task states:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">ready</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="o">--&gt;</span> <span class="n">blocked</span>
+<span class="n">blocked</span> <span class="o">--&gt;</span> <span class="n">ready</span>
+<span class="n">ready</span> <span class="o">--&gt;</span> <span class="n">pending</span>
+<span class="n">pending</span> <span class="o">--&gt;</span> <span class="n">done</span>
+<span class="n">done</span> <span class="o">--&gt;</span> <span class="p">[</span><span class="o">*</span><span class="p">]</span>
+</pre></div>
+</div>
+<p class="last">and concurrency, retry / attempts, locality, etc.</p>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="rmi.html" class="btn btn-neutral float-right" title="Remote Method Invocation" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="compute/examples.html" class="btn btn-neutral" title="Examples" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

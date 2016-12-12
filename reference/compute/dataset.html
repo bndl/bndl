@@ -1,0 +1,1465 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Datasets and partitions &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Broadcast and Accumulate" href="oob.html"/>
+        <link rel="prev" title="Compute Context" href="context.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="context.html">Compute Context</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Datasets and partitions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcast and Accumulate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="execute.html">Execution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">RMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">API Reference</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Datasets and partitions</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/reference/compute/dataset.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="datasets-and-partitions">
+<h1>Datasets and partitions<a class="headerlink" href="#datasets-and-partitions" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="bndl.compute.dataset.Dataset">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">Dataset</code><span class="sig-paren">(</span><em>ctx</em>, <em>src=None</em>, <em>dset_id=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map">
+<code class="descname">map</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform elements in this dataset one by one.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(element)
+applied to each element of the dataset</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.starmap">
+<code class="descname">starmap</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.starmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.starmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Variadic form of map.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(element)
+applied to each element of the dataset</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.pluck">
+<code class="descname">pluck</code><span class="sig-paren">(</span><em>ind</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.pluck"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.pluck" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pluck indices from each of the elements in this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>ind</strong> &#8211; obj or list
+The indices to pluck with.</li>
+<li><strong>default</strong> &#8211; obj
+A default value.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;abc&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">pluck</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;, &#39;b&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;abc&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">pluck</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;), (&#39;b&#39;, &#39;c&#39;)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.flatmap">
+<code class="descname">flatmap</code><span class="sig-paren">(</span><em>func=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.flatmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.flatmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the elements in this dataset into iterables and chain them
+within each of the partitions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(element)
+The transformation to apply. Defaults to none; i.e. consider the
+elements in this the iterables to chain.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+<p>For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;abc&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">flatmap</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">())</span>
+<span class="go">&#39;abcabcabcabcabcabcabcabcabcabc&#39;</span>
+</pre></div>
+</div>
+<p>or:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">string</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">flatmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">string</span><span class="o">.</span><span class="n">ascii_lowercase</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">())</span>
+<span class="go">&#39;abbcccdddd&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map_partitions">
+<code class="descname">map_partitions</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map_partitions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the partitions of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(iterator)
+The transformation to apply.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map_partitions_with_index">
+<code class="descname">map_partitions_with_index</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map_partitions_with_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map_partitions_with_index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the partitions - with their index - of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(*args, index, iterator, **kwargs)
+The transformation to apply on the partition index and the iterator
+over the partition&#8217;s elements.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before index and iterator).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map_partitions_with_part">
+<code class="descname">map_partitions_with_part</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map_partitions_with_part"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map_partitions_with_part" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the partitions - with the source partition object as argument - of
+this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(*args, partition, iterator, **kwargs)
+The transformation to apply on the partition object and the iterator
+over the partition&#8217;s elements.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before partition and iterator).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.pipe">
+<code class="descname">pipe</code><span class="sig-paren">(</span><em>command</em>, <em>reader=&lt;method 'readlines' of '_io._IOBase' objects&gt;</em>, <em>writer=&lt;method 'writelines' of '_io._IOBase' objects&gt;</em>, <em>**opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.pipe"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.pipe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform partitions by sending partition data to an external program over stdout/stdin and
+read back its output.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>command</strong> (<em>str</em>) &#8211; Command to execute (is &#8216;parsed&#8217; by <code class="docutils literal"><span class="pre">shlex.split</span></code>).</li>
+<li><strong>reader</strong> (<em>callable -&gt; iterable</em>) &#8211; Called with <code class="xref py py-attr docutils literal"><span class="pre">subprocess.Popen.stdout</span></code> to read and
+iterate over the program&#8217;s output.</li>
+<li><strong>writer</strong> (<em>callable</em>) &#8211; Called with <code class="xref py py-attr docutils literal"><span class="pre">subprocess.Popen.stdin</span></code> and the partition
+iterable to write the partition&#8217;s contents to the program.
+iterate over the program&#8217;s output.</li>
+<li><strong>**opts</strong> &#8211; Options to provide to <code class="xref py py-class docutils literal"><span class="pre">subprocess.Popen</span></code>.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.glom">
+<code class="descname">glom</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.glom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.glom" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms each partition into a partition with one element being the
+contents of the partition as a &#8216;stable iterable&#8217; (e.g. a list).</p>
+<p>See the bndl.util.collection.is_stable_iterable function for details on
+what constitutes a stable iterable.</p>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span><span class="o">.</span><span class="n">glom</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[[0, 1], [2, 3, 4], [5, 6], [7, 8, 9]]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.concat">
+<code class="descname">concat</code><span class="sig-paren">(</span><em>sep</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.concat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.concat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Concattenate the elements in this dataset with sep</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>sep</strong> (<em>str, bytes or bytarray</em>) &#8211; the value to use to concattenate.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.filter">
+<code class="descname">filter</code><span class="sig-paren">(</span><em>func=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter out elements from this dataset</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> (<em>callable(element</em>) &#8211; The test function to filter this dataset with. An element is
+retained in the dataset if the test is positive.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.starfilter">
+<code class="descname">starfilter</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.starfilter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.starfilter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Variadic form of Dataset.filter.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(*element)
+The test function to filter this dataset with. An element is
+retained in the dataset if the test is positive. The element is
+provided as star args.</td>
+</tr>
+</tbody>
+</table>
+<p>Any extra *args or **kwargs are passed to func (args before element).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.mask_partitions">
+<code class="descname">mask_partitions</code><span class="sig-paren">(</span><em>mask</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.mask_partitions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.mask_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>TODO</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.key_by">
+<code class="descname">key_by</code><span class="sig-paren">(</span><em>key</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.key_by"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.key_by" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepend the elements in this dataset with a key.</p>
+<p>The resulting dataset will consist of K,V tuples.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>key</strong> &#8211; callable(element)
+The transformation of the element which, when applied, provides the
+key value.</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">string</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">string</span><span class="o">.</span><span class="n">ascii_lowercase</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;a&#39;, 0), (&#39;b&#39;, 1), (&#39;c&#39;, 2), (&#39;d&#39;, 3), (&#39;e&#39;, 4)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.with_value">
+<code class="descname">with_value</code><span class="sig-paren">(</span><em>val</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.with_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.with_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a dataset of K,V tuples with the elements of this dataset as K
+and V from the given value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>val</strong> &#8211; callable(element) or obj
+If val is a callable, it will be applied to the elements of this
+dataset and the return values will be the values. If val is a plain
+object, it will be used as a constant value for each element.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcdef&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;a&#39;, 1), (&#39;b&#39;, 1), (&#39;c&#39;, 1), (&#39;d&#39;, 1), (&#39;e&#39;, 1), (&#39;f&#39;, 1)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.key_by_id">
+<code class="descname">key_by_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.key_by_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.key_by_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Key the elements of this data set with a unique integer id.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">],</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">key_by_id</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, &#39;a&#39;), (2, &#39;b&#39;), (4, &#39;c&#39;), (1, &#39;d&#39;), (3, &#39;e&#39;)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.key_by_idx">
+<code class="descname">key_by_idx</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.key_by_idx"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.key_by_idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Key the elements of this data set with their index.</p>
+<p>This operation starts a job when the data set contains more than 1
+partition to calculate offsets for each of the partitions. Use
+key_by_id or cache the data set to speed up processing.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;e&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">key_by_idx</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, &#39;a&#39;), (1, &#39;b&#39;), (2, &#39;c&#39;), (3, &#39;d&#39;), (4, &#39;e&#39;)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.keys">
+<code class="descname">keys</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.keys"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.keys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pluck the keys from this dataset.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.values">
+<code class="descname">values</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pluck the values from this dataset.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[1, 2, 3]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map_keys">
+<code class="descname">map_keys</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map_keys"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map_keys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the keys of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(key)
+Transformation to apply to the keys</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.map_values">
+<code class="descname">map_values</code><span class="sig-paren">(</span><em>func</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.map_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.map_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transform the values of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(value)
+Transformation to apply to the values</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.pluck_values">
+<code class="descname">pluck_values</code><span class="sig-paren">(</span><em>ind</em>, <em>default=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.pluck_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.pluck_values" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pluck indices from each of the values in this dataset of (key, value) pairs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>ind</strong> &#8211; obj or list
+The indices to pluck with.</li>
+<li><strong>default</strong> &#8211; obj
+A default value.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.flatmap_values">
+<code class="descname">flatmap_values</code><span class="sig-paren">(</span><em>func=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.flatmap_values"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.flatmap_values" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(value) or None
+The callable which flattens the values of this dataset or None in
+order to use the values as iterables to flatten.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.filter_bykey">
+<code class="descname">filter_bykey</code><span class="sig-paren">(</span><em>func=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.filter_bykey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.filter_bykey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter the dataset by testing the keys.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(key)
+The test to apply to the keys. When positive, the key, value tuple
+will be retained.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.filter_byvalue">
+<code class="descname">filter_byvalue</code><span class="sig-paren">(</span><em>func=None</em>, <em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.filter_byvalue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.filter_byvalue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter the dataset by testing the values.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>func</strong> &#8211; callable(value)
+The test to apply to the values. When positive, the key, value tuple
+will be retained.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.nlargest">
+<code class="descname">nlargest</code><span class="sig-paren">(</span><em>num</em>, <em>key=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.nlargest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.nlargest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the num largest elements from this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>num</strong> &#8211; int
+The number of elements to take.</li>
+<li><strong>key</strong> &#8211; callable(element) or None
+The (optional) key to apply when ordering elements.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.nsmallest">
+<code class="descname">nsmallest</code><span class="sig-paren">(</span><em>num</em>, <em>key=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.nsmallest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.nsmallest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the num smallest elements from this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>num</strong> &#8211; int
+The number of elements to take.</li>
+<li><strong>key</strong> &#8211; callable(element) or None
+The (optional) key to apply when ordering elements.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.nsmallest_by_key">
+<code class="descname">nsmallest_by_key</code><span class="sig-paren">(</span><em>num</em>, <em>key=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.nsmallest_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.nsmallest_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shuffle and keep only the num smallest elements for each key.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.nlargest_by_key">
+<code class="descname">nlargest_by_key</code><span class="sig-paren">(</span><em>num</em>, <em>key=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.nlargest_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.nlargest_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shuffle and keep only the num largest elements for each key.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.histogram">
+<code class="descname">histogram</code><span class="sig-paren">(</span><em>bins=10</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.histogram"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.histogram" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the histogram of a data set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>bins</strong> &#8211; int or sequence
+The bins to use in computing the histogram; either an int to indicate the number of
+bins between the minimum and maximum of this data set, or a sorted sequence of unique
+numbers to be used as edges of the bins.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">A (np.array, np.array) tuple where the first array is the histogram and the
+second array the (edges of the) bins.</td>
+</tr>
+</tbody>
+</table>
+<p>The function behaves similarly to numpy.histogram, but only supports counts per bin (no
+weights or density/normalization). The resulting histogram and bins should match
+numpy.histogram very closely.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">histogram</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="go">(array([0, 2, 1]), array([0, 1, 2, 3]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="go">(array([1, 1, 1, 1]), array([0, 1, 2, 3, 4]))</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">(array([1, 1, 0, 1, 1]), array([ 0. ,  0.6,  1.2,  1.8,  2.4,  3. ]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">histogram</span><span class="p">()</span>
+<span class="go">(array([1, 0, 0, 1, 0, 0, 1, 0, 0, 1]),</span>
+<span class="go"> array([ 0. ,  0.3,  0.6,  0.9,  1.2,  1.5,  1.8,  2.1,  2.4,  2.7,  3. ]))</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">dset</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">4</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hist</span><span class="p">,</span> <span class="n">bins</span> <span class="o">=</span> <span class="n">dset</span><span class="o">.</span><span class="n">histogram</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hist</span>
+<span class="go">array([2, 0, 0, 2, 0, 0, 1, 0, 0, 1])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hist</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="n">dset</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.aggregate">
+<code class="descname">aggregate</code><span class="sig-paren">(</span><em>local</em>, <em>comb=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.aggregate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.aggregate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect an aggregate of this dataset, where the aggregate is determined
+by a local aggregation and a global combination.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>local</strong> &#8211; callable(partition)
+Function to apply on the partition iterable</li>
+<li><strong>comb</strong> &#8211; callable
+Function to combine the results from local. If None, the local
+callable will be applied.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.combine">
+<code class="descname">combine</code><span class="sig-paren">(</span><em>zero</em>, <em>merge_value</em>, <em>merge_combs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.combine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.combine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Aggregate the dataset by merging element-wise starting with a zero
+value and finally merge the intermediate results.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>zero</strong> &#8211; obj
+The object to merge values into.</li>
+<li><strong>merge_value</strong> &#8211; The operation to merge an object into intermediate value (which
+initially is the zero value).</li>
+<li><strong>merge_combs</strong> &#8211; The operation to pairwise combine the intermediate values into one
+final value.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">strings</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="o">*</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">%</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">strings</span><span class="o">.</span><span class="n">combine</span><span class="p">(</span><span class="nb">set</span><span class="p">(),</span> <span class="k">lambda</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="ow">or</span> <span class="n">s</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span><span class="o">|</span><span class="n">b</span><span class="p">)))</span>
+<span class="go">[&#39;0&#39;,</span>
+<span class="go"> &#39;1&#39;,</span>
+<span class="go"> ...</span>
+<span class="go"> &#39;998&#39;,</span>
+<span class="go"> &#39;999&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.reduce">
+<code class="descname">reduce</code><span class="sig-paren">(</span><em>reduction</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.reduce"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.reduce" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reduce the dataset into a final element by applying a pairwise
+reduction as with functools.reduce(...)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>reduction</strong> &#8211; The reduction to apply.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">:</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">)</span>
+<span class="go">4950</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.tree_aggregate">
+<code class="descname">tree_aggregate</code><span class="sig-paren">(</span><em>local</em>, <em>comb=None</em>, <em>depth=2</em>, <em>scale=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.tree_aggregate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.tree_aggregate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tree-wise aggregation by first applying local on each partition and
+subsequently shuffling the data across workers in depth rounds and for
+each round aggregating the data by applying comb.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>local</strong> &#8211; func(iterable)
+The aggregation function to apply to each partition.</li>
+<li><strong>comb</strong> &#8211; The function to apply in order to combine aggregated partitions.</li>
+<li><strong>depth</strong> &#8211; The number of iterations to apply the aggregation in.</li>
+<li><strong>scale</strong> &#8211; int or None (default)
+The factor by which to reduce the partition count in each round. If
+None, the step is chosen such that each reduction of intermediary
+results is roughly of the same size (the branching factor in the
+tree is the same across the entire tree).</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.tree_combine">
+<code class="descname">tree_combine</code><span class="sig-paren">(</span><em>zero</em>, <em>merge_value</em>, <em>merge_combs</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.tree_combine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.tree_combine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tree-wise version of Dataset.combine. See Dataset.tree_aggregate for details.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.tree_reduce">
+<code class="descname">tree_reduce</code><span class="sig-paren">(</span><em>reduction</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.tree_reduce"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.tree_reduce" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tree-wise version of Dataset.reduce. See Dataset.tree_aggregate for details.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.count">
+<code class="descname">count</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.count"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count the elements in this dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.sum">
+<code class="descname">sum</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.sum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.sum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sum the elements in this dataset.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span><span class="s1">&#39;abc&#39;</span><span class="p">,</span> <span class="s1">&#39;def&#39;</span><span class="p">,</span> <span class="s1">&#39;ghi&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="go">9</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.max">
+<code class="descname">max</code><span class="sig-paren">(</span><em>key=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.max"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.max" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the largest element of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>key</strong> (<em>callable(element</em>) &#8211; The (optional) key to apply in comparing element. If</li>
+<li><strong>is an object, it is used to pluck from the element with the given to get the</strong> (<em>key</em>) &#8211; </li>
+<li><strong>key.</strong> (<em>comparison</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="go">9</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="go">(9, 1)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">val</span><span class="o">=-</span><span class="n">i</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="s1">&#39;val&#39;</span><span class="p">)</span>
+<span class="go">{&#39;val&#39;: 0, &#39;key&#39;: 0}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.min">
+<code class="descname">min</code><span class="sig-paren">(</span><em>key=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.min"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.min" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the smallest element of this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>key</strong> (<em>callable(element</em>) &#8211; The (optional) key to apply in comparing element. If</li>
+<li><strong>is an object, it is used to pluck from the element with the given to get the</strong> (<em>key</em>) &#8211; </li>
+<li><strong>key.</strong> (<em>comparison</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.mean">
+<code class="descname">mean</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.mean"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.mean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the mean of this dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.stats">
+<code class="descname">stats</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate count, mean, min, max, variance, stdev, skew and kurtosis of this dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.mvstats">
+<code class="descname">mvstats</code><span class="sig-paren">(</span><em>width=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.mvstats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.mvstats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate count and the multivariate mean, min, max, variance, stdev, skew and kurtosis of
+this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>width</strong> (<em>int</em>) &#8211; The width of the vectors in the dataset to calculate the statistics on. If
+no width is given, the width is determined through peeking at the first record.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.union">
+<code class="descname">union</code><span class="sig-paren">(</span><em>other</em>, <em>*others</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.union"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.union" title="Permalink to this definition">¶</a></dt>
+<dd><p>Union this dataset with another</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>other</strong> &#8211; Dataset</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.group_by">
+<code class="descname">group_by</code><span class="sig-paren">(</span><em>key</em>, <em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.group_by"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.group_by" title="Permalink to this definition">¶</a></dt>
+<dd><p>Group the dataset by a given key function.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>key</strong> &#8211; callable(element) or obj
+The callable producing the key to group on or an index / indices
+for plucking the key from the elements.</li>
+<li><strong>partitioner</strong> &#8211; callable(element)
+A callable producing an integer which is used to determine to which
+partition the group is assigned.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to group into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [0, 6, 8, 4, 2]), (1, [1, 3, 7, 9, 5])]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.group_by_key">
+<code class="descname">group_by_key</code><span class="sig-paren">(</span><em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.group_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.group_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Group a K, V dataset by K.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>partitioner</strong> &#8211; callable
+The (optional) partitioner to apply.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to group into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.aggregate_by_key">
+<code class="descname">aggregate_by_key</code><span class="sig-paren">(</span><em>local</em>, <em>comb=None</em>, <em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.aggregate_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.aggregate_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Aggregate the values in a K, V1 dataset into a dataset of K, V2.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>local</strong> &#8211; callable(iterable[V1])
+A callable which returns the aggregation V2 for the values of a key.</li>
+<li><strong>comb</strong> &#8211; callable(iterable[V2]): V2 (optional)
+A callable which performs a per key aggregation of the V2&#8217;s
+generated by local. Defaults to local.</li>
+<li><strong>partitioner</strong> &#8211; The (optional) partitioner to apply.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to combine into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.combine_by_key">
+<code class="descname">combine_by_key</code><span class="sig-paren">(</span><em>create</em>, <em>merge_value</em>, <em>merge_combs</em>, <em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.combine_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.combine_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine the values in a K, V1 dataset into a dataset of K, V2.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>create</strong> &#8211; callable(V1)
+A callable which returns the initial V2 for the value&#8217;s key.</li>
+<li><strong>merge_value</strong> &#8211; callable(V2, V1): V2
+A callable which merges a V1 into a V2.</li>
+<li><strong>merge_combs</strong> &#8211; callable(V2, V2)
+A callable which merges two V2&#8217;s.</li>
+<li><strong>partitioner</strong> &#8211; The (optional) partitioner to apply.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to combine into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.reduce_by_key">
+<code class="descname">reduce_by_key</code><span class="sig-paren">(</span><em>reduction</em>, <em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.reduce_by_key"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.reduce_by_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reduce the values of a K, V dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>reduction</strong> &#8211; callable(v, v)
+The reduction to apply.</li>
+<li><strong>partitioner</strong> &#8211; The (optional) partitioner to apply.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to reduce into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">%</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reduce_by_key</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span><span class="o">+</span><span class="n">b</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 4), (1, 4), (2, 4)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.join">
+<code class="descname">join</code><span class="sig-paren">(</span><em>other</em>, <em>key=None</em>, <em>partitioner=None</em>, <em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Join two datasets.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>other</strong> &#8211; The dataset to join with.</li>
+<li><strong>key</strong> &#8211; callable(element) or object
+The callable which returns the join key or an object used as index
+to get the join key from the elements in the datasets to join.</li>
+<li><strong>partitioner</strong> &#8211; The (optional) partitioner to apply.</li>
+<li><strong>pcount</strong> &#8211; The number of partitions to join into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [(0, 8), (0, 6), (2, 8), (2, 6), (4, 8), (4, 6)]),</span>
+<span class="go"> (1, [(1, 5), (1, 9), (1, 7), (3, 5), (3, 9), (3, 7)])]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.distinct">
+<code class="descname">distinct</code><span class="sig-paren">(</span><em>pcount=None</em>, <em>key=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.distinct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.distinct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select the distinct elements from this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>pcount</strong> &#8211; The number of partitions to shuffle into.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">())</span>
+<span class="go">[0, 1]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.count_distinct">
+<code class="descname">count_distinct</code><span class="sig-paren">(</span><em>pcount=None</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.count_distinct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.count_distinct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count the distinct elements in this Dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.count_distinct_approx">
+<code class="descname">count_distinct_approx</code><span class="sig-paren">(</span><em>error_rate=0.05</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.count_distinct_approx"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.count_distinct_approx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Approximate the count of distinct elements in this Dataset through
+the hyperloglog++ algorithm based on <a class="reference external" href="https://github.com/svpcom/hyperloglog">https://github.com/svpcom/hyperloglog</a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>error_rate</strong> &#8211; float
+The absolute error / cardinality</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.count_by_value">
+<code class="descname">count_by_value</code><span class="sig-paren">(</span><em>depth=1</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.count_by_value"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.count_by_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count the occurrence of each distinct value in the data set.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.sort">
+<code class="descname">sort</code><span class="sig-paren">(</span><em>key=None</em>, <em>reverse=False</em>, <em>pcount=None</em>, <em>hd_distribution=False</em>, <em>**shuffle_opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.sort"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.sort" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sort the elements in this dataset.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>key</strong> &#8211; callable or obj
+A callable which returns the sort key or an object which is the
+index in the elements for getting the sort key.</li>
+<li><strong>reverse</strong> &#8211; bool
+If True perform a sort in descending order, or False to sort in
+ascending order.</li>
+<li><strong>pcount</strong> &#8211; Optionally the number of partitions to sort into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;asdfzxcvqwer&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">())</span>
+<span class="go">&#39;acdefqrsvwxz&#39;</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="nb">dict</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">i</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="n">i</span><span class="p">))</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[{&#39;b&#39;: 0, &#39;a&#39;: -2}, {&#39;b&#39;: 1, &#39;a&#39;: -1}, {&#39;b&#39;: 2, &#39;a&#39;: 0}, {&#39;b&#39;: 3, &#39;a&#39;: 1}, {&#39;b&#39;: 4, &#39;a&#39;: 2}]</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(-2, 0), (-1, 1), (0, 2), (1, 3), (2, 4)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.shuffle">
+<code class="descname">shuffle</code><span class="sig-paren">(</span><em>pcount=None</em>, <em>partitioner=None</em>, <em>bucket=None</em>, <em>key=None</em>, <em>comb=None</em>, <em>sort=None</em>, <em>**opts</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.shuffle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.shuffle" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">Document shuffle</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.zip">
+<code class="descname">zip</code><span class="sig-paren">(</span><em>other</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.zip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.zip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Zip the elements of another data set with the elements of this data set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>other</strong> &#8211; bndl.compute.dataset.Dataset
+The other data set to zip with.</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 10), (1, 11), (2, 12), (3, 13), (4, 14), (5, 15), (6, 16), (7, 17), (8, 18), (9, 19)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.zip_partitions">
+<code class="descname">zip_partitions</code><span class="sig-paren">(</span><em>other</em>, <em>comb</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.zip_partitions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.zip_partitions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Zip the partitions of another data set with the partitions of this data set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>other</strong> &#8211; bndl.compute.dataset.Dataset
+The other data set to zip the partitions of with the partitions of this data set.</li>
+<li><strong>comb</strong> &#8211; func(iterable, iterable)
+The function which combines the data of the partitions from this
+and the other data sets.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">zip_partitions</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 10), (1, 11), (2, 12), (3, 13), (4, 14), (5, 15), (6, 16), (7, 17), (8, 18), (9, 19)]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.sample">
+<code class="descname">sample</code><span class="sig-paren">(</span><em>fraction</em>, <em>with_replacement=False</em>, <em>seed=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.sample" title="Permalink to this definition">¶</a></dt>
+<dd><div class="admonition-todo admonition" id="index-1">
+<p class="first admonition-title">Todo</p>
+<p class="last">Document sample</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.take_sample">
+<code class="descname">take_sample</code><span class="sig-paren">(</span><em>num</em>, <em>with_replacement=False</em>, <em>seed=None</em>, <em>count=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.take_sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.take_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>based on <a class="reference external" href="https://github.com/apache/spark/blob/master/python/pyspark/rdd.py#L425">https://github.com/apache/spark/blob/master/python/pyspark/rdd.py#L425</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect">
+<code class="descname">collect</code><span class="sig-paren">(</span><em>parts=False</em>, <em>ordered=True</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the dataset as list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>parts</strong> (<em>bool</em>) &#8211; Collect the individual partitions (<code class="docutils literal"><span class="pre">True</span></code>) into a list with an element
+per partition or a &#8216;flattened&#8217; list of the elements in the dataset (<code class="docutils literal"><span class="pre">False</span></code>).</li>
+<li><strong>ordered</strong> (<em>bool</em>) &#8211; Collect partitions (and thus their elements) in order or not.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect_as_map">
+<code class="descname">collect_as_map</code><span class="sig-paren">(</span><em>parts=False</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_map"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_map" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect a dataset of key-value pairs as dict.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect_as_set">
+<code class="descname">collect_as_set</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_set"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the elements of the dataset into a set.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect_as_pickles">
+<code class="descname">collect_as_pickles</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_pickles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_pickles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect each partition as a pickle file into directory</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect_as_json">
+<code class="descname">collect_as_json</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect each partition as a line separated json file into directory.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.collect_as_files">
+<code class="descname">collect_as_files</code><span class="sig-paren">(</span><em>directory=None</em>, <em>ext=''</em>, <em>mode='b'</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect each element in this data set into a file into directory.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>directory</strong> &#8211; str
+The directory to save this data set to.</li>
+<li><strong>ext</strong> &#8211; The extenion of the files.</li>
+<li><strong>compress</strong> &#8211; None or &#8216;gzip&#8217;
+Whether to compress.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.icollect">
+<code class="descname">icollect</code><span class="sig-paren">(</span><em>parts=False</em>, <em>ordered=True</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.icollect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.icollect" title="Permalink to this definition">¶</a></dt>
+<dd><p>An iterable version of <code class="xref py py-meth docutils literal"><span class="pre">collect()</span></code> which can be cheaper memory-wise and faster in terms
+of latency (especially of ordered=False).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.first">
+<code class="descname">first</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.first"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.first" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the first element from this dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.take">
+<code class="descname">take</code><span class="sig-paren">(</span><em>num</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.take"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.take" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the first num elements from this dataset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.itake">
+<code class="descname">itake</code><span class="sig-paren">(</span><em>num</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.itake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.itake" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take the first num elements from this dataset as iterator.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.require_workers">
+<code class="descname">require_workers</code><span class="sig-paren">(</span><em>workers_required</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.require_workers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.require_workers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a clone of this dataset which is only computable on the workers
+which are returned by the workers_required argument.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>workers_required</strong> &#8211; function(iterable[PeerNode]): -&gt; iterable[PeerNode]
+A function which is given an iterable of workers (PeerNodes) which is to
+return only those which are allowed to compute this dataset.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.require_local_workers">
+<code class="descname">require_local_workers</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.require_local_workers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.require_local_workers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Require that the dataset is computed on the same node as the driver.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.allow_all_workers">
+<code class="descname">allow_all_workers</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.allow_all_workers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.allow_all_workers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a clone of this dataset which resets the worker filter set by
+require_workers if any.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.dataset.Dataset.cache">
+<code class="descname">cache</code><span class="sig-paren">(</span><em>location='memory'</em>, <em>serialization=None</em>, <em>compression=None</em>, <em>provider=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.cache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.cache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cache the dataset in the workers. Each partition is cached in the memory / on the disk of
+the worker which computed it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>location</strong> (<em>str</em>) &#8211; &#8216;memory&#8217; or &#8216;disk&#8217;.</li>
+<li><strong>serialization</strong> (<em>str</em>) &#8211; The serialization format must be one of &#8216;json&#8217;, &#8216;marshal&#8217;,
+&#8216;pickle&#8217;, &#8216;msgpack&#8217;, &#8216;text&#8217;, &#8216;binary&#8217; or None to cache the data unserialized.</li>
+<li><strong>compression</strong> (<em>str</em>) &#8211; &#8216;gzip&#8217; or None</li>
+<li><strong>provider</strong> (<code class="xref py py-class docutils literal"><span class="pre">CacheProvider</span></code>) &#8211; Ignore location,
+serialization and compression and use this custom <code class="docutils literal"><span class="pre">CacheProvider</span></code>.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.Partition">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">Partition</code><span class="sig-paren">(</span><em>dset</em>, <em>idx</em>, <em>src=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Partition"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Partition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="bndl.compute.dataset.Partition.locality">
+<code class="descname">locality</code><span class="sig-paren">(</span><em>workers</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Partition.locality"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Partition.locality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine locality of computing this partition at the given workers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a generator of worker, locality pairs.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.TransformingDataset">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">TransformingDataset</code><span class="sig-paren">(</span><em>src</em>, <em>*funcs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#TransformingDataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.TransformingDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#bndl.compute.dataset.Dataset" title="bndl.compute.dataset.Dataset"><code class="xref py py-class docutils literal"><span class="pre">bndl.compute.dataset.Dataset</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.UnionDataset">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">UnionDataset</code><span class="sig-paren">(</span><em>src</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#UnionDataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.UnionDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.compute.dataset._MultiSourceDataset</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.CartesianProductDataset">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">CartesianProductDataset</code><span class="sig-paren">(</span><em>src</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#CartesianProductDataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.CartesianProductDataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.compute.dataset._MultiSourceDataset</span></code></p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="oob.html" class="btn btn-neutral float-right" title="Broadcast and Accumulate" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="context.html" class="btn btn-neutral" title="Compute Context" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

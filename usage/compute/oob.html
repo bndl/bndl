@@ -1,0 +1,285 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Broadcasts and accumulators &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Running a cluster" href="run.html"/>
+        <link rel="prev" title="Transformations" href="transformations.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l3"><a class="reference internal" href="context.html">Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets.html">Datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transformations.html">Transformations</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Broadcasts and accumulators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="run.html">Running a cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Usage</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Broadcasts and accumulators</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/usage/compute/oob.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="broadcasts-and-accumulators">
+<h1>Broadcasts and accumulators<a class="headerlink" href="#broadcasts-and-accumulators" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="broadcast">
+<h2>Broadcast<a class="headerlink" href="#broadcast" title="Permalink to this headline">¶</a></h2>
+<p>Data can be sent to the workers (for use in a mapper, reducer, etc.) with <a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext.broadcast" title="bndl.compute.context.ComputeContext.broadcast"><code class="xref py py-meth docutils literal"><span class="pre">broadcast()</span></code></a>. This
+construct is useful for e.g. broadcast joins a.k.a. lookup table for small relation in hash join:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s1">&#39;abcd&#39;</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">tbl</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d&#39;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="accumulators">
+<h2>Accumulators<a class="headerlink" href="#accumulators" title="Permalink to this headline">¶</a></h2>
+<p>Mostly data is communicated back to the driver using
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect" title="bndl.compute.dataset.Dataset.collect"><code class="xref py py-meth docutils literal"><span class="pre">Dataset.collect()</span></code></a>. However occacially this is
+inconvenient when you want to collect data from a transformation before a reduction, e.g. a count:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span>
+<span class="gp">... </span><span class="s1">&#39;Humpty Dumpty sat on a wall,&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;Humpty Dumpty had a great fall.&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;All the king</span><span class="se">\&#39;</span><span class="s1">s horses and all the king</span><span class="se">\&#39;</span><span class="s1">s men&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;Couldn</span><span class="se">\&#39;</span><span class="s1">t put Humpty together again.&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">])</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">count</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">accumulator</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">chars_from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">global</span> <span class="n">count</span>
+<span class="gp">... </span>    <span class="n">c</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="gp">... </span>    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+<span class="gp">... </span>        <span class="n">chars</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+<span class="gp">... </span>        <span class="n">c</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chars</span><span class="p">)</span>
+<span class="gp">... </span>        <span class="k">yield from</span> <span class="n">chars</span>
+<span class="gp">... </span>    <span class="n">count</span> <span class="o">+=</span> <span class="n">c</span>
+<span class="gp">...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">flatmap</span><span class="p">(</span><span class="n">chars_from_lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">[(&#39;t&#39;, 13), (&#39;a&#39;, 11), (&#39;l&#39;, 9)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">count</span><span class="o">.</span><span class="n">value</span>
+<span class="go">116</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<span class="go">116</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">count</span><span class="o">.</span><span class="n">value</span>
+<span class="go">232</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="run.html" class="btn btn-neutral float-right" title="Running a cluster" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="transformations.html" class="btn btn-neutral" title="Transformations" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

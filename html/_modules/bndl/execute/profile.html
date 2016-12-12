@@ -1,0 +1,474 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bndl.execute.profile &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>bndl.execute.profile</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bndl.execute.profile</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">linecache</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">tracemalloc</span>
+
+<span class="kn">from</span> <span class="nn">cytoolz</span> <span class="k">import</span> <span class="n">pluck</span>
+<span class="kn">import</span> <span class="nn">yappi</span>
+
+
+<span class="n">COLMUMNS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="mi">84</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;ncall&#39;</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;tsub&#39;</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;ttot&#39;</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">&#39;tavg&#39;</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_each</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">worker</span><span class="p">,</span> <span class="n">worker</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">func</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="n">ctx</span><span class="o">.</span><span class="n">workers</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">worker</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">result</span><span class="p">())</span> <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_strip_dirs</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="n">cwd_parent</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">cwd_parent</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">path</span>
+
+
+<span class="k">def</span> <span class="nf">print_yappi_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">max_rows</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">sort_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="n">COLMUMNS</span><span class="p">,</span> <span class="n">per_worker</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">include</span><span class="o">=</span><span class="p">(),</span> <span class="n">exclude</span><span class="o">=</span><span class="p">(),</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">):</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">columns</span><span class="p">))</span>
+
+    <span class="n">stats</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sort_by</span><span class="p">:</span>
+        <span class="n">stats</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">sort_by</span><span class="p">,</span> <span class="n">sort_dir</span> <span class="ow">or</span> <span class="s1">&#39;desc&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">strip_dirs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+            <span class="n">stat</span><span class="o">.</span><span class="n">full_name</span> <span class="o">=</span> <span class="n">_strip_dirs</span><span class="p">(</span><span class="n">stat</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">include</span> <span class="ow">or</span> <span class="n">exclude</span><span class="p">:</span>
+            <span class="n">excl</span> <span class="o">=</span> <span class="p">[</span><span class="n">mod</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span>
+                    <span class="p">((</span><span class="n">exclude</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exclude</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">exclude</span><span class="p">)]</span>
+            <span class="n">incl</span> <span class="o">=</span> <span class="p">[</span><span class="n">mod</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span>
+                    <span class="p">((</span><span class="n">include</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">include</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">include</span><span class="p">)]</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">stat</span> <span class="o">=</span> <span class="nb">list</span><span class="o">.</span><span class="n">__getitem__</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="k">if</span> <span class="n">incl</span><span class="p">:</span>
+                    <span class="n">remove</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">incl</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">stat</span><span class="o">.</span><span class="n">full_name</span> <span class="ow">and</span> <span class="n">stat</span><span class="o">.</span><span class="n">full_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">mod</span><span class="p">):</span>
+                            <span class="n">remove</span> <span class="o">=</span> <span class="kc">False</span>
+                            <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">remove</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">excl</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">stat</span><span class="o">.</span><span class="n">full_name</span> <span class="ow">and</span> <span class="n">stat</span><span class="o">.</span><span class="n">full_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">mod</span><span class="p">):</span>
+                        <span class="n">remove</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="k">break</span>
+                <span class="k">if</span> <span class="n">remove</span><span class="p">:</span>
+                    <span class="nb">list</span><span class="o">.</span><span class="n">__delitem__</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">max_rows</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">stats</span><span class="p">[</span><span class="n">max_rows</span><span class="p">:]</span>
+
+    <span class="n">stats</span><span class="o">.</span><span class="n">print_all</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+
+
+
+<div class="viewcode-block" id="CpuProfiling"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.CpuProfiling">[docs]</a><span class="k">class</span> <span class="nc">CpuProfiling</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Perform CPU profiling across the cluster with ``yappi``.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">ctx</span>
+
+
+<div class="viewcode-block" id="CpuProfiling.start"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.CpuProfiling.start">[docs]</a>    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Stop CPU profiling.&#39;&#39;&#39;</span>
+        <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">yappi</span><span class="o">.</span><span class="n">start</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CpuProfiling.stop"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.CpuProfiling.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Stop CPU profiling.&#39;&#39;&#39;</span>
+        <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">yappi</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">get_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">per_worker</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">individual_stats</span> <span class="o">=</span> <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">yappi</span><span class="o">.</span><span class="n">get_func_stats</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">per_worker</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">individual_stats</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">stat</span><span class="p">,</span> <span class="o">*</span><span class="n">rest</span> <span class="o">=</span> <span class="n">pluck</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">individual_stats</span><span class="p">)</span>
+            <span class="c1"># merging adapted from _add_from_YSTAT</span>
+            <span class="k">for</span> <span class="n">other</span> <span class="ow">in</span> <span class="n">rest</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">saved_stat</span> <span class="ow">in</span> <span class="n">other</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">saved_stat</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stat</span><span class="p">:</span>
+                        <span class="n">stat</span><span class="o">.</span><span class="n">_idx_max</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="n">saved_stat</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">stat</span><span class="o">.</span><span class="n">_idx_max</span>
+                        <span class="n">stat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">saved_stat</span><span class="p">)</span>
+                <span class="c1"># fix children&#39;s index values</span>
+                <span class="k">for</span> <span class="n">saved_stat</span> <span class="ow">in</span> <span class="n">other</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">saved_child_stat</span> <span class="ow">in</span> <span class="n">saved_stat</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                        <span class="c1"># we know for sure child&#39;s index is pointing to a valid stat in saved_stats</span>
+                        <span class="c1"># so as saved_stat is already in sync. (in above loop), we can safely assume</span>
+                        <span class="c1"># that we shall point to a valid stat in current_stats with the child&#39;s full_name</span>
+                        <span class="n">saved_child_stat</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">stat</span><span class="p">[</span><span class="n">saved_child_stat</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+                <span class="c1"># merge stats</span>
+                <span class="k">for</span> <span class="n">saved_stat</span> <span class="ow">in</span> <span class="n">other</span><span class="p">:</span>
+                    <span class="n">saved_stat_in_curr</span> <span class="o">=</span> <span class="n">stat</span><span class="p">[</span><span class="n">saved_stat</span><span class="o">.</span><span class="n">full_name</span><span class="p">]</span>
+                    <span class="n">saved_stat_in_curr</span> <span class="o">+=</span> <span class="n">saved_stat</span>
+            <span class="k">return</span> <span class="n">stat</span>
+
+
+<div class="viewcode-block" id="CpuProfiling.print_stats"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.CpuProfiling.print_stats">[docs]</a>    <span class="k">def</span> <span class="nf">print_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_rows</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">sort_by</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sort_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="n">COLMUMNS</span><span class="p">,</span> <span class="n">per_worker</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">include</span><span class="o">=</span><span class="p">(),</span> <span class="n">exclude</span><span class="o">=</span><span class="p">(),</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Print the top CPU consumers.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_rows (int): The maximum number of rows to print. Set to None to print all.</span>
+<span class="sd">            sort_by (str or None): The field to sort by, e.g. &#39;subtime&#39; or &#39;tottime&#39;</span>
+<span class="sd">            sort_dir (&#39;asc&#39;, &#39;desc&#39; or None): Sort direction (ascending or descending).</span>
+<span class="sd">            columns (sequence of (name:str, width:int) tuples): The names and widths (in</span>
+<span class="sd">                characters) of the columns to print.</span>
+<span class="sd">            per_worker (bool): Whether to print per worker individualy or to print the totals.</span>
+<span class="sd">                Defaults to printing totals.</span>
+<span class="sd">            strip_dirs (bool): Whether to strip directories (only show packages / modules and line</span>
+<span class="sd">                numbers). Defaults to True.</span>
+<span class="sd">            include (str sequence): Limit stats to these (root) modules. E.g. &#39;bndl&#39; will yield any</span>
+<span class="sd">                modules under bndl, e.g. bndl.util. Requires that strip_dirs is True.</span>
+<span class="sd">            exclude (str sequence): Filter out these (root) modules. E.g. &#39;bndl&#39; will yield any</span>
+<span class="sd">                modules except thos under bndl, e.g. bndl.util. Requires that strip_dirs is True.</span>
+<span class="sd">            file (fileobj): Where to print to. Defaults to sys.stdout.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_stats</span><span class="p">(</span><span class="n">per_worker</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">per_worker</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Worker:&#39;</span><span class="p">,</span> <span class="n">worker</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+                <span class="n">print_yappi_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">max_rows</span><span class="p">,</span> <span class="n">sort_by</span><span class="p">,</span> <span class="n">sort_dir</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span>
+                                  <span class="n">per_worker</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="p">,</span> <span class="n">include</span><span class="p">,</span> <span class="n">exclude</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">print_yappi_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">max_rows</span><span class="p">,</span> <span class="n">sort_by</span><span class="p">,</span> <span class="n">sort_dir</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span>
+                              <span class="n">per_worker</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="p">,</span> <span class="n">include</span><span class="p">,</span> <span class="n">exclude</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">print_tracemalloc_stats</span><span class="p">(</span><span class="n">top_stats</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">(),</span> <span class="n">exclude</span><span class="o">=</span><span class="p">()):</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">stat</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">top_stats</span><span class="p">[:</span><span class="n">limit</span><span class="p">],</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">stat</span><span class="o">.</span><span class="n">traceback</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">filename</span>
+        <span class="k">if</span> <span class="n">strip_dirs</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">_strip_dirs</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;#</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2">:</span><span class="si">{}</span><span class="s2"> </span><span class="si">{:.1f}</span><span class="s2"> KiB&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span>
+                                              <span class="n">stat</span><span class="o">.</span><span class="n">size</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">linecache</span><span class="o">.</span><span class="n">getline</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">line</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;    </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">line</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+
+    <span class="n">other</span> <span class="o">=</span> <span class="n">top_stats</span><span class="p">[</span><span class="n">limit</span><span class="p">:]</span>
+    <span class="k">if</span> <span class="n">other</span><span class="p">:</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">stat</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">other</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> other: </span><span class="si">%.1f</span><span class="s2"> KiB&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">),</span> <span class="n">size</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">stat</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">top_stats</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Total allocated size: </span><span class="si">%.1f</span><span class="s2"> KiB&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="mi">1024</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+
+
+
+<div class="viewcode-block" id="MemoryProfiling"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.MemoryProfiling">[docs]</a><span class="k">class</span> <span class="nc">MemoryProfiling</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Perform memory profiling on the cluster with ``tracemalloc``.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">ctx</span>
+
+
+<div class="viewcode-block" id="MemoryProfiling.start"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.MemoryProfiling.start">[docs]</a>    <span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Start memory profiling.&#39;&#39;&#39;</span>
+        <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tracemalloc</span><span class="o">.</span><span class="n">start</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MemoryProfiling.stop"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.MemoryProfiling.stop">[docs]</a>    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;Stop memory profiling.&#39;&#39;&#39;</span>
+        <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tracemalloc</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">take_snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">per_worker</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">snapshots</span> <span class="o">=</span> <span class="n">_each</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tracemalloc</span><span class="o">.</span><span class="n">take_snapshot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">per_worker</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">snapshots</span>
+        <span class="n">snapshot_merged</span><span class="p">,</span> <span class="o">*</span><span class="n">snapshots</span> <span class="o">=</span> <span class="n">pluck</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">snapshots</span><span class="p">)</span>
+        <span class="n">traces_merged</span> <span class="o">=</span> <span class="n">snapshot_merged</span><span class="o">.</span><span class="n">traces</span><span class="o">.</span><span class="n">_traces</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">snapshots</span><span class="p">:</span>
+            <span class="n">traces_merged</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">traces</span><span class="o">.</span><span class="n">_traces</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">snapshot_merged</span>
+
+
+<div class="viewcode-block" id="MemoryProfiling.print_top"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.profile.MemoryProfiling.print_top">[docs]</a>    <span class="k">def</span> <span class="nf">print_top</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_by</span><span class="o">=</span><span class="s1">&#39;lineno&#39;</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">compare_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">per_worker</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                  <span class="n">strip_dirs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">(),</span> <span class="n">exclude</span><span class="o">=</span><span class="p">(),</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Take a snapshot across the cluster and print the top memory allocations.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_by (str): Defaults to &#39;lineno&#39;.</span>
+<span class="sd">            limit (int): The number of lines to print. Defaults to 30.</span>
+<span class="sd">            compare_to (snapshot): A snapshot to compare the memory usage to.</span>
+<span class="sd">            per_worker (bool): Whether to print the top per worker or not. Defaults to False.</span>
+<span class="sd">            strip_dirs (bool): Whether to strip directories. Defaults to True.</span>
+<span class="sd">            include (sequence[str]): The modules to include.</span>
+<span class="sd">            exclude (sequence[str]): The modules to exclude.</span>
+<span class="sd">            file (fileobj): The file to print to. Defaults to ``sys.stdout``.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">compare_to</span> <span class="ow">and</span> <span class="n">per_worker</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">per_worker</span><span class="p">:</span>
+            <span class="n">snapshots</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">take_snapshot</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">snapshot</span> <span class="ow">in</span> <span class="n">snapshots</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Worker:&#39;</span><span class="p">,</span> <span class="n">worker</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">file</span><span class="p">)</span>
+                <span class="n">print_tracemalloc_stats</span><span class="p">(</span><span class="n">snapshot</span><span class="p">,</span> <span class="n">group_by</span><span class="p">,</span> <span class="n">limit</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">include</span><span class="p">,</span> <span class="n">exclude</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">snapshots</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">_build_snapshot_filter</span><span class="p">(</span><span class="n">inclusive</span><span class="p">,</span> <span class="n">modules</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">modules</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="n">modules</span> <span class="o">=</span> <span class="p">(</span><span class="n">modules</span><span class="p">,)</span>
+                <span class="n">filters</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">modules</span><span class="p">:</span>
+                    <span class="n">mod</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">sys_path</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+                        <span class="n">filename_filter</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sys_path</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="s1">&#39;*&#39;</span><span class="p">)</span>
+                        <span class="n">filters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tracemalloc</span><span class="o">.</span><span class="n">Filter</span><span class="p">(</span><span class="n">inclusive</span><span class="p">,</span> <span class="n">filename_filter</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">filters</span>
+
+            <span class="n">filters</span> <span class="o">=</span> <span class="p">[</span><span class="n">tracemalloc</span><span class="o">.</span><span class="n">Filter</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;&lt;frozen importlib._bootstrap&gt;&quot;</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="n">exclude</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_build_snapshot_filter</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="n">exclude</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">include</span><span class="p">:</span>
+                <span class="n">filters</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">_build_snapshot_filter</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="p">))</span>
+
+            <span class="n">snapshot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">take_snapshot</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">snapshot</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">filter_traces</span><span class="p">(</span><span class="n">filters</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">compare_to</span><span class="p">:</span>
+                <span class="n">top_stats</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">compare_to</span><span class="p">(</span><span class="n">compare_to</span><span class="o">.</span><span class="n">filter_traces</span><span class="p">(</span><span class="n">filters</span><span class="p">),</span> <span class="n">group_by</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">top_stats</span> <span class="o">=</span> <span class="n">snapshot</span><span class="o">.</span><span class="n">statistics</span><span class="p">(</span><span class="n">group_by</span><span class="p">)</span>
+
+            <span class="n">print_tracemalloc_stats</span><span class="p">(</span><span class="n">top_stats</span><span class="p">,</span> <span class="n">limit</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">strip_dirs</span><span class="p">,</span> <span class="n">include</span><span class="p">,</span> <span class="n">exclude</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">snapshot</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

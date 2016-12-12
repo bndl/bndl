@@ -1,0 +1,309 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>RMI &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="API Reference" href="index.html"/>
+        <link rel="next" title="Net" href="net.html"/>
+        <link rel="prev" title="Execute" href="execute.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="execute.html">Execute</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">RMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="net.html">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">API Reference</a> &raquo;</li>
+      
+    <li>RMI</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/reference/rmi.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-bndl.rmi">
+<span id="rmi"></span><h1>RMI<a class="headerlink" href="#module-bndl.rmi" title="Permalink to this headline">¶</a></h1>
+<p>The BNDL RMI module builds on <a class="reference internal" href="net.html#module-bndl.net" title="bndl.net"><code class="xref py py-mod docutils literal"><span class="pre">bndl.net</span></code></a> to allow for Remote Method Invocations.</p>
+<p>The implementation is rather straight forward: <code class="xref py py-class docutils literal"><span class="pre">RMIPeerNode</span></code> provides is the means to send
+and receive Request and Response Methods. Requests are targeting a method of the remote node by
+name. It is simply looked up by <code class="docutils literal"><span class="pre">getattr</span></code>.</p>
+<dl class="class">
+<dt id="bndl.rmi.node.RMINode">
+<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">RMINode</code><span class="sig-paren">(</span><em>name=None</em>, <em>addresses=None</em>, <em>seeds=None</em>, <em>loop=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#RMINode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.RMINode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.node.Node</span></code></p>
+<p>A <code class="xref py py-class docutils literal"><span class="pre">bndl.net.Node</span></code> which expects it&#8217;s peers to support remote method invocation as
+implemented in <code class="xref py py-class docutils literal"><span class="pre">RMIPeerNode</span></code>.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.rmi.node.RMIPeerNode">
+<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">RMIPeerNode</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#RMIPeerNode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.RMIPeerNode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.peer.PeerNode</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.rmi.node.Invocation">
+<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">Invocation</code><span class="sig-paren">(</span><em>peer</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#Invocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.Invocation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Invocation of a method on a PeerNode.</p>
+<dl class="method">
+<dt id="bndl.rmi.node.Invocation.with_timeout">
+<code class="descname">with_timeout</code><span class="sig-paren">(</span><em>timeout</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#Invocation.with_timeout"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.Invocation.with_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply a time out in performing the remote method invocation. When the time out expires
+<code class="docutils literal"><span class="pre">concurrent.futures.TimeoutError</span></code> is raised.
+:param timeout:</p>
+</dd></dl>
+
+</dd></dl>
+
+<div class="section" id="module-bndl.rmi.messages">
+<span id="messages"></span><h2>Messages<a class="headerlink" href="#module-bndl.rmi.messages" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bndl.rmi.messages.Request">
+<em class="property">class </em><code class="descclassname">bndl.rmi.messages.</code><code class="descname">Request</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/messages.html#Request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.messages.Request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>A request for a peer RMI node. It contains a request id (to which the <code class="xref py py-class docutils literal"><span class="pre">Reponse</span></code> must
+refer), the name of the method to be invoked, and the positional and keyword arguments for
+invocation.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.rmi.messages.Response">
+<em class="property">class </em><code class="descclassname">bndl.rmi.messages.</code><code class="descname">Response</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/messages.html#Response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.messages.Response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>A response to a <a class="reference internal" href="#bndl.rmi.messages.Request" title="bndl.rmi.messages.Request"><code class="xref py py-class docutils literal"><span class="pre">Request</span></code></a>. It refers to the id of the request and either contains a
+value if the invoked method returned normally or an exception if it raised one.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.rmi.exceptions">
+<span id="exceptions"></span><h2>Exceptions<a class="headerlink" href="#module-bndl.rmi.exceptions" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="bndl.rmi.exceptions.InvocationException">
+<em class="property">exception </em><code class="descclassname">bndl.rmi.exceptions.</code><code class="descname">InvocationException</code><a class="reference internal" href="../_modules/bndl/rmi/exceptions.html#InvocationException"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.exceptions.InvocationException" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+<p>Exception indicating a RMI failed. This exception is &#8216;raised from&#8217; a &#8216;reconstructed&#8217;
+exception as raised in the remote method</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="bndl.rmi.exceptions.root_exc">
+<code class="descclassname">bndl.rmi.exceptions.</code><code class="descname">root_exc</code><span class="sig-paren">(</span><em>exc</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/exceptions.html#root_exc"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.exceptions.root_exc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the __cause__ of exc if exc is an InvocationException or just exc otherwise.</p>
+<p>Can be used when both local and remote exceptions need to be handled and their
+semantics are the same (whether the exception was raised locally or on a remote
+worker doesn&#8217;t matter).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>exc</strong> &#8211; The exception which _might_ be an InvocationException</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="net.html" class="btn btn-neutral float-right" title="Net" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="execute.html" class="btn btn-neutral" title="Execute" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

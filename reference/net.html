@@ -1,0 +1,369 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Net &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="API Reference" href="index.html"/>
+        <link rel="next" title="Util" href="util.html"/>
+        <link rel="prev" title="RMI" href="rmi.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rmi.html">RMI</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">API Reference</a> &raquo;</li>
+      
+    <li>Net</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/reference/net.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-bndl.net">
+<span id="net"></span><h1>Net<a class="headerlink" href="#module-bndl.net" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-bndl.net.connection">
+<span id="connection"></span><h2>Connection<a class="headerlink" href="#module-bndl.net.connection" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="bndl.net.connection.urlparse">
+<code class="descclassname">bndl.net.connection.</code><code class="descname">urlparse</code><span class="sig-paren">(</span><em>address</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/connection.html#urlparse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.urlparse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse an address with urllib.parse.urlparse and checking validity in the
+context of bndl.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>address</strong> (<em>str</em>) &#8211; The address to parse</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.net.connection.gethostbyname">
+<code class="descclassname">bndl.net.connection.</code><code class="descname">gethostbyname</code><a class="reference internal" href="../_modules/bndl/net/connection.html#gethostbyname"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.gethostbyname" title="Permalink to this definition">¶</a></dt>
+<dd><p>A cached version of <cite>socket.gethostbyname</cite></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.net.connection.getlocalhostname">
+<code class="descclassname">bndl.net.connection.</code><code class="descname">getlocalhostname</code><a class="reference internal" href="../_modules/bndl/net/connection.html#getlocalhostname"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.getlocalhostname" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provides a local hostname using <a class="reference internal" href="#bndl.net.connection.gethostbyname" title="bndl.net.connection.gethostbyname"><code class="xref py py-meth docutils literal"><span class="pre">gethostbyname()</span></code></a> by attempting to get it from</p>
+<blockquote>
+<div><ul class="simple">
+<li><cite>gethostbyname(socket.getfqdn())</cite></li>
+<li><cite>gethostbyname(socket.gethostname())</cite></li>
+<li><cite>gethostbyname(&#8216;localhost&#8217;)</cite></li>
+</ul>
+</div></blockquote>
+<p>If the above options fail, this method falls back to 127.0.0.1.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.net.connection.filter_ip_addresses">
+<code class="descclassname">bndl.net.connection.</code><code class="descname">filter_ip_addresses</code><a class="reference internal" href="../_modules/bndl/net/connection.html#filter_ip_addresses"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.filter_ip_addresses" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter out IP addresses from a list of addresses. IP addresses are only
+selected from addresses with the <a class="reference external" href="tcp://">tcp://</a> scheme.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>*addresses</strong> (<em>iterable</em>) &#8211; URL strings (parsable by urlparse)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="exception">
+<dt id="bndl.net.connection.NotConnected">
+<em class="property">exception </em><code class="descclassname">bndl.net.connection.</code><code class="descname">NotConnected</code><a class="reference internal" href="../_modules/bndl/net/connection.html#NotConnected"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.NotConnected" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+<p>Raised when reading from or writing to a connection which is not / no
+longer connected.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.net.connection.Connection">
+<em class="property">class </em><code class="descclassname">bndl.net.connection.</code><code class="descname">Connection</code><span class="sig-paren">(</span><em>loop</em>, <em>reader</em>, <em>writer</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/connection.html#Connection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.Connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Connection object on top of an asyncio loop and a StreamReader and
+StreamWriter pair</p>
+<dl class="method">
+<dt id="bndl.net.connection.Connection.send">
+<code class="descname">send</code><span class="sig-paren">(</span><em>msg</em>, <em>drain=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/connection.html#Connection.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.Connection.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a message on this connection.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>msg</strong> (<code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code>) &#8211; The message to send.</li>
+<li><strong>drain</strong> (<em>bool</em>) &#8211; Whether to drain the socket after sending the message, defaults to True.</li>
+<li><strong>False there is no guarantee that the message will be sent unless more messages are</strong> (<em>If</em>) &#8211; </li>
+<li><strong>sent</strong> (<em>due to watermarks at the level of the asyncio transport</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.net.connection.Connection.recv">
+<code class="descname">recv</code><span class="sig-paren">(</span><em>timeout=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/connection.html#Connection.recv"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.connection.Connection.recv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receive a message from the connection.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>timeout</strong> (<em>float</em>) &#8211; timeout in seconds</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.net.messages">
+<span id="messages"></span><h2>Messages<a class="headerlink" href="#module-bndl.net.messages" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bndl.net.messages.Hello">
+<em class="property">class </em><code class="descclassname">bndl.net.messages.</code><code class="descname">Hello</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/messages.html#Hello"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.messages.Hello" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>Message shake hands with a peer node.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.net.messages.Discovered">
+<em class="property">class </em><code class="descclassname">bndl.net.messages.</code><code class="descname">Discovered</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/messages.html#Discovered"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.messages.Discovered" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>Notify another node of the discovery of one or more peer nodes</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.net.messages.Disconnect">
+<em class="property">class </em><code class="descclassname">bndl.net.messages.</code><code class="descname">Disconnect</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/messages.html#Disconnect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.messages.Disconnect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>Notify a node that the sending node is disconnecting.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.net.messages.Ping">
+<em class="property">class </em><code class="descclassname">bndl.net.messages.</code><code class="descname">Ping</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/messages.html#Ping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.messages.Ping" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>Message sent to check if a node is &#8216;alive&#8217;.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.net.messages.Pong">
+<em class="property">class </em><code class="descclassname">bndl.net.messages.</code><code class="descname">Pong</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/net/messages.html#Pong"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.net.messages.Pong" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
+<p>Response to a <a class="reference internal" href="#bndl.net.messages.Ping" title="bndl.net.messages.Ping"><code class="xref py py-class docutils literal"><span class="pre">Ping</span></code></a> to indicate that the node is &#8216;alive&#8217;.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="util.html" class="btn btn-neutral float-right" title="Util" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="rmi.html" class="btn btn-neutral" title="RMI" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

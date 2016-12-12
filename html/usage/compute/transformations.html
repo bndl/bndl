@@ -1,0 +1,636 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Transformations &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Broadcasts and accumulators" href="oob.html"/>
+        <link rel="prev" title="Datasets" href="datasets.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l3"><a class="reference internal" href="context.html">Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets.html">Datasets</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Transformations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcasts and accumulators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="run.html">Running a cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Usage</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Transformations</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/usage/compute/transformations.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="transformations">
+<h1>Transformations<a class="headerlink" href="#transformations" title="Permalink to this headline">¶</a></h1>
+<p>Datasets can be transformed, reduced (also key-wise), combined, etc. BNDL Compute has a API style
+similar to Java streams, Apache Spark, etc. I.e. invoking a method on a dataset creates a new
+dataset object with the semantics of the method applied. In fact many operators are have little to
+no differences with those in Apache Spark.</p>
+<div class="section" id="lazy-definitions">
+<h2>Lazy definitions<a class="headerlink" href="#lazy-definitions" title="Permalink to this headline">¶</a></h2>
+<p>Defining datasets and transformations on them is (mostly) lazy. Some preparational work may be
+done, but most of the effort is delayed to when an &#8216;action&#8217; is called on a dataset such as count,
+stats, collect, etc.</p>
+</div>
+<div class="section" id="transformations-and-data-movement">
+<h2>Transformations and data movement<a class="headerlink" href="#transformations-and-data-movement" title="Permalink to this headline">¶</a></h2>
+<p>Some transformations on datasets are much more expensive than other because they require
+the elements of the dataset to be &#8216;shuffled&#8217;. I.e. when joining two datasets, all elements with the
+same key must end up in the same partition (on one machine). This all-to-all communication isn&#8217;t
+cheap per se.</p>
+<p>Also collecting a dataset to the driver may be &#8216;expensive&#8217; (depending on how much is collected of
+course). The major bottleneck here is often the (de)serialization overhead in the driver. As it is
+a python process the possibilities for using multiple cores is limited and as such deserialization
+is limited to a single core</p>
+</div>
+<div class="section" id="collecting-a-dataset-to-the-driver">
+<h2>Collecting a dataset to the driver<a class="headerlink" href="#collecting-a-dataset-to-the-driver" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="peeking">
+<h3>Peeking<a class="headerlink" href="#peeking" title="Permalink to this headline">¶</a></h3>
+<p>During development / exploration it can be very convenient to &#8216;peek&#8217; into a dataset. This can bedone using <code class="docutils literal"><span class="pre">first()</span></code> and <code class="docutils literal"><span class="pre">take(num)</span></code> on a dataset:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">[0, 1, 2]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="collecting-the-total-dataset">
+<h3>Collecting the total dataset<a class="headerlink" href="#collecting-the-total-dataset" title="Permalink to this headline">¶</a></h3>
+<p>Datasets can be collected to the driver using <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect" title="bndl.compute.dataset.Dataset.collect"><code class="xref py py-meth docutils literal"><span class="pre">collect()</span></code></a> to collect into a list,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.icollect" title="bndl.compute.dataset.Dataset.icollect"><code class="xref py py-meth docutils literal"><span class="pre">icollect()</span></code></a> to collect into an iterator, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_map" title="bndl.compute.dataset.Dataset.collect_as_map"><code class="xref py py-meth docutils literal"><span class="pre">collect_as_map()</span></code></a> and
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_set" title="bndl.compute.dataset.Dataset.collect_as_set"><code class="xref py py-meth docutils literal"><span class="pre">collect_as_set()</span></code></a> to collect into a dict or set respectively.</p>
+<div class="code highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">icollect</span><span class="p">()</span>
+<span class="go">&lt;generator object Dataset.icollect at 0x7f5385f25308&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">next</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">97</span><span class="p">,</span> <span class="mi">107</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="nb">chr</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;a&#39;, 97), (&#39;b&#39;, 98), (&#39;c&#39;, 99), (&#39;d&#39;, 100), (&#39;e&#39;, 101), (&#39;f&#39;, 102), (&#39;g&#39;, 103), (&#39;h&#39;, 104), (&#39;i&#39;, 105), (&#39;j&#39;, 106)]</span>
+</pre></div>
+</div>
+<p>Datasets can be written to files (one per partition) on the driver node in pickle or json format
+with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_json" title="bndl.compute.dataset.Dataset.collect_as_json"><code class="xref py py-meth docutils literal"><span class="pre">collect_as_json()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_pickles" title="bndl.compute.dataset.Dataset.collect_as_pickles"><code class="xref py py-meth docutils literal"><span class="pre">collect_as_pickles()</span></code></a>. Collecting as raw
+files can be done with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_files" title="bndl.compute.dataset.Dataset.collect_as_files"><code class="xref py py-meth docutils literal"><span class="pre">collect_as_files()</span></code></a> (each element must be bytes or str
+depending on the mode).</p>
+</div>
+</div>
+<div class="section" id="basic-transformations">
+<h2>Basic transformations<a class="headerlink" href="#basic-transformations" title="Permalink to this headline">¶</a></h2>
+<p>Many transformation are very straight forward in terms of their implementation, e.g.
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map" title="bndl.compute.dataset.Dataset.map"><code class="xref py py-meth docutils literal"><span class="pre">map()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.filter" title="bndl.compute.dataset.Dataset.filter"><code class="xref py py-meth docutils literal"><span class="pre">filter()</span></code></a>. They operate one element or one partition at a
+time. Some examples:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;0&#39;, &#39;1&#39;, &#39;2&#39;, &#39;3&#39;, &#39;4&#39;, &#39;5&#39;, &#39;6&#39;, &#39;7&#39;, &#39;8&#39;, &#39;9&#39;]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0.0, 1.0, 2.0, 3.0, 4.0]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">90</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">chr</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">isalpha</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[True, False, False, False, False, False, False, True, True, True]</span>
+</pre></div>
+</div>
+<p>It may be convenient to call the map or the filter function with <a href="#id1"><span class="problematic" id="id2">*</span></a>args; <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.starmap" title="bndl.compute.dataset.Dataset.starmap"><code class="xref py py-meth docutils literal"><span class="pre">starmap()</span></code></a>
+and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.starfilter" title="bndl.compute.dataset.Dataset.starfilter"><code class="xref py py-meth docutils literal"><span class="pre">starfilter()</span></code></a> are the variadic forms of map and filter:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">dset</span> <span class="o">=</span> <span class="n">tx</span><span class="o">.</span><span class="n">collection</span><span class="p">({</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">dset</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="p">[(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]</span>
+
+<span class="o">&gt;&gt;&gt;</span> <span class="n">dset</span><span class="o">.</span><span class="n">starmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="p">[</span><span class="s1">&#39;a1&#39;</span><span class="p">,</span> <span class="s1">&#39;c3&#39;</span><span class="p">,</span> <span class="s1">&#39;b2&#39;</span><span class="p">]</span>
+
+<span class="o">&gt;&gt;&gt;</span> <span class="n">dset</span><span class="o">.</span><span class="n">starfilter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;a&#39;</span> <span class="ow">or</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="p">[(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>A transformation my have multiple outputs which need to be flattened. This can be done with
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.flatmap" title="bndl.compute.dataset.Dataset.flatmap"><code class="xref py py-meth docutils literal"><span class="pre">flatmap()</span></code></a> e.g. when tokeninzing text:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">([</span>
+<span class="gp">... </span><span class="s1">&#39;Humpty Dumpty sat on a wall,&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;Humpty Dumpty had a great fall.&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;All the king</span><span class="se">\&#39;</span><span class="s1">s horses and all the king</span><span class="se">\&#39;</span><span class="s1">s men&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="s1">&#39;Couldn</span><span class="se">\&#39;</span><span class="s1">t put Humpty together again.&#39;</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">],</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[[&#39;Humpty&#39;, &#39;Dumpty&#39;, &#39;sat&#39;, &#39;on&#39;, &#39;a&#39;, &#39;wall,&#39;], [&#39;Humpty&#39;, &#39;Dumpty&#39;, &#39;had&#39;, &#39;a&#39;, &#39;great&#39;, &#39;fall.&#39;], [&#39;All&#39;, &#39;the&#39;, &quot;king&#39;s&quot;, &#39;horses&#39;, &#39;and&#39;, &#39;all&#39;, &#39;the&#39;, &quot;king&#39;s&quot;, &#39;men&#39;], [&quot;Couldn&#39;t&quot;, &#39;put&#39;, &#39;Humpty&#39;, &#39;together&#39;, &#39;again.&#39;]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<span class="go">4</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">flatmap</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;Humpty&#39;, &#39;Dumpty&#39;, &#39;sat&#39;, &#39;on&#39;, &#39;a&#39;, &#39;wall,&#39;, &#39;Humpty&#39;, &#39;Dumpty&#39;, &#39;had&#39;, &#39;a&#39;, &#39;great&#39;, &#39;fall.&#39;, &#39;All&#39;, &#39;the&#39;, &quot;king&#39;s&quot;, &#39;horses&#39;, &#39;and&#39;, &#39;all&#39;, &#39;the&#39;, &quot;king&#39;s&quot;, &#39;men&#39;, &quot;Couldn&#39;t&quot;, &#39;put&#39;, &#39;Humpty&#39;, &#39;together&#39;, &#39;again.&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">flatmap</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">split</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<span class="go">26</span>
+</pre></div>
+</div>
+<p><a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.pluck" title="bndl.compute.dataset.Dataset.pluck"><code class="xref py py-meth docutils literal"><span class="pre">pluck()</span></code></a> is a convenience method to treat the dataset as consisting of sequences
+(lists, tuples, etc.) or anything else that supports <code class="docutils literal"><span class="pre">__getitem__</span></code> and get items out of them,
+e.g.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">pluck</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;m&#39;, &#39;m&#39;, &#39;l&#39;, &#39;u&#39;]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">pluck</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;m&#39;, &#39;y&#39;, &#39;p&#39;), (&#39;m&#39;, &#39;y&#39;, &#39;p&#39;), (&#39;l&#39;, &#39;h&#39;, &#39;n&#39;), (&#39;u&#39;, &#39;n&#39;, &#39;u&#39;)]</span>
+</pre></div>
+</div>
+<p>Where <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map" title="bndl.compute.dataset.Dataset.map"><code class="xref py py-meth docutils literal"><span class="pre">map()</span></code></a> transforms individual elements in a dataset,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map_partitions" title="bndl.compute.dataset.Dataset.map_partitions"><code class="xref py py-meth docutils literal"><span class="pre">map_partitions()</span></code></a>, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map_partitions_with_index" title="bndl.compute.dataset.Dataset.map_partitions_with_index"><code class="xref py py-meth docutils literal"><span class="pre">map_partitions_with_index()</span></code></a> and
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map_partitions_with_part" title="bndl.compute.dataset.Dataset.map_partitions_with_part"><code class="xref py py-meth docutils literal"><span class="pre">map_partitions_with_part()</span></code></a> transform entire partitions. This may be useful for
+efficiency or when a transformation intrinsically operates on multiple elements at a time. Note
+that the implementations of map and filter use map_partitions in combination with the <code class="docutils literal"><span class="pre">map</span></code> and
+<code class="docutils literal"><span class="pre">filter</span></code> functions built in python.</p>
+<p>When dealing with datasets of key-value pairs, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.keys" title="bndl.compute.dataset.Dataset.keys"><code class="xref py py-meth docutils literal"><span class="pre">keys()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.values" title="bndl.compute.dataset.Dataset.values"><code class="xref py py-meth docutils literal"><span class="pre">values()</span></code></a>
+allow you to &#8216;pluck&#8217; the keys or values respectively from the dataset, e.g.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">*</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 0), (1, 3), (2, 6), (3, 9), (4, 12), (5, 15), (6, 18), (7, 21), (8, 24), (9, 27)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span><span class="o">.</span><span class="n">values</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 3, 6, 9, 12, 15, 18, 21, 24, 27]</span>
+</pre></div>
+</div>
+<p>Transforming a dataset into one of key-value pairs can be done with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.key_by" title="bndl.compute.dataset.Dataset.key_by"><code class="xref py py-meth docutils literal"><span class="pre">key_by()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.key_by_id" title="bndl.compute.dataset.Dataset.key_by_id"><code class="xref py py-meth docutils literal"><span class="pre">key_by_id()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.key_by_idx" title="bndl.compute.dataset.Dataset.key_by_idx"><code class="xref py py-meth docutils literal"><span class="pre">key_by_idx()</span></code></a> to add a key and
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.with_value" title="bndl.compute.dataset.Dataset.with_value"><code class="xref py py-meth docutils literal"><span class="pre">with_value()</span></code></a> to add a value:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;0&#39;, 0), (&#39;1&#39;, 1), (&#39;2&#39;, 2), (&#39;3&#39;, 3), (&#39;4&#39;, 4)]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by_id</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 0), (1, 1), (2, 2), (3, 3), (7, 4)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">key_by_idx</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, &#39;0&#39;), (1, &#39;1&#39;), (2, &#39;2&#39;), (3, &#39;3&#39;), (4, &#39;4&#39;)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 1), (1, 1), (2, 1), (3, 1), (4, 1)]</span>
+</pre></div>
+</div>
+<p>Note that key_by_idx requires two pases and should only be used if a 0..n index is required.</p>
+<p>Mapping of keys or values can be done with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map_keys" title="bndl.compute.dataset.Dataset.map_keys"><code class="xref py py-meth docutils literal"><span class="pre">map_keys()</span></code></a>, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.map_values" title="bndl.compute.dataset.Dataset.map_values"><code class="xref py py-meth docutils literal"><span class="pre">map_values()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.flatmap_values" title="bndl.compute.dataset.Dataset.flatmap_values"><code class="xref py py-meth docutils literal"><span class="pre">flatmap_values()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.pluck_values" title="bndl.compute.dataset.Dataset.pluck_values"><code class="xref py py-meth docutils literal"><span class="pre">pluck_values()</span></code></a>. Use <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.filter_bykey" title="bndl.compute.dataset.Dataset.filter_bykey"><code class="xref py py-meth docutils literal"><span class="pre">filter_bykey()</span></code></a>
+and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.filter_byvalue" title="bndl.compute.dataset.Dataset.filter_byvalue"><code class="xref py py-meth docutils literal"><span class="pre">filter_byvalue()</span></code></a> allow you to filter on the keys or values.</p>
+<p>External programs can be used to transform a dataset through <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.pipe" title="bndl.compute.dataset.Dataset.pipe"><code class="xref py py-meth docutils literal"><span class="pre">pipe()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">encode</span><span class="p">)</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="s1">&#39;grep -Po &quot;[a-zA-Z]&quot;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">bytes</span><span class="o">.</span><span class="n">decode</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">strip</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="go">[&#39;H&#39;, &#39;u&#39;, &#39;m&#39;, &#39;p&#39;, &#39;t&#39;, &#39;y&#39;, &#39;D&#39;, &#39;u&#39;, &#39;m&#39;, &#39;p&#39;]</span>
+</pre></div>
+</div>
+<p>String or bytes-like elements of a dataset can be concattenate (within a partition) using
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.concat" title="bndl.compute.dataset.Dataset.concat"><code class="xref py py-meth docutils literal"><span class="pre">concat()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;HumptyDumptysatonawall&#39;, &#39;HumptyDumptyhadagreatfall&#39;, &#39;Allthekingshorsesandallthekingsmen&#39;, &#39;CouldntputHumptytogetheragain&#39;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="executing-a-dataset">
+<h2>Executing a dataset<a class="headerlink" href="#executing-a-dataset" title="Permalink to this headline">¶</a></h2>
+<p>Occasionally you want to &#8216;compute&#8217; a dataset for it&#8217;s side-effects, e.g. saving it&#8217;s contents to a
+database. For this purpose <code class="xref py py-meth docutils literal"><span class="pre">execute()</span></code> can be used:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">print</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">1</span>
+<span class="go">0</span>
+<span class="go">2</span>
+<span class="go">3</span>
+<span class="go">[None, None, None, None]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">print</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+<span class="go">0</span>
+<span class="go">2</span>
+<span class="go">1</span>
+<span class="go">3</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="reductions">
+<h2>Reductions<a class="headerlink" href="#reductions" title="Permalink to this headline">¶</a></h2>
+<p>The transformations in this section all (should) result into a rather small reduction of the total
+dataset (e.g. a (few) numbers). Summary statistics can be collected with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.stats" title="bndl.compute.dataset.Dataset.stats"><code class="xref py py-meth docutils literal"><span class="pre">stats()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">stats</span><span class="p">()</span>
+<span class="go">&lt;Stats count=10, mean=4.5, min=0.0, max=9.0, var=8.25, stdev=2.8722813232690143, skew=0.0, kurt=-1.2242424242424241&gt;</span>
+</pre></div>
+</div>
+<p><a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.mean" title="bndl.compute.dataset.Dataset.mean"><code class="xref py py-meth docutils literal"><span class="pre">mean()</span></code></a> is equivalent to the mean property from the stats:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="go">4.5</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.count" title="bndl.compute.dataset.Dataset.count"><code class="xref py py-meth docutils literal"><span class="pre">count()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.sum" title="bndl.compute.dataset.Dataset.sum"><code class="xref py py-meth docutils literal"><span class="pre">sum()</span></code></a> have dedicated implementations for efficiency:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<span class="go">10</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="go">45</span>
+</pre></div>
+</div>
+<p>To collect frequencies use <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.count_by_value" title="bndl.compute.dataset.Dataset.count_by_value"><code class="xref py py-meth docutils literal"><span class="pre">count_by_value()</span></code></a> or a compute a <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.histogram" title="bndl.compute.dataset.Dataset.histogram"><code class="xref py py-meth docutils literal"><span class="pre">histogram()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcdefgabcdefg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">count_by_value</span><span class="p">()</span>
+<span class="go">Counter({&#39;a&#39;: 2, &#39;e&#39;: 2, &#39;d&#39;: 2, &#39;c&#39;: 2, &#39;f&#39;: 2, &#39;b&#39;: 2, &#39;g&#39;: 2})</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">histogram</span><span class="p">,</span> <span class="n">bins</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;0112358&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">histogram</span>
+<span class="go">array([4, 2, 1])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bins</span>
+<span class="go">array([ 0.        ,  2.66666667,  5.33333333,  8.        ])</span>
+</pre></div>
+</div>
+<p>Counting the number of distinct elements is achieved through <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.count_distinct" title="bndl.compute.dataset.Dataset.count_distinct"><code class="xref py py-meth docutils literal"><span class="pre">count_distinct()</span></code></a> or
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.count_distinct_approx" title="bndl.compute.dataset.Dataset.count_distinct_approx"><code class="xref py py-meth docutils literal"><span class="pre">count_distinct_approx()</span></code></a> for an approximate count (with
+<a class="reference external" href="https://en.wikipedia.org/wiki/HyperLogLog">HyperLogLog</a>):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcdefgabcdefg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">count_distinct</span><span class="p">()</span>
+<span class="go">7</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcdefgabcdefg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">count_distinct_approx</span><span class="p">()</span>
+<span class="go">7.048292231243761</span>
+</pre></div>
+</div>
+<p>Collecting the smallest or largest element(s) can be done with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.min" title="bndl.compute.dataset.Dataset.min"><code class="xref py py-meth docutils literal"><span class="pre">min()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.max" title="bndl.compute.dataset.Dataset.max"><code class="xref py py-meth docutils literal"><span class="pre">max()</span></code></a>, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.nsmallest" title="bndl.compute.dataset.Dataset.nsmallest"><code class="xref py py-meth docutils literal"><span class="pre">nsmallest()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.nlargest" title="bndl.compute.dataset.Dataset.nlargest"><code class="xref py py-meth docutils literal"><span class="pre">nlargest()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="go">9</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">nsmallest</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">[0, 1, 2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">[9, 8, 7]</span>
+</pre></div>
+</div>
+<p>More complex (less out of the box) aggregations can be implemented with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.aggregate" title="bndl.compute.dataset.Dataset.aggregate"><code class="xref py py-meth docutils literal"><span class="pre">aggregate()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.combine" title="bndl.compute.dataset.Dataset.combine"><code class="xref py py-meth docutils literal"><span class="pre">combine()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.reduce" title="bndl.compute.dataset.Dataset.reduce"><code class="xref py py-meth docutils literal"><span class="pre">reduce()</span></code></a> (or their tree-wise implementations <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.tree_aggregate" title="bndl.compute.dataset.Dataset.tree_aggregate"><code class="xref py py-meth docutils literal"><span class="pre">tree_aggregate()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.tree_combine" title="bndl.compute.dataset.Dataset.tree_combine"><code class="xref py py-meth docutils literal"><span class="pre">tree_combine()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.tree_reduce" title="bndl.compute.dataset.Dataset.tree_reduce"><code class="xref py py-meth docutils literal"><span class="pre">tree_reduce()</span></code></a>):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span>
+<span class="go">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">total</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))),</span> <span class="nb">sum</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">total</span><span class="o">/</span><span class="n">count</span>
+<span class="go">4.5</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">combine</span><span class="p">([],</span> <span class="k">lambda</span> <span class="n">l</span><span class="p">,</span> <span class="n">e</span><span class="p">:</span> <span class="n">l</span> <span class="o">+</span> <span class="p">[</span><span class="n">e</span><span class="p">],</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">)</span>
+<span class="go">362880</span>
+</pre></div>
+</div>
+<p>Note that aggregate takes one or two functions; one to aggregate a partition and the second to
+aggregate these sub-aggregates. If only one is give, it is used to combine the sub-aggregates as
+well.</p>
+</div>
+<div class="section" id="distinct-elements">
+<h2>Distinct elements<a class="headerlink" href="#distinct-elements" title="Permalink to this headline">¶</a></h2>
+<p>To filter out any duplicates from a dataset use <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.distinct" title="bndl.compute.dataset.Dataset.distinct"><code class="xref py py-meth docutils literal"><span class="pre">distinct()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abbcccddddeeeeeffffff&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;a&#39;, &#39;e&#39;, &#39;d&#39;, &#39;c&#39;, &#39;b&#39;, &#39;f&#39;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="combinations">
+<h2>Combinations<a class="headerlink" href="#combinations" title="Permalink to this headline">¶</a></h2>
+<p>Datasets can be combined with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.union" title="bndl.compute.dataset.Dataset.union"><code class="xref py py-meth docutils literal"><span class="pre">union()</span></code></a>, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip" title="bndl.compute.dataset.Dataset.zip"><code class="xref py py-meth docutils literal"><span class="pre">zip()</span></code></a>, <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip_partitions" title="bndl.compute.dataset.Dataset.zip_partitions"><code class="xref py py-meth docutils literal"><span class="pre">zip_partitions()</span></code></a> and
+<code class="xref py py-meth docutils literal"><span class="pre">product()</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 10, 11, 12]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 10), (1, 11), (2, 12)]</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 10), (0, 11), (0, 12), (1, 10), (1, 11), (1, 12), (2, 10), (2, 11), (2, 12)]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="combinations-key-wise">
+<h2>Combinations key-wise<a class="headerlink" href="#combinations-key-wise" title="Permalink to this headline">¶</a></h2>
+<p>Datasets can be combined key-wise with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.join" title="bndl.compute.dataset.Dataset.join"><code class="xref py py-meth docutils literal"><span class="pre">join()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">//</span><span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="o">.</span><span class="n">collect</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 0, 0, 1, 1, 1, 2, 2, 2, 3])</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [(0, 0), (0, 0), (0, 0)]), (1, [(1, 1), (1, 1), (1, 1)]), (2, [(2, 2), (2, 2), (2, 2)]), (3, [(3, 3)])]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">a</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">():</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">pairs</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="go">0 [(0, 0), (0, 0), (0, 0)]</span>
+<span class="go">1 [(1, 1), (1, 1), (1, 1)]</span>
+<span class="go">2 [(2, 2), (2, 2), (2, 2)]</span>
+<span class="go">3 [(3, 3)]</span>
+</pre></div>
+</div>
+<p>Use <code class="xref py py-meth docutils literal"><span class="pre">cogroup()</span></code> to combine datasets into a dataset with a tuple as values containing the
+elements from the datasets with that particular key:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">groups</span> <span class="ow">in</span> <span class="n">a</span><span class="o">.</span><span class="n">cogroup</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">():</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="go">0 [[0], [0, 0, 0]]</span>
+<span class="go">8 [[8], []]</span>
+<span class="go">1 [[1], [1, 1, 1]]</span>
+<span class="go">9 [[9], []]</span>
+<span class="go">2 [[2], [2, 2, 2]]</span>
+<span class="go">3 [[3], [3]]</span>
+<span class="go">4 [[4], []]</span>
+<span class="go">5 [[5], []]</span>
+<span class="go">6 [[6], []]</span>
+<span class="go">7 [[7], []]</span>
+</pre></div>
+</div>
+<p>The examples above use the <code class="docutils literal"><span class="pre">key</span></code> keyword argument, if ommited datasets of key-value pairs are
+expected, e.g.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcdefg&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">key_by_id</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;pqrstuv&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">key_by_id</span><span class="p">()</span><span class="o">.</span><span class="n">map_keys</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">//</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">a</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">():</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">pairs</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="go">0 [(&#39;a&#39;, &#39;p&#39;), (&#39;a&#39;, &#39;r&#39;)]</span>
+<span class="go">1 [(&#39;c&#39;, &#39;v&#39;), (&#39;c&#39;, &#39;t&#39;)]</span>
+<span class="go">2 [(&#39;e&#39;, &#39;q&#39;), (&#39;e&#39;, &#39;s&#39;)]</span>
+<span class="go">3 [(&#39;g&#39;, &#39;u&#39;)]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="key-wise-operations">
+<h2>Key-wise operations<a class="headerlink" href="#key-wise-operations" title="Permalink to this headline">¶</a></h2>
+<p>Datasets of key-value pairs can be grouped with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.group_by_key" title="bndl.compute.dataset.Dataset.group_by_key"><code class="xref py py-meth docutils literal"><span class="pre">group_by_key()</span></code></a> (or <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.group_by" title="bndl.compute.dataset.Dataset.group_by"><code class="xref py py-meth docutils literal"><span class="pre">group_by()</span></code></a> and
+supply a key function):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">//</span><span class="mi">3</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span><span class="o">.</span><span class="n">group_by_key</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [2, 0, 1]), (1, [5, 3, 4]), (2, [7, 8, 6]), (3, [9])]</span>
+</pre></div>
+</div>
+<p>Some reductions can also be performed key-wise with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.aggregate_by_key" title="bndl.compute.dataset.Dataset.aggregate_by_key"><code class="xref py py-meth docutils literal"><span class="pre">aggregate_by_key()</span></code></a>,
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.combine_by_key" title="bndl.compute.dataset.Dataset.combine_by_key"><code class="xref py py-meth docutils literal"><span class="pre">combine_by_key()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.reduce_by_key" title="bndl.compute.dataset.Dataset.reduce_by_key"><code class="xref py py-meth docutils literal"><span class="pre">reduce_by_key()</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;a&#39;, 12), (&#39;e&#39;, 7), (&#39;i&#39;, 3), (&#39;m&#39;, 6), (&#39;u&#39;, 7), (&#39;y&#39;, 5), (&#39;d&#39;, 5), (&#39;h&#39;, 8), (&#39;l&#39;, 9), (&#39;p&#39;, 6), (&#39;t&#39;, 13), (&#39;c&#39;, 1), (&#39;g&#39;, 5), (&#39;k&#39;, 2), (&#39;o&#39;, 4), (&#39;s&#39;, 5), (&#39;w&#39;, 1), (&#39;f&#39;, 1), (&#39;n&#39;, 7), (&#39;r&#39;, 3)]</span>
+</pre></div>
+</div>
+<p>Combine with e.g. <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.nlargest" title="bndl.compute.dataset.Dataset.nlargest"><code class="xref py py-meth docutils literal"><span class="pre">nlargest()</span></code></a> to get a top N:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">chars</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="o">.</span><span class="n">lower</span><span class="p">)</span><span class="o">.</span><span class="n">with_value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">[(&#39;t&#39;, 13), (&#39;a&#39;, 12), (&#39;l&#39;, 9)]</span>
+</pre></div>
+</div>
+<p>To take a top or bottom N values per key use <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.nlargest_by_key" title="bndl.compute.dataset.Dataset.nlargest_by_key"><code class="xref py py-meth docutils literal"><span class="pre">nlargest_by_key()</span></code></a> or <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.nsmallest_by_key" title="bndl.compute.dataset.Dataset.nsmallest_by_key"><code class="xref py py-meth docutils literal"><span class="pre">nsmallest_by_key()</span></code></a>
+respectively:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">//</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">nlargest_by_key</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [3, 2]), (1, [7, 6]), (2, [9, 8])]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">i</span><span class="o">//</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">nsmallest_by_key</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, [0, 1]), (1, [4, 5]), (2, [8, 9])]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="shuffles">
+<h2>Shuffles<a class="headerlink" href="#shuffles" title="Permalink to this headline">¶</a></h2>
+<p>In order to re-partition a dataset <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.shuffle" title="bndl.compute.dataset.Dataset.shuffle"><code class="xref py py-meth docutils literal"><span class="pre">shuffle()</span></code></a> can be used to move the elements around into
+more or less partitions and get the elements in the &#8216;right&#8217; partition:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">parts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">[range(0, 5), range(5, 10)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">pcount</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">parts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">[[0, 4, 8], [1, 5, 9], [2, 6], [3, 7]]</span>
+</pre></div>
+</div>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">Document shuffle options like <code class="docutils literal"><span class="pre">pcount</span></code>, <code class="docutils literal"><span class="pre">key</span></code>, <code class="docutils literal"><span class="pre">comb</span></code>, <code class="docutils literal"><span class="pre">bucket</span></code>, <code class="docutils literal"><span class="pre">sort</span></code>,
+<code class="docutils literal"><span class="pre">max_mem_pct</span></code>, <code class="docutils literal"><span class="pre">block_size_mb</span></code>, <code class="docutils literal"><span class="pre">serialization</span></code> and <code class="docutils literal"><span class="pre">compression</span></code>.</p>
+</div>
+</div>
+<div class="section" id="sorting">
+<h2>Sorting<a class="headerlink" href="#sorting" title="Permalink to this headline">¶</a></h2>
+<p>A dataset can be sorted with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.sort" title="bndl.compute.dataset.Dataset.sort"><code class="xref py py-meth docutils literal"><span class="pre">sort()</span></code></a>. First the partition boundaries are computed from which
+a range partitioner is created and then the data is shuffled into the sort order. For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;qwerasdfzxcvtyuighjkbnmopl&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d&#39;, &#39;e&#39;, &#39;f&#39;, &#39;g&#39;, &#39;h&#39;, &#39;i&#39;, &#39;j&#39;, &#39;k&#39;, &#39;l&#39;, &#39;m&#39;, &#39;n&#39;, &#39;o&#39;, &#39;p&#39;, &#39;q&#39;, &#39;r&#39;, &#39;s&#39;, &#39;t&#39;, &#39;u&#39;, &#39;v&#39;, &#39;w&#39;, &#39;x&#39;, &#39;y&#39;, &#39;z&#39;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="sampling">
+<h2>Sampling<a class="headerlink" href="#sampling" title="Permalink to this headline">¶</a></h2>
+<p>Samples from a dataset can be take with <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.sample" title="bndl.compute.dataset.Dataset.sample"><code class="xref py py-meth docutils literal"><span class="pre">sample()</span></code></a> and <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.take_sample" title="bndl.compute.dataset.Dataset.take_sample"><code class="xref py py-meth docutils literal"><span class="pre">take_sample()</span></code></a>. The former simply
+samples the elements with a probability as a &#8216;lazy&#8217; dataset, the latter takes an exact number of
+samples:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="o">.</span><span class="mi">01</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[53, 70, 78, 303, 320, 328, 553, 570, 578, 803, 820, 828]</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">take_sample</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="go">[29, 435, 662, 818, 912, 235, 412, 318, 68, 741]</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="oob.html" class="btn btn-neutral float-right" title="Broadcasts and accumulators" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="datasets.html" class="btn btn-neutral" title="Datasets" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,512 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Compute Context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Datasets and partitions" href="dataset.html"/>
+        <link rel="prev" title="Compute" href="index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Compute Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dataset.html">Datasets and partitions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcast and Accumulate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="execute.html">Execution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">RMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">API Reference</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Compute Context</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/reference/compute/context.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-bndl.compute.context">
+<span id="compute-context"></span><h1>Compute Context<a class="headerlink" href="#module-bndl.compute.context" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="bndl.compute.context.ComputeContext">
+<em class="property">class </em><code class="descclassname">bndl.compute.context.</code><code class="descname">ComputeContext</code><span class="sig-paren">(</span><em>node</em>, <em>config=&lt;Conf {}&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="../execute.html#bndl.execute.context.ExecutionContext" title="bndl.execute.context.ExecutionContext"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.context.ExecutionContext</span></code></a></p>
+<p><a class="reference internal" href="#bndl.compute.context.ComputeContext" title="bndl.compute.context.ComputeContext"><code class="xref py py-class docutils literal"><span class="pre">ComputeContext</span></code></a> is the main &#8216;handle&#8217; into a cluster of BNDL workers from the &#8216;driver&#8217; node.</p>
+<p>It provides a means to create partitioned distributed data sets (which can be then transformed and
+combined), broadcast data, create accumulators to collect data into, etc.</p>
+<dl class="attribute">
+<dt id="bndl.compute.context.ComputeContext.dense">
+<code class="descname">dense</code><a class="headerlink" href="#bndl.compute.context.ComputeContext.dense" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create numpy based distributed, partitioned, dense arrays. See
+<a class="reference internal" href="#bndl.compute.dense.arrays" title="bndl.compute.dense.arrays"><code class="xref py py-class docutils literal"><span class="pre">dense.arrays</span></code></a>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.context.ComputeContext.default_pcount">
+<code class="descname">default_pcount</code><a class="headerlink" href="#bndl.compute.context.ComputeContext.default_pcount" title="Permalink to this definition">¶</a></dt>
+<dd><p>The default number of partitions for data sets. This either the <cite>bndl.compute.pcount</cite>
+configuration value or the number of workers (<cite>ctx.worker_count</cite>) times the
+<cite>bndl.execute.concurrency</cite> configuration value (which defaults to 1).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.context.ComputeContext.collection">
+<code class="descname">collection</code><span class="sig-paren">(</span><em>collection</em>, <em>pcount=None</em>, <em>psize=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext.collection"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext.collection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a data set from a python iterable (e.g. a list, dict or iterator).</p>
+<p>Note that iterators are consumed immediately since data sets need to be deterministic in
+their output.</p>
+<p>By default pcount (or <cite>ctx.default_pcount</cite>) partitions are created. pcount must <em>not</em> be
+set when psize is set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>collection</strong> (<em>iterable</em>) &#8211; The iterable to partition and distribute.</li>
+<li><strong>pcount</strong> (<em>int or None</em>) &#8211; The number of partition to build.</li>
+<li><strong>psize</strong> (<em>int or None</em>) &#8211; The maximum number of records per partition.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="s1">&#39;abcd&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">[&#39;d&#39;, &#39;c&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.context.ComputeContext.range">
+<code class="descname">range</code><span class="sig-paren">(</span><em>start</em>, <em>stop=None</em>, <em>step=1</em>, <em>pcount=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext.range"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext.range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a distributed partitioned data set of a range of numbers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>start</strong> (<em>int</em>) &#8211; The start or stop value (if no stop value is given).</li>
+<li><strong>stop</strong> (<em>int</em>) &#8211; The stop value or None if start is the stop value.</li>
+<li><strong>step</strong> (<em>int</em>) &#8211; The step between each value in the range.</li>
+<li><strong>pcount</strong> (<em>int</em>) &#8211; The number of partitions to partition the range into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Examples:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">glom</span><span class="p">()</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[range(0, 2), range(2, 5), range(5, 7), range(7, 10)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span><span class="o">.</span><span class="n">glom</span><span class="p">()</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[3, 4, 4, 4]</span>
+<span class="go">&gt;&gt; ctx.range(5, 10).stats()</span>
+<span class="go">&lt;Stats count=5, mean=7.0, min=5.0, max=9.0, var=2.0, stdev=1.4142135623730951, skew=0.0, kurt=-1.3&gt;</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.context.ComputeContext.accumulator">
+<code class="descname">accumulator</code><span class="sig-paren">(</span><em>initial</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext.accumulator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext.accumulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an <a class="reference internal" href="oob.html#bndl.compute.accumulate.Accumulator" title="bndl.compute.accumulate.Accumulator"><code class="xref py py-class docutils literal"><span class="pre">Accumulator</span></code></a> with an initial value.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>initial</strong> &#8211; The initial value of the accumulator.</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">accum</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">accumulator</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">mapper</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">global</span> <span class="n">accum</span>
+<span class="gp">... </span>    <span class="n">accum</span> <span class="o">+=</span> <span class="n">i</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="n">i</span>
+<span class="gp">...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="go">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">accum</span><span class="o">.</span><span class="n">value</span>
+<span class="go">0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">mapper</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="go">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">accum</span><span class="o">.</span><span class="n">value</span>
+<span class="go">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">mapper</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="go">45</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">accum</span><span class="o">.</span><span class="n">value</span>
+<span class="go">90</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.context.ComputeContext.broadcast">
+<code class="descname">broadcast</code><span class="sig-paren">(</span><em>ctx</em>, <em>value</em>, <em>serialization='auto'</em>, <em>deserialization=None</em><span class="sig-paren">)</span><a class="headerlink" href="#bndl.compute.context.ComputeContext.broadcast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Broadcast data to workers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>value</strong> (<em>object</em>) &#8211; The value to broadcast.</li>
+<li><strong>serialization</strong> (<em>str</em>) &#8211; The format to serialize the broadcast value into. Must be one of auto,
+pickle, marshal, json, binary or text.</li>
+<li><strong>deserialization</strong> (<em>None or function(bytes</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Data can be &#8216;shipped&#8217; along to workers in the closure of e.g. a mapper function, but in that
+case the data is sent once for every partition (task to be precise). For &#8216;larger&#8217; values this
+may be wasteful. Use this for instance with lookup tables of e.g. a MB or more.</p>
+<p>Note that the broadcast data is loaded on each worker (but only if the broadcast variable is
+used). The machine running the workers should thus have enough memory to spare.</p>
+<p>If deserialization is set serialization must <em>not</em> be set and value must be of type <cite>bytes</cite>.
+Otherwise serialize is used to serialize value and its natural deserialization counterpart is
+used (e.g. bytes.decode followed by json.loads for the &#8216;json&#8217; serialization format).</p>
+<p>Example usage:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s1">&#39;abcd&#39;</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">tbl</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.compute.context.ComputeContext.files">
+<code class="descname">files</code><span class="sig-paren">(</span><em>ctx</em>, <em>root</em>, <em>recursive=True</em>, <em>dfilter=None</em>, <em>ffilter=None</em>, <em>psize_bytes=None</em>, <em>psize_files=None</em>, <em>split=False</em>, <em>location='driver'</em><span class="sig-paren">)</span><a class="headerlink" href="#bndl.compute.context.ComputeContext.files" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a Dataset out of files.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>ctx</strong> &#8211; The ComputeContext</li>
+<li><strong>root</strong> &#8211; str, list
+If str, root is considered to be a file or directory name or a glob
+pattern (see glob.glob).
+If list, root is considered a list of filenames.</li>
+<li><strong>recursive</strong> &#8211; bool
+Whether to recursively search a (root) directory for files, defaults
+to True.</li>
+<li><strong>dfilter</strong> &#8211; function(dir_name)
+A function to filter out directories by name, return a trueish or falsy
+value to indicate whether to use or the directory or not.</li>
+<li><strong>ffilter</strong> &#8211; function(file_name)
+A function to filter out files by name, return a trueish or falsy
+value to indicate whether to use or the file or not.</li>
+<li><strong>psize_bytes</strong> &#8211; int or None
+The maximum number of bytes in a partition.</li>
+<li><strong>psize_files</strong> &#8211; int or None
+The maximum number of files in a partition.</li>
+<li><strong>split</strong> &#8211; bool or bytes
+If False, files will not be split to achieve partitions of max.
+size psize_bytes.
+If True, files will be split to achieve partitions of size
+psize_bytes; files will be split to fill each partition.
+If bytes, files will be split just after an occurrence of the given
+string, e.g. a newline.</li>
+<li><strong>location</strong> &#8211; str
+Use &#8216;driver&#8217; to locate the files on the driver machine or use &#8216;workers&#8217;
+to locate them on the worker machines. In the later case one worker per
+ip address will be selected and it scans the local directory. This
+requires root to be a str.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">The members of dense.sources still don&#8217;t show signature but they are methods. Their signatures
+<em>are</em> rendered correctly in ipython with e.g. <cite>ctx.dense.array?`and also `help(ctx.dense.array)</cite>
+does an okay job ...</p>
+</div>
+<dl class="class">
+<dt id="bndl.compute.dense.arrays">
+<em class="property">class </em><code class="descclassname">bndl.compute.dense.</code><code class="descname">arrays</code><span class="sig-paren">(</span><em>extended</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dense.html#arrays"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dense.arrays" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.util.objects.ExtensionGroup</span></code></p>
+<p>Create numpy based distributed, partitioned, dense arrays.</p>
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.random">
+<code class="descname">random</code><a class="headerlink" href="#bndl.compute.dense.arrays.random" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.array">
+<code class="descname">array</code><a class="headerlink" href="#bndl.compute.dense.arrays.array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Distribute a numpy array across pcount partitions or in psize partitions. Note that the array
+is partitioned along axis 0.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>arr</strong> (<em>np.ndarray</em>) &#8211; The array to partition and distribute.</li>
+<li><strong>pcount</strong> (<em>int or None</em>) &#8211; The number of partitions.</li>
+<li><strong>psize</strong> (<em>int or None</em>) &#8211; The maximum size of the partitions.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.range">
+<code class="descname">range</code><a class="headerlink" href="#bndl.compute.dense.arrays.range" title="Permalink to this definition">¶</a></dt>
+<dd><p>A distributed and partitioned <cite>np.arange</cite> like data set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>start</strong> (<em>int</em>) &#8211; The start or stop value (if no stop value is given).</li>
+<li><strong>stop</strong> (<em>int</em>) &#8211; The stop value or None if start is the stop value.</li>
+<li><strong>step</strong> (<em>int</em>) &#8211; The step between each value in the range.</li>
+<li><strong>dtype</strong> &#8211; The type of the elements in the array.</li>
+<li><strong>pcount</strong> (<em>int</em>) &#8211; The number of partitions to partition the range into.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.empty">
+<code class="descname">empty</code><a class="headerlink" href="#bndl.compute.dense.arrays.empty" title="Permalink to this definition">¶</a></dt>
+<dd><p>A distributed and partitioned version of <cite>np.empty</cite>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.zeros">
+<code class="descname">zeros</code><a class="headerlink" href="#bndl.compute.dense.arrays.zeros" title="Permalink to this definition">¶</a></dt>
+<dd><p>A distributed and partitioned version of <cite>np.zeros</cite>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.compute.dense.arrays.ones">
+<code class="descname">ones</code><a class="headerlink" href="#bndl.compute.dense.arrays.ones" title="Permalink to this definition">¶</a></dt>
+<dd><p>A distributed and partitioned version of <cite>np.ones</cite>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="dataset.html" class="btn btn-neutral float-right" title="Datasets and partitions" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Compute" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

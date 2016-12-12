@@ -1,0 +1,342 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Datasets &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Transformations" href="transformations.html"/>
+        <link rel="prev" title="Context" href="context.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l3"><a class="reference internal" href="context.html">Context</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transformations.html">Transformations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcasts and accumulators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="run.html">Running a cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Usage</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Datasets</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/usage/compute/datasets.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="datasets">
+<h1>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h1>
+<p>The key datastructure in BNDL Compute is the <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset" title="bndl.compute.dataset.Dataset"><code class="xref py py-class docutils literal"><span class="pre">Dataset</span></code></a>. It is
+a distributed partitioned collection of values. The <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Partition" title="bndl.compute.dataset.Partition"><code class="xref py py-class docutils literal"><span class="pre">Partitions</span></code></a>
+yield an iterable of values which may be arbitrary python objects (which in cases need to be
+pickleable / serializable). Datasets can be specialized with optimized partitions e.g.
+<cite>numpy.ndarray</cite> instances instead of lists. Datasets can be transformed, reduced (also key-wise),
+combined, etc. See further <a class="reference internal" href="transformations.html"><span class="doc">Transformations</span></a>.</p>
+<div class="section" id="bndl-root-data">
+<h2>BNDL root data<a class="headerlink" href="#bndl-root-data" title="Permalink to this headline">¶</a></h2>
+<p>A pipepeline (or graph) of transformations on datasets need to start with one or more &#8216;root&#8217;
+dataset. That is, a dataset which isn&#8217;t the product of another dataset, e.g. created from an
+external system.</p>
+<div class="section" id="collections">
+<h3>Collections<a class="headerlink" href="#collections" title="Permalink to this headline">¶</a></h3>
+<p>Python iterables can be partitioned and distributed with
+<a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext.collection" title="bndl.compute.context.ComputeContext.collection"><code class="xref py py-meth docutils literal"><span class="pre">ctx.collection()</span></code></a>.
+<a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext.range" title="bndl.compute.context.ComputeContext.range"><code class="xref py py-meth docutils literal"><span class="pre">ctx.range()</span></code></a> provides a way to get a
+distributed and partitioned range of integers. For example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">(</span><span class="s1">&#39;abcd&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="go">&#39;d&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">collection</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(&#39;y&#39;, 2), (&#39;x&#39;, 1), (&#39;z&#39;, 3)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="go">4.5</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="files">
+<h3>Files<a class="headerlink" href="#files" title="Permalink to this headline">¶</a></h3>
+<p>Files on the filesystem can be read as BNDL Dataset with
+<a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext.files" title="bndl.compute.context.ComputeContext.files"><code class="xref py py-meth docutils literal"><span class="pre">ctx.files()</span></code></a>. This method can be given a path to a single
+file, a list of filepaths or a path of a directory (which is scanned recursively by default). For
+example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">files</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">files</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">files</span><span class="o">.</span><span class="n">filecount</span>
+<span class="go">4461</span>
+<span class="go">&gt;&gt;&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="dense-arrays">
+<h3>Dense arrays<a class="headerlink" href="#dense-arrays" title="Permalink to this headline">¶</a></h3>
+<p>Dense distributed and partitioned Numpy based array datasets can be created through
+<a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext.dense" title="bndl.compute.context.ComputeContext.dense"><code class="xref py py-meth docutils literal"><span class="pre">ctx.dense</span></code></a>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">ctx</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">array</span><span class="p">()</span>
+<span class="n">ctx</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">range</span><span class="p">()</span>
+<span class="n">ctx</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">empty</span><span class="p">()</span>
+<span class="n">ctx</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+<span class="n">ctx</span><span class="o">.</span><span class="n">dense</span><span class="o">.</span><span class="n">ones</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="key-value-pair-datasets">
+<h2>Key-value pair datasets<a class="headerlink" href="#key-value-pair-datasets" title="Permalink to this headline">¶</a></h2>
+<p>Python as little to no support for typing variables, the return type of functions, nor for
+something like generics. <span class="target" id="index-0"></span><a class="pep reference external" href="https://www.python.org/dev/peps/pep-0484"><strong>PEP 484</strong></a> may change this, but python is still far from a statically
+typed language.</p>
+<p>Quite a few operators expect key value pairs, e.g.
+<a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.reduce_by_key" title="bndl.compute.dataset.Dataset.reduce_by_key"><code class="xref py py-meth docutils literal"><span class="pre">reduce_by_key()</span></code></a> reduces a dataset key-wise.
+I.e. the reduction function is applied on all the values with the same key in the dataset. E.g.
+in:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">//</span><span class="mi">3</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[(0, 3), (1, 12), (2, 21), (3, 9)]</span>
+</pre></div>
+</div>
+<p>the mapper function (<cite>lambda i: (i//3, i)</cite>) creates key-value tuples out of a range of integers (0
+through 9), but it isn&#8217;t anotated and can&#8217;t be inspected that it does that. So BNDL has no good
+means to discern datasets with key-value pairs and those that don&#8217;t. Because of this, operators
+like reduce_by_key are available on <em>any</em> dataset, regardless of applicability.</p>
+<p>When using such operators fails with exceptions like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="go">2016-12-02 23:42:32,917 - bndl.execute.scheduler -  WARNING - &lt;ComputePartitionTask n9h4eu0f.0 failed&gt; failed on &#39;localdomain.localhost.worker.27110.0.3&#39; after 1 attempts ... aborting</span>
+<span class="gt">Traceback (most recent call last):</span>
+<span class="c">...</span>
+  File <span class="nb">&quot;/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/shuffle.py&quot;</span>, line <span class="m">389</span>, in <span class="n">part_</span>
+    <span class="k">return</span> <span class="n">partitioner</span><span class="p">(</span><span class="n">key</span><span class="p">(</span><span class="n">element</span><span class="p">))</span>
+  File <span class="nb">&quot;bndl/util/funcs.pyx&quot;</span>, line <span class="m">44</span>, in <span class="n">bndl.util.funcs._getter (bndl/util/funcs.c:2191)</span>
+    <span class="k">return</span> <span class="n">obj</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="gr">TypeError</span>: <span class="n">&#39;int&#39; object is not subscriptable</span>
+
+<span class="go">The above exception was the direct cause of the following exception:</span>
+
+<span class="gt">Traceback (most recent call last):</span>
+  File <span class="nb">&quot;&lt;stdin&gt;&quot;</span>, line <span class="m">1</span>, in <span class="n">&lt;module&gt;</span>
+  File <span class="nb">&quot;/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset.py&quot;</span>, line <span class="m">767</span>, in <span class="n">max</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="nb">max</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span> <span class="k">if</span> <span class="n">key</span> <span class="k">else</span> <span class="nb">max</span><span class="p">)</span>
+<span class="c">...</span>
+<span class="gr">bndl.rmi.exceptions.InvocationException</span>: <span class="n">An exception was raised on localdomain.localhost.worker.27110.0.3: TypeError</span>
+</pre></div>
+</div>
+<p>consider whether the the dataset actually contains key-value pairs.</p>
+</div>
+<div class="section" id="caching">
+<h2>Caching<a class="headerlink" href="#caching" title="Permalink to this headline">¶</a></h2>
+<p>Datasets can be cached by calling <a class="reference internal" href="../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.cache" title="bndl.compute.dataset.Dataset.cache"><code class="xref py py-meth docutils literal"><span class="pre">Dataset.cache</span></code></a>. They can be
+cached in memory or on disk using various serializations (&#8216;json&#8217;, &#8216;marshal&#8217;, &#8216;pickle&#8217;, &#8216;msgpack&#8217;,
+&#8216;text&#8217; and &#8216;binary&#8217;) as well as unserialized in memory.</p>
+<p>cache
+cached
+uncache</p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="transformations.html" class="btn btn-neutral float-right" title="Transformations" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="context.html" class="btn btn-neutral" title="Context" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

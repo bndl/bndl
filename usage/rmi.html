@@ -1,0 +1,274 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Remote Method Invocation &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="Usage" href="index.html"/>
+        <link rel="next" title="Networking" href="net.html"/>
+        <link rel="prev" title="Execute" href="execute.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="execute.html">Execute</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">Usage</a> &raquo;</li>
+      
+    <li>Remote Method Invocation</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/usage/rmi.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="remote-method-invocation">
+<h1>Remote Method Invocation<a class="headerlink" href="#remote-method-invocation" title="Permalink to this headline">¶</a></h1>
+<p>On top of <code class="docutils literal"><span class="pre">bnd.net</span></code> a small module is layered which allows for remote method invocation. It&#8217;s
+fairly simple, any not otherwise resolvable attribute on an
+<a class="reference internal" href="../reference/rmi.html#bndl.rmi.node.RMIPeerNode" title="bndl.rmi.node.RMIPeerNode"><code class="xref py py-class docutils literal"><span class="pre">RMIPeerNode</span></code></a> object is considered a remote method. When called
+the name of the member and the arguments of the call are sent to the other node, the member is
+&#8216;resolved&#8217; through <code class="docutils literal"><span class="pre">getattr(self,</span> <span class="pre">name)</span></code> and then invoked with the <code class="docutils literal"><span class="pre">*args**</span></code> and <code class="docutils literal"><span class="pre">**kwargs</span></code>
+of the call.</p>
+<p>Obviously the member should exist on the <code class="xref py py-class docutils literal"><span class="pre">RMINode</span> <span class="pre">bndl.rmi.node.RMINode</span></code>
+receiving the invocation. To execute arbitrary functions on the remote node run worker/driver nodes
+in the cluster from the <code class="docutils literal"><span class="pre">bndl.compute</span></code> or <code class="docutils literal"><span class="pre">bndl.execute</span></code> modules; e.g. by running the
+<code class="docutils literal"><span class="pre">bndl-compute-shell</span></code> or <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code> commands. Such nodes provide the
+<code class="docutils literal"><span class="pre">execute(...)`</span></code> method, e.g.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
+<span class="go">4</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">workers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="mi">42</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">42</span>
+</pre></div>
+</div>
+<p>Invoking a remote method returns a <code class="docutils literal"><span class="pre">concurrent.futures.Future</span></code>. Call <code class="docutils literal"><span class="pre">.result()</span></code> on it the get
+the response. Use <code class="docutils literal"><span class="pre">.with_timeout(n)</span></code> to wait at most <cite>n</cite> seconds for a response. A
+<code class="docutils literal"><span class="pre">concurrent.futures.TimeoutError</span></code> will be raised if that happens:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>&gt;&gt;&gt; ctx.workers[0].execute.with_timeout(1)(lambda: 42).result()
+42
+&gt;&gt;&gt; ctx.workers[0].execute.with_timeout(0)(lambda: 42).result()
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/home/frens-jan/Workspaces/ext/cpython3.5/Lib/concurrent/futures/_base.py&quot;, line 405, in result
+    return self.__get_result()
+  File &quot;/home/frens-jan/Workspaces/ext/cpython3.5/Lib/concurrent/futures/_base.py&quot;, line 357, in __get_result
+    raise self._exception
+2016-12-05 00:33:51,068 - bndl.rmi.node -  WARNING - Response &lt;Response exception=None, req_id=1, value=42&gt; received for unknown request id 1
+  File &quot;/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/util/aio.py&quot;, line 64, in task_done
+    future.set_result(task.result())
+  File &quot;/home/frens-jan/Workspaces/ext/cpython3.5/Lib/asyncio/futures.py&quot;, line 292, in result
+    raise self._exception
+  File &quot;/home/frens-jan/Workspaces/ext/cpython3.5/Lib/asyncio/tasks.py&quot;, line 239, in _step
+    result = coro.send(None)
+  File &quot;/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/rmi/node.py&quot;, line 58, in _request
+    response = (yield from asyncio.wait_for(response_future, self._timeout, loop=self.peer.loop))
+  File &quot;/home/frens-jan/Workspaces/ext/cpython3.5/Lib/asyncio/tasks.py&quot;, line 404, in wait_for
+    raise futures.TimeoutError()
+concurrent.futures._base.TimeoutError
+</pre></div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="net.html" class="btn btn-neutral float-right" title="Networking" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="execute.html" class="btn btn-neutral" title="Execute" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

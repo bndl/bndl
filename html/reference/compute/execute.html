@@ -1,0 +1,311 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Execution &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Execute" href="../execute.html"/>
+        <link rel="prev" title="Broadcast and Accumulate" href="oob.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="context.html">Compute Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dataset.html">Datasets and partitions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcast and Accumulate</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Execution</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">RMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">API Reference</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Execution</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/reference/compute/execute.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="execution">
+<h1>Execution<a class="headerlink" href="#execution" title="Permalink to this headline">¶</a></h1>
+<p>Computing <a class="reference internal" href="dataset.html#bndl.compute.dataset.Dataset" title="bndl.compute.dataset.Dataset"><code class="xref py py-class docutils literal"><span class="pre">Datasets</span></code></a> (when an action is invoked on it) is
+performed by <a class="reference internal" href="../execute.html#module-bndl.execute" title="bndl.execute"><code class="xref py py-mod docutils literal"><span class="pre">bndl.execute</span></code></a>. A directed acyclic graph of data sets (one or more source data
+sets and the lineage of transformations and combinations) and their partitions is transformed into a
+directed acyclic graph of tasks.</p>
+<p>These tasks are instances of <a class="reference internal" href="#bndl.compute.dataset.ComputePartitionTask" title="bndl.compute.dataset.ComputePartitionTask"><code class="xref py py-class docutils literal"><span class="pre">ComputePartitionTask</span></code></a>.
+Each partition in a graph of data sets is computed in one task. Partitions in data sets which are
+narrow transformations (e.g. map and filter) of their source data set are coalesced into a single
+task.</p>
+<p>Datasets which are shuffled (e.g. sort, reduce_by_key, join) have all-to-all communication and thus
+can&#8217;t be coalesced into other tasks <cite>across the shuffle</cite>. For example</p>
+<div class="code pycon highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</span>
+</pre></div>
+</div>
+<p>will be computed in four tasks, as would:</p>
+<div class="code python highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;0&#39;, &#39;1&#39;, &#39;2&#39;, &#39;3&#39;, &#39;4&#39;, &#39;5&#39;, &#39;6&#39;, &#39;7&#39;, &#39;8&#39;, &#39;9&#39;]</span>
+</pre></div>
+</div>
+<p>When introducing a shuffle, the tasks are split into two groups (stages). I.e.</p>
+<div class="code python highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">//</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kv</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<span class="go">[&#39;(0, 3)&#39;, &#39;(2, 3)&#39;, &#39;(1, 3)&#39;, &#39;(3, 1)&#39;]</span>
+</pre></div>
+</div>
+<p>will result into six tasks: four &#8216;mapper&#8217; tasks which would transform the four subranges of 0
+through 9 into tuples of (i//3, 1) and &#8216;shuffle&#8217; them into two buckets (and sort them by key), and
+two reducer tasks which would read from these buckets and take the sum over the values per key.</p>
+<dl class="function">
+<dt id="bndl.compute.dataset._compute_part">
+<code class="descclassname">bndl.compute.dataset.</code><code class="descname">_compute_part</code><span class="sig-paren">(</span><em>part</em>, <em>dependency_locations</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#_compute_part"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset._compute_part" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute a partition; this method calls compute for a partition (which calls comppute on its
+source partition(s), reads data from some external source, from cache, from other workers,
+etc.). This method is the method to execute by <a class="reference internal" href="#bndl.compute.dataset.ComputePartitionTask" title="bndl.compute.dataset.ComputePartitionTask"><code class="xref py py-class docutils literal"><span class="pre">bndl.compute.dataset.ComputePartitionTask</span></code></a>
+(which delegates the RMI part to <code class="xref py py-class docutils literal"><span class="pre">bndl.execute.jobs.RmiTask</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>part</strong> &#8211; The partition to compute.</li>
+<li><strong>dependency_locations</strong> (<em>mapping[str,object]</em>) &#8211; A mapping of worker name to a sequence of
+partition ids executed by this worker.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.ComputePartitionTask">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">ComputePartitionTask</code><span class="sig-paren">(</span><em>part</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#ComputePartitionTask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.ComputePartitionTask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="../execute.html#bndl.execute.job.RmiTask" title="bndl.execute.job.RmiTask"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.job.RmiTask</span></code></a></p>
+<p>A RMI task to compute a partition (and it&#8217;s &#8216;narrow&#8217; sources). It adds some dependency location
+tracking and communications as well as memorizing where a partition was computed and cached.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.compute.dataset.BarrierTask">
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">BarrierTask</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#BarrierTask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.BarrierTask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="../execute.html#bndl.execute.job.Task" title="bndl.execute.job.Task"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.job.Task</span></code></a></p>
+<p>An &#8216;artificial&#8217; task which disconnects
+<a class="reference internal" href="#bndl.compute.dataset.ComputePartitionTask" title="bndl.compute.dataset.ComputePartitionTask"><code class="xref py py-class docutils literal"><span class="pre">ComputePartitionTasks</span></code></a> in order to reduce
+computational complexity in <a class="reference internal" href="../execute.html#module-bndl.execute.scheduler" title="bndl.execute.scheduler"><code class="xref py py-mod docutils literal"><span class="pre">bndl.execute.scheduler</span></code></a>. As this scheduler tracks individual
+dependencies the scheduling overhead goes through the roof when even a moderate amount of tasks
+which depend on another set of tasks (which is the case for a shuffle). E.g. consider</p>
+<div class="code python highlight-default"><div class="highlight"><pre><span></span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">//</span><span class="mi">10</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This would result in 1000 mapper and 1000 reducer tasks and thus in 1.000.000 dependencies to
+be tracked. After introducing the BarrierTask, there are 1000 + 1000 + 1 tasks and 1000 + 1000
+dependencies to track.</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../execute.html" class="btn btn-neutral float-right" title="Execute" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="oob.html" class="btn btn-neutral" title="Broadcast and Accumulate" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

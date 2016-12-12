@@ -1,0 +1,490 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bndl.execute.context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+      
+    <li>bndl.execute.context</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bndl.execute.context</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">queue</span> <span class="k">import</span> <span class="n">Queue</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Thread</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">bndl.execute.profile</span> <span class="k">import</span> <span class="n">CpuProfiling</span><span class="p">,</span> <span class="n">MemoryProfiling</span>
+<span class="kn">from</span> <span class="nn">bndl.execute.scheduler</span> <span class="k">import</span> <span class="n">Scheduler</span>
+<span class="kn">from</span> <span class="nn">bndl.execute.worker</span> <span class="k">import</span> <span class="n">current_worker</span>
+<span class="kn">from</span> <span class="nn">bndl.util</span> <span class="k">import</span> <span class="n">plugins</span>
+<span class="kn">from</span> <span class="nn">bndl.util.conf</span> <span class="k">import</span> <span class="n">Config</span>
+<span class="kn">from</span> <span class="nn">bndl.util.exceptions</span> <span class="k">import</span> <span class="n">catch</span>
+<span class="kn">from</span> <span class="nn">bndl.util.lifecycle</span> <span class="k">import</span> <span class="n">Lifecycle</span>
+<span class="kn">from</span> <span class="nn">bndl.util.funcs</span> <span class="k">import</span> <span class="n">as_method</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_num_connected</span><span class="p">():</span>
+    <span class="n">worker</span> <span class="o">=</span> <span class="n">current_worker</span><span class="p">()</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">worker</span><span class="o">.</span><span class="n">peers</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">node_type</span><span class="o">=</span><span class="s1">&#39;worker&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">w</span><span class="o">.</span><span class="n">is_connected</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ExecutionContext"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.context.ExecutionContext">[docs]</a><span class="k">class</span> <span class="nc">ExecutionContext</span><span class="p">(</span><span class="n">Lifecycle</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Entry point for executing :class:`Jobs &lt;bndl.execute.job.Job&gt;` across workers.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">instances</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">()):</span>
+        <span class="c1"># Make sure the BNDL plugins are loaded</span>
+        <span class="n">plugins</span><span class="o">.</span><span class="n">load_plugins</span><span class="p">()</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_node</span> <span class="o">=</span> <span class="n">node</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conf</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">node</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">catch</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_node</span> <span class="o">=</span> <span class="n">current_worker</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node</span>
+
+
+<div class="viewcode-block" id="ExecutionContext.execute"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.context.ExecutionContext.execute">[docs]</a>    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">order_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">concurrency</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">attempts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Execute a :class:`Job &lt;bndl.execute.job.Job&gt;` on workers and get the results of each</span>
+<span class="sd">        :class:`Task &lt;bndl.execute.job.Task&gt;` as it is executed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            job (bndl.execute.job.Job): The job to execute.</span>
+<span class="sd">            workers (sequence): A sequence of :class:`RMIPeerNodes &lt;bndl.rmi.node.RMIPeerNode&gt;`</span>
+<span class="sd">                peer nodes to execute the job on.</span>
+<span class="sd">            order_results (bool): Whether the results of the task are to be yielded in order or not</span>
+<span class="sd">                (defaults to True).</span>
+<span class="sd">            concurrency (int &gt;= 1): The number of tasks to execute concurrently on each worker.</span>
+<span class="sd">                Defaults to the ``bndl.execute.concurrency`` configuration parameter.</span>
+<span class="sd">            attempts (int &gt;= 1): The maximum number of attempts per task (not counting worker failure</span>
+<span class="sd">                as induced from a task failing with NotConnected or a task marked as failed through</span>
+<span class="sd">                :class:`bndl.execute.exceptions.DependenciesFailed`). Defaults to the</span>
+<span class="sd">                ``bndl.execute.attempts`` configuration parameter.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">running</span><span class="p">,</span> <span class="s1">&#39;context is not running&#39;</span>
+        <span class="k">assert</span> <span class="n">concurrency</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">concurrency</span> <span class="o">&gt;=</span> <span class="mi">1</span>
+        <span class="k">assert</span> <span class="n">attempts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">attempts</span> <span class="o">&gt;=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">workers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
+            <span class="n">workers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">job</span><span class="o">.</span><span class="n">tasks</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
+
+        <span class="n">done</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+        <span class="n">concurrency</span> <span class="o">=</span> <span class="n">concurrency</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.execute.concurrency&#39;</span><span class="p">]</span>
+        <span class="n">attempts</span> <span class="o">=</span> <span class="n">attempts</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.execute.attempts&#39;</span><span class="p">]</span>
+
+        <span class="n">scheduler</span> <span class="o">=</span> <span class="n">Scheduler</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">tasks</span><span class="p">,</span> <span class="n">done</span><span class="o">.</span><span class="n">put</span><span class="p">,</span> <span class="n">workers</span><span class="p">,</span> <span class="n">concurrency</span><span class="p">,</span> <span class="n">attempts</span><span class="p">)</span>
+        <span class="n">scheduler_driver</span> <span class="o">=</span> <span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">scheduler</span><span class="o">.</span><span class="n">run</span><span class="p">,</span>
+                                  <span class="n">name</span><span class="o">=</span><span class="s1">&#39;bndl-scheduler-</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
+                                  <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">job</span><span class="o">.</span><span class="n">signal_start</span><span class="p">()</span>
+        <span class="n">scheduler_driver</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">order_results</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_ordered</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">done</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_unordered</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">done</span><span class="p">)</span>
+            <span class="n">scheduler_driver</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="n">scheduler</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">GeneratorExit</span><span class="p">:</span>
+            <span class="n">scheduler</span><span class="o">.</span><span class="n">abort</span><span class="p">()</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">scheduler_driver</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">job</span><span class="o">.</span><span class="n">tasks</span><span class="p">:</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+            <span class="n">job</span><span class="o">.</span><span class="n">signal_stop</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_execute_ordered</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job</span><span class="p">,</span> <span class="n">done</span><span class="p">):</span>
+        <span class="c1"># keep a dict with results which are &#39;early&#39; and the task id</span>
+        <span class="n">task_ids</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">job</span><span class="o">.</span><span class="n">tasks</span><span class="p">)</span>
+        <span class="n">next_taskid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">task_ids</span><span class="p">)</span>
+        <span class="n">early</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_unordered</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">done</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="n">next_taskid</span><span class="p">:</span>
+                <span class="n">early</span><span class="p">[</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">task</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">early</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">task</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># possibly yield tasks which are next</span>
+                    <span class="n">next_taskid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">task_ids</span><span class="p">)</span>
+                    <span class="k">while</span> <span class="n">early</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">next_taskid</span> <span class="ow">in</span> <span class="n">early</span><span class="p">:</span>
+                            <span class="k">yield</span> <span class="n">early</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">next_taskid</span><span class="p">)</span>
+                            <span class="n">next_taskid</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">task_ids</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">break</span>
+                <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">early</span><span class="p">,</span> <span class="s1">&#39;results for tasks </span><span class="si">%r</span><span class="s1"> not yet yielded&#39;</span> <span class="o">%</span> <span class="n">early</span>
+
+
+    <span class="k">def</span> <span class="nf">_execute_unordered</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">job</span><span class="p">,</span> <span class="n">done</span><span class="p">):</span>
+        <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">done</span><span class="o">.</span><span class="n">get</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">task</span>
+            <span class="k">elif</span> <span class="n">task</span><span class="o">.</span><span class="n">failed</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">task</span><span class="o">.</span><span class="n">exception</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">task</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+                <span class="k">yield</span> <span class="n">task</span>
+
+
+<div class="viewcode-block" id="ExecutionContext.await_workers"><a class="viewcode-back" href="../../../reference/execute.html#bndl.execute.context.ExecutionContext.await_workers">[docs]</a>    <span class="k">def</span> <span class="nf">await_workers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker_count</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connect_timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">stable_timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Waits for workers to be available. If not in connect_timeout a RuntimeError is raised. Once</span>
+<span class="sd">        a worker is found, at most stable_timeout seconds will be waited for the cluster to settle.</span>
+<span class="sd">        That is, until no new workers are discovered / the worker count is stable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            worker_count (float or None): The expected worker count. When connected to exactly worker_count</span>
+<span class="sd">                workers, this method will return faster.</span>
+<span class="sd">            connect_timeout (float): Maximum time in seconds waited until the first worker is discovered.</span>
+<span class="sd">            stable_timeout (float): Maximum time in seconds waited until no more workers are discovered.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">connect_timeout</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">):</span>
+            <span class="n">connect_timeout</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">connect_timeout</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stable_timeout</span><span class="p">,</span> <span class="n">timedelta</span><span class="p">):</span>
+            <span class="n">stable_timeout</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">stable_timeout</span><span class="p">)</span>
+
+        <span class="c1"># workers are awaited in a loop, idling step_sleep each time</span>
+        <span class="c1"># step_sleep increases until at most 1 second</span>
+        <span class="n">step_sleep</span> <span class="o">=</span> <span class="o">.</span><span class="mi">1</span>
+
+        <span class="c1"># remember when we started the wait</span>
+        <span class="n">wait_started</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="c1"># and set deadlines for first connect and stability</span>
+        <span class="n">connected_deadline</span> <span class="o">=</span> <span class="n">wait_started</span> <span class="o">+</span> <span class="n">connect_timeout</span>
+        <span class="n">stable_deadline</span> <span class="o">=</span> <span class="n">wait_started</span> <span class="o">+</span> <span class="n">stable_timeout</span>
+        <span class="c1"># for stability we don&#39;t look back further than the stable timeout</span>
+        <span class="n">stable_max_lookback</span> <span class="o">=</span> <span class="n">wait_started</span> <span class="o">-</span> <span class="n">stable_timeout</span>
+
+        <span class="k">def</span> <span class="nf">is_stable</span><span class="p">():</span>
+            <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">            Check whether the cluster of workers is &#39;stable&#39;.</span>
+
+<span class="sd">            The following heuristics are applied (assuming the default timeout</span>
+<span class="sd">            values):</span>
+
+<span class="sd">            - The cluster is considered stable if no connects are made in the</span>
+<span class="sd">              last 60 seconds.</span>
+<span class="sd">            - If there is only one such recent connects, at least 5 seconds</span>
+<span class="sd">              has passed.</span>
+<span class="sd">            - If there are more recent connects, the cluster is considered</span>
+<span class="sd">              stable if at least twice the maximum interval between the</span>
+<span class="sd">              connects has passed or 1 second, whichever is longer.</span>
+<span class="sd">            &#39;&#39;&#39;</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="n">recent_connects</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">connected_on</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span>
+                                     <span class="k">if</span> <span class="n">worker</span><span class="o">.</span><span class="n">connected_on</span> <span class="o">&gt;</span> <span class="n">stable_max_lookback</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">recent_connects</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">True</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">recent_connects</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">recent_connects</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">now</span> <span class="o">-</span> <span class="n">connect_timeout</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">max_connect_gap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">recent_connects</span><span class="p">,</span> <span class="n">recent_connects</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+                <span class="n">stable_time</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">max_connect_gap</span>
+                <span class="n">time_since_last_connect</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">recent_connects</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="n">time_since_last_connect</span> <span class="o">&gt;</span> <span class="n">stable_time</span>
+
+        <span class="k">def</span> <span class="nf">worker_count_consistent</span><span class="p">():</span>
+            <span class="sd">&#39;&#39;&#39;Check if the workers all see each other&#39;&#39;&#39;</span>
+            <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+            <span class="n">tasks</span> <span class="o">=</span> <span class="p">[(</span><span class="n">w</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">_num_connected</span><span class="p">))</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">]</span>
+            <span class="n">actual</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">actual</span> <span class="o">+=</span> <span class="n">task</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t get connected worker count from </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">expected</span> <span class="o">==</span> <span class="n">actual</span>
+
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">worker_count</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">worker_count</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">connected_deadline</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;no workers available&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">recent_connects</span><span class="p">,</span> <span class="n">stable</span> <span class="o">=</span> <span class="n">is_stable</span><span class="p">()</span>
+
+                <span class="k">if</span> <span class="n">stable</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">recent_connects</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+                    <span class="k">elif</span> <span class="n">recent_connects</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">worker_count_consistent</span><span class="p">():</span>
+                            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+
+                <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">stable_deadline</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Worker count not stable after </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">stable_timeout</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">step_sleep</span><span class="p">)</span>
+                <span class="n">step_sleep</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">step_sleep</span> <span class="o">*</span> <span class="mf">1.5</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">worker_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;The number of workers connected with&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">workers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;All peers of the local node with ``node_type`` `worker`.&#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">peers</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">node_type</span><span class="o">=</span><span class="s1">&#39;worker&#39;</span><span class="p">)</span>
+
+
+    <span class="n">cpu_profiling</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">as_method</span><span class="p">(</span><span class="n">CpuProfiling</span><span class="p">))</span>
+    <span class="n">memory_profiling</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">as_method</span><span class="p">(</span><span class="n">MemoryProfiling</span><span class="p">))</span>
+
+
+    <span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_stop</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">()</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;_node&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;jobs&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;cancelled&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;started_on&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;stopped_on&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_node</span> <span class="o">=</span> <span class="kc">None</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

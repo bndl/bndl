@@ -1,0 +1,595 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Execute &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+        <link rel="copyright" title="Copyright" href="../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+        <link rel="up" title="API Reference" href="index.html"/>
+        <link rel="next" title="RMI" href="rmi.html"/>
+        <link rel="prev" title="Execution" href="compute/execute.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Plugins</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="compute/index.html">Compute</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rmi.html">RMI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="net.html">Net</a></li>
+<li class="toctree-l2"><a class="reference internal" href="util.html">Util</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="index.html">API Reference</a> &raquo;</li>
+      
+    <li>Execute</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/reference/execute.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-bndl.execute">
+<span id="execute"></span><h1>Execute<a class="headerlink" href="#module-bndl.execute" title="Permalink to this headline">¶</a></h1>
+<p>The <code class="docutils literal"><span class="pre">bndl.execute</span></code> module provides a means to execute <a class="reference internal" href="#bndl.execute.job.Job" title="bndl.execute.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Jobs</span></code></a> on a
+cluster of workers.</p>
+<p><a class="reference internal" href="#bndl.execute.job.Job" title="bndl.execute.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Jobs</span></code></a> consists of <a class="reference internal" href="#bndl.execute.job.Task" title="bndl.execute.job.Task"><code class="xref py py-class docutils literal"><span class="pre">Tasks</span></code></a> which are
+interconnected in a directed acyclic graph (traversable in both directions). <code class="docutils literal"><span class="pre">bndl.execute</span></code>
+provides a <a class="reference internal" href="#bndl.execute.scheduler.Scheduler" title="bndl.execute.scheduler.Scheduler"><code class="xref py py-class docutils literal"><span class="pre">Scheduler</span></code></a> which executes jobs and ensure
+that tasks are executed in dependency order, tasks are executed with locality (if any) to a worker
+and tasks are restarted (if configured), also when a (possibly indirect) dependent task marks a
+dependency as failed.</p>
+<div class="section" id="module-bndl.execute.context">
+<span id="execute-context"></span><h2>Execute context<a class="headerlink" href="#module-bndl.execute.context" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bndl.execute.context.ExecutionContext">
+<em class="property">class </em><code class="descclassname">bndl.execute.context.</code><code class="descname">ExecutionContext</code><span class="sig-paren">(</span><em>node</em>, <em>config=&lt;Conf {}&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/context.html#ExecutionContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.context.ExecutionContext" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.util.lifecycle.Lifecycle</span></code></p>
+<p>Entry point for executing <a class="reference internal" href="#bndl.execute.job.Job" title="bndl.execute.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Jobs</span></code></a> across workers.</p>
+<dl class="method">
+<dt id="bndl.execute.context.ExecutionContext.execute">
+<code class="descname">execute</code><span class="sig-paren">(</span><em>job</em>, <em>workers=None</em>, <em>order_results=True</em>, <em>concurrency=None</em>, <em>attempts=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/context.html#ExecutionContext.execute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.context.ExecutionContext.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Execute a <a class="reference internal" href="#bndl.execute.job.Job" title="bndl.execute.job.Job"><code class="xref py py-class docutils literal"><span class="pre">Job</span></code></a> on workers and get the results of each
+<a class="reference internal" href="#bndl.execute.job.Task" title="bndl.execute.job.Task"><code class="xref py py-class docutils literal"><span class="pre">Task</span></code></a> as it is executed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>job</strong> (<a class="reference internal" href="#bndl.execute.job.Job" title="bndl.execute.job.Job"><em>bndl.execute.job.Job</em></a>) &#8211; The job to execute.</li>
+<li><strong>workers</strong> (<em>sequence</em>) &#8211; A sequence of <a class="reference internal" href="rmi.html#bndl.rmi.node.RMIPeerNode" title="bndl.rmi.node.RMIPeerNode"><code class="xref py py-class docutils literal"><span class="pre">RMIPeerNodes</span></code></a>
+peer nodes to execute the job on.</li>
+<li><strong>order_results</strong> (<em>bool</em>) &#8211; Whether the results of the task are to be yielded in order or not
+(defaults to True).</li>
+<li><strong>concurrency</strong> (<em>int &gt;= 1</em>) &#8211; The number of tasks to execute concurrently on each worker.
+Defaults to the <code class="docutils literal"><span class="pre">bndl.execute.concurrency</span></code> configuration parameter.</li>
+<li><strong>attempts</strong> (<em>int &gt;= 1</em>) &#8211; The maximum number of attempts per task (not counting worker failure
+as induced from a task failing with NotConnected or a task marked as failed through
+<a class="reference internal" href="#bndl.execute.exceptions.DependenciesFailed" title="bndl.execute.exceptions.DependenciesFailed"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.exceptions.DependenciesFailed</span></code></a>). Defaults to the
+<code class="docutils literal"><span class="pre">bndl.execute.attempts</span></code> configuration parameter.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.context.ExecutionContext.await_workers">
+<code class="descname">await_workers</code><span class="sig-paren">(</span><em>worker_count=None</em>, <em>connect_timeout=5</em>, <em>stable_timeout=60</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/context.html#ExecutionContext.await_workers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.context.ExecutionContext.await_workers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Waits for workers to be available. If not in connect_timeout a RuntimeError is raised. Once
+a worker is found, at most stable_timeout seconds will be waited for the cluster to settle.
+That is, until no new workers are discovered / the worker count is stable.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>worker_count</strong> (<em>float or None</em>) &#8211; The expected worker count. When connected to exactly worker_count
+workers, this method will return faster.</li>
+<li><strong>connect_timeout</strong> (<em>float</em>) &#8211; Maximum time in seconds waited until the first worker is discovered.</li>
+<li><strong>stable_timeout</strong> (<em>float</em>) &#8211; Maximum time in seconds waited until no more workers are discovered.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.context.ExecutionContext.worker_count">
+<code class="descname">worker_count</code><a class="headerlink" href="#bndl.execute.context.ExecutionContext.worker_count" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of workers connected with</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.context.ExecutionContext.workers">
+<code class="descname">workers</code><a class="headerlink" href="#bndl.execute.context.ExecutionContext.workers" title="Permalink to this definition">¶</a></dt>
+<dd><p>All peers of the local node with <code class="docutils literal"><span class="pre">node_type</span></code> <cite>worker</cite>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.context.ExecutionContext.cpu_profiling">
+<code class="descname">cpu_profiling</code><a class="headerlink" href="#bndl.execute.context.ExecutionContext.cpu_profiling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform CPU profiling across the cluster with <code class="docutils literal"><span class="pre">yappi</span></code>.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.context.ExecutionContext.memory_profiling">
+<code class="descname">memory_profiling</code><a class="headerlink" href="#bndl.execute.context.ExecutionContext.memory_profiling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform memory profiling on the cluster with <code class="docutils literal"><span class="pre">tracemalloc</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.execute.job">
+<span id="jobs-and-tasks"></span><h2>Jobs and tasks<a class="headerlink" href="#module-bndl.execute.job" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bndl.execute.job.Job">
+<em class="property">class </em><code class="descclassname">bndl.execute.job.</code><code class="descname">Job</code><span class="sig-paren">(</span><em>ctx</em>, <em>tasks</em>, <em>name=None</em>, <em>desc=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Job"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Job" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.util.lifecycle.Lifecycle</span></code></p>
+<p>A set of <a class="reference internal" href="#bndl.execute.job.Task" title="bndl.execute.job.Task"><code class="xref py py-class docutils literal"><span class="pre">Tasks</span></code></a> which can be executed on a cluster of workers.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.execute.job.Task">
+<em class="property">class </em><code class="descclassname">bndl.execute.job.</code><code class="descname">Task</code><span class="sig-paren">(</span><em>ctx</em>, <em>task_id</em>, <em>*</em>, <em>priority=None</em>, <em>name=None</em>, <em>desc=None</em>, <em>group=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.util.lifecycle.Lifecycle</span></code></p>
+<p>Execution of a Task on a worker is the basic unit of scheduling in <code class="docutils literal"><span class="pre">bndl.execute</span></code>.</p>
+<dl class="method">
+<dt id="bndl.execute.job.Task.execute">
+<code class="descname">execute</code><span class="sig-paren">(</span><em>scheduler</em>, <em>worker</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.execute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Execute the task on a worker. The scheduler is provided as &#8216;context&#8217; for the task.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.cancel">
+<code class="descname">cancel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.cancel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.cancel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cancel execution (if not already done) of this task.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.locality">
+<code class="descname">locality</code><span class="sig-paren">(</span><em>workers</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.locality"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.locality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Indicate locality for executing this task on workers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>workers</strong> (<em>sequence[worker]</em>) &#8211; The workers to determine the locality for.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>Sequence[</strong> &#8211; A sequence of worker - locality tuples. 0 is
+indifferent and can be skipped, -1 is forbidden, 1+ increasing locality.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">worker, locality</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.job.Task.started">
+<code class="descname">started</code><a class="headerlink" href="#bndl.execute.job.Task.started" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the task has started</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="bndl.execute.job.Task.done">
+<code class="descname">done</code><a class="headerlink" href="#bndl.execute.job.Task.done" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the task has completed execution</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.set_executing">
+<code class="descname">set_executing</code><span class="sig-paren">(</span><em>worker</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.set_executing"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.set_executing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility for sub-classes to register the task as executing on a worker.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.mark_done">
+<code class="descname">mark_done</code><span class="sig-paren">(</span><em>result=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.mark_done"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.mark_done" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;
+Externally&#8217; mark the task as done. E.g. because its &#8216;side effect&#8217; (result) is already
+available).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.mark_failed">
+<code class="descname">mark_failed</code><span class="sig-paren">(</span><em>exc</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.mark_failed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.mark_failed" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;Externally&#8217; mark the task as failed. E.g. because the worker which holds the tasks&#8217; result
+has failed / can&#8217;t be reached.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.result">
+<code class="descname">result</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.result"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.result" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the result of the task (blocks). Raises an exception if the task failed with one.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.exception">
+<code class="descname">exception</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.exception"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.exception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the exception of the task (blocks).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.executed_on_last">
+<code class="descname">executed_on_last</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.executed_on_last"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.executed_on_last" title="Permalink to this definition">¶</a></dt>
+<dd><p>The name of the worker this task executed on last (if any).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.job.Task.release">
+<code class="descname">release</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#Task.release"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.Task.release" title="Permalink to this definition">¶</a></dt>
+<dd><p>Release most resources of the task. Invoked after a job&#8217;s execution is complete.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.execute.job.RmiTask">
+<em class="property">class </em><code class="descclassname">bndl.execute.job.</code><code class="descname">RmiTask</code><span class="sig-paren">(</span><em>ctx</em>, <em>task_id</em>, <em>method</em>, <em>args=()</em>, <em>kwargs=None</em>, <em>*</em>, <em>priority=None</em>, <em>name=None</em>, <em>desc=None</em>, <em>group=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/job.html#RmiTask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.job.RmiTask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#bndl.execute.job.Task" title="bndl.execute.job.Task"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.job.Task</span></code></a></p>
+<p>A task which performs a Remote Method Invocation to execute a method with positional and keyword arguments.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.execute.scheduler">
+<span id="scheduler"></span><h2>Scheduler<a class="headerlink" href="#module-bndl.execute.scheduler" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="bndl.execute.scheduler.FailedDependency">
+<em class="property">exception </em><code class="descclassname">bndl.execute.scheduler.</code><code class="descname">FailedDependency</code><span class="sig-paren">(</span><em>worker_failed=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/scheduler.html#FailedDependency"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.scheduler.FailedDependency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+<p>Exception to be raised by task (i.e. returned from task.exception for tasks which have failed)
+to indicate that the task has been marked as failed post-hoc by the execution of another task.</p>
+<p>The worker_failed argument indicates whether the worker which executed the task should be
+considered lost or not.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.execute.scheduler.Scheduler">
+<em class="property">class </em><code class="descclassname">bndl.execute.scheduler.</code><code class="descname">Scheduler</code><span class="sig-paren">(</span><em>tasks</em>, <em>done</em>, <em>workers</em>, <em>concurrency=1</em>, <em>attempts=1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/scheduler.html#Scheduler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.scheduler.Scheduler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This scheduler executes Tasks taking into account their dependencies and worker locality.</p>
+<dl class="docutils">
+<dt>Worker assignment takes into account:</dt>
+<dd><ul class="first last simple">
+<li>concurrency (how many tasks must a worker execute concurrently)</li>
+<li>and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
+as locality 0 is likely to be common, this is assumed throughout the scheduler
+to reduce the memory cost for scheduling</li>
+</ul>
+</dd>
+</dl>
+<p>The most important component in the computational complexity of the scheduler is the number of
+dependencies to track. Many-to-many dependencies should be kept to the thousands or tens of
+thousands (i.e. 100 * 100 tasks). Such issues can be resolved by introducing a &#8216;barrier task&#8217;
+as is done in bndl.compute (this reduced the number of dependencies to n+m instead of n*m).</p>
+<dl class="method">
+<dt id="bndl.execute.scheduler.Scheduler.task_done">
+<code class="descname">task_done</code><span class="sig-paren">(</span><em>task</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/scheduler.html#Scheduler.task_done"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.scheduler.Scheduler.task_done" title="Permalink to this definition">¶</a></dt>
+<dd><p>When a task completes, delete it from pending, add it to done
+and set dependent tasks as executable if this task was the last dependency.
+Reschedule failed tasks or abort scheduling if failed to often.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.execute.exceptions">
+<span id="exceptions"></span><h2>Exceptions<a class="headerlink" href="#module-bndl.execute.exceptions" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="bndl.execute.exceptions.TaskCancelled">
+<em class="property">exception </em><code class="descclassname">bndl.execute.exceptions.</code><code class="descname">TaskCancelled</code><a class="reference internal" href="../_modules/bndl/execute/exceptions.html#TaskCancelled"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.exceptions.TaskCancelled" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+<p>Exception raised in a worker when a task is to be cancelled (preempted) by the driver.</p>
+<p>This exception is raised through use of
+<a class="reference external" href="https://docs.python.org/3.5/c-api/init.html#c.PyThreadState_SetAsyncExc">PyThreadState_SetAsyncExc</a>.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="bndl.execute.exceptions.DependenciesFailed">
+<em class="property">exception </em><code class="descclassname">bndl.execute.exceptions.</code><code class="descname">DependenciesFailed</code><span class="sig-paren">(</span><em>failures</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/exceptions.html#DependenciesFailed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.exceptions.DependenciesFailed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+<p>Indicate that a task failed due to dependencies not being &#8216;available&#8217;. This will cause the
+dependencies to be re-executed and the task which raises DependenciesFailed will be scheduled
+to execute once the dependencies complete.</p>
+<p>The failures attribute is a mapping from worker names (strings) to a sequence of
+task_ids which have failed.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-bndl.execute.worker">
+<span id="worker"></span><h2>Worker<a class="headerlink" href="#module-bndl.execute.worker" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-bndl.execute.profile">
+<span id="profiling"></span><h2>Profiling<a class="headerlink" href="#module-bndl.execute.profile" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bndl.execute.profile.CpuProfiling">
+<em class="property">class </em><code class="descclassname">bndl.execute.profile.</code><code class="descname">CpuProfiling</code><span class="sig-paren">(</span><em>ctx</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#CpuProfiling"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.CpuProfiling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Perform CPU profiling across the cluster with <code class="docutils literal"><span class="pre">yappi</span></code>.</p>
+<dl class="method">
+<dt id="bndl.execute.profile.CpuProfiling.start">
+<code class="descname">start</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#CpuProfiling.start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.CpuProfiling.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop CPU profiling.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.profile.CpuProfiling.stop">
+<code class="descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#CpuProfiling.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.CpuProfiling.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop CPU profiling.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.profile.CpuProfiling.print_stats">
+<code class="descname">print_stats</code><span class="sig-paren">(</span><em>max_rows=100</em>, <em>sort_by=None</em>, <em>sort_dir=None</em>, <em>columns=(('name'</em>, <em>84)</em>, <em>('ncall'</em>, <em>12)</em>, <em>('tsub'</em>, <em>8)</em>, <em>('ttot'</em>, <em>8)</em>, <em>('tavg'</em>, <em>8))</em>, <em>per_worker=False</em>, <em>strip_dirs=True</em>, <em>include=()</em>, <em>exclude=()</em>, <em>file=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#CpuProfiling.print_stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.CpuProfiling.print_stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print the top CPU consumers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>max_rows</strong> (<em>int</em>) &#8211; The maximum number of rows to print. Set to None to print all.</li>
+<li><strong>sort_by</strong> (<em>str or None</em>) &#8211; The field to sort by, e.g. &#8216;subtime&#8217; or &#8216;tottime&#8217;</li>
+<li><strong>sort_dir</strong> (<em>'asc', 'desc' or None</em>) &#8211; Sort direction (ascending or descending).</li>
+<li><strong>(sequence of (name</strong> (<em>columns</em>) &#8211; str, width:int) tuples): The names and widths (in
+characters) of the columns to print.</li>
+<li><strong>per_worker</strong> (<em>bool</em>) &#8211; Whether to print per worker individualy or to print the totals.
+Defaults to printing totals.</li>
+<li><strong>strip_dirs</strong> (<em>bool</em>) &#8211; Whether to strip directories (only show packages / modules and line
+numbers). Defaults to True.</li>
+<li><strong>include</strong> (<em>str sequence</em>) &#8211; Limit stats to these (root) modules. E.g. &#8216;bndl&#8217; will yield any
+modules under bndl, e.g. bndl.util. Requires that strip_dirs is True.</li>
+<li><strong>exclude</strong> (<em>str sequence</em>) &#8211; Filter out these (root) modules. E.g. &#8216;bndl&#8217; will yield any
+modules except thos under bndl, e.g. bndl.util. Requires that strip_dirs is True.</li>
+<li><strong>file</strong> (<em>fileobj</em>) &#8211; Where to print to. Defaults to sys.stdout.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="bndl.execute.profile.MemoryProfiling">
+<em class="property">class </em><code class="descclassname">bndl.execute.profile.</code><code class="descname">MemoryProfiling</code><span class="sig-paren">(</span><em>ctx</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#MemoryProfiling"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.MemoryProfiling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Perform memory profiling on the cluster with <code class="docutils literal"><span class="pre">tracemalloc</span></code>.</p>
+<dl class="method">
+<dt id="bndl.execute.profile.MemoryProfiling.start">
+<code class="descname">start</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#MemoryProfiling.start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.MemoryProfiling.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start memory profiling.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.profile.MemoryProfiling.stop">
+<code class="descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#MemoryProfiling.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.MemoryProfiling.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop memory profiling.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bndl.execute.profile.MemoryProfiling.print_top">
+<code class="descname">print_top</code><span class="sig-paren">(</span><em>group_by='lineno'</em>, <em>limit=30</em>, <em>compare_to=None</em>, <em>per_worker=False</em>, <em>strip_dirs=True</em>, <em>include=()</em>, <em>exclude=()</em>, <em>file=&lt;_io.TextIOWrapper name='&lt;stdout&gt;' mode='w' encoding='UTF-8'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/execute/profile.html#MemoryProfiling.print_top"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.execute.profile.MemoryProfiling.print_top" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take a snapshot across the cluster and print the top memory allocations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>group_by</strong> (<em>str</em>) &#8211; Defaults to &#8216;lineno&#8217;.</li>
+<li><strong>limit</strong> (<em>int</em>) &#8211; The number of lines to print. Defaults to 30.</li>
+<li><strong>compare_to</strong> (<em>snapshot</em>) &#8211; A snapshot to compare the memory usage to.</li>
+<li><strong>per_worker</strong> (<em>bool</em>) &#8211; Whether to print the top per worker or not. Defaults to False.</li>
+<li><strong>strip_dirs</strong> (<em>bool</em>) &#8211; Whether to strip directories. Defaults to True.</li>
+<li><strong>include</strong> (<em>sequence[str]</em>) &#8211; The modules to include.</li>
+<li><strong>exclude</strong> (<em>sequence[str]</em>) &#8211; The modules to exclude.</li>
+<li><strong>file</strong> (<em>fileobj</em>) &#8211; The file to print to. Defaults to <code class="docutils literal"><span class="pre">sys.stdout</span></code>.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="rmi.html" class="btn btn-neutral float-right" title="RMI" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="compute/execute.html" class="btn btn-neutral" title="Execution" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,326 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Getting started &mdash; BNDL 0.3.5.dev1 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+        <link rel="copyright" title="Copyright" href="../../copyright.html"/>
+    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+        <link rel="up" title="Compute" href="index.html"/>
+        <link rel="next" title="Context" href="context.html"/>
+        <link rel="prev" title="Compute" href="index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> BNDL
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.3
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../compatibility.html">Compatibility</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Compute</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Getting started</a></li>
+<li class="toctree-l3"><a class="reference internal" href="context.html">Context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets.html">Datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="transformations.html">Transformations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="oob.html">Broadcasts and accumulators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="run.html">Running a cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../execute.html">Execute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../rmi.html">Remote Method Invocation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net.html">Networking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../logging.html">Logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../plugins.html">Plugins</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../issues.html">Known issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Change log</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../internals.html">Internals</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">BNDL</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Usage</a> &raquo;</li>
+      
+          <li><a href="index.html">Compute</a> &raquo;</li>
+      
+    <li>Getting started</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../../_sources/usage/compute/getting_started.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="getting-started">
+<h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
+<p>The main commands to use BNDL are <code class="docutils literal"><span class="pre">bndl-compute-shell</span></code> and <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code>.</p>
+<div class="section" id="computecontext">
+<h2>ComputeContext<a class="headerlink" href="#computecontext" title="Permalink to this headline">¶</a></h2>
+<p>The main entry point for using BNDL Compute is an instance of <a class="reference internal" href="../../reference/compute/context.html#bndl.compute.context.ComputeContext" title="bndl.compute.context.ComputeContext"><code class="xref py py-class docutils literal"><span class="pre">bndl.compute.context.ComputeContext</span></code></a>.
+This class provides methods to load <a class="reference internal" href="datasets.html"><span class="doc">Datasets</span></a> on which <a class="reference internal" href="transformations.html"><span class="doc">Transformations</span></a> can be
+applied. See also <a class="reference internal" href="context.html"><span class="doc">Context</span></a>.</p>
+</div>
+<div class="section" id="starting-the-compute-shell">
+<h2>Starting the Compute shell<a class="headerlink" href="#starting-the-compute-shell" title="Permalink to this headline">¶</a></h2>
+<p>The BNDL Compute Shell is an interactive python shell (using ipython if installed) which starts
+local workers and/or connects with worker seed nodes.</p>
+<div class="highlight-text"><div class="highlight"><pre><span></span>usage: bndl.compute.shell [-h]
+                          [--listen-addresses [LISTEN_ADDRESSES [LISTEN_ADDRESSES ...]]]
+                          [--seeds [SEEDS [SEEDS ...]]]
+                          [--worker-count [WORKER_COUNT]]
+                          [--conf [CONF [CONF ...]]]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --listen-addresses [LISTEN_ADDRESSES [LISTEN_ADDRESSES ...]]
+  --seeds [SEEDS [SEEDS ...]]
+  --worker-count [WORKER_COUNT]
+  --conf [CONF [CONF ...]]
+</pre></div>
+</div>
+<p>By default the Compute shell starts workers as <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code> unless <code class="docutils literal"><span class="pre">--seeds</span></code> is set.</p>
+<p>The shell (with ipython) after start:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ bndl-compute-shell
+Python 3.5.2+ (default, Nov  7 2016, 07:16:13)
+Type &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+
+IPython 5.0.0 -- An enhanced Interactive Python.
+?         -&gt; Introduction and overview of IPython&#39;s features.
+%quickref -&gt; Quick reference.
+help      -&gt; Python&#39;s own help system.
+object?   -&gt; Details about &#39;object&#39;, use &#39;object??&#39; for extra details.
+
+
+         ___ _  _ ___  _
+Welcome | _ ) \| |   \| |
+to the  | _ \ .` | |) | |__
+        |___/_|\_|___/|____| shell.
+
+Running BNDL version 0.3.2.dev1.
+ComputeContext available as ctx.
+
+In [1]:
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-compute-workers">
+<h2>Starting Compute workers<a class="headerlink" href="#starting-compute-workers" title="Permalink to this headline">¶</a></h2>
+<p>Workers can be started with <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code>:</p>
+<div class="highlight-text"><div class="highlight"><pre><span></span>usage: bndl-compute-workers [-h]
+                            [--listen-addresses [LISTEN_ADDRESSES [LISTEN_ADDRESSES ...]]]
+                            [--seeds [SEEDS [SEEDS ...]]]
+                            [worker_count]
+
+positional arguments:
+  worker_count
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --listen-addresses [LISTEN_ADDRESSES [LISTEN_ADDRESSES ...]]
+  --seeds [SEEDS [SEEDS ...]]
+</pre></div>
+</div>
+</div>
+<div class="section" id="connecting-workers-and-the-driver-node">
+<h2>Connecting workers and the driver node<a class="headerlink" href="#connecting-workers-and-the-driver-node" title="Permalink to this headline">¶</a></h2>
+<p>By default as many workers as there are CPU cores (as indicated by <code class="docutils literal"><span class="pre">os.cpu_count()</span></code>) are started.
+Set <code class="docutils literal"><span class="pre">--listen-addresses</span></code> to a (space separated) list of host[:port] values to bind the hosts to
+a certain host (and port). The default port for BNDL is 5000. Free ports are automatically selected
+for the workers. Set <code class="docutils literal"><span class="pre">--seeds</span></code> to one or more addresses of nodes which help new nodes find the
+others.</p>
+</div>
+<div class="section" id="from-a-python-script">
+<h2>From a python script<a class="headerlink" href="#from-a-python-script" title="Permalink to this headline">¶</a></h2>
+<p>Python scripts can use the <code class="docutils literal"><span class="pre">ctx</span></code> global from <code class="docutils literal"><span class="pre">bndl.compute.run</span></code> to acquire a <a class="reference internal" href="#computecontext">ComputeContext</a>:</p>
+<div class="code pycon highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span><span class="o">.</span><span class="n">stats</span><span class="p">()</span>
+<span class="go">&lt;Stats count=1000, mean=2.890000000000001, min=1.0, max=3.0, var=0.11789999999999999, stdev=0.3433656942677879, skew=-3.2053600735213332, kurt=10.25131920569249&gt;</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="context.html" class="btn btn-neutral float-right" title="Context" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Compute" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; <a href="../../copyright.html">Copyright</a> 2016, Frens Jan Rumph.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0.3.5.dev1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
