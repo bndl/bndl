@@ -1,9 +1,17 @@
+.. image:: /static/logo.svg
+   :width: 75%
+
+---------------------------------------------------------------------------------------------------
+
 ==================
 BNDL Documentation
 ==================
 
+BNDL is a library for map-reduce based distributed processing akin to Apache Spark but is
+implemented in python (with a bit of cython).
+
 .. include:: ../README.rst
-   :start-line: 4
+   :start-after: -----
 
 .. note::
 
