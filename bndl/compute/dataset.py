@@ -13,7 +13,6 @@ import os
 import pickle
 import re
 import shlex
-import struct
 import subprocess
 import threading
 import weakref
@@ -36,28 +35,12 @@ from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
-from bndl.util.hyperloglog import HyperLogLog
+from cyhll import HyperLogLog
 import cycloudpickle as cloudpickle
 import numpy as np
 
 
 logger = logging.getLogger(__name__)
-
-
-def _as_bytes(obj):
-    t = type(obj)
-    if t == str:
-        return obj.encode()
-    elif t == tuple:
-        return b''.join(_as_bytes(e) for e in obj)
-    elif t == int:
-        return obj.to_bytes(obj.bit_length(), 'little')
-    elif t == float:
-        obj = struct.pack('>f', obj)
-        obj = struct.unpack('>l', obj)[0]
-        return obj.to_bytes(obj.bit_length(), 'little')
-    else:
-        return bytes(obj)
 
 
 class Dataset(object):
@@ -1077,7 +1060,7 @@ class Dataset(object):
         :param error_rate: float
             The absolute error / cardinality
         '''
-        return self.map(_as_bytes).aggregate(
+        return self.aggregate(
             lambda i: HyperLogLog(error_rate).add_all(i),
             lambda hlls: HyperLogLog(error_rate).merge(*hlls)
         ).card()
