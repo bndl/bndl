@@ -2,8 +2,7 @@
 BNDL - Distributed processing with Python
 =========================================
 
-.. image:: ./docs/static/logo.svg
-   :width: 75%
+.. image:: ./docs/static/logo.png
 
 BNDL is a library for map-reduce based distributed processing akin to Apache Spark but is
 implemented in python (with a bit of cython).
