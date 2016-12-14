@@ -1,6 +1,14 @@
 Change log
 ==========
 
+0.3.5
+-----
+ * Moved hyperloglog and cycloudpickle out of BNDL
+
+0.3.4
+-----
+ * Expose test modules in sdist
+
 0.3.3
 -----
  * Optimizations task/partition IO for shuffles
