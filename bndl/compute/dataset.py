@@ -1225,7 +1225,10 @@ class Dataset(object):
 
         assert 0 < fraction < 1
 
-        rng = np.random.RandomState(seed)
+        if isinstance(seed, np.random.RandomState):
+            rng = seed
+        else:
+            rng = np.random.RandomState(seed)
 
         sampling = sample_with_replacement if with_replacement else sample_without_replacement
         return self.map_partitions(partial(sampling, rng, fraction))
@@ -1247,7 +1250,10 @@ class Dataset(object):
         if count == 0:
             return []
 
-        rng = np.random.RandomState(seed)
+        if isinstance(seed, np.random.RandomState):
+            rng = seed
+        else:
+            rng = np.random.RandomState(seed)
 
         if (not with_replacement) and num >= count:
             samples = self.collect()
