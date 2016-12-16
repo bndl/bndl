@@ -4,6 +4,8 @@ Change log
 0.3.5
 -----
  * Moved hyperloglog and cycloudpickle out of BNDL
+ * Default OMP_NUM_THREADS to 2 to ensure a limited number of threads per worker are started
+ * Bug in shuffle (introduced in 0.3.3) caused dependency rescheduling to fail
 
 0.3.4
 -----
