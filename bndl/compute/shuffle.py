@@ -509,7 +509,7 @@ class ShuffleReadingPartition(Partition):
                            self, dependency_locations[None])
             raise DependenciesFailed({None: dependency_locations[None]})
 
-        source_names = set(dependency_locations)
+        source_names = set(dependency_locations.keys())
 
         local_source = worker.name in source_names
         if local_source:
@@ -579,15 +579,11 @@ class ShuffleReadingPartition(Partition):
                 size = future.result()
             except NotConnected:
                 # mark all dependencies of worker as missing
-                dependencies_missing[worker.name] = list(dependency_locations[worker.name])
-            except InvocationException as exc:
-                root = root_exc(exc)
-                if isinstance(root, KeyError):
-                    dependencies_missing[worker.name] = list(dependency_locations[worker.name])
-                else:
-                    logger.exception('Unable to compute bucket size %s.%s on %s' %
-                                     (self.dset.src.id, self.idx, worker.name))
-                    raise
+                dependencies_missing[worker.name] = set(dependency_locations[worker.name])
+            except InvocationException:
+                logger.exception('Unable to compute bucket size %s.%s on %s' %
+                                 (self.dset.src.id, self.idx, worker.name))
+                raise
             except Exception:
                 logger.exception('Unable to compute bucket size %s.%s on %s' %
                                  (self.dset.src.id, self.idx, worker.name))
@@ -620,9 +616,10 @@ class ShuffleReadingPartition(Partition):
         if size_info_missing:
             for src_idx in list(size_info_missing):
                 for worker, dependencies in dependency_locations.items():
-                    for dependency in dependencies:
-                        if dependency == src_idx:
-                            dependencies_missing[worker].append((self.dset.src.id, src_idx))
+                    for dep_dset_id, dep_part_idx in dependencies:
+                        assert dep_dset_id == self.dset.src.id
+                        if dep_part_idx == src_idx:
+                            dependencies_missing[worker].add((dep_dset_id, src_idx))
                             size_info_missing.remove(src_idx)
                             break
         if size_info_missing:

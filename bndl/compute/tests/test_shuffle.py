@@ -37,11 +37,9 @@ class ShuffleTest(DatasetTest):
                 with self.lock:
                     self.count -= i
                     if self.count == 0:
-                        try:
-                            logger.info('Killing %r', self.worker.name)
-                            self.worker.execute(lambda: os.kill(os.getpid(), signal.SIGKILL)).result()
-                        except NotConnected:
-                            pass
+                        logger.info('Killing %r', self.worker.name)
+                        pid = self.worker.execute(lambda: os.getpid()).result()
+                        os.kill(pid, signal.SIGKILL)
 
             def __str__(self):
                 return 'kill %s after %s elements' % (self.worker.name, self.count)
