@@ -1,15 +1,16 @@
 from bndl.compute.tests import DatasetTest
 from cyhll import HyperLogLog
 from random import random, randint
+import sys
 
 
 class CountDistinctTest(DatasetTest):
     def test_approx(self):
         tvalues = [
-            [random() for _ in range(10000)],
-            [randint(0, 2 ** 32) for _ in range(10000)],
-            ['%i' % randint(0, 2 ** 32) for _ in range(10000)],
-            [b'%i' % randint(0, 2 ** 32) for _ in range(10000)],
+            [random() * 2 ** 128 for _ in range(10000)],
+            [randint(0, 2 ** 128) for _ in range(10000)],
+            ['%i' % randint(0, 2 ** 128) for _ in range(10000)],
+            [('%i' % randint(0, 2 ** 128)).encode() for _ in range(10000)],
         ]
 
         for error_rate in (0.01, 0.05, 0.2):
