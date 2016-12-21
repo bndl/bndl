@@ -3,7 +3,6 @@ from functools import partial
 import math
 
 import numpy as np
-cimport numpy as np
 
 import array
 from cpython cimport array
@@ -216,12 +215,12 @@ cdef class MultiVariateStats(_StatProps):
 
     cdef public int width
     cdef public long _n
-    cdef public np.ndarray _m1
-    cdef public np.ndarray _m2
-    cdef public np.ndarray _m3
-    cdef public np.ndarray _m4
-    cdef public np.ndarray _min
-    cdef public np.ndarray _max
+    cdef public _m1
+    cdef public _m2
+    cdef public _m3
+    cdef public _m4
+    cdef public _min
+    cdef public _max
 
 
     def __init__(self, width, vectors=()):
