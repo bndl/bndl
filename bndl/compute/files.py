@@ -508,6 +508,10 @@ class RemoteFilesPartition(FilesPartition):
 
 
     def _compute(self):
-        request = self.dset.ctx.node.peers[self.source].execute(_RemoteFilesSender, self.file_chunks)
-        contents = request.result().data
-        return zip(self.file_chunks.keys(), contents)
+        source = self.dset.ctx.node.peers[self.source]
+        if source.ip_addresses() == self.dset.ctx.node.ip_addresses():
+            return FilesPartition._compute(self)
+        else:
+            request = self.dset.ctx.node.peers[self.source].execute(_RemoteFilesSender, self.file_chunks)
+            contents = request.result().data
+            return zip(self.file_chunks.keys(), contents)
