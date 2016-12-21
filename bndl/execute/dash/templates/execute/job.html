@@ -16,12 +16,14 @@ Job {{ job.id }}: {{ job.name }}
 	}
 </style>
 
+{% if job.desc %}
 <div class="container">
 	{% set file, line, func, text = job.desc %}
 	<pre>{{ text }}</pre>
 	Invoked line {{ line }} of {{ file }} in {{ func }}
 	<hr />
 </div>
+{% endif %}
 
 <div class="container">
 	<h2>Task groups:</h2>
