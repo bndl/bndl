@@ -21,6 +21,6 @@
 	</td>
 	<td>{{ stats.duration|fmt_timedelta }}</td>
 	<td>{% if stats.time_remaining %}{{ stats.time_remaining|fmt_timedelta }}{% endif %}</td>
-	<td>{{ tasklist.started_on.strftime('%Y-%m-%d %H:%M:%S') if tasklist.started_on else '' }}</td>
+	<td>{{ stats.started_on.strftime('%Y-%m-%d %H:%M:%S') if stats.started_on else '' }}</td>
 	<td>{{ stats.finished_on.strftime('%Y-%m-%d %H:%M:%S') if stats.finished_on else '' }}</td>
 {%- endmacro %}
