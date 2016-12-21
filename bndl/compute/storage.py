@@ -255,8 +255,7 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
 
 
-@lru_cache()
-def get_work_dir():
+def _get_work_dir():
     tempdir = tempfile.gettempdir()
     if os.path.exists('/proc/mounts'):
         with open('/proc/mounts') as mounts:
@@ -266,7 +265,16 @@ def get_work_dir():
                     if mount[0] == 'tmpfs' and os.path.isdir('/var/tmp'):
                         tempdir = '/var/tmp'
                     break
-    return os.path.join(tempdir, 'bndl', str(os.getpid()))
+    return tempfile.mkdtemp('', 'bndl-%s-' % str(os.getpid()), tempdir)
+
+
+_work_dir = None
+
+def get_work_dir():
+    global _work_dir
+    if _work_dir is None:
+        _work_dir = _get_work_dir()
+    return _work_dir
 
 
 @atexit.register
