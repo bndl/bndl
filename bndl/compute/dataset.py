@@ -1790,7 +1790,7 @@ class Partition(object):
                 for worker in forbidden:
                     yield worker, FORBIDDEN
                     try:
-                        localities[worker]
+                        del localities[worker]
                     except KeyError:
                         pass
                 src_count = len(self.src)
