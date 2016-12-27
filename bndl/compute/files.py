@@ -1,6 +1,6 @@
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
-from itertools import groupby, chain
+from itertools import groupby, chain, cycle
 from os import stat, posix_fadvise, POSIX_FADV_SEQUENTIAL
 from os.path import getsize, join, isfile
 from queue import Queue, Empty
@@ -17,11 +17,12 @@ from cytoolz import pluck, interleave
 import marisa_trie
 import scandir
 
-from bndl.compute.dataset import Dataset, Partition, TransformingDataset
+from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
+from bndl.execute.worker import current_worker
 
 
 logger = logging.getLogger(__name__)
@@ -99,8 +100,9 @@ def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None,
 
 def _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
+    batches = list(zip(cycle((ctx.node.name,)), batches))
     logger.debug('created files dataset of %s batches', len(batches))
-    return RemoteFilesDataset(ctx, batches)
+    return FilesDataset(ctx, batches, split)
 
 
 def _ip_addresses(worker):
@@ -120,7 +122,7 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
         worker_batches = []
         batches.append(worker_batches)
         for file_chunks in batch_request.result():
-            worker_batches.append((worker.ip_addresses(), file_chunks))
+            worker_batches.append((worker.name, file_chunks))
 
     # interleave batches to ease scheduling overhead
     batches = list(interleave(batches))
@@ -128,7 +130,7 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
     logger.debug('created files dataset of %s batches accross %s worker nodes',
                  len(batches), len(batch_requests))
 
-    return LocalFilesDataset(ctx, batches, split)
+    return FilesDataset(ctx, batches, split)
 
 
 def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
@@ -335,8 +337,20 @@ class DecompressedFilesDataset(DistributedFilesOps, TransformingDataset):
 
 
 class FilesDataset(DistributedFilesOps, Dataset):
-    def __init__(self, ctx):
+    def __init__(self, ctx, batches, split):
         super().__init__(ctx)
+        self.split = bool(split)
+        self._parts = [
+            FilesPartition(self, idx, source_name, file_chunks)
+            for idx, (source_name, file_chunks) in enumerate(batches)
+        ]
+
+
+    def lines(self, encoding='utf-8', errors='strict', keepends=True):
+        if not self.split and keepends:
+            return LinesDataset(self, encoding, errors)
+        else:
+            return super().lines(encoding, errors, keepends)
 
 
     def decompress(self, compression='gzip'):
@@ -389,48 +403,28 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
 
-class LocalFilesDataset(FilesDataset):
-    def __init__(self, ctx, batches, split):
-        super().__init__(ctx)
-        self.split = bool(split)
-        self._parts = [
-            LocalFilesPartition(self, idx, ip_addresses, file_chunks)
-            for idx, (ip_addresses, file_chunks) in enumerate(batches)
-        ]
-
-
-    def lines(self, encoding='utf-8', errors='strict', keepends=True):
-        if not self.split and keepends:
-            ds = FilesDataset(self.ctx)
-            ds._parts = [
-                LinesFilesPartition(ds, part.idx, part.ip_addresses(),
-                                    part.file_chunks, encoding, errors)
-                for part in self._parts
-            ]
-            return ds
-        else:
-            return super().lines(encoding, errors, keepends)
-
-
-
-class RemoteFilesDataset(FilesDataset):
-    def __init__(self, ctx, batches):
-        super().__init__(ctx)
-        self._parts = [
-            RemoteFilesPartition(self, idx, file_chunks)
-            for idx, file_chunks in enumerate(batches)
-            if file_chunks
-        ]
-
-
-
 class FilesPartition(Partition):
-    def __init__(self, dset, idx, file_chunks):
+    def __init__(self, dset, idx, source_node, file_chunks):
         super().__init__(dset, idx)
+        self.source_node = source_node
         self.file_chunks = file_chunks
 
 
-    def _compute(self):
+    def _local_ip_addresses(self):
+        if self.source_node == self.dset.ctx.node.name:
+            return self.dset.ctx.node.ip_addresses()
+        else:
+            return self.dset.ctx.node.peers[self.source_node].ip_addresses()
+
+
+    def _locality(self, workers):
+        local_ips = self._local_ip_addresses()
+        for worker in workers:
+            if worker.ip_addresses() & local_ips:
+                yield worker, NODE_LOCAL
+
+
+    def _local(self):
         for filename, (offset, size) in self.file_chunks.items():
             with open(filename, 'rb') as f:
                 f.seek(offset)
@@ -438,36 +432,54 @@ class FilesPartition(Partition):
             yield filename, contents
 
 
-
-class LocalFilesPartition(FilesPartition):
-    def __init__(self, dset, idx, ip_addresses, file_chunks):
-        super().__init__(dset, idx, file_chunks)
-        self.ip_addresses = ip_addresses
-
-
-    def allowed_workers(self, workers):
-        return [worker for worker in workers
-                if worker.ip_addresses() & self.ip_addresses]
-
-
-
-class LinesFilesPartition(LocalFilesPartition):
-    def __init__(self, dset, idx, ip_addresses, file_chunks, encoding, errors):
-        file_chunks = marisa_trie.Trie(file_chunks.keys())
-        super().__init__(dset, idx, ip_addresses, file_chunks)
-        self.encoding = encoding
-        self.errors = errors
+    def _remote(self):
+        source = self.dset.ctx.node.peers[self.source_node]
+        request = source.execute(_RemoteFilesSender, self.file_chunks)
+        contents = request.result().data
+        return zip(self.file_chunks.keys(), contents)
 
 
     def _compute(self):
-        if not self.encoding:
+        if current_worker().ip_addresses() & self._local_ip_addresses():
+            return self._local()
+        else:
+            return self._remote()
+
+
+
+class LinesDataset(Dataset):
+    def __init__(self, src, encoding, errors):
+        super().__init__(src.ctx, src)
+        self.encoding = encoding
+        self.errors = errors
+        self._parts = [
+            LinesPartition(self, part.idx, part.source_node, part.file_chunks)
+            for part in src.parts()
+        ]
+
+
+    def parts(self):
+        return self._parts
+
+
+
+class LinesPartition(FilesPartition):
+    def _local(self):
+        if not self.dset.encoding:
             open_file = partial(open, mode='rb')
         else:
-            open_file = partial(open, encoding=self.encoding, errors=self.errors)
+            open_file = partial(open, encoding=self.dset.encoding, errors=self.dset.errors)
 
         for filename in self.file_chunks:
             with open_file(filename) as f:
                 yield from f
+
+
+    def _remote(self):
+        contents = pluck(0, super()._remote())
+        decoded = map(partial(_decode, self.encoding, self.errors), contents)
+        lines = map(partial(_splitlines, True), decoded)
+        return chain.from_iterable(lines)
 
 
 
@@ -498,20 +510,3 @@ class _RemoteFilesSender(object):
             attachment(struct.pack('NN', prefix, idx))
             for idx in range(N)
         ]
-
-
-
-class RemoteFilesPartition(FilesPartition):
-    def __init__(self, dset, idx, file_chunks):
-        super().__init__(dset, idx, file_chunks)
-        self.source = dset.ctx.node.name
-
-
-    def _compute(self):
-        source = self.dset.ctx.node.peers[self.source]
-        if source.ip_addresses() == self.dset.ctx.node.ip_addresses():
-            return FilesPartition._compute(self)
-        else:
-            request = self.dset.ctx.node.peers[self.source].execute(_RemoteFilesSender, self.file_chunks)
-            contents = request.result().data
-            return zip(self.file_chunks.keys(), contents)
