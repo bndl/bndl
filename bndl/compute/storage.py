@@ -1,4 +1,3 @@
-from functools import lru_cache
 from os.path import getsize
 import atexit
 import gzip
@@ -94,6 +93,7 @@ class BytearrayIO(io.RawIOBase):
         return True
 
 
+
 class StorageContainerFactory(object):
     serialize = None
     deserialize = None
@@ -118,7 +118,10 @@ class StorageContainerFactory(object):
                 self.deserialize = pickle.load
                 self.mode = 'b'
             elif serialization == 'msgpack':
-                import msgpack
+                try:
+                    import msgpack
+                except ImportError:
+                    from pandas import msgpack
                 self.serialize = msgpack.dump
                 self.deserialize = msgpack.load
                 self.mode = 'b'
@@ -138,7 +141,7 @@ class StorageContainerFactory(object):
                 raise ValueError('serialization must one of json, marshal, pickle or a 3-tuple of'
                                  ' dump(data, fileobj) and load(fileobj) functions and "b" or "t" '
                                  ' (indicating binary or text mode), not %r'
-                                 % serialization)
+                                 % (serialization,))
 
         if compression is None:
             self.io_wrapper = identity
@@ -245,13 +248,14 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
 
     def to_disk(self):
-        on_disk = OnDisk(self.id, self.provider)
-        fileobj = on_disk.open('w')
+        data = self.__dict__.pop('data')
+        self.__class__ = OnDisk
+        self.__init__(self.id, self.provider)
+        fileobj = self.open('w')
         try:
-            fileobj.write(self.data)
+            fileobj.write(data)
         finally:
             fileobj.close()
-        return on_disk
 
 
 
@@ -281,11 +285,7 @@ def get_work_dir():
 def clean_work_dir():
     wdir = get_work_dir()
     if os.path.exists(wdir):
-        for _, _, files in os.walk(wdir):
-            if files:
-                break
-        else:
-            shutil.rmtree(wdir)
+        shutil.rmtree(wdir)
 
 
 class OnDisk(SerializedContainer):

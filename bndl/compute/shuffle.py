@@ -17,7 +17,7 @@ from bndl.compute.storage import StorageContainerFactory
 from bndl.execute import DependenciesFailed, TaskCancelled
 from bndl.execute.worker import task_context
 from bndl.net.connection import NotConnected
-from bndl.rmi import InvocationException, root_exc
+from bndl.rmi import InvocationException
 from bndl.util.collection import batch as batch_data, ensure_collection
 from bndl.util.conf import Float
 from bndl.util.exceptions import catch
@@ -34,7 +34,7 @@ block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks cr
                               'elements to disk')
 
 
-MAX_MEM_LOW_WATER = 0.8
+MAX_MEM_LOW_WATER = 0.5
 
 # try to have at least 10% or 1 GB of memory available
 MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
@@ -42,7 +42,22 @@ MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
 
 
 def low_memory(max_mem_pct):
-    return process_memory_percent() > max_mem_pct or virtual_memory().available < MIN_SYSTEM_MEM_AVAILBLE
+    return process_memory_percent() > max_mem_pct or \
+           virtual_memory().available < MIN_SYSTEM_MEM_AVAILBLE
+
+
+def spill_buckets(max_mem_pct, buckets):
+    spilled = 0
+    if low_memory(max_mem_pct):
+        for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
+            if bucket.memory_size == 0:
+                break
+            spilled += bucket.spill()
+            if not low_memory(max_mem_pct * MAX_MEM_LOW_WATER):
+                break
+        gc.collect()
+    return spilled
+
 
 
 class Bucket:
@@ -98,14 +113,14 @@ class Bucket:
         bytes_spilled = 0
 
         # start spilling the largest in memory block first
-        self.memory_blocks.sort(key=lambda block: block.size, reverse=True)
-        while self.memory_blocks:
-            block = self.memory_blocks.pop()
-            blocks_spilled += 1
-            bytes_spilled += block.size
-
-            self.disk_blocks.append(block.to_disk())
-            block = None
+        with self.lock:
+            self.memory_blocks.sort(key=lambda block: block.size, reverse=True)
+            while self.memory_blocks:
+                block = self.memory_blocks.pop()
+                block.to_disk()
+                blocks_spilled += 1
+                bytes_spilled += block.size
+                self.disk_blocks.append(block)
 
         logger.debug('spilled %s blocks of bucket %s with %.2f mb', blocks_spilled,
                      '.'.join(map(str, self.id)), bytes_spilled / 1024 / 1024)
@@ -117,13 +132,16 @@ class Bucket:
         '''
         Estimate the size of a element from data.
         '''
-        test_set = data[:max(3, len(data) // 100)]
-        c = self.memory_container(('tmp',))
-        c.write(test_set)
-        return c.size // len(test_set)
+        try:
+            test_set = data[:max(3, len(data) // 100)]
+            c = self.memory_container(('tmp',))
+            c.write(test_set)
+            return c.size // len(test_set)
+        finally:
+            c.clear()
 
 
-    def _serialize_bucket(self, disk):
+    def serialize(self, disk):
         '''
         Serialize the elements in this bucket (not in the memory/disk blocks) to disk or in blocks
         in memory. The elements are serialized into a new batch of one ore more blocks
@@ -132,6 +150,9 @@ class Bucket:
         :param disk: bool
             Serialize to disk or memory.
         '''
+        if not len(self):
+            return 0
+
         # create a new batch.
         batch = []
         self.batches.append(batch)
@@ -152,7 +173,7 @@ class Bucket:
             blocks = [data]
         else:
             blocks = list(batch_data(data, block_size_recs))
-            del data
+        del data
 
         bytes_spilled = 0
         elements_spilled = 0
@@ -176,8 +197,8 @@ class Bucket:
             elements_spilled += len(block)
             bytes_spilled += container.size
 
-            # trigger memory release
-            block = None
+        # trigger memory release
+        block = None
 
         # recalculate the size of the elements given the bytes and elements just spilled
         # the re-estimation is dampened in a decay like fashion
@@ -190,26 +211,29 @@ class Bucket:
         return bytes_spilled
 
 
-    def serialize(self, disk=True):
+    def spill(self):
         '''
-        Serialize / spill the bucket to memory or disk.
+        Spill the bucket to disk.
+        '''
+        bytes_serialized = 0
 
-        :param disk: bool
-            Whether to spill the bucket to disk (True) or serialize in memory (False).
-        '''
         with self.lock:
-            bytes_serialized = 0
-
             # move serialized blocks in memory to disk first
             # (if spilling to disk)
-            if disk and self.memory_blocks:
+            if self.memory_blocks:
                 bytes_serialized += self._spill_memory_blocks()
 
             # spill/serialize elements in the bucket, if any
             if len(self):
-                bytes_serialized += self._serialize_bucket(disk)
+                bytes_serialized += self.serialize(True)
 
         return bytes_serialized
+
+
+    def block_sizes(self):
+        with self.lock:
+            return [[block.size for block in batch]
+                    for batch in self.batches]
 
 
 
@@ -430,10 +454,8 @@ class ShuffleWritingPartition(Partition):
                 # spill if to much memory is used
                 if low_memory(max_mem_pct):
                     mem_used = process_memory_percent()
-
-                    # spill enough to get below the high water mark - 20%
-                    spilled = self.dset.ctx.node.spill_buckets(max_mem_pct * MAX_MEM_LOW_WATER)
-                    bytes_spilled += spilled
+                    spilled = self.dset.ctx.node.spill_buckets(max_mem_pct)
+                    spilled += spill_buckets(max_mem_pct, buckets)
 
                     if spilled:
                         # update the check frequency according to the size of
@@ -446,6 +468,8 @@ class ShuffleWritingPartition(Partition):
                 elif not low_memory(max_mem_pct * MAX_MEM_LOW_WATER):
                     # check less often if enough memory available
                     check_interval *= 2
+
+                    # print('check_interval =', check_interval)
 
         # for efficiency elements_partitioned is tracked every check_interval
         # so after partitioning check_loop contains the number of elements
@@ -460,7 +484,7 @@ class ShuffleWritingPartition(Partition):
             else:
                 bytes_serialized += bucket.serialize(False)
 
-        buckets = self.dset.ctx.node.set_buckets(self, buckets)
+        self.dset.ctx.node.set_buckets(self, buckets)
 
         logger.info('partitioned %s.%s with %s elements, spilled %.2f mb to disk, '
                     'serialized %.2f mb to memory', self.dset.id, self.idx, elements_partitioned,
@@ -565,12 +589,13 @@ class ShuffleReadingPartition(Partition):
         local_source, sources = self.get_sources()
         sizes = []
 
-        # issue requests for the bucket bucket prep and get back sizes
-        size_requests = [worker.get_bucket_sizes(self.dset.src.id, self.idx)
-                         for worker in sources]
         # add the local fetch operations if the local node is a source
         if local_source:
             sizes.append(self.get_local_sizes())
+
+        # issue requests for the bucket bucket prep and get back sizes
+        size_requests = [worker.get_bucket_sizes(self.dset.src.id, self.idx)
+                         for worker in sources]
 
         # wait for responses and zip with a function to get a block
         # if a worker is not connected, add it to the missing dependencies
@@ -741,9 +766,9 @@ class ShuffleReadingPartition(Partition):
 
                     # spill the destination bucket if need be
                     if low_memory(max_mem_pct):
-                        bucket.serialize(True)
+                        bucket.spill()
 
-            logger.debug('sorting %.1f mb', bytes_received / 1024 / 1024)
+            logger.info('sorting %.1f mb', bytes_received / 1024 / 1024)
 
             if not bucket.batches:
                 return iter(bucket)
@@ -786,23 +811,10 @@ class ShuffleManager(object):
         :param max_mem_pct: int between 0 and 100
             Spill until not low_memory(max_mem_pct)
         '''
-        buckets = chain.from_iterable(
+        return spill_buckets(max_mem_pct, chain.from_iterable(
             chain.from_iterable(buckets.values())
             for buckets in self.buckets.values()
-        )
-
-        spilled = 0
-
-        # spill only when under memory pressure
-        if low_memory(max_mem_pct):
-            for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
-                if bucket.memory_size == 0:
-                    break
-                spilled += bucket.serialize(True)
-                if not low_memory(max_mem_pct):
-                    break
-
-        return spilled
+        ))
 
 
     def _buckets_for_dset(self, src_dset_id):
@@ -828,8 +840,7 @@ class ShuffleManager(object):
             sizes = []
             for src_part_idx, buckets in dset_buckets.items():
                 bucket = buckets[dest_part_idx]
-                sizes.append((src_part_idx, [[block.size for block in batch]
-                                             for batch in bucket.batches]))
+                sizes.append((src_part_idx, bucket.block_sizes()))
             return sizes
 
 
