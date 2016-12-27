@@ -693,14 +693,15 @@ class Dataset(object):
         if not comb:
             comb = local
 
+        pcount = len(self.parts())
         if not scale:
-            pcount = len(self.parts())
             scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
+        pcount = self.ctx.worker_count * (pcount // scale // self.ctx.worker_count + 1)
 
         agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
 
         for _ in range(depth):
-            agg = agg._group_by_key(pcount=pcount, **shuffle_opts).map_values(lambda v: comb(pluck(1, v)))
+            agg = agg.aggregate_by_key(comb, pcount=pcount, **shuffle_opts)
             pcount //= scale
             if pcount < scale:
                 break
