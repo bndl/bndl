@@ -34,8 +34,8 @@ class Block(object):
     serialized data.
     '''
 
-    def __init__(self, block_idx, data):
-        self.id = id
+    def __init__(self, block_id, data):
+        self.id = block_id
         self.data = data
 
 
