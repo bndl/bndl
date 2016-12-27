@@ -1,6 +1,3 @@
-from functools import reduce
-from itertools import chain
-
 from bndl.compute.dataset import Dataset, Partition
 
 
@@ -18,34 +15,9 @@ class ZippedDataset(Dataset):
                 for i in range(self.pcount)]
 
 
-def _get_overlapping_workers(workers):
-    return set(chain.from_iterable(workers)), reduce(lambda a, b: a.intersection(b), workers)
-
-
 class ZippedPartition(Partition):
     def __init__(self, dset, idx, children):
         super().__init__(dset, idx, children)
-
-
-    def _preferred_workers(self, workers):
-        union, intersection = _get_overlapping_workers([
-            set(child.preferred_workers(workers) or ())
-            for child in self.src
-        ])
-        return intersection if intersection else union
-
-
-    def _allowed_workers(self, workers):
-        union, intersection = _get_overlapping_workers([
-            set(child.allowed_workers(workers) or ())
-            for child in self.src
-        ])
-        if not intersection:
-            raise RuntimeError('Allowed workers for partitions %s must overlap'
-                               % ', '.join(child.idx for child in self.src))
-        else:
-            return union
-
 
     def _compute(self):
         return self.dset.comb(*(child.compute() for child in self.src))
