@@ -255,54 +255,53 @@ def _batch_files(filesizes, psize_bytes, psize_files, split):
     for filename, filesize in filesizes:
         if psize_files and len(batch) >= psize_files:
             new_batch()
-        if psize_bytes:
-            if space < filesize:
-                if split:
-                    if space == 0:
-                        new_batch()
-                    if sep:
-                        # split files at sep
-                        offset = 0
-                        fd = os.open(filename, os.O_RDONLY)
-                        try:
-                            with mmap.mmap(fd, filesize, access=mmap.ACCESS_READ) as mm:
-                                while offset < filesize:
-                                    split = mm.rfind(sep, offset, offset + space) + 1
-                                    if split == 0:
-                                        if batch:
-                                            new_batch()
-                                            continue
-                                        else:
-                                            split = mm.find(sep, offset) + 1
-                                            if split == 0:
-                                                split = filesize
-                                    length = split - offset
-                                    batch.append((filename, (offset, length)))
-                                    offset = split
-                                    space -= length
-                                    if space < sep_len:
-                                        new_batch()
-                        finally:
-                            os.close(fd)
-                    else:
-                        # split files anywhere
-                        offset = 0
-                        remaining = filesize
-                        while True:
-                            if remaining == 0:
-                                break
-                            elif remaining < space:
-                                batch.append((filename, (offset, remaining)))
-                                space -= remaining
-                                break
-                            else:  # remaining > space
-                                batch.append((filename, (offset, offset + space)))
-                                offset += space
-                                remaining -= space
-                                new_batch()
-                    continue
-                else:
+        if psize_bytes and space < filesize:
+            if split:
+                if space == 0:
                     new_batch()
+                if sep:
+                    # split files at sep
+                    offset = 0
+                    fd = os.open(filename, os.O_RDONLY)
+                    try:
+                        with mmap.mmap(fd, filesize, access=mmap.ACCESS_READ) as mm:
+                            while offset < filesize:
+                                split = mm.rfind(sep, offset, offset + space) + 1
+                                if split == 0:
+                                    if batch:
+                                        new_batch()
+                                        continue
+                                    else:
+                                        split = mm.find(sep, offset) + 1
+                                        if split == 0:
+                                            split = filesize
+                                length = split - offset
+                                batch.append((filename, (offset, length)))
+                                offset = split
+                                space -= length
+                                if space < sep_len:
+                                    new_batch()
+                    finally:
+                        os.close(fd)
+                else:
+                    # split files anywhere
+                    offset = 0
+                    remaining = filesize
+                    while True:
+                        if remaining == 0:
+                            break
+                        elif remaining < space:
+                            batch.append((filename, (offset, remaining)))
+                            space -= remaining
+                            break
+                        else:  # remaining > space
+                            batch.append((filename, (offset, offset + space)))
+                            offset += space
+                            remaining -= space
+                            new_batch()
+                continue
+            elif batch:
+                new_batch()
         batch.append((filename, (0, filesize)))
         space -= filesize
 
