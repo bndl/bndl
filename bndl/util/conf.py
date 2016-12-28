@@ -15,6 +15,15 @@ _SETTINGS_CACHE = {}
 
 
 class Config(object):
+    _global = None
+
+    @classmethod
+    def instance(cls):
+        if cls._global is None:
+            cls._global = cls()
+        return cls._global
+
+
     def __init__(self, values=None, use_environment=True, **kwargs):
         if use_environment:
             self.values = {}
@@ -97,6 +106,21 @@ class Config(object):
     def set(self, key, value):
         self.values[key] = value
         return self
+
+    def update(self, *args, **kwargs):
+        for arg in args:
+            if isinstance(arg, tuple):
+                assert len(arg) == 2
+                self.set(*arg)
+            elif isinstance(arg, str):
+                try:
+                    key, value = arg.split('=', 1)
+                except ValueError:
+                    raise ValueError('%r is not formatted as "key=value"' % arg)
+                self.set(key.strip(), value.strip())
+            else:
+                assert False
+        self.values.update(kwargs)
 
     __getitem__ = get
     __setitem__ = set

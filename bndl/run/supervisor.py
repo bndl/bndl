@@ -4,11 +4,11 @@ import itertools
 import logging
 import os
 import signal
-import socket
 import subprocess
 import sys
 import threading
 import time
+from bndl.util.conf import Config
 
 
 logger = logging.getLogger(__name__)
@@ -54,19 +54,26 @@ def entry_point(string):
 base_argparser = argparse.ArgumentParser(add_help=False)
 base_argparser.epilog = 'Use -- after the supervisor arguments to separate them from' \
                    'arguments to the main program.'
-# base_argparser.add_argument('--numactl', dest='numactl', action='store_true')
-base_argparser.add_argument('--pincore', dest='pincore', action='store_true',
-                            help='Pin processes to a specific core with taskset')
-# base_argparser.add_argument('--jemalloc', dest='jemalloc', action='store_true')
+
+base_argparser.add_argument('--numactl', dest='numactl', action='store_true',
+                            help='Bind processes round-robin to NUMA zones with numactl.')
 base_argparser.add_argument('--no-numactl', dest='numactl', action='store_false',
                             help='Don\'t attempt to bind processes to a NUMA zone with numactl')
-# base_argparser.add_argument('--no-pincore', dest='pincore', action='store_false')
+
+base_argparser.add_argument('--pincore', dest='pincore', action='store_true',
+                            help='Pin processes round-robin to a specific core with taskset')
+base_argparser.add_argument('--no-pincore', dest='pincore', action='store_false',
+                            help='Don\'t pin processes to specific cores with taskset')
+
+base_argparser.add_argument('--jemalloc', dest='jemalloc', action='store_true',
+                            help='Use jemalloc.sh (if available on the PATH).')
 base_argparser.add_argument('--no-jemalloc', dest='jemalloc', action='store_false',
                             help='Don\'t attempt to use jemalloc.sh (use the system default '
                                  'malloc, usually malloc from glibc).')
-base_argparser.set_defaults(numactl=True,
-                            pincore=False,
-                            jemalloc=True)
+
+base_argparser.set_defaults(numactl=Config.instance()['bndl.run.numactl'],
+                            pincore=Config.instance()['bndl.run.pincore'],
+                            jemalloc=Config.instance()['bndl.run.jemalloc'])
 
 
 main_argparser = argparse.ArgumentParser(parents=[base_argparser])
@@ -138,7 +145,7 @@ class Child(object):
         logger.info('Starting child %s (%s:%s)', child_id, self.module, self.main)
 
         args = self.executable \
-               + ['-m', 'bndl.util.supervisor.child', self.module, self.main] \
+               + ['-m', 'bndl.run.child', self.module, self.main] \
                + list(self.args)
 
 
@@ -179,22 +186,30 @@ class Supervisor(object):
     _ids = itertools.count()
 
     def __init__(self, module, main, args, process_count=None,
-                 numactl=True, pincore=False, jemalloc=True,
+                 numactl=None, pincore=None, jemalloc=None,
                  min_run_time=MIN_RUN_TIME, check_interval=CHECK_INTERVAL):
         self.id = next(Supervisor._ids)
         self.module = module
         self.main = main
         self.args = args
         self.process_count = process_count
+        
+        if numactl is None:
+            numactl = Config.instance()['bndl.run.numactl']
+        if pincore is None:
+            pincore = Config.instance()['bndl.run.pincore']
+        if jemalloc is None:
+            jemalloc = Config.instance()['bndl.run.jemalloc']
+
         self.numactl = numactl
         self.pincore = pincore
         self.jemalloc = jemalloc
+        
         self.children = []
         self.min_run_time = min_run_time
         self.check_interval = check_interval
         self._watcher = threading.Thread(target=self._watch, daemon=True,
-                                         name='bndl-supervisor-watcher-%s'
-                                         % self.id)
+                                         name='bndl-supervisor-%s' % self.id)
 
 
     def start(self):

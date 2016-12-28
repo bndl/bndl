@@ -8,9 +8,9 @@ from bndl.compute.shuffle import ShuffleManager
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
+from bndl.run import supervisor
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from bndl.util.supervisor import Supervisor
 
 
 logger = logging.getLogger(__name__)
@@ -29,23 +29,29 @@ class Worker(ExecutionWorker, BlockManager, ShuffleManager):
         del broadcast.download_coordinator[name]
 
 
-def main():
-    conf = Config()
+main_argparser = argparse.ArgumentParser(parents=[run.argparser])
+many_argparser = argparse.ArgumentParser(parents=[run.argparser, supervisor.base_argparser], add_help=False)
 
-    args = argparse.ArgumentParser(parents=[run.argparser]).parse_args()
+
+def main():
+    conf = Config.instance()
+    args = main_argparser.parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
-
-    run.run_nodes(Worker(addresses=listen_addresses, seeds=seeds))
+    worker = Worker(addresses=listen_addresses, seeds=seeds)
+    run.run_nodes(worker)
 
 
 def run_workers():
-    def add_worker_count(parser):
-        parser.add_argument('worker_count', nargs='?', type=int, default=os.cpu_count() or 1)
-    # use a parser with run.argparser as parent to get correct argument parsing / help message
-    argparser = argparse.ArgumentParser(parents=[run.argparser])
-    add_worker_count(argparser)
+    argparser = argparse.ArgumentParser(parents=[many_argparser])
+
+    conf = Config.instance()
+    def_worker_count = conf.get('bndl.compute.worker_count', os.cpu_count() or 1)
+    argparser.add_argument('process_count', nargs='?', type=int, default=def_worker_count,
+                            metavar='worker count', help='The number of workers to start (defaults'
+                                                         ' to %s).' % def_worker_count)
     args = argparser.parse_args()
+    args.entry_point = 'bndl.compute.worker', 'main'
 
     # reconstruct the arguments for the worker
     # parse_known_args doesn't take out the worker_count positional argument correctly
@@ -55,13 +61,13 @@ def run_workers():
     if args.seeds:
         worker_args += ['--seeds'] + args.seeds
 
-    supervisor = Supervisor('bndl.compute.worker', 'main', worker_args, args.worker_count)
-    supervisor.start()
+    superv = supervisor.Supervisor.from_args(args, worker_args)
+    superv.start()
     try:
-        supervisor.wait()
+        superv.wait()
     except KeyboardInterrupt:
         with catch():
-            supervisor.stop()
+            superv.stop()
 
 
 if __name__ == '__main__':

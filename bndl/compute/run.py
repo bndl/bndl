@@ -7,15 +7,18 @@ import threading
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
 from bndl.net.run import run_nodes
+from bndl.run.supervisor import Supervisor
 from bndl.util.aio import get_loop
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.objects import LazyObject
-from bndl.util.supervisor import Supervisor
 
 
-def create_ctx(config=Config(), daemon=True):
+def create_ctx(config=None, daemon=True):
     from bndl.util import dash
+
+    if config is None:
+        config = Config.instance()
 
     listen_addresses = config.get('bndl.net.listen_addresses')
     seeds = config.get('bndl.net.seeds')

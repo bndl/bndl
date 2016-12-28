@@ -13,10 +13,10 @@ from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
     getlocalhostname
 from bndl.net.peer import PeerNode, PeerTable
 from bndl.net.watchdog import Watchdog
+from bndl.run.supervisor import CHILD_ID
 from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
-from bndl.util.supervisor import CHILD_ID
 from bndl.util.strings import camel_to_snake
 
 
@@ -42,6 +42,7 @@ class Node(object):
             if child_id:
                 self.name += '.' + str(os.getppid())
                 self.name += '.' + child_id
+                self.name += '.' + str(os.getpid())
             else:
                 self.name += '.' + str(os.getpid())
                 self.name += '.' + str(next(Node._nodeids))

@@ -6,8 +6,10 @@ from bndl.net.connection import urlcheck
 
 
 argparser = argparse.ArgumentParser(add_help=False)
-argparser.add_argument('--listen-addresses', nargs='*', type=urlcheck, dest='listen_addresses')
-argparser.add_argument('--seeds', nargs='*', type=urlcheck)
+argparser.add_argument('--listen-addresses', nargs='*', type=urlcheck, dest='listen_addresses',
+                       help='The host:port pairs to bind on.')
+argparser.add_argument('--seeds', nargs='*', type=urlcheck,
+                       help='The host:port pairs at which to "rendevous" with other nodes.')
 
 
 def exception_handler(loop, context):

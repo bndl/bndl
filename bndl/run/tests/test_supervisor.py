@@ -1,9 +1,8 @@
 from unittest.case import TestCase
 
-from bndl.util import supervisor
+from bndl.run import supervisor
 import os
 import sys
-from bndl.util.supervisor import Supervisor
 import time
 import tempfile
 
@@ -46,17 +45,12 @@ class TestSupervisor(TestCase):
             return [int(line) for line in f.read().split('\n') if line]
 
 
-    def test_supervisor_main(self):
-        supervisor.main(supervisor.argparser.parse_args(['bndl.util.tests.test_supervisor:test_entry_point']))
-        self.assertEqual(len(self.get_pids()), os.cpu_count())
-
-
     def test_supervisor_watcher(self):
         # communicate to test_entry_point to exit
         os.environ['TestSupervisor.exitcode'] = '1'
 
         # run the supervisor
-        sup = Supervisor('bndl.util.tests.test_supervisor', 'test_entry_point', [], 1,
+        sup = supervisor.Supervisor('bndl.util.tests.test_supervisor', 'test_entry_point', [], 1,
                          min_run_time=.1, check_interval=.01)
         sup.start()
         # and wait at least three times
