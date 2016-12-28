@@ -1,4 +1,3 @@
-from subprocess import Popen, TimeoutExpired
 import argparse
 import atexit
 import itertools
@@ -6,6 +5,7 @@ import logging
 import os
 import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -51,11 +51,27 @@ def entry_point(string):
         return string, 'main'
 
 
-argparser = argparse.ArgumentParser()
-argparser.epilog = 'Use -- after the supervisor arguments to separate them from' \
+base_argparser = argparse.ArgumentParser(add_help=False)
+base_argparser.epilog = 'Use -- after the supervisor arguments to separate them from' \
                    'arguments to the main program.'
-argparser.add_argument('entry_point', type=entry_point)
-argparser.add_argument('--process_count', nargs='?', type=int, default=os.cpu_count())
+# base_argparser.add_argument('--numactl', dest='numactl', action='store_true')
+base_argparser.add_argument('--pincore', dest='pincore', action='store_true',
+                            help='Pin processes to a specific core with taskset')
+# base_argparser.add_argument('--jemalloc', dest='jemalloc', action='store_true')
+base_argparser.add_argument('--no-numactl', dest='numactl', action='store_false',
+                            help='Don\'t attempt to bind processes to a NUMA zone with numactl')
+# base_argparser.add_argument('--no-pincore', dest='pincore', action='store_false')
+base_argparser.add_argument('--no-jemalloc', dest='jemalloc', action='store_false',
+                            help='Don\'t attempt to use jemalloc.sh (use the system default '
+                                 'malloc, usually malloc from glibc).')
+base_argparser.set_defaults(numactl=True,
+                            pincore=False,
+                            jemalloc=True)
+
+
+main_argparser = argparse.ArgumentParser(parents=[base_argparser])
+main_argparser.add_argument('--process_count', nargs='?', type=int, default=os.cpu_count())
+main_argparser.add_argument('entry_point', type=entry_point)
 
 
 def split_args():
@@ -67,8 +83,18 @@ def split_args():
     return sys.argv[1:idx + 1], sys.argv[idx + 1:]
 
 
+def _check_command_exists(name):
+    try:
+        subprocess.check_output(['which', name])
+    except Exception:
+        return False
+    else:
+        return True
+
+
+
 class Child(object):
-    def __init__(self, child_id, module, main, args):
+    def __init__(self, child_id, module, main, args, numactl, pincore, jemalloc):
         self.id = child_id
         self.module = module
         self.main = main
@@ -79,17 +105,44 @@ class Child(object):
         self.watcher = None
         self.started_on = None
 
+        self.executable = [sys.executable]
+
+        numactl &= _check_command_exists('numactl') and _check_command_exists('numastat')
+        jemalloc &= _check_command_exists('jemalloc.sh')
+        pincore &= _check_command_exists('taskset')
+
+        if numactl and not pincore:
+            n_zones = len(subprocess.check_output(['numastat | head -n 1'], shell=True).split())
+            if n_zones > 1:
+                node = str(sum(self.id) % n_zones)
+                self.executable = ['numactl', '-N', node, '--preferred', node] + self.executable
+
+        if pincore:
+            n_cores = os.cpu_count()
+            if n_cores > 1:
+                core = str(sum(self.id) % n_cores)
+                self.executable = ['taskset', '-c', core] + self.executable
+
+        if jemalloc:
+            self.executable = ['jemalloc.sh'] + self.executable
+
 
     def start(self):
         if self.running:
             raise RuntimeError("Can't run a child twice")
 
-        logger.info('Starting child %s (%s:%s)', self.id , self.module, self.main)
-
-        env = {CHILD_ID:str(self.id)}
+        child_id = '.'.join(map(str, self.id))
+        env = {CHILD_ID: child_id}
         env.update(os.environ)
-        args = [sys.executable, '-m', 'bndl.util.supervisor.child', self.module, self.main] + self.args
-        self.proc = Popen(args, env=env)
+
+        logger.info('Starting child %s (%s:%s)', child_id, self.module, self.main)
+
+        args = self.executable \
+               + ['-m', 'bndl.util.supervisor.child', self.module, self.main] \
+               + list(self.args)
+
+
+        self.proc = subprocess.Popen(args, env=env)
         self.pid = self.proc.pid
         self.started_on = time.time()
 
@@ -126,18 +179,23 @@ class Supervisor(object):
     _ids = itertools.count()
 
     def __init__(self, module, main, args, process_count=None,
+                 numactl=True, pincore=False, jemalloc=True,
                  min_run_time=MIN_RUN_TIME, check_interval=CHECK_INTERVAL):
         self.id = next(Supervisor._ids)
         self.module = module
         self.main = main
         self.args = args
         self.process_count = process_count
+        self.numactl = numactl
+        self.pincore = pincore
+        self.jemalloc = jemalloc
         self.children = []
         self.min_run_time = min_run_time
         self.check_interval = check_interval
         self._watcher = threading.Thread(target=self._watch, daemon=True,
                                          name='bndl-supervisor-watcher-%s'
                                          % self.id)
+
 
     def start(self):
         self._watcher.start()
@@ -146,8 +204,9 @@ class Supervisor(object):
 
 
     def _start(self):
-        child_id = '%s.%s' % (self.id, len(self.children))
-        child = Child(child_id, self.module, self.main, self.args)
+        child_id = (self.id, len(self.children))
+        child = Child(child_id, self.module, self.main, self.args,
+                      numactl=self.numactl, pincore=self.pincore, jemalloc=self.jemalloc)
         self.children.append(child)
         child.start()
 
@@ -159,7 +218,7 @@ class Supervisor(object):
         for child in self.children:
             try:
                 child.wait(MIN_RUN_TIME)
-            except TimeoutExpired:
+            except subprocess.TimeoutExpired:
                 child.terminate(True)
 
 
@@ -199,20 +258,33 @@ class Supervisor(object):
                 time.sleep(self.check_interval)
 
 
+    @classmethod
+    def from_args(cls, args, prog_args=()):
+        return cls(
+            args.entry_point[0],
+            args.entry_point[1],
+            prog_args,
+            args.process_count,
+            args.numactl,
+            args.pincore,
+            args.jemalloc
+        )
+
+
+
 def main(supervisor_args=None, child_args=None):
     # parse arguments
     if supervisor_args is None:
         supervisor_args, prog_args = split_args()
-        supervisor_args = argparser.parse_args(supervisor_args)
+        supervisor_args = main_argparser.parse_args(supervisor_args)
     else:
         prog_args = child_args or []
 
     # create the supervisor
-    supervisor = Supervisor(supervisor_args.entry_point[0], supervisor_args.entry_point[1], prog_args, supervisor_args.process_count)
+    supervisor = Supervisor.from_args(supervisor_args, prog_args)
 
     # and run until CTRL-C / SIGTERM
     try:
-        entry_point = ':'.join(supervisor_args.entry_point)
         supervisor.start()
         supervisor.wait()
     except KeyboardInterrupt:
