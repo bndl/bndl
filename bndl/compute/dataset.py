@@ -687,6 +687,8 @@ class Dataset(object):
             results is roughly of the same size (the branching factor in the
             tree is the same across the entire tree).
         '''
+        if depth is None:
+            depth = 1024
         if depth < 2:
             return self.aggregate(local, comb)
 
@@ -694,7 +696,7 @@ class Dataset(object):
             comb = local
 
         pcount = len(self.parts())
-        if not scale:
+        if scale is None:
             scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
         pcount = self.ctx.worker_count * (pcount // scale // self.ctx.worker_count + 1)
 
