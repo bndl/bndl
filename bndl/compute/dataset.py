@@ -618,7 +618,7 @@ class Dataset(object):
             callable will be applied.
         '''
         try:
-            parts = self.map_partitions(lambda p: (local(p),)).icollect()
+            parts = self.map_partitions(lambda p: (local(p),)).icollect(ordered=False)
             return (comb or local)(parts)
         except StopIteration:
             raise ValueError('dataset is empty')
