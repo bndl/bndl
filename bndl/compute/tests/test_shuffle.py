@@ -1,30 +1,71 @@
 import logging
 import os
 import signal
+import sys
 import threading
 import time
 
 from cytoolz.itertoolz import pluck
 
 from bndl.compute.tests import DatasetTest
-from bndl.net.connection import NotConnected
+from bndl.util import psutil
 
 
 logger = logging.getLogger(__name__)
 
 
 class ShuffleTest(DatasetTest):
-    worker_count = 20
+    worker_count = max(3, min(20, os.cpu_count() * 2))
 
     # TODO test Dataset.clean
 
     def test_shuffle(self):
-        size = 100 * 1000
+        min_mem_pct_old = self.ctx.conf['bndl.compute.shuffle.min_mem_pct']
+        max_mem_pct_old = self.ctx.conf['bndl.compute.shuffle.max_mem_pct']
 
-        dset = self.ctx.range(size, pcount=30).shuffle(sort=False).shuffle(pcount=3, partitioner=lambda i: i % 2)
-        parts = sorted(sorted(part) for part in dset.collect(parts=True) if part)
-        self.assertEqual(parts, [list(range(0, size, 2)), list(range(1, size, 2))])
+        self.assertGreater(min_mem_pct_old, 0)
+        self.assertGreater(max_mem_pct_old, 0)
 
+        size = 2 * 1000 * 1000
+        data = self.ctx.range(size, pcount=30).map(str)
+
+        total_mem = psutil.virtual_memory().total
+        data_size = data.map(sys.getsizeof).sum() / total_mem * 100
+
+        thresholds = [
+            (25, 50),
+            (data_size / 8, data_size / 4),
+        ]
+
+        part0_data = set(map(str, range(0, size, 2)))
+        part1_data = set(map(str, range(1, size, 2)))
+
+        for sort in (True, False):
+            try:
+                for min_mem_pct, max_mem_pct in thresholds:
+                    print(min_mem_pct, max_mem_pct)
+                    self.ctx.conf['bndl.compute.shuffle.min_mem_pct'] = min_mem_pct
+                    self.ctx.conf['bndl.compute.shuffle.max_mem_pct'] = max_mem_pct
+
+                    shuffled = data.shuffle(sort=sort).shuffle(pcount=3,
+                                                               partitioner=lambda i: int(i) % 2)
+                    parts = list(filter(None, map(set, shuffled.collect(parts=True))))
+
+                    self.assertEqual(len(parts), 2)
+                    self.assertEqual(len(parts[0]), size / 2)
+                    self.assertEqual(len(parts[1]), size / 2)
+
+                    parts.sort(key=lambda part: min(part))
+                    self.assertEqual(parts[0], part0_data)
+                    self.assertEqual(parts[1], part1_data)
+            finally:
+                self.ctx.conf['bndl.compute.shuffle.min_mem_pct'] = min_mem_pct_old
+                self.ctx.conf['bndl.compute.shuffle.max_mem_pct'] = max_mem_pct_old
+
+
+
+class ShuffleFailureTest(DatasetTest):
+    worker_count = 20
 
     def test_dependency_failure(self):
         class WorkerKiller(object):

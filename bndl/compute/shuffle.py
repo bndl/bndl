@@ -29,12 +29,15 @@ from bndl.util.psutil import process_memory_percent, virtual_memory
 logger = logging.getLogger(__name__)
 
 
-max_mem_pct = Float(50, desc='Percentage (1-100) indicating the amount of memory to be used for shuffling.')
-block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks created by spilling / serializing '
-                              'elements to disk')
+min_mem_pct = Float(25, desc='Percentage (1-100) indicating the amount of data to keep in memory'
+                             ' when spilling (in relation to the system memory, i.e. the low'
+                             ' water mark).')
+max_mem_pct = Float(50, desc='Percentage (1-100) indicating the maximum amount of system memory to'
+                             ' be used for shuffling (the high water mark).')
 
+block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks created by spilling'
+                              '/ serializing elements to disk')
 
-MAX_MEM_LOW_WATER = 0.5
 
 # try to have at least 10% or 1 GB of memory available
 MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
@@ -42,18 +45,40 @@ MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
 
 
 def low_memory(max_mem_pct):
+    '''
+    Check if the RSS of this process relative to the system memory is above max_mem_pct.
+    '''
     return process_memory_percent() > max_mem_pct or \
            virtual_memory().available < MIN_SYSTEM_MEM_AVAILBLE
 
 
-def spill_buckets(max_mem_pct, buckets):
+def spill_buckets(low_water, high_water, buckets):
+    '''
+    Spill buckets when above high_water until below low_water.
+
+    Parameters:
+        low_water: int between 0 and 100
+            Spill until not low_memory(low_water).
+
+        high_water: int between 0 and 100
+            Spill if low_memory(high_water).
+
+        buckets:
+            The buckets to spill.
+
+    Returns:
+        spilled: int
+            The number of bytes spilled.
+    '''
     spilled = 0
-    if low_memory(max_mem_pct):
+    if low_memory(high_water):
         for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
+            print('spilling at:', process_memory_percent(), 'high_water:', high_water)
             if bucket.memory_size == 0:
                 break
             spilled += bucket.spill()
-            if not low_memory(max_mem_pct * MAX_MEM_LOW_WATER):
+            if not low_memory(low_water):
+                print('spilled enough:', process_memory_percent(), low_water)
                 break
         gc.collect()
     return spilled
@@ -320,8 +345,8 @@ class ShuffleWritingDataset(Dataset):
     sync_required = True
 
 
-    def __init__(self, src, pcount, partitioner=None, bucket=None, key=None, comb=None,
-            max_mem_pct=None, block_size_mb=None, serialization='pickle',
+    def __init__(self, src, pcount, partitioner=None, bucket=None, key=None, comb=None, *,
+            min_mem_pct=None, max_mem_pct=None, block_size_mb=None, serialization='pickle',
             compression=None):
         '''
         :param src: Dataset
@@ -337,7 +362,10 @@ class ShuffleWritingDataset(Dataset):
             if applicable) the data on.
         :param comb: fun(sequence): iterable or None
             Optional combiner to apply on a bucket before serialization.
-        :param max_mem_pct: int between 0 and 100 or None
+        :param min_mem_pct: int between 0 and 100 or None
+            The low water memory mark after which spilling stops. Defaults to
+            bndl.compute.shuffle.min_mem_pct / os.cpu_count() (determined at the worker)
+        :param max_mem_pct: int between 1 and 100 or None
             Amount of memory to allow for the shuffle. Defaults to
             bndl.compute.shuffle.max_mem_pct / os.cpu_count() (determined at the worker)
         :param block_size_mb: float or None
@@ -356,7 +384,12 @@ class ShuffleWritingDataset(Dataset):
         self.bucket = bucket or SortedBucket
         self.key = key
 
+        self._min_mem_pct = min_mem_pct or src.ctx.conf['bndl.compute.shuffle.min_mem_pct']
         self._max_mem_pct = max_mem_pct or src.ctx.conf['bndl.compute.shuffle.max_mem_pct']
+        assert self._min_mem_pct < self._max_mem_pct, 'min_mem_pct (%s) should be less than' \
+                                                      ' max_mem_pct (%s)' % (self._min_mem_pct,
+                                                                             self._max_mem_pct)
+
         self.block_size_mb = block_size_mb or src.ctx.conf['bndl.compute.shuffle.block_size_mb']
         self.serialization = serialization
         self.compression = compression
@@ -378,8 +411,9 @@ class ShuffleWritingDataset(Dataset):
 
 
     @property
-    def max_mem_pct(self):
-        return self._max_mem_pct / os.cpu_count()
+    def spill_marks(self):
+        return (self._min_mem_pct / os.cpu_count(),
+                self._max_mem_pct / os.cpu_count())
 
 
     @property
@@ -415,8 +449,8 @@ class ShuffleWritingPartition(Partition):
             part_ = self.dset.partitioner
 
         # the relative amount of memory used to consider as ceiling
-        # spill when low_memory(max_mem_pct)
-        max_mem_pct = self.dset.max_mem_pct
+        # spill when low_memory(spill_high_water)
+        spill_low_water, spill_high_water = self.dset.spill_marks
 
         def calc_check_interval():
             try:
@@ -427,7 +461,7 @@ class ShuffleWritingPartition(Partition):
             else:
                 # check 10 times in the memory budget
                 # this also limits the interval at which data is spilled
-                return int((max_mem_pct / 100) * virtual_memory().total / 10 / element_size)
+                return int((spill_high_water / 100) * virtual_memory().total / 10 / element_size)
 
         # check every once in a while
         check_interval = calc_check_interval()
@@ -452,10 +486,10 @@ class ShuffleWritingPartition(Partition):
                 check_loop = 0
 
                 # spill if to much memory is used
-                if low_memory(max_mem_pct):
+                if low_memory(spill_high_water):
                     mem_used = process_memory_percent()
-                    spilled = self.dset.ctx.node.spill_buckets(max_mem_pct)
-                    spilled += spill_buckets(max_mem_pct, buckets)
+                    spilled = self.dset.ctx.node.spill_buckets(spill_low_water, spill_high_water)
+                    spilled += spill_buckets(spill_low_water, spill_high_water, buckets)
 
                     if spilled:
                         # update the check frequency according to the size of
@@ -465,7 +499,7 @@ class ShuffleWritingPartition(Partition):
                     logger.debug('memory usage from %.2f%% down to %.2f%% after spilling %.2f mb',
                                  mem_used, process_memory_percent(), spilled / 1024 / 1024)
 
-                elif not low_memory(max_mem_pct * MAX_MEM_LOW_WATER):
+                elif not low_memory((spill_high_water + spill_low_water) / 2):
                     # check less often if enough memory available
                     check_interval *= 2
 
@@ -479,7 +513,7 @@ class ShuffleWritingPartition(Partition):
         # serialize / spill the buckets for shuffle read
         # and keep track of the number of bytes spilled / serialized
         for bucket in buckets:
-            if low_memory(max_mem_pct):
+            if low_memory(spill_high_water):
                 bytes_spilled += bucket.serialize(True)
             else:
                 bytes_serialized += bucket.serialize(False)
@@ -498,7 +532,7 @@ class ShuffleReadingDataset(Dataset):
 
     It is expected that the source of ShuffleReadingDataset is a ShuffleWritingDataset
     (or at least compatible to it). Many properties of it are read in the shuffle read, i.e.:
-    block_size_mb, max_mem_pct, key, bucket.sorted, memory_container, disk_container
+    block_size_mb, min_mem_pct, max_mem_pct, key, bucket.sorted, memory_container, disk_container
     '''
     def __init__(self, src, sorted=None):
         super().__init__(src.ctx, src)
@@ -731,7 +765,7 @@ class ShuffleReadingPartition(Partition):
 
         # the relative amount of memory used to consider as ceiling
         # spill when low_memory(max_mem_pct)
-        max_mem_pct = self.dset.src.max_mem_pct
+        spill_low_water, spill_high_water = self.dset.src.spill_marks
 
         # create a stream of blocks
         blocks = self.blocks()
@@ -744,7 +778,7 @@ class ShuffleReadingPartition(Partition):
                                           self.dset.src.disk_container)
 
             # check 10 times per memory budget if more memory used than available
-            check_interval = (max_mem_pct / 100) * virtual_memory().total // 10
+            check_interval = (spill_high_water / 100) * virtual_memory().total // 10
             check_val = 0
             bytes_received = 0
 
@@ -761,11 +795,11 @@ class ShuffleReadingPartition(Partition):
                 data = None
 
                 if check_val > check_interval:
-                    # spill source buckets (spill_buckets checks itself)
-                    worker.spill_buckets(max_mem_pct)
+                    # spill source buckets
+                    worker.spill_buckets(spill_low_water, spill_high_water)
 
                     # spill the destination bucket if need be
-                    if low_memory(max_mem_pct):
+                    if low_memory(spill_high_water):
                         bucket.spill()
 
             logger.info('sorting %.1f mb', bytes_received / 1024 / 1024)
@@ -804,14 +838,12 @@ class ShuffleManager(object):
         self.buckets.setdefault(part.dset.id, {})[part.idx] = buckets
 
 
-    def spill_buckets(self, max_mem_pct):
+    def spill_buckets(self, low_water_pct, high_water_pct):
         '''
-        Spill buckets known by this ShuffleManager (worker) in order of their (estimated) memory footprint.
-
-        :param max_mem_pct: int between 0 and 100
-            Spill until not low_memory(max_mem_pct)
+        Spill buckets known by this ShuffleManager (worker) in order of their (estimated) memory
+        footprint.
         '''
-        return spill_buckets(max_mem_pct, chain.from_iterable(
+        return spill_buckets(low_water_pct, high_water_pct, chain.from_iterable(
             chain.from_iterable(buckets.values())
             for buckets in self.buckets.values()
         ))
