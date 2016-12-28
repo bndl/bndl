@@ -6,6 +6,15 @@ Change log
  * Moved hyperloglog and cycloudpickle out of BNDL
  * Default OMP_NUM_THREADS to 2 to ensure a limited number of threads per worker are started
  * Bug in shuffle (introduced in 0.3.3) caused dependency rescheduling to fail
+ * Improved shuffle stability and performance
+ * Change working directory name pattern / path to avoid issues with multiple users
+ * Removed numpy as dependency for setup.py to run
+ * Faster file reads when running workers locally without setting location=workers
+ * Improved tree_aggregate (and friends)
+ * Introduced global configuration object
+ * Support pinning workers on cores / NUMA zones
+ * Use jemalloc if available in workers
+ * Various bug fixes
 
 0.3.4
 -----
