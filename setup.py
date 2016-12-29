@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 
 from setuptools import setup, find_packages, Extension
 import pkg_resources
@@ -24,8 +25,11 @@ install_requires = [
     'tblib',
     'marisa_trie',
     'yappi<=0.93',
-    'uvloop',
 ]
+
+if sys.version_info >= (3,5):
+    install_requires.append('uvloop')
+
 
 dev_requires = [
     'cython<0.25',

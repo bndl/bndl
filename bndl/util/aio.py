@@ -3,8 +3,6 @@ import concurrent.futures
 import functools
 import logging
 
-import uvloop
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +14,11 @@ def get_loop(stop_on=(), use_uvloop=True):
     :param stop_on:
     '''
     if use_uvloop:
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        try:
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        except:
+            logger.debug('uvloop not available, using default event loop')
 
     try:
         del asyncio.Task.__del__
