@@ -6,7 +6,7 @@ import sys
 from bndl.net.connection import NotConnected
 from bndl.net.node import Node
 from bndl.net.peer import PeerNode
-from bndl.rmi import InvocationException
+from bndl.rmi import InvocationException, is_direct
 from bndl.rmi.messages import Response, Request
 from bndl.util.aio import async_call
 from bndl.util.aio import run_coroutine_threadsafe
@@ -14,6 +14,7 @@ from bndl.util.threads import OnDemandThreadedExecutor
 
 
 from tblib import pickling_support ; pickling_support.install()
+from functools import partial
 
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,16 @@ class RMIPeerNode(PeerNode):
         if method:
             try:
                 args = (self,) + request.args
-                result = yield from async_call(self.loop, self.executor, method, *(args or ()), **(request.kwargs or {}))
+                kwargs = request.kwargs or {}
+
+                if asyncio.iscoroutinefunction(method):
+                    result = (yield from method(*args, **kwargs))
+                elif is_direct(method):
+                    result = method(*args, **kwargs)
+                else:
+                    if kwargs:
+                        method = partial(method, **kwargs)
+                    result = (yield from self.loop.run_in_executor(self.executor, method, *args))
             except asyncio.futures.CancelledError:
                 logger.debug('handling message from %s cancelled: %s', self, request)
                 return

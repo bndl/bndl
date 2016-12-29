@@ -12,6 +12,7 @@ import threading
 
 from cytoolz.itertoolz import merge_sorted, pluck
 
+from bndl import rmi
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.storage import StorageContainerFactory
 from bndl.execute import DependenciesFailed, TaskCancelled
@@ -854,6 +855,7 @@ class ShuffleManager(object):
         return buckets
 
 
+    @rmi.direct
     def get_bucket_sizes(self, src, src_dset_id, dest_part_idx):
         '''
         Return the sizes and coordinates of the buckets for the destination partition.
@@ -874,6 +876,7 @@ class ShuffleManager(object):
             return sizes
 
 
+    @rmi.direct
     def get_bucket_block(self, src, src_dset_id, src_part_idx, dest_part_idx, batch_idx, block_idx):
         '''
         Retrieve a block from a batch in a bucket.
@@ -917,6 +920,7 @@ class ShuffleManager(object):
                 raise KeyError(msg)
 
 
+    @rmi.direct
     def get_bucket_blocks(self, src, coordinates):
         '''
         Retrieve blocks.
