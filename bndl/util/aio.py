@@ -3,16 +3,21 @@ import concurrent.futures
 import functools
 import logging
 
+import uvloop
+
 
 logger = logging.getLogger(__name__)
 
 
-def get_loop(stop_on=()):
+def get_loop(stop_on=(), use_uvloop=True):
     '''
     Get the current asyncio loop. If none exists (e.g. not on the main thread)
     a new loop is created.
     :param stop_on:
     '''
+    if use_uvloop:
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
     try:
         del asyncio.Task.__del__
     except AttributeError:

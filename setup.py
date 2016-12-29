@@ -24,6 +24,7 @@ install_requires = [
     'tblib',
     'marisa_trie',
     'yappi<=0.93',
+    'uvloop',
 ]
 
 dev_requires = [
