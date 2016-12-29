@@ -13,6 +13,8 @@ CHUNK_SIZE = 8 * 1024
 
 
 def file_attachment(filename, offset, size):
+    assert hasattr(os, "sendfile")
+
     @contextlib.contextmanager
     def _attacher():
         @asyncio.coroutine
@@ -53,27 +55,6 @@ def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):
         fut.set_result(None)
 
 
-
-def _sendfile_cb_fallback(loop, fut, out_fd, in_fd, buffered, registered):
-    if registered:
-        loop.remove_writer(out_fd)
-    if buffered:
-        written = os.write(out_fd, buffered)
-        buffered = buffered[written:]
-    while True:
-        if not buffered:
-            buffered = os.read(in_fd, CHUNK_SIZE)
-        if not buffered:
-            fut.set_result(None)
-            return
-        written = os.write(out_fd, buffered)
-        buffered = buffered[written:]
-        if buffered:
-            loop.add_writer(out_fd, _sendfile_cb_fallback,
-                            loop, fut, out_fd, in_fd, buffered, True)
-            return
-
-
 def _getfd(file):
     if hasattr(file, 'fileno'):
         return file.fileno()
@@ -83,12 +64,10 @@ def _getfd(file):
 
 @asyncio.coroutine
 def sendfile(outf, inf, offset, nbytes, loop=None):
+    assert hasattr(os, "sendfile")
     out_fd = _getfd(outf)
     in_fd = _getfd(inf)
     loop = loop or asyncio.get_event_loop()
     fut = asyncio.Future(loop=loop)
-    if hasattr(os, "sendfile"):
-        _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
-    else:
-        _sendfile_cb_fallback(loop, fut, out_fd, in_fd, None, False)
+    _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
     yield from fut
