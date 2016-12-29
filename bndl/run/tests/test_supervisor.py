@@ -50,7 +50,7 @@ class TestSupervisor(TestCase):
         os.environ['TestSupervisor.exitcode'] = '1'
 
         # run the supervisor
-        sup = supervisor.Supervisor('bndl.util.tests.test_supervisor', 'test_entry_point', [], 1,
+        sup = supervisor.Supervisor('bndl.run.tests.test_supervisor', 'test_entry_point', [], 1,
                          min_run_time=.1, check_interval=.01)
         sup.start()
         # and wait at least three times
