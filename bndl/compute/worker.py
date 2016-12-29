@@ -61,7 +61,6 @@ def run_workers():
     if args.seeds:
         worker_args += ['--seeds'] + args.seeds
 
-    print(args)
     superv = supervisor.Supervisor.from_args(args, worker_args)
     superv.start()
     try:

@@ -502,8 +502,6 @@ class ShuffleWritingPartition(Partition):
                     # check less often if enough memory available
                     check_interval *= 2
 
-                    # print('check_interval =', check_interval)
-
         # for efficiency elements_partitioned is tracked every check_interval
         # so after partitioning check_loop contains the number of elements
         # since the last check
