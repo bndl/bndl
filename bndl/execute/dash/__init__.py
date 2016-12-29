@@ -63,14 +63,16 @@ def task_stats(tasks):
         duration_pending = sum(durations_pending, timedelta())
         # for the initial tasks use the duration of the tasks still pending as well
         # it will be an underestimate, but less of an underestimate than using duration_stopped
-        if duration_pending > duration_stopped:
-            avg_duration = (duration_stopped + duration_pending) / (len(durations_stopped) + len(durations_pending))
+        if len(durations_pending) > len(durations_stopped):
+            avg_duration = duration_stopped / len(durations_stopped) + \
+                           duration_pending / len(durations_pending)
         else:
             avg_duration = duration_stopped / len(durations_stopped)
         # use the average duration times remaining to compute the total time remaining
         # divided by no remaining - it indicates the concurrency
         # count the duration pending only half (add a bit of pessimism)
-        time_remaining = max(timedelta(), avg_duration * remaining / pending - duration_pending / pending)
+        time_remaining = max(timedelta(), avg_duration * (remaining + 1) / pending
+                                          - duration_pending / pending)
     else:
         time_remaining = None
 
