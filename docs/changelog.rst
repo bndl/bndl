@@ -14,6 +14,7 @@ Change log
  * Introduced global configuration object
  * Support pinning workers on cores / NUMA zones
  * Use jemalloc if available in workers
+ * Use uvloop on Python 3.5 and up
  * Various bug fixes
 
 0.3.4
