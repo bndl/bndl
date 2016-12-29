@@ -15,7 +15,7 @@ from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util.exceptions import catch
-from bndl.util.funcs import identity
+from bndl.util.funcs import identity, noop
 
 
 logger = logging.getLogger(__name__)
@@ -248,15 +248,16 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
 
     def to_disk(self):
-        data = self.__dict__.pop('data')
-        self.__class__ = OnDisk
-        self.__init__(self.id, self.provider)
-        fileobj = self.open('w')
+        on_disk = OnDisk(self.id, self.provider)
+        on_disk.clear = noop
+        fileobj = on_disk.open('w')
         try:
-            fileobj.write(data)
+            fileobj.write(self.data)
         finally:
             fileobj.close()
-
+        self.__dict__.update(on_disk.__dict__)
+        self.__class__ = OnDisk
+        self.__dict__.pop('data')
 
 
 def _get_work_dir():
