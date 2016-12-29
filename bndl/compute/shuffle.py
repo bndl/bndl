@@ -73,12 +73,10 @@ def spill_buckets(low_water, high_water, buckets):
     spilled = 0
     if low_memory(high_water):
         for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
-            print('spilling at:', process_memory_percent(), 'high_water:', high_water)
             if bucket.memory_size == 0:
                 break
             spilled += bucket.spill()
             if not low_memory(low_water):
-                print('spilled enough:', process_memory_percent(), low_water)
                 break
         gc.collect()
     return spilled
