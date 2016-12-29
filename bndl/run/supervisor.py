@@ -92,7 +92,9 @@ def split_args():
 
 def _check_command_exists(name):
     try:
-        subprocess.check_output(['which', name])
+        subprocess.check_output(['which', name],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
     except Exception:
         return False
     else:
