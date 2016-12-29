@@ -46,7 +46,7 @@ def run_workers():
     argparser = argparse.ArgumentParser(parents=[many_argparser])
 
     conf = Config.instance()
-    def_worker_count = conf.get('bndl.compute.worker_count', os.cpu_count() or 1)
+    def_worker_count = conf.get('bndl.compute.worker_count') or os.cpu_count() or 1
     argparser.add_argument('process_count', nargs='?', type=int, default=def_worker_count,
                             metavar='worker count', help='The number of workers to start (defaults'
                                                          ' to %s).' % def_worker_count)
@@ -61,6 +61,7 @@ def run_workers():
     if args.seeds:
         worker_args += ['--seeds'] + args.seeds
 
+    print(args)
     superv = supervisor.Supervisor.from_args(args, worker_args)
     superv.start()
     try:
