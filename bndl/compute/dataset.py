@@ -688,7 +688,7 @@ class Dataset(object):
             tree is the same across the entire tree).
         '''
         if depth is None:
-            depth = 1024
+            depth = 16
         if depth < 2:
             return self.aggregate(local, comb)
 
@@ -698,16 +698,18 @@ class Dataset(object):
         pcount = len(self.parts())
         if scale is None:
             scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
-        pcount = self.ctx.worker_count * (pcount // scale // self.ctx.worker_count + 1)
+        pcount /= scale
+        ipcount = round(pcount)
 
-        agg = self.map_partitions_with_index(lambda idx, p: [(idx % pcount, local(p))])
+        agg = self.map_partitions_with_index(lambda idx, p: [(idx % ipcount, local(p))])
 
         for _ in range(depth):
-            agg = agg.aggregate_by_key(comb, pcount=pcount, **shuffle_opts)
-            pcount //= scale
+            agg = agg.aggregate_by_key(comb, pcount=ipcount, sort=False, **shuffle_opts)
+            pcount /= scale
+            ipcount = round(pcount)
             if pcount < scale:
                 break
-            agg = agg.map_keys(lambda idx, : idx % pcount)
+            agg = agg.map_keys(lambda idx, : idx % ipcount)
 
         try:
             return comb(agg.values().icollect())
