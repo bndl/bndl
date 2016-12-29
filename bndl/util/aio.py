@@ -93,11 +93,14 @@ def drain(writer):
     StreamWriter.drain only drains when there is more data buffered than the
     low_water mark. This method performs a full drain.
     '''
-    if writer.transport.get_write_buffer_size():
-        low, high = writer.transport.get_write_buffer_limits()
-        writer.transport.set_write_buffer_limits(low=0)
+    transport = writer.transport
+    if transport.get_write_buffer_size():
+        low, high = transport.get_write_buffer_limits()
+        transport.set_write_buffer_limits(low=0, high=0)
         yield from writer.drain()
-        writer.transport.set_write_buffer_limits(high, low)
+        transport.set_write_buffer_limits(high, low)
+    assert transport.get_write_buffer_size() == 0, 'Not all data was drained (%s bytes remain)' % \
+                                                   transport.get_write_buffer_size()
 
 
 
