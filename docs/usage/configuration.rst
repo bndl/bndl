@@ -22,7 +22,7 @@ Configuration object
 `bndl.compute` and `bndl.execute` have such an instance located in the `Compute/ExecuteContext`.
 For example::
 
-   >>> from bndl.compute.run import ctx
+   >>> from bndl.compute import ctx
    >>> ctx.conf['bndl.compute.worker_count']
    2
    >>> ctx.conf['foo'] = 'bar'
@@ -62,7 +62,7 @@ supplied as ``key=value other=value foo=bar``. Spacing is parsed through ``shlex
 example::
 
    $ BNDL_CONF='bndl.compute.worker_count=3 foo=bar' python
-   >>> from bndl.compute.run import ctx
+   >>> from bndl.compute import ctx
    >>> ctx.await_workers()
    3
    >>> ctx.conf['foo']

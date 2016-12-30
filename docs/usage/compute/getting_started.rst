@@ -65,6 +65,6 @@ Python scripts can use the ``ctx`` global from ``bndl.compute.run`` to acquire a
 
 .. code:: pycon
 
-    >>> from bndl.compute.run import ctx
+    >>> from bndl.compute import ctx
     >>> ctx.range(1000).map(str).map(len).stats()
     <Stats count=1000, mean=2.890000000000001, min=1.0, max=3.0, var=0.11789999999999999, stdev=0.3433656942677879, skew=-3.2053600735213332, kurt=10.25131920569249>

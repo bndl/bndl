@@ -3,7 +3,7 @@ Examples
 
 Count the number of even and odd numbers from 0 through 9999::
 
-   >>> from bndl.compute.run import ctx
+   >>> from bndl.compute import ctx
    >>> ctx.range(10000)                      # start with some numbers     \
    ...    .map(lambda i: (i % 2, 1))         # create tuples (odd/even, 1) \
    ...    .reduce_by_key(lambda a, b: a + b) # sum the 1's                 \

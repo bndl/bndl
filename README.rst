@@ -27,5 +27,5 @@ cluster).
 
 Obtain a *compute context* in python scripts by importing ``ctx`` from ``bndl.compute.run``::
 
-    from bndl.compute.run import ctx
+    from bndl.compute import ctx
     print(ctx.range(1000).map(str).map(len).stats())

@@ -3,7 +3,7 @@ from unittest.case import TestCase
 
 class TestCtxImport(TestCase):
     def test_ctximport(self):
-        from bndl.compute.run import ctx
+        from bndl.compute import ctx
 
         worker_count = ctx.await_workers()
         self.assertTrue(worker_count > 0)

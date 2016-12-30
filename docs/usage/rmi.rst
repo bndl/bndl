@@ -13,7 +13,7 @@ in the cluster from the ``bndl.compute`` or ``bndl.execute`` modules; e.g. by ru
 ``bndl-compute-shell`` or ``bndl-compute-workers`` commands. Such nodes provide the
 ``execute(...)``` method, e.g.::
 
-   >>> from bndl.compute.run import ctx
+   >>> from bndl.compute import ctx
    >>> ctx.await_workers()
    4
    >>> ctx.workers[0].execute(lambda: 42).result()

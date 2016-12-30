@@ -90,7 +90,7 @@ class ComputeContext(ExecutionContext):
 
         Example::
 
-            >>> from bndl.compute.run import ctx
+            >>> from bndl.compute import ctx
             >>> accum = ctx.accumulator(0)
             >>> def mapper(i):
             ...     global accum
