@@ -50,8 +50,8 @@ class LazyObject(object):
 
 
     def __getattribute__(self, name):
-        self_orig = object.__getattribute__(self, '_materialize')()
-        return object.__getattribute__(self_orig, name)
+        object.__getattribute__(self, '_materialize')()
+        return object.__getattribute__(self, name)
 
 
 
