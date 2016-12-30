@@ -697,7 +697,7 @@ class Dataset(object):
             scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
         pcount /= scale
         ipcount = round(pcount)
-        
+
         if ipcount < 2:
             return self.aggregate(local, comb)
 
@@ -1020,8 +1020,8 @@ class Dataset(object):
                     .flatmap(local_join))
 
 
-    def product(self, other, *others):
-        return CartesianProductDataset((self, other) + others)
+    def product(self, other, *others, func=product):
+        return CartesianProductDataset((self, other) + others, func=func)
 
 
     def distinct(self, pcount=None, key=None, **shuffle_opts):
@@ -1902,6 +1902,11 @@ class UnionPartition(Partition):
 
 
 class CartesianProductDataset(_MultiSourceDataset):
+    def __init__(self, src, func=product):
+        super().__init__(src)
+        self.func = func
+
+
     def product(self, other, *others):
         return CartesianProductDataset((self, other) + others)
 
@@ -1912,10 +1917,21 @@ class CartesianProductDataset(_MultiSourceDataset):
                 for idx, parts in enumerate(part_pairs)]
 
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        state['func'] = cloudpickle.dumps(self.func)
+        return state
+
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.func = pickle.loads(self.func)
+
+
 
 class CartesianProductPartition(Partition):
     def _compute(self):
-        yield from product(*list(src.compute() for src in self.src))
+        yield from self.dset.func(*tuple(src.compute() for src in self.src))
 
 
 

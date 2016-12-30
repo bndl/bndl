@@ -22,9 +22,22 @@ class CartesianProductTest(DatasetTest):
         self.assertEqual(sorted(dset.collect()), sorted(abc))
 
 
-    def test_selfproduct(self):
+    def test_self_product(self):
         dset = self.ctx.collection(string.ascii_letters)
         actual = dset.product(dset).collect()
         actual.sort()
         expected = sorted(product(*[string.ascii_letters] * 2))
         self.assertEqual(actual, expected)
+
+
+    def test_partition_product(self):
+        a = self.ctx.collection(string.ascii_letters, pcount=4)
+        b = self.ctx.range(100, pcount=4)
+
+        a_maxes = string.ascii_letters[12::13]
+        b_maxes = list(range(24, 100, 25))
+
+        expected = list(product(a_maxes, b_maxes))
+        actual = a.product(b, func=lambda a, b: ((max(a), max(b)),)).collect()
+
+        self.assertEqual(expected, actual)
