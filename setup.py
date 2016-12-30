@@ -21,7 +21,7 @@ install_requires = [
     'flask',
     'mmh3',
     'scandir',
-    'psutil',
+    'psutil>=4.4',
     'tblib',
     'marisa_trie',
     'yappi<=0.93',
