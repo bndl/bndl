@@ -40,17 +40,11 @@ block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks cr
                               '/ serializing elements to disk')
 
 
-# try to have at least 10% or 1 GB of memory available
-MIN_SYSTEM_MEM_AVAILBLE = max(virtual_memory().total * 0.1,
-                              1024 * 1024 * 1024)
-
-
 def low_memory(max_mem_pct):
     '''
     Check if the RSS of this process relative to the system memory is above max_mem_pct.
     '''
-    return process_memory_percent() > max_mem_pct or \
-           virtual_memory().available < MIN_SYSTEM_MEM_AVAILBLE
+    return process_memory_percent() > max_mem_pct
 
 
 def spill_buckets(low_water, high_water, buckets):
@@ -79,7 +73,7 @@ def spill_buckets(low_water, high_water, buckets):
             spilled += bucket.spill()
             if not low_memory(low_water):
                 break
-        gc.collect()
+        gc.collect(2)
     return spilled
 
 
