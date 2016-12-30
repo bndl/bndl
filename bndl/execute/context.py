@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Thread
+import copy
 import logging
 import time
 import warnings
@@ -11,8 +12,8 @@ from bndl.execute.worker import current_worker
 from bndl.util import plugins
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
-from bndl.util.lifecycle import Lifecycle
 from bndl.util.funcs import as_method
+from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,13 @@ class ExecutionContext(Lifecycle):
     '''
     instances = set()
 
-    def __init__(self, node, config=Config()):
+    def __init__(self, node, config=None):
         # Make sure the BNDL plugins are loaded
         plugins.load_plugins()
 
         super().__init__()
         self._node = node
-        self.conf = config
+        self.conf = copy.copy(config) if config else Config()
         self.jobs = []
         self.signal_start()
         self.instances.add(self)
