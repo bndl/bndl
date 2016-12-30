@@ -7,6 +7,7 @@ which transform and combine these data sets.
 import os
 
 from bndl.util import conf
+from bndl.util.objects import LazyObject
 
 
 pcount = conf.Int(desc='The default number of partitions. Then number of '
@@ -19,3 +20,15 @@ worker_count = conf.Int(desc='The number of workers to start when no seeds '
 
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '2'
+
+
+def _get_or_create_ctx():
+    from bndl.compute.context import ComputeContext
+    if len(ComputeContext.instances) > 0:
+        return next(iter(ComputeContext.instances))
+    else:
+        from bndl.compute.run import create_ctx
+        return create_ctx()
+
+
+ctx = LazyObject(_get_or_create_ctx, 'stop')

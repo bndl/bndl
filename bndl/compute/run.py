@@ -11,7 +11,6 @@ from bndl.run.supervisor import Supervisor
 from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
 import bndl
-from bndl.util.objects import LazyObject
 
 
 def create_ctx(config=None, daemon=True):
@@ -83,12 +82,3 @@ def create_ctx(config=None, daemon=True):
         with catch():
             stop()
         raise
-
-
-def _get_or_create_ctx():
-    if len(ComputeContext.instances) > 0:
-        return next(iter(ComputeContext.instances))
-    else:
-        return create_ctx()
-
-ctx = LazyObject(_get_or_create_ctx, 'stop')
