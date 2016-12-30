@@ -18,7 +18,8 @@ class ComputeTest(unittest.TestCase):
         config['bndl.net.listen_addresses'] = 'tcp://127.0.0.11:5000'
         cls.ctx = create_ctx(config, daemon=True)
         cls.ctx.await_workers(cls.worker_count, 60, 60)
-        assert cls.ctx.worker_count == cls.worker_count
+        assert cls.ctx.worker_count == cls.worker_count, \
+            '%s != %s' % (cls.ctx.worker_count, cls.worker_count)
 
     @classmethod
     def tearDownClass(cls):
