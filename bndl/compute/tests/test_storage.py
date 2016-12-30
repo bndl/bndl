@@ -35,8 +35,7 @@ class StorageTest(TestCase):
 
         @asyncio.coroutine
         def run_pair():
-            server = yield from asyncio.start_server(connected, '::', 0)
-            print('started server')
+            server = yield from asyncio.start_server(connected, '0.0.0.0', 0)
             socket = server.sockets[0]
             host, port = socket.getsockname()[:2]
 
