@@ -117,3 +117,14 @@ class Accumulator(object):
 
     def unpersist(self):
         self.ctx._deregister_accumulator(self.id)
+
+
+
+class PartitionedValue(dict):
+    def __iadd__(self, args):
+        pidx, value = args
+        self[pidx] = value
+        return self
+
+    def sum(self, zero=0):
+        return sum(self.values(), zero)
