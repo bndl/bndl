@@ -692,14 +692,17 @@ class Dataset(object):
         if depth < 2:
             return self.aggregate(local, comb)
 
-        if not comb:
-            comb = local
-
         pcount = len(self.parts())
         if scale is None:
             scale = max(int(ceil(pow(pcount, 1.0 / depth))), 2)
         pcount /= scale
         ipcount = round(pcount)
+        
+        if ipcount < 2:
+            return self.aggregate(local, comb)
+
+        if not comb:
+            comb = local
 
         agg = self.map_partitions_with_index(lambda idx, p: [(idx % ipcount, local(p))])
 
