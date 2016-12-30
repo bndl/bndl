@@ -9,8 +9,8 @@ from bndl.compute.driver import Driver
 from bndl.net.run import run_nodes
 from bndl.run.supervisor import Supervisor
 from bndl.util.aio import get_loop
-from bndl.util.conf import Config
 from bndl.util.exceptions import catch
+import bndl
 from bndl.util.objects import LazyObject
 
 
@@ -18,7 +18,7 @@ def create_ctx(config=None, daemon=True):
     from bndl.util import dash
 
     if config is None:
-        config = Config.instance()
+        config = bndl.conf
 
     listen_addresses = config.get('bndl.net.listen_addresses')
     seeds = config.get('bndl.net.seeds')

@@ -4,7 +4,6 @@ from cytoolz.itertoolz import groupby
 
 from bndl.compute.run import create_ctx
 from bndl.compute.worker import many_argparser
-from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
 import bndl
@@ -30,7 +29,7 @@ argparser.add_argument('--conf', nargs='*', default=(),
 def main():
     try:
         args = argparser.parse_args()
-        config = Config.instance()
+        config = bndl.conf
 
         if args.listen_addresses:
             config['bndl.net.listen_addresses'] = args.listen_addresses

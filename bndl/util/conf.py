@@ -15,15 +15,6 @@ _SETTINGS_CACHE = {}
 
 
 class Config(object):
-    _global = None
-
-    @classmethod
-    def instance(cls):
-        if cls._global is None:
-            cls._global = cls()
-        return cls._global
-
-
     def __init__(self, values=None, use_environment=True, **kwargs):
         if use_environment:
             self.values = {}

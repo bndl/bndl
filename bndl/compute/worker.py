@@ -9,8 +9,8 @@ from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
 from bndl.net.connection import getlocalhostname
 from bndl.run import supervisor
-from bndl.util.conf import Config
 from bndl.util.exceptions import catch
+import bndl
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ many_argparser = argparse.ArgumentParser(parents=[run.argparser, supervisor.base
 
 
 def main():
-    conf = Config.instance()
+    conf = bndl.conf
     args = main_argparser.parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
@@ -45,7 +45,7 @@ def main():
 def run_workers():
     argparser = argparse.ArgumentParser(parents=[many_argparser])
 
-    conf = Config.instance()
+    conf = bndl.conf
     def_worker_count = conf.get('bndl.compute.worker_count') or os.cpu_count() or 1
     argparser.add_argument('process_count', nargs='?', type=int, default=def_worker_count,
                             metavar='worker count', help='The number of workers to start (defaults'

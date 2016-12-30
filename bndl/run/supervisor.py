@@ -8,7 +8,8 @@ import subprocess
 import sys
 import threading
 import time
-from bndl.util.conf import Config
+
+import bndl
 
 
 logger = logging.getLogger(__name__)
@@ -71,9 +72,9 @@ base_argparser.add_argument('--no-jemalloc', dest='jemalloc', action='store_fals
                             help='Don\'t attempt to use jemalloc.sh (use the system default '
                                  'malloc, usually malloc from glibc).')
 
-base_argparser.set_defaults(numactl=Config.instance()['bndl.run.numactl'],
-                            pincore=Config.instance()['bndl.run.pincore'],
-                            jemalloc=Config.instance()['bndl.run.jemalloc'])
+base_argparser.set_defaults(numactl=bndl.conf['bndl.run.numactl'],
+                            pincore=bndl.conf['bndl.run.pincore'],
+                            jemalloc=bndl.conf['bndl.run.jemalloc'])
 
 
 main_argparser = argparse.ArgumentParser(parents=[base_argparser])
@@ -195,11 +196,11 @@ class Supervisor(object):
         self.process_count = process_count
         
         if numactl is None:
-            numactl = Config.instance()['bndl.run.numactl']
+            numactl = bndl.conf['bndl.run.numactl']
         if pincore is None:
-            pincore = Config.instance()['bndl.run.pincore']
+            pincore = bndl.conf['bndl.run.pincore']
         if jemalloc is None:
-            jemalloc = Config.instance()['bndl.run.jemalloc']
+            jemalloc = bndl.conf['bndl.run.jemalloc']
 
         self.numactl = numactl
         self.pincore = pincore
