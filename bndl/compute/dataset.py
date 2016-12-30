@@ -548,6 +548,7 @@ class Dataset(object):
 
 
     def _take_ordered_by_key(self, num, key, taker, **shuffle_opts):
+        key = key_or_getter(key)
         def local(values):
             return taker(num, values, key=key)
         def comb(iterables):
