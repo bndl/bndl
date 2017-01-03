@@ -100,7 +100,7 @@ def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None,
 
 def _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
-    batches = list(zip(cycle((ctx.node.name,)), batches))
+    batches = list(zip(cycle((ctx.node.ip_addresses(),)), batches))
     logger.debug('created files dataset of %s batches', len(batches))
     return FilesDataset(ctx, batches, split)
 
@@ -111,18 +111,21 @@ def _ip_addresses(worker):
 
 def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batch_requests = []
-    workers = sorted(ctx.workers, key=_ip_addresses)
-    for _, workers in groupby(workers, key=_ip_addresses):
-        worker = next(workers)
-        batch_requests.append((worker, worker.execute(_batches, root, recursive, dfilter,
-                                                       ffilter, psize_bytes, psize_files, split)))
+    seen = set()
+    ctx.await_workers()
+    for worker in ctx.workers:
+        ips = tuple(sorted(worker.ip_addresses()))
+        if ips not in seen:
+            seen.add(ips)
+            batch_requests.append((worker, worker.execute(_batches, root, recursive, dfilter,
+                                                           ffilter, psize_bytes, psize_files, split)))
 
     batches = []
     for worker, batch_request in batch_requests:
         worker_batches = []
         batches.append(worker_batches)
         for file_chunks in batch_request.result():
-            worker_batches.append((worker.name, file_chunks))
+            worker_batches.append((worker.ip_addresses(), file_chunks))
 
     # interleave batches to ease scheduling overhead
     batches = list(interleave(batches))
@@ -340,8 +343,8 @@ class FilesDataset(DistributedFilesOps, Dataset):
         super().__init__(ctx)
         self.split = bool(split)
         self._parts = [
-            FilesPartition(self, idx, source_name, file_chunks)
-            for idx, (source_name, file_chunks) in enumerate(batches)
+            FilesPartition(self, idx, file_chunks, location)
+            for idx, (location, file_chunks) in enumerate(batches)
         ]
 
 
@@ -403,24 +406,18 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
 class FilesPartition(Partition):
-    def __init__(self, dset, idx, source_node, file_chunks):
+    def __init__(self, dset, idx, file_chunks, location):
         super().__init__(dset, idx)
-        self.source_node = source_node
         self.file_chunks = file_chunks
-
-
-    def _local_ip_addresses(self):
-        if self.source_node == self.dset.ctx.node.name:
-            return self.dset.ctx.node.ip_addresses()
-        else:
-            return self.dset.ctx.node.peers[self.source_node].ip_addresses()
+        self.location = location
 
 
     def _locality(self, workers):
-        local_ips = self._local_ip_addresses()
-        for worker in workers:
-            if worker.ip_addresses() & local_ips:
-                yield worker, NODE_LOCAL
+        if self.location:
+            local_ips = self.location
+            for worker in workers:
+                if worker.ip_addresses() & local_ips:
+                    yield worker, NODE_LOCAL
 
 
     def _local(self):
@@ -432,14 +429,17 @@ class FilesPartition(Partition):
 
 
     def _remote(self):
-        source = self.dset.ctx.node.peers[self.source_node]
-        request = source.execute(_RemoteFilesSender, self.file_chunks)
-        contents = request.result().data
-        return zip(self.file_chunks.keys(), contents)
+        for worker in self.dset.ctx.workers:
+            if worker.ip_addresses() & self.location:
+                request = worker.execute(_RemoteFilesSender, self.file_chunks)
+                contents = request.result().data
+                assert len(contents) == len(self.file_chunks)
+                return zip(self.file_chunks.keys(), contents)
+        raise RuntimeError('Source (IP %s) not available for %s' % (self.location, self))
 
 
     def _compute(self):
-        if current_worker().ip_addresses() & self._local_ip_addresses():
+        if self.location is None or self.location & current_worker().ip_addresses():
             return self._local()
         else:
             return self._remote()
@@ -452,7 +452,7 @@ class LinesDataset(Dataset):
         self.encoding = encoding
         self.errors = errors
         self._parts = [
-            LinesPartition(self, part.idx, part.source_node, part.file_chunks)
+            LinesPartition(self, part.idx, part.file_chunks, part.location)
             for part in src.parts()
         ]
 

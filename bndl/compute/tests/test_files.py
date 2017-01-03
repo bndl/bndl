@@ -100,7 +100,7 @@ class FilesTest(DatasetTest):
             self.assertEqual(
                 sum(1 for _ in filter(
                     filter_test_files,
-                    self.ctx.files(dirname).filenames
+                    dset.filenames
                 )
             ), self.file_count)
             self._check_contents(dset)
