@@ -12,10 +12,26 @@ class CollectionTest(DatasetTest):
         self.assertEqual(''.join(dset.collect()), string.ascii_lowercase)
 
 
+    def test_iterator(self):
+        it = self.ctx.collection(c for c in string.ascii_lowercase)
+        self.assertEqual(it.count(), 26)
+        self.assertEqual(it.count(), 26)
+
+
     def test_generator(self):
-        gen = self.ctx.collection(c for c in string.ascii_lowercase)
+        def gen():
+            for c in string.ascii_lowercase:
+                yield c
+        gen = self.ctx.collection(gen())
         self.assertEqual(gen.count(), 26)
         self.assertEqual(gen.count(), 26)
+
+
+    def test_dicts(self):
+        dct = dict(zip(range(len(string.ascii_lowercase)), string.ascii_lowercase))
+        self.assertEqual(dict(self.ctx.collection(dct).collect()), dct)
+        self.assertEqual(sorted(self.ctx.collection(dct.keys()).collect()), sorted(dct.keys()))
+        self.assertEqual(sorted(self.ctx.collection(dct.values()).collect()), sorted(dct.values()))
 
 
     def test_sizing(self):

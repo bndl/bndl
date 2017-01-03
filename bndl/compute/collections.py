@@ -1,5 +1,5 @@
-from collections import Mapping
-from math import ceil
+import collections
+import math
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.util import serialize
@@ -34,12 +34,12 @@ class DistributedCollection(Dataset):
                 if pcount <= 0:
                     raise Exception("can't use default_pcount, no workers available")
 
-            if isinstance(collection, Mapping):
+            if isinstance(collection, collections.Mapping):
                 collection = list(collection.items())
-            elif not hasattr(collection, '__len__') and not hasattr(collection, '__getitem__'):
-                collection = ensure_collection(collection)
+            elif not hasattr(collection, '__len__') or not hasattr(collection, '__getitem__'):
+                collection = list(collection)
 
-            step = max(1, ceil(len(collection) / pcount))
+            step = max(1, math.ceil(len(collection) / pcount))
             parts = [
                 (len(part),) + serialize.dumps(part) for part in
                 (collection[idx * step: (idx + 1) * step] for idx in range(pcount))
