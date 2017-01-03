@@ -17,7 +17,7 @@ class DistributedSparseMatrix(Dataset):
 
 
     def take(self, num):
-        matrices = self.map_partitions(lambda matrix: matrix[:min(num, matrix.shape[0])]).icollect(eager=False, parts=True)
+        matrices = self.map_partitions(lambda matrix: matrix[:min(num, matrix.shape[0])])._itake_parts()
         try:
             rows = 0
             blocks = []
