@@ -41,16 +41,15 @@ def get_callsite(*internal, name=None):
         return _get_callsite(*internal, name=name)
 
 
-get_callsite()
-
-
 @contextlib.contextmanager
 def set_callsite(*internal, name=None):
     internal += (contextlib.contextmanager,)
     if not hasattr(_callsite, 'current'):
         _callsite.current = get_callsite(*internal, name=name)
-        yield
-        del _callsite.current
+        try:
+            yield
+        finally:
+            del _callsite.current
     else:
         yield
 
