@@ -1,4 +1,3 @@
-from functools import reduce
 from itertools import chain
 from operator import itemgetter
 import collections
