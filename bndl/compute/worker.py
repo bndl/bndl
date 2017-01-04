@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 class Worker(ExecutionWorker, BlockManager, ShuffleManager):
     def __init__(self, *args, **kwargs):
-        os.environ['PYTHONHASHSEED'] = '0'
         ExecutionWorker.__init__(self, *args, **kwargs)
         BlockManager.__init__(self)
         ShuffleManager.__init__(self)

@@ -142,6 +142,7 @@ class Child(object):
         child_id = '.'.join(map(str, self.id))
         env = {CHILD_ID: child_id}
         env.update(os.environ)
+        env['PYTHONHASHSEED'] = '0'
 
         logger.info('Starting child %s (%s:%s)', child_id, self.module, self.main)
 
