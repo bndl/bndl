@@ -427,6 +427,11 @@ class ShuffleWritingDataset(Dataset):
 
 class ShuffleWritingPartition(Partition):
     def _compute(self):
+        # ensure that partitioner is portable
+        if self.dset.partitioner is portable_hash:
+            assert (os.environ.get('PYTHONHASHSEED') or 'random') != 'random', \
+                'PYTHONHASHSEED must be set, otherwise shuffling will have incorrect output'
+
         # create a bucket for each output partition
         dset = self.dset
         buckets = [dset.bucket((dset.id, self.idx, out_idx), dset.key, dset.comb,
