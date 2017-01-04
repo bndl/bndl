@@ -154,7 +154,7 @@ class Bucket:
         Estimate the size of a element from data.
         '''
         try:
-            test_set = data[:max(3, len(data) // 100)]
+            test_set = data[:max(10, len(data) // 1000)]
             c = self.memory_container(('tmp',))
             c.write(test_set)
             return c.size // len(test_set)
