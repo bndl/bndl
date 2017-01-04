@@ -67,13 +67,16 @@ def spill_buckets(low_water, high_water, buckets):
     '''
     spilled = 0
     if low_memory(high_water):
-        for bucket in sorted(buckets, key=lambda b: b.memory_size, reverse=True):
-            if bucket.memory_size == 0:
-                break
-            spilled += bucket.spill()
+        buckets = sorted((bucket for bucket in buckets if bucket.memory_size > (0, 0)),
+                         key=lambda b: b.memory_size, reverse=True)
+        while buckets:
+            idx = ceil(len(buckets) / 2)
+            for bucket in buckets[:idx]:
+                spilled += bucket.spill()
+            buckets = buckets[idx:]
             if not low_memory(low_water):
                 break
-        gc.collect(2)
+        gc.collect()
     return spilled
 
 
@@ -119,8 +122,8 @@ class Bucket:
         haven't been serialized / spilled either.
         '''
         with self.lock:
-            return len(self) * (self.element_size or 1) + sum(block.size for block
-                                                             in self.memory_blocks)
+            return (sum(block.size for block in self.memory_blocks),
+                    len(self) * (self.element_size or 1))
 
 
     def _spill_memory_blocks(self):
@@ -478,9 +481,14 @@ class ShuffleWritingPartition(Partition):
                 elements_partitioned += check_loop
                 check_loop = 0
 
-                # spill if to much memory is used
-                if low_memory(spill_high_water):
-                    mem_used = process_memory_percent()
+                if not low_memory(spill_low_water):
+                    # check less often if enough memory available
+                    check_interval *= 2
+                elif low_memory(spill_high_water):
+                    if logger.isEnabledFor(logging.DEBUG):
+                        mem_used = process_memory_percent()
+
+                    # spill if to much memory is used
                     spilled = self.dset.ctx.node.spill_buckets(spill_low_water, spill_high_water)
                     spilled += spill_buckets(spill_low_water, spill_high_water, buckets)
 
@@ -488,26 +496,21 @@ class ShuffleWritingPartition(Partition):
                         # update the check frequency according to the size of
                         # the serialized (and possibly combined) records
                         check_interval = calc_check_interval()
-
-                    logger.debug('memory usage from %.2f%% down to %.2f%% after spilling %.2f mb',
-                                 mem_used, process_memory_percent(), spilled / 1024 / 1024)
-
-                elif not low_memory((spill_high_water + spill_low_water) / 2):
-                    # check less often if enough memory available
-                    check_interval *= 2
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug('spilling %.2f mb, memory usage from %.2f%% to %.2f%%',
+                                         spilled / 1024 / 1024, mem_used, process_memory_percent())
 
         # for efficiency elements_partitioned is tracked every check_interval
         # so after partitioning check_loop contains the number of elements
         # since the last check
         elements_partitioned += check_loop
 
-        # serialize / spill the buckets for shuffle read
-        # and keep track of the number of bytes spilled / serialized
+        # spill if need be
+        bytes_spilled += spill_buckets(spill_low_water, spill_high_water, buckets)
+
+        # serialize the buckets for shuffle read
         for bucket in buckets:
-            if low_memory(spill_high_water):
-                bytes_spilled += bucket.serialize(True)
-            else:
-                bytes_serialized += bucket.serialize(False)
+            bytes_serialized += bucket.serialize(False)
 
         self.dset.ctx.node.set_buckets(self, buckets)
 
