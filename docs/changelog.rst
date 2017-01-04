@@ -15,7 +15,7 @@ Change log
  * Support pinning workers on cores / NUMA zones
  * Use jemalloc if available in workers
  * Use uvloop on Python 3.5 and up
- * Various bug fixes
+ * Various bug fixes and tweaks
 
 0.3.4
 -----
