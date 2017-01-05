@@ -22,7 +22,7 @@ def get_loop(stop_on=(), use_uvloop=True):
 
     try:
         del asyncio.Task.__del__
-    except AttributeError:
+    except (AttributeError, TypeError):
         pass
 
     try:

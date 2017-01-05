@@ -12,10 +12,6 @@ from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
 
 
-if sys.version_info >= (3, 4):
-    del asyncio.Task.__del__
-
-
 class NetTest(TestCase):
     address = 'tcp://127.0.0.10'
     node_class = Node

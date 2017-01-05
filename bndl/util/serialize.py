@@ -70,9 +70,14 @@ def _hijack_namedtuple():
 
     _old_namedtuple = _copy_func(collections.namedtuple)
 
-    def namedtuple(*args, **kwargs):
-        cls = _old_namedtuple(*args, **kwargs)
-        return _hack_namedtuple(cls)
+    if sys.version_info < (3, 6):
+        def namedtuple(typename, field_names, verbose=False, rename=False):
+            cls = _old_namedtuple(typename, field_names, verbose, rename)
+            return _hack_namedtuple(cls)
+    else:
+        def namedtuple(typename, field_names, *, verbose=False, rename=False, module=None):
+            cls = _old_namedtuple(typename, field_names, verbose=verbose, rename=rename, module=module)
+            return _hack_namedtuple(cls)
 
     # replace namedtuple with new one
     collections.namedtuple.__globals__["_old_namedtuple"] = _old_namedtuple  # @UndefinedVariable
