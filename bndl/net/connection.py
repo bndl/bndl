@@ -228,8 +228,6 @@ class Connection(object):
         Args:
             timeout (float): timeout in seconds
         '''
-        if not self.is_connected:
-            raise NotConnected()
         try:
             payload = yield from asyncio.wait_for(self._recv(), timeout, loop=self.loop)
             return serialize.load(*payload)
@@ -240,6 +238,7 @@ class Connection(object):
                 raise NotConnected() from exc
             else:
                 raise
+
 
     def __lt__(self, other):
         '''

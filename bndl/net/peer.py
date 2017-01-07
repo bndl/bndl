@@ -81,7 +81,7 @@ class PeerNode(object):
             Whether to complete only after the message has been written out
             to the network.
         '''
-        if not self.is_connected:
+        if not self.conn:
             raise NotConnected()
         logger.debug('sending %s to %s', msg.__class__.__name__, self.name)
         yield from self.conn.send(msg.__msgdict__(), drain)
@@ -89,6 +89,8 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def recv(self, timeout=None):
+        if not self.conn:
+            raise NotConnected()
         msg = yield from self.conn.recv(timeout)
         return Message.load(msg)
 
