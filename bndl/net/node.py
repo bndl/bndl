@@ -102,7 +102,12 @@ class Node(object):
     def _connect_seeds(self):
         for seed in self.seeds:
             if seed not in self.servers:
-                yield from self.PeerNode(self.loop, self, addresses=[seed]).connect()
+                peers = self.peers.filter(address=seed, connected=None)
+                if peers:
+                    for peer in peers:
+                        yield from peer.connect()
+                else:
+                    yield from self.PeerNode(self.loop, self, addresses=[seed]).connect()
 
 
     def stop_async(self):
@@ -149,7 +154,10 @@ class Node(object):
 
     @property
     def running(self):
-        return any(server and server.sockets for server in self.servers.values())
+        try:
+            return any(server and server.sockets for server in self.servers.values())
+        except Exception:
+            return False
 
 
     @asyncio.coroutine
