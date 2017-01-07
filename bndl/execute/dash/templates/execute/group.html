@@ -6,9 +6,56 @@
 Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 {% endblock %}
 
+{% set stats = tasks|task_stats %}
 
 {% block page_body %}
+
 <div class="container">
+    <table class="table table-hover ">
+        <thead>
+            <tr>
+                <th width="12%">
+                    <span data-toggle="tooltip" data-original-title="Completed, pending and total number of tasks">Tasks</span>
+                </th>
+                <th width="26%">
+                    <span data-toggle="tooltip" data-original-title="Completed, pending and total number of tasks">Progress</span>
+                </th>
+                <th width="8%">Duration</th>
+                <th width="8%">Remaining</th>
+                <th width="13%">Started</th>
+                <th width="13%">Finished / ETA</th>
+            </tr>
+        </thead>
+        <tbody>
+        <tr>
+            {{ stats_row.stats_row(tasks, stats) }}
+        </tr>
+        </tbody>
+    </table>
+
+	<h2>Task statistics:</h2>
+
+	<table class="table table-hover table-condensed" style="width: 50%">
+		<thead>
+			<tr>
+				<th width="5%">Min.</th>
+				<th width="5%">25%</th>
+				<th width="5%">Median</th>
+				<th width="5%">75%</th>
+				<th width="5%">Max.</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td width="5%">{{ stats.duration_p0|fmt_timedelta }}</td>
+				<td width="5%">{{ stats.duration_p25|fmt_timedelta }}</td>
+				<td width="5%">{{ stats.duration_p50|fmt_timedelta }}</td>
+				<td width="5%">{{ stats.duration_p75|fmt_timedelta }}</td>
+				<td width="5%">{{ stats.duration_p100|fmt_timedelta }}</td>
+			</tr>
+		</tbody>
+	</table>
+
 	<h2>Tasks:</h2>
 	<table class="table table-hover table-condensed">
 		<thead>
@@ -23,7 +70,15 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 			</tr>
 		</thead>
 		<tbody>
+			{% if stats.not_started %}
+			<tr>
+				<td colspan="7" style="text-align: center; padding: 1em">
+				    {{ stats.not_started }} tasks not started
+				</td>
+			</tr>
+			{% endif %}
 			{% for task in tasks|reverse %}
+			{% if task.started_on %}
 			<tr class="{{ 'active' if task.pending else '' }}">
 				<td>{{ loop.revindex }}</td>
 				<td>{{ task.attempts }}</td>
@@ -40,6 +95,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 					<pre>{{ task.future.exception()|fmt_exc }}</pre>
 				</td>
 			</tr>
+			{% endif %}
 			{% endif %}
 			{% endfor %}
 		</tbody>

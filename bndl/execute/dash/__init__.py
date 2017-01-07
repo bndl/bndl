@@ -14,11 +14,13 @@ from datetime import datetime, timedelta
 import sys
 import traceback
 
-from bndl.util import dash
 from flask.blueprints import Blueprint
 from flask.templating import render_template
 from werkzeug.exceptions import NotFound
 import flask
+
+from bndl.util import dash
+import numpy as np
 
 
 blueprint = Blueprint('execute', __name__,
@@ -56,7 +58,7 @@ def task_stats(tasks):
 
     completed = stopped - failed - cancelled
     remaining = 0 if all_stopped else total - stopped - failed
-    idle = total - started
+    not_started = total - started
 
     if started:
         if not_pending:
@@ -94,6 +96,10 @@ def task_stats(tasks):
         finished_on = datetime.now() + time_remaining
     else:
         finished_on = ''
+
+    durations = [task.duration for task in tasks if task.stopped_on]
+    duration_p0, duration_p25, duration_p50, duration_p75, duration_p100 = \
+        np.percentile(durations, (0, 25, 50, 75, 100)) if completed else [None] * 5
 
     return locals()
 
