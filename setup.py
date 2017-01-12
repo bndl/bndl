@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python
 
 import os
 import re
@@ -39,7 +40,7 @@ install_requires = [
     'yappi<=0.93',
 ]
 
-if sys.version_info >= (3,5):
+if sys.version_info >= (3, 5):
     install_requires.append('uvloop')
 
 
