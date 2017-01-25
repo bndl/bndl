@@ -69,6 +69,19 @@ class Dataset(object):
         self.callsite = get_callsite(type(self))
 
 
+    @property
+    def pcount(self):
+        pcount = getattr(self, '_pcount', None)
+        if pcount is None:
+            pcount = self._pcount = len(self.parts())
+        return pcount
+
+
+    @pcount.setter
+    def pcount(self, pcount):
+        self._pcount = pcount
+
+
     def parts(self):
         return ()
 
