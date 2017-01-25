@@ -347,3 +347,6 @@ Require workers at job / dataset level
 
 Add dataset.cache context manager (with block)
 
+
+Take locality into account for dataset.coalesce_parts(...)
+

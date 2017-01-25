@@ -13,7 +13,7 @@
 from collections import Counter, defaultdict, deque, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
-from math import sqrt, log, ceil
+from math import sqrt, log, ceil, floor
 from operator import add
 import concurrent.futures
 import gzip
@@ -1211,6 +1211,16 @@ class Dataset(object):
         return ShuffleReadingDataset(shuffle, sort)
 
 
+    def coalesce_parts(self, pcount):
+        '''
+        Coalesce partitions into pcount partitions.
+        '''
+        if pcount >= self.pcount:
+            return self
+        else:
+            return CoalescedDataset(self, pcount)
+
+
     def zip(self, other):
         '''
         Zip the elements of another data set with the elements of this data set.
@@ -1958,6 +1968,41 @@ class CartesianProductDataset(_MultiSourceDataset):
 class CartesianProductPartition(Partition):
     def _compute(self):
         yield from self.dset.func(*tuple(src.compute() for src in self.src))
+
+
+
+class CoalescedDataset(Dataset):
+    def __init__(self, src, pcount):
+        assert pcount >= 1
+        super().__init__(src.ctx, src)
+        self.pcount = pcount
+
+
+    def parts(self):
+        src_parts = list(self.src.parts())
+
+        step = len(src_parts) / self.pcount
+        assert step > 0.5
+
+        batches = []
+        offset = 0
+        for _ in range(self.pcount - 1):
+            batches.append(src_parts[int(offset):int(offset + step)])
+            offset += step
+
+        remainder = src_parts[int(offset):]
+        if remainder:
+            batches.append(remainder)
+
+        return [CoalescedPartition(self, idx, src=b)
+                for idx, b in enumerate(batches)]
+
+
+
+class CoalescedPartition(Partition):
+    def _compute(self):
+        for src in self.src:
+            yield from src.compute()
 
 
 
