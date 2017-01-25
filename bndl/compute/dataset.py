@@ -1425,7 +1425,7 @@ class Dataset(object):
         result = filter(lambda p: p is not None, result)  # filter out empty parts
         if not parts:
             result = chain.from_iterable(result)  # chain the parts into a big iterable
-        yield from result
+        return result
 
 
     def first(self):
