@@ -55,6 +55,10 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def new_dset_id():
+    return strings.random(8)
+
+
 class Dataset(object):
     cleanup = None
     sync_required = False
@@ -62,7 +66,7 @@ class Dataset(object):
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
         self.src = src
-        self.id = dset_id or strings.random(8)
+        self.id = dset_id or new_dset_id()
         self._cache_provider = None
         self._cache_locs = {}
         self._workers_required = None
@@ -1432,10 +1436,7 @@ class Dataset(object):
         '''
         Take the first element from this dataset.
         '''
-        taker = self.itake(1)
-        first = next(taker)
-        taker.close()
-        return first
+        return next(self.itake(1))
 
 
     def take(self, num):
@@ -1469,7 +1470,7 @@ class Dataset(object):
         mask = slice(0, 1)
         pcount = len(self.parts())
         while mask.start < pcount:
-            masked = self.mask_partitions(lambda parts: parts[mask])
+            masked = self.mask_partitions(lambda part: mask.start <= part.idx < mask.stop)
             done = self.ctx.execute(masked._schedule())
             try:
                 for task in done:
@@ -1895,7 +1896,7 @@ class MaskedDataset(Dataset):
 
 
     def parts(self):
-        return self.mask(self.src.parts())
+        return filter(self.mask, self.src.parts())
 
 
 
@@ -2033,10 +2034,7 @@ class TransformingDataset(Dataset):
 
 
     def _pickle_funcs(self):
-        try:
-            self._funcs = pickle.dumps(self.funcs)
-        except (pickle.PicklingError, AttributeError):
-            self._funcs = cloudpickle.dumps(self.funcs)
+        self._funcs = cloudpickle.dumps(self.funcs)
 
 
     def __getstate__(self):
