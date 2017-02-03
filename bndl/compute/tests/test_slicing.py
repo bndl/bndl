@@ -28,4 +28,4 @@ class SlicingTest(DatasetTest):
         self.assertEqual(''.join(dset.collect()), string.ascii_lowercase)
 
     def test_next(self):
-        print(next(self.ctx.range(10).icollect(ordered=False)))
+        self.assertEqual(next(self.ctx.range(10).icollect(ordered=True)), 0)

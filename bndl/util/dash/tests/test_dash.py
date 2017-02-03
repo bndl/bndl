@@ -46,7 +46,6 @@ class DashTestCase(DatasetTest):
             if url in seen:
                 continue
             seen.add(url)
-            print(url)
             with self.subTest(url):
                 main = self.app.get(url, follow_redirects=True)
                 self.assertEqual(main.status_code, 200)

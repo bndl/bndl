@@ -56,7 +56,7 @@ class TaskFailureTest(DatasetTest):
         # test that it fails if there is no retry
 
         with self.assertRaises(Exception):
-            print(dset.map(failon, [w.name for w in self.ctx.workers[:1]]).count())
+            dset.map(failon, [w.name for w in self.ctx.workers[:1]]).count()
 
         # test that it succeeds with a retry
         try:

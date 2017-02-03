@@ -55,7 +55,6 @@ class ShuffleTest(DatasetTest):
         for sort in (True, False):
             try:
                 for min_mem_pct, max_mem_pct in thresholds:
-                    print(min_mem_pct, max_mem_pct)
                     self.ctx.conf['bndl.compute.shuffle.min_mem_pct'] = min_mem_pct
                     self.ctx.conf['bndl.compute.shuffle.max_mem_pct'] = max_mem_pct
 

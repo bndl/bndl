@@ -27,7 +27,6 @@ class AddressReuseTest(ReconnectTestBase):
             node.name = 'something-else'
             for peer in node.peers.values():
                 peer.disconnect_async(reason='unit-test', active=False).result()
-                print('disconnected', peer.name)
 
             self.wait_connected()
             self.assertTrue(self.all_connected())
