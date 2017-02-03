@@ -18,7 +18,7 @@ import numpy as np
 
 import array
 from cpython cimport array
-
+cimport cython
 
 cpdef iterable_size(i):
     cdef long s = 0
@@ -235,7 +235,9 @@ cdef class MultiVariateStats(_StatProps):
     cdef public _max
 
 
-    def __init__(self, width, vectors=()):
+    def __init__(self, width, vectors=None):
+        cdef object vector
+
         self.width = width
         self._n = 0
         self._m1 = np.zeros(width)
@@ -245,18 +247,34 @@ cdef class MultiVariateStats(_StatProps):
         self._min = np.repeat(float('inf'), width)
         self._max = np.repeat(float('-inf'), width)
 
-        for vector in vectors:
-            self.push(vector)
+        if vectors is not None:
+            if isinstance(vectors, np.ndarray):
+                if vectors.dtype == np.dtype('f16'):
+                    vectors = vectors.astype('f8')
+                elif vectors.dtype.kind != 'f':
+                    itemsize = max(min(vectors.dtype.itemsize, 8), 4)
+                    vectors = vectors.astype('f' + str(itemsize))
+
+                if vectors.dtype == np.dtype('f4'):
+                    for vector in vectors:
+                        self._push[cython.float](vector)
+                else:
+                    assert vectors.dtype == np.dtype('f8')
+                    for vector in vectors:
+                        self._push[cython.double](vector)
+            else:
+                for vector in vectors:
+                    self.push(vector)
 
 
     cpdef push(self, vector):
         try:
-            self._push(vector)
+            self._push[cython.double](vector)
         except TypeError:
-            self._push(array.array('d', vector))
+            self._push[cython.double](array.array('d', vector))
 
 
-    cdef _push(self, double[:] vector):
+    cdef _push(self, cython.floating[:] vector):
         cdef double[:] m1 = self._m1
         cdef double[:] m2 = self._m2
         cdef double[:] m3 = self._m3
