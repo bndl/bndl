@@ -41,7 +41,7 @@ class DistributedCollection(Dataset):
                      map(ensure_collection, batch(collection, self.psize))]
             self.pcount = len(parts)
         else:
-            if not self.pcount:
+            if not pcount:
                 self.pcount = pcount = self.ctx.default_pcount
                 if pcount <= 0:
                     raise Exception("can't use default_pcount, no workers available")
