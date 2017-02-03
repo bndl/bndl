@@ -59,11 +59,11 @@ def create_ctx(config=None, daemon=True):
             if supervisor:
                 supervisor.stop()
                 try:
-                    supervisor.wait(timeout=5)
+                    supervisor.wait(timeout=60)
                 except TimeoutExpired:
                     pass
             stopped.set_result(True)
-            driver_thread.join(timeout=5)
+            driver_thread.join(timeout=60)
             dash.stop()
 
     try:
