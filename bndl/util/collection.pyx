@@ -11,7 +11,7 @@
 # limitations under the License.
 
 from collections import defaultdict, Iterable, Sequence, Sized
-from itertools import islice, groupby
+from itertools import islice, groupby, chain
 
 
 def batch(iterable, size):
@@ -36,6 +36,14 @@ def split(iterable, key):
     for e in iterable:
         splits[key(e)].append(e)
     return splits
+
+
+def flatten(item):
+    if isinstance(item, Iterable) and not isinstance(item, (str, bytes, bytearray)):
+        for i in item:
+            yield from flatten(i)
+    else:
+        yield item
 
 
 def sortgroupby(iterable, key):
