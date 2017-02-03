@@ -52,6 +52,29 @@ def partial_func(func, *args, **kwargs):
         return func
 
 
+class variadic(object):
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, *args, **kwargs):
+        kwargs = dict(self.kwargs, **kwargs)
+        return self.func(args, *self.args, **kwargs)
+
+
+class unvariadic(object):
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, args, **kwargs):
+        kwargs = dict(self.kwargs, **kwargs)
+        args = tuple(args) + self.args
+        return self.func(*args, **kwargs)
+
+
 def _getter(key, obj):
     return obj[key]
 
