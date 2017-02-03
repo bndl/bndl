@@ -11,7 +11,6 @@
 # limitations under the License.
 
 from bndl.compute.accumulate import Accumulator
-from bndl.compute.dense import arrays as dense
 from bndl.compute.broadcast import broadcast
 from bndl.compute.collections import DistributedCollection
 from bndl.compute.files import files
@@ -129,4 +128,3 @@ class ComputeContext(ExecutionContext):
 
     broadcast = broadcast
     files = files
-    dense = property(dense)
