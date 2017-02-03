@@ -206,7 +206,7 @@ class ExecutionContext(Lifecycle):
               stable if at least twice the maximum interval between the
               connects has passed or 1 second, whichever is longer.
             '''
-            assert self.worker_count > 0
+            assert len(self.workers) > 0
             now = datetime.now()
             recent_connects = sorted(worker.connected_on for worker in self.workers
                                      if worker.connected_on > stable_max_lookback)
@@ -222,7 +222,7 @@ class ExecutionContext(Lifecycle):
 
         def worker_count_consistent():
             '''Check if the workers all see each other'''
-            expected = self.worker_count ** 2 - self.worker_count
+            expected = len(self.workers) ** 2 - len(self.workers)
             tasks = [(w, w.execute(_num_connected)) for w in self.workers]
             actual = 0
             for worker, task in tasks:
@@ -233,10 +233,10 @@ class ExecutionContext(Lifecycle):
             return expected == actual
 
         while True:
-            if worker_count == self.worker_count:
+            if worker_count == len(self.workers):
                 return worker_count
 
-            if self.worker_count == 0:
+            if len(self.workers) == 0:
                 if datetime.now() > connected_deadline:
                     raise RuntimeError('no workers available')
             else:
@@ -244,14 +244,14 @@ class ExecutionContext(Lifecycle):
 
                 if stable:
                     if not recent_connects:
-                        return self.worker_count
+                        return len(self.workers)
                     elif recent_connects:
                         if worker_count_consistent():
-                            return self.worker_count
+                            return len(self.workers)
 
                 if datetime.now() > stable_deadline:
                     warnings.warn('Worker count not stable after %r' % stable_timeout)
-                    return self.worker_count
+                    return len(self.workers)
 
                 time.sleep(step_sleep)
                 step_sleep = min(1, step_sleep * 1.5)
@@ -260,7 +260,11 @@ class ExecutionContext(Lifecycle):
     @property
     def worker_count(self):
         '''The number of workers connected with'''
-        return len(self.workers)
+        wc = len(self.workers)
+        if wc:
+            return wc
+        else:
+            return self.await_workers()
 
 
     @property
