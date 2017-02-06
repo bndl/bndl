@@ -22,10 +22,14 @@ import urllib.parse
 from bndl.net import serialize
 from bndl.util import aio
 from bndl.util.aio import readexactly
+from bndl.util.conf import Bool
+import bndl
+
+
+nodelay = Bool(True, desc='Whether to set TCP_NODELAY on bndl.net.connection.Connection objects')
 
 
 logger = logging.getLogger(__name__)
-
 
 
 def urlparse(address):
@@ -128,6 +132,10 @@ class Connection(object):
         self.write_lock = asyncio.Lock(loop=self.loop)
         self.bytes_received = 0
         self.bytes_sent = 0
+
+        sock = self.socket()
+        if bndl.conf['bndl.net.connection.nodelay'] and sock.family in (socket.AF_INET, socket.AF_INET6):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 
 
     @property
