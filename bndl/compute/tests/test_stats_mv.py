@@ -72,13 +72,13 @@ class MvStatsTest(DatasetTest):
             arr = np.vstack((arr_a, arr_b))
             if len(arr) == 0:
                 continue
-            dmvs = self.ctx.dense.array(arr).mvstats()
+            dmvs = self.ctx.collection(arr).mvstats()
             mvs = MultiVariateStats(width, arr)
             self.assert_mvs_close(dmvs, mvs)
                 
     
     def test_other_types(self):
-        arr = self.ctx.dense.array(np.random.uniform(0, 1, (10, width)))
+        arr = self.ctx.collection(np.random.uniform(0, 1, (10, width)))
         expected = arr.mvstats()
         self.assert_mvs_close(expected, arr.map(tuple).mvstats(width))
         self.assert_mvs_close(expected, arr.map(list).mvstats(width))
