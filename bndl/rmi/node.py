@@ -20,7 +20,6 @@ from bndl.net.node import Node
 from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException, is_direct
 from bndl.rmi.messages import Response, Request
-from bndl.util.aio import async_call
 from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.threads import OnDemandThreadedExecutor
 
@@ -37,8 +36,9 @@ class Invocation(object):
     Invocation of a method on a PeerNode.
     '''
 
-    def __init__(self, peer, name):
+    def __init__(self, peer, service, name):
         self.peer = peer
+        self.service = service
         self.name = name
         self._timeout = None
 
@@ -60,7 +60,10 @@ class Invocation(object):
 
     @asyncio.coroutine
     def _request(self, *args, **kwargs):
-        request = Request(req_id=next(self.peer._request_ids), method=self.name, args=args, kwargs=kwargs)
+        request = Request(req_id=next(self.peer._request_ids),
+                          service=self.service, method=self.name,
+                          args=args, kwargs=kwargs)
+
         response_future = asyncio.Future(loop=self.peer.loop)
         self.peer.handlers[request.req_id] = response_future
 
@@ -101,6 +104,21 @@ class Invocation(object):
 
 
 
+class Service(object):
+    def __init__(self, peer, name):
+        self.peer = peer
+        self.name = name
+
+
+    def __getattr__(self, name):
+        return Invocation(self.peer, self.name, name)
+
+
+    def __repr__(self):
+        return '<RmiService %r>' % self.name
+
+
+
 class RMIPeerNode(PeerNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -126,9 +144,15 @@ class RMIPeerNode(PeerNode):
         exc = None
 
         try:
-            method = getattr(self.local, request.method)
+            service = self.local.services[request.service]
+            method = getattr(service, request.method)
+        except KeyError:
+            logger.exception('unable to process message for unknown service %s from %s: %s',
+                             request.service, self, request)
+            exc = sys.exc_info()
         except AttributeError:
-            logger.exception('unable to process message for method %s from %s: %s', request.method, self, request)
+            logger.exception('unable to process message for unknown method %s.%s from %s: %s',
+                             request.service, request.method, self, request)
             exc = sys.exc_info()
 
         if method:
@@ -190,8 +214,8 @@ class RMIPeerNode(PeerNode):
             logger.warning('Unable to handle response %r with id %r', response, response.req_id)
 
 
-    def __getattr__(self, name):
-        return Invocation(self, name)
+    def service(self, name):
+        return Service(self, name)
 
 
     @asyncio.coroutine
@@ -208,3 +232,17 @@ class RMINode(Node):
     implemented in :class:`RMIPeerNode`.
     '''
     PeerNode = RMIPeerNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.services = {}
+
+
+    @asyncio.coroutine
+    def stop(self):
+        self.services.clear()
+        super().stop()
+
+
+    def service(self, name):
+        return self.services[name]

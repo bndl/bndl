@@ -122,7 +122,7 @@ class ComputeContext(ExecutionContext):
             90
         '''
         accumulator = Accumulator(self, self.node.name, initial)
-        self.node._register_accumulator(accumulator)
+        self.node.service('accumulate').register(accumulator)
         return accumulator
 
 

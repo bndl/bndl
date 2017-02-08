@@ -223,13 +223,13 @@ class ExecutionContext(Lifecycle):
         def worker_count_consistent():
             '''Check if the workers all see each other'''
             expected = len(self.workers) ** 2 - len(self.workers)
-            tasks = [(w, w.execute(_num_connected)) for w in self.workers]
+            tasks = [(w, w.service('tasks').execute(_num_connected)) for w in self.workers]
             actual = 0
             for worker, task in tasks:
                 try:
                     actual += task.result()
                 except Exception:
-                    logger.info("Couldn't get connected worker count from %r", worker, exc_info=True)
+                    logger.warn("Couldn't get connected worker count from %r", worker, exc_info=True)
             return expected == actual
 
         while True:

@@ -18,20 +18,26 @@ import asyncio
 from bndl.net.connection import NotConnected
 
 
+class Service(object):
+    def __init__(self, worker):
+        self.worker = worker
+
+    @asyncio.coroutine
+    def exit(self, src):
+        for peer in self.worker.peers.values():
+            yield from peer.disconnect('', active=False)
+        yield from self.worker.stop()
+
+
 class DisconnectingNode(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.calls = defaultdict(lambda: 0)
+        self.services['test'] = Service(self)
 
     def call_other(self):
         peer = next(iter(self.peers.values()))
-        peer.exit().result()
-
-    @asyncio.coroutine
-    def exit(self, src):
-        for peer in self.peers.values():
-            yield from peer.disconnect('', active=False)
-        yield from self.stop()
+        peer.service('test').exit().result()
 
 
 class DisconnectedTest(NetTest):

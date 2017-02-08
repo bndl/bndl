@@ -20,13 +20,14 @@ from bndl.util import strings
 logger = logging.getLogger(__name__)
 
 
-class AccumulatorService:
-    def __init__(self):
+class AccumulatorService(object):
+    def __init__(self, node):
+        self.node = node
         self.accumulators = {}
         self.locks = {}
 
 
-    def _register_accumulator(self, accumulator):
+    def register(self, accumulator):
         aid = accumulator.id
         def remove_lock(x):
             del self.locks[aid]
@@ -35,12 +36,12 @@ class AccumulatorService:
         self.locks[aid] = threading.Lock()
 
 
-    def _deregister_accumulator(self, accumulator_id):
+    def deregister(self, accumulator_id):
         del self.accumulators[accumulator_id]
         del self.locks[accumulator_id]
 
 
-    def _update_accumulator(self, src, accumulator_id, op, value):
+    def update(self, src, accumulator_id, op, value):
         try:
             lock = self.locks[accumulator_id]
         except KeyError:
@@ -82,7 +83,7 @@ class AccumulatorProxy(object):
 
 
     def update(self, op, value):
-        self.ctx.node.peers[self.host]._update_accumulator(self.id, op, value)
+        self.ctx.node.peers[self.host].service('accumulate').update(self.id, op, value)
         return self
 
     def __iadd__(self, value):

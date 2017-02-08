@@ -129,8 +129,9 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
         ips = tuple(sorted(worker.ip_addresses()))
         if ips not in seen:
             seen.add(ips)
-            batch_requests.append((worker, worker.execute(_batches, root, recursive, dfilter,
-                                                           ffilter, psize_bytes, psize_files, split)))
+            batch_requests.append((worker, worker.service('tasks')
+                                                 .execute(_batches, root, recursive, dfilter,
+                                                          ffilter, psize_bytes, psize_files, split)))
 
     batches = []
     for worker, batch_request in batch_requests:
@@ -443,7 +444,7 @@ class FilesPartition(Partition):
     def _remote(self):
         for worker in self.dset.ctx.workers:
             if worker.ip_addresses() & self.location:
-                request = worker.execute(_RemoteFilesSender, self.file_chunks)
+                request = worker.service('tasks').execute(_RemoteFilesSender, self.file_chunks)
                 contents = request.result().data
                 assert len(contents) == len(self.file_chunks)
                 return zip(self.file_chunks.keys(), contents)

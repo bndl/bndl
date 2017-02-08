@@ -17,29 +17,35 @@ from bndl.rmi.node import RMINode
 from bndl.rmi import InvocationException
 
 
+class Service(object):
+    def __init__(self, worker):
+        self.worker = worker
+
+    def method_a(self, src):
+        self.worker.calls['a'] += 1
+
+    def method_b(self, src):
+        self.worker.calls['b'] += 1
+        peer = next(iter(self.worker.peers.values()))
+        peer.service('test').method_a().result()
+
+    def method_that_raises(self, src):
+        raise ValueError('x')
+        
+
 class NestedRequestNode(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.services['test'] = Service(self)
         self.calls = defaultdict(lambda: 0)
 
     def call_a(self):
         peer = next(iter(self.peers.values()))
-        peer.method_a().result()
+        peer.service('test').method_a().result()
 
     def call_b(self):
         peer = next(iter(self.peers.values()))
-        peer.method_b.with_timeout(5)().result()
-
-    def method_a(self, src):
-        self.calls['a'] += 1
-
-    def method_b(self, src):
-        self.calls['b'] += 1
-        peer = next(iter(self.peers.values()))
-        peer.method_a().result()
-
-    def method_that_raises(self, src):
-        raise ValueError('x')
+        peer.service('test').method_b.with_timeout(5)().result()
 
 
 class RMITest(NetTest):
@@ -64,5 +70,6 @@ class RMITest(NetTest):
         self.assertEqual(self.nodes[1].calls['b'], 1)
 
     def test_exc(self):
+        peer = next(iter(self.nodes[0].peers.values()))
         with self.assertRaises(InvocationException):
-            next(iter(self.nodes[0].peers.values())).method_that_raises().result()
+            peer.service('test').method_that_raises().result()

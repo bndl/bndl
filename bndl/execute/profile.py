@@ -31,7 +31,7 @@ COLMUMNS = (
 
 def _each(ctx, func):
     tasks = [
-        (worker, worker.execute(func))
+        (worker, worker.service('tasks').execute(func))
         for worker in ctx.workers
     ]
     return [(worker, task.result()) for worker, task in tasks]

@@ -19,7 +19,7 @@ from bndl.compute.worker import Worker
 logger = logging.getLogger(__name__)
 
 
-class Driver(Worker, AccumulatorService):
+class Driver(Worker):
     def __init__(self, *args, **kwargs):
-        Worker.__init__(self, *args, **kwargs)
-        AccumulatorService.__init__(self)
+        super().__init__(*args, **kwargs)
+        self.services['accumulate'] = AccumulatorService(self)

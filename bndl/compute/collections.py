@@ -59,7 +59,7 @@ class DistributedCollection(Dataset):
             ]
 
         self.blocks = [
-            (length, marshalled, ctx.node.serve_blocks((self.id, idx), [part]))
+            (length, marshalled, ctx.node.service('blocks').serve_blocks((self.id, idx), [part]))
             for idx, (length, marshalled, part) in enumerate(parts)
         ]
 
@@ -77,7 +77,7 @@ class DistributedCollection(Dataset):
 
     def __del__(self):
         for block in getattr(self, 'blocks', ()):
-            self.ctx.node.remove_blocks(block[-1].name)
+            self.ctx.node.service('blocks').remove_blocks(block[-1].name)
 
 
 
@@ -90,5 +90,5 @@ class BlocksPartition(Partition):
 
 
     def _compute(self):
-        block = self.dset.ctx.node.get_blocks(self.block_spec)[0]
+        block = self.dset.ctx.node.service('blocks').get(self.block_spec)[0]
         return serialize.loads(self.marshalled, block)

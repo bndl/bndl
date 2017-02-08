@@ -100,7 +100,8 @@ def _batch_blocks(data, block_size):
             return [data]
 
 
-class BlockManager:
+
+class BlockManager(object):
     '''
     Block management functionality to be mixed in with RMINode.
 
@@ -109,14 +110,15 @@ class BlockManager:
     remove the blocks from 'cache' and - if from_peers is True - also from
     peers nodes.
 
-    Use get_blocks(block_spec) to access blocks. Note that this module does not
+    Use get(block_spec) to access blocks. Note that this module does not
     provide a means to transmit block_spec. See e.g. bndl.compute.broadcast for
     usage of the BlockManager functionality.
     '''
 
-    def __init__(self):
+    def __init__(self, worker):
+        self.worker = worker
         # cache of blocks by name
-        self._blocks_cache = {}  # name : lists
+        self.cache = {}  # name : lists
         # protects write access to _available_events
         self._available_lock = threading.Lock()
         # contains events indicating blocks are available (event is set)
@@ -145,8 +147,8 @@ class BlockManager:
         :param name: Name of the blocks.
         :param blocks: list or tuple of blocks.
         '''
-        block_spec = BlockSpec(self.name, name, len(blocks))
-        self._blocks_cache[name] = blocks
+        block_spec = BlockSpec(self.worker.name, name, len(blocks))
+        self.cache[name] = blocks
         available = threading.Event()
         self._available_events[name] = available
         available.set()
@@ -161,11 +163,11 @@ class BlockManager:
         other peer nodes as well.
         '''
         with catch(KeyError):
-            del self._blocks_cache[name]
+            del self.cache[name]
         with catch(KeyError):
             del self._available_events[name]
         if from_peers:
-            for peer in self.peers.filter():
+            for peer in self.worker.peers.filter():
                 peer._remove_blocks(name)
                 # responses aren't waited for
 
@@ -173,12 +175,12 @@ class BlockManager:
     @asyncio.coroutine
     def _remove_blocks(self, peer, name):
         with catch(KeyError):
-            del self._blocks_cache[name]
+            del self.cache[name]
         with catch(KeyError):
             del self._available_events[name]
 
 
-    def get_blocks(self, block_spec, peers=[]):
+    def get(self, block_spec, peers=[]):
         name = block_spec.name
         with self._available_lock:
             available = self._available_events.get(name)
@@ -193,19 +195,19 @@ class BlockManager:
         else:
             self._download(block_spec, peers)
             available.set()
-        return self._blocks_cache[name]
+        return self.cache[name]
 
 
     @asyncio.coroutine
-    def _get_block(self, peer, name, idx):
+    def _get(self, peer, name, idx):
         logger.debug('sending block %s of %s to %s', idx, name, peer.name)
-        return Block(idx, self._blocks_cache[name][idx])
+        return Block(idx, self.cache[name][idx])
 
 
     @asyncio.coroutine
-    def _get_blocks_available(self, peer, name):
+    def _get_available(self, peer, name):
         try:
-            blocks = self._blocks_cache[name]
+            blocks = self.cache[name]
         except KeyError:
             return ()
         else:
@@ -216,11 +218,11 @@ class BlockManager:
         # check block availability at peers
         available_requests = []
         for peer in peers:
-            available_request = peer._get_blocks_available(block_spec.name)
+            available_request = peer.service('blocks')._get_available(block_spec.name)
             available_request.peer = peer
             available_requests.append(available_request)
 
-        blocks = self._blocks_cache[block_spec.name]
+        blocks = self.cache[block_spec.name]
 
         # store peers which have block (keyed by block index)
         availability = defaultdict(list)
@@ -242,17 +244,17 @@ class BlockManager:
         else:
             remaining = [idx for idx, block in enumerate(blocks) if block is None]
             block_idx = random.choice(remaining)
-            return block_idx, [self.peers[block_spec.seeder]]
+            return block_idx, [self.worker.peers[block_spec.seeder]]
 
 
     def _download(self, block_spec, peers):
         name = block_spec.name
-        assert block_spec.seeder != self.name
+        assert block_spec.seeder != self.worker.name
 
         blocks = [None] * block_spec.num_blocks
-        self._blocks_cache[name] = blocks
+        self.cache[name] = blocks
 
-        local_ips = self.ip_addresses()
+        local_ips = self.worker.ip_addresses()
 
         for _ in blocks:
             idx, candidates = self._next_download(block_spec, peers)
@@ -260,7 +262,7 @@ class BlockManager:
             local, remote = candidates[True], candidates[False]
 
             def download(source):
-                blocks[idx] = source._get_block(name, idx).result().data
+                blocks[idx] = source.service('blocks')._get(name, idx).result().data
 
             while local or remote:
                 # select a random candidate, preferring local ones

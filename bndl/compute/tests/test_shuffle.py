@@ -90,7 +90,7 @@ class ShuffleFailureTest(DatasetTest):
                     self.count -= i
                     if self.count == 0:
                         logger.info('Killing %r', self.worker.name)
-                        pid = self.worker.execute(lambda: os.getpid()).result()
+                        pid = self.worker.service('tasks').execute(lambda: os.getpid()).result()
                         os.kill(pid, signal.SIGKILL)
 
             def __str__(self):

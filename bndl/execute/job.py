@@ -228,7 +228,7 @@ class RmiTask(Task):
     def execute(self, scheduler, worker):
         self.set_executing(worker)
         future = self.future = Future()
-        future2 = worker.execute_async(self.method, *self.args, **self.kwargs)
+        future2 = worker.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
         # TODO remove future.worker, just for checking
         future2.worker = worker
         # TODO put time sleep here to test what happens if task
@@ -251,7 +251,7 @@ class RmiTask(Task):
             try:
                 # TODO remove future.worker
                 # assert future.worker == self._last_worker, '%r != %r' % (future.worker, self._last_worker)
-                future = self._last_worker.get_task_result(self.handle)
+                future = self._last_worker.service('tasks').get_task_result(self.handle)
                 # TODO put time sleep here to test what happens if task
                 # is done before adding callack (callback gets executed in this thread)
                 future.add_done_callback(self._task_completed)
@@ -284,7 +284,7 @@ class RmiTask(Task):
 
         if self.handle:
             logger.debug('canceling %s', self)
-            self._last_worker.cancel_task(self.handle)
+            self._last_worker.service('tasks').cancel_task(self.handle)
             self.handle = None
 
         if self.future:

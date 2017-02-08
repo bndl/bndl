@@ -46,18 +46,19 @@ def current_worker():
 
 
 class TaskExecutor(threading.Thread):
-    def __init__(self, worker, task, args, kwargs):
+    def __init__(self, tasks, task, args, kwargs):
         super().__init__()
-        self.worker = worker
+        self.tasks = tasks
+        self.worker = tasks.worker
         self.task = task
         self.args = args
         self.kwargs = kwargs
-        self.result = asyncio.Future(loop=worker.loop)
+        self.result = asyncio.Future(loop=tasks.worker.loop)
 
 
     def run(self):
         try:
-            result = self.worker._execute(self.task, *self.args, **self.kwargs)
+            result = self.tasks._execute(self.task, *self.args, **self.kwargs)
             exc = None
         except Exception as e:
             exc = e
@@ -77,12 +78,18 @@ class TaskExecutor(threading.Thread):
 class Worker(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.services['tasks'] = Tasks(self)
+
+
+class Tasks(object):
+    def __init__(self, worker):
+        self.worker = worker
         self.tasks = {}
 
 
     def _execute(self, task, *args, **kwargs):
         # set worker context
-        _TASK_CTX.worker = self
+        _TASK_CTX.worker = self.worker
         _TASK_CTX.data = {}
         try:
             return task(*args, **kwargs)

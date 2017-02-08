@@ -28,7 +28,7 @@ def kill_self():
 
 def kill_worker(worker):
     try:
-        worker.execute(kill_self).result()
+        worker.service('tasks').execute(kill_self).result()
     except NotConnected:
         pass
 

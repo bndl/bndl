@@ -30,7 +30,20 @@ max_block_size = Float(16, desc='The minimum size of a block in megabytes.')  # 
 logger = logging.getLogger(__name__)
 download_coordinator = threads.Coordinator()
 
+
 MISSING = 'bndl.compute.broadcast.MISSING'
+
+
+
+class BroadcastManager(object):
+    def __init__(self, worker):
+        self.worker = worker
+
+
+    def unpersist_broadcast_values(self, src, name):
+        self.worker.service('blocks').remove_blocks(name)
+        del download_coordinator[name]
+
 
 
 def broadcast(ctx, value, serialization='auto', deserialization=None):
@@ -93,10 +106,10 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
     key = str(uuid4())
     min_block_size = int(ctx.conf.get('bndl.compute.broadcast.min_block_size') * 1024 * 1024)
     max_block_size = int(ctx.conf.get('bndl.compute.broadcast.max_block_size') * 1024 * 1024)
-    if min_block_size == max_block_size:
-        block_spec = ctx.node.serve_data(key, data, max_block_size)
-    else:
-        block_spec = ctx.node.serve_data(key, data, (ctx.worker_count * 2, min_block_size, max_block_size))
+    block_size = max_block_size \
+                 if min_block_size == max_block_size else \
+                 (ctx.worker_count * 2, min_block_size, max_block_size)
+    block_spec = ctx.node.service('blocks').serve_data(key, data, block_size)
     return BroadcastValue(ctx, ctx.node.name, block_spec, deserialization)
 
 
@@ -115,12 +128,13 @@ class BroadcastValue(object):
 
     def _get(self):
         node = self.ctx.node
-        blocks = node.get_blocks(self.block_spec, node.peers.filter(node_type='worker'))
+        blocks_svc = node.service('blocks')
+        blocks = blocks_svc.get(self.block_spec, node.peers.filter(node_type='worker'))
 
         val = self.deserialize(b''.join(blocks))
 
         if node.name != self.block_spec.seeder:
-            node.remove_blocks(self.block_spec.name, from_peers=False)
+            blocks_svc.remove_blocks(self.block_spec.name, from_peers=False)
 
         return val
 
@@ -129,8 +143,8 @@ class BroadcastValue(object):
         node = self.ctx.node
         name = self.block_spec.name
         assert node.name == self.block_spec.seeder
-        node.unpersist_broadcast_values(node, name)
-        requests = [peer.unpersist_broadcast_values
+        node.service('broadcast').unpersist_broadcast_values(node, name)
+        requests = [peer.service('broadcast').unpersist_broadcast_values
                    for peer in node.peers.filter()]
         if timeout:
             requests = [request.with_timeout(timeout) for request in requests]

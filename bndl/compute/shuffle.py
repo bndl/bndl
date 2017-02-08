@@ -407,7 +407,7 @@ class ShuffleWritingDataset(Dataset):
     def cleanup(self):
         def _cleanup(job):
             for worker in job.ctx.workers:
-                worker.clear_bucket(self.id)
+                worker.service('shuffle').clear_bucket(self.id)
         return _cleanup
 
 
@@ -439,6 +439,8 @@ class ShuffleWritingDataset(Dataset):
 
 class ShuffleWritingPartition(Partition):
     def _compute(self):
+        shuffle_svc = self.dset.ctx.node.service('shuffle')
+
         # ensure that partitioner is portable
         if self.dset.partitioner is portable_hash:
             assert (os.environ.get('PYTHONHASHSEED') or 'random') != 'random', \
@@ -485,6 +487,7 @@ class ShuffleWritingPartition(Partition):
         bytes_serialized = 0
         elements_partitioned = 0
 
+
         # add each element to the bucket assigned to by the partitioner
         for element in self.src.compute():
             # (limited by the bucket count and wrapped around)
@@ -506,7 +509,7 @@ class ShuffleWritingPartition(Partition):
                         mem_used = process_memory_percent()
 
                     # spill if to much memory is used
-                    spilled = self.dset.ctx.node.spill_buckets(spill_low_water, spill_high_water)
+                    spilled = shuffle_svc.spill_buckets(spill_low_water, spill_high_water)
                     spilled += spill_buckets(spill_low_water, spill_high_water, buckets)
 
                     if spilled:
@@ -529,7 +532,7 @@ class ShuffleWritingPartition(Partition):
         for bucket in buckets:
             bytes_serialized += bucket.serialize(False)
 
-        self.dset.ctx.node.set_buckets(self, buckets)
+        shuffle_svc.set_buckets(self, buckets)
 
         logger.info('partitioned %s.%s with %s elements, spilled %.2f mb to disk, '
                     'serialized %.2f mb to memory', self.dset.id, self.idx, elements_partitioned,
@@ -611,20 +614,21 @@ class ShuffleReadingPartition(Partition):
 
 
     def get_local_sizes(self):
-        ctx = self.dset.ctx
+        node = self.dset.ctx.node
+        shuffle_svc = node.service('shuffle')
 
         # make it seem like fetching locally is remote
         # so it fits in the stream_batch loop
         def get_local_block(*args):
             fut = Future()
             try:
-                fut.set_result(ctx.node.get_bucket_blocks(ctx.node, *args))
+                fut.set_result(shuffle_svc.get_bucket_blocks(node, *args))
             except Exception as e:
                 fut.set_exception(e)
             return fut
 
-        local_sizes = ctx.node.get_bucket_sizes(ctx.node, self.dset.src.id, self.idx)
-        return (ctx.node, get_local_block, local_sizes)
+        local_sizes = shuffle_svc.get_bucket_sizes(node, self.dset.src.id, self.idx)
+        return (node, get_local_block, local_sizes)
 
 
     def get_sizes(self):
@@ -639,7 +643,7 @@ class ShuffleReadingPartition(Partition):
             sizes.append(self.get_local_sizes())
 
         # issue requests for the bucket bucket prep and get back sizes
-        size_requests = [worker.get_bucket_sizes(self.dset.src.id, self.idx)
+        size_requests = [worker.service('shuffle').get_bucket_sizes(self.dset.src.id, self.idx)
                          for worker in sources]
 
         # wait for responses and zip with a function to get a block
@@ -659,7 +663,7 @@ class ShuffleReadingPartition(Partition):
                                  (self.dset.src.id, self.idx, worker.name))
                 raise
             else:
-                sizes.append((worker, worker.get_bucket_blocks, size))
+                sizes.append((worker, worker.service('shuffle').get_bucket_blocks, size))
 
         # if size info is missing for any source partitions, fail computing this partition
         # and indicate which tasks/parts aren't available. This assumes that the task ids
@@ -770,7 +774,7 @@ class ShuffleReadingPartition(Partition):
 
     def _compute(self):
         sort = self.dset.sorted or self.dset.src.bucket.sorted
-        worker = self.dset.ctx.node
+        shuffle_svc = self.dset.ctx.node.service('shuffle')
 
         logger.info('starting %s shuffle read', 'sorted' if sort else 'unsorted')
 
@@ -807,7 +811,7 @@ class ShuffleReadingPartition(Partition):
 
                 if check_val > check_interval:
                     # spill source buckets
-                    worker.spill_buckets(spill_low_water, spill_high_water)
+                    shuffle_svc.spill_buckets(spill_low_water, spill_high_water)
 
                     # spill the destination bucket if need be
                     if low_memory(spill_high_water):
@@ -832,7 +836,7 @@ class ShuffleReadingPartition(Partition):
 
 
 class ShuffleManager(object):
-    def __init__(self):
+    def __init__(self, worker):
         # output buckets are indexed by (nested dicts)
         # - shuffle write data set id
         # - source part index

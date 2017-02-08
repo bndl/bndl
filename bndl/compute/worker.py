@@ -14,8 +14,8 @@ import argparse
 import logging
 import os
 
-from bndl.compute import broadcast
 from bndl.compute.blocks import BlockManager
+from bndl.compute.broadcast import BroadcastManager
 from bndl.compute.shuffle import ShuffleManager
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
@@ -28,16 +28,12 @@ import bndl
 logger = logging.getLogger(__name__)
 
 
-class Worker(ExecutionWorker, BlockManager, ShuffleManager):
+class Worker(ExecutionWorker):
     def __init__(self, *args, **kwargs):
-        ExecutionWorker.__init__(self, *args, **kwargs)
-        BlockManager.__init__(self)
-        ShuffleManager.__init__(self)
-
-
-    def unpersist_broadcast_values(self, src, name):
-        self.remove_blocks(name)
-        del broadcast.download_coordinator[name]
+        super().__init__(*args, **kwargs)
+        self.services['blocks'] = BlockManager(self)
+        self.services['broadcast'] = BroadcastManager(self)
+        self.services['shuffle'] = ShuffleManager(self)
 
 
 main_argparser = argparse.ArgumentParser(parents=[run.argparser])

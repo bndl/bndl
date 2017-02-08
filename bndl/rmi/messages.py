@@ -15,12 +15,14 @@ from bndl.net.messages import Message, Field
 
 class Request(Message):
     '''
-    A request for a peer RMI node. It contains a request id (to which the :class:`Reponse` must
+    A request for a peer RMI node. It contains a request id (to which the :class:`Response` must
     refer), the name of the method to be invoked, and the positional and keyword arguments for
     invocation.
     '''
     # int, id of the request
     req_id = Field()
+    # str, name of the service to invoke a method from
+    service = Field()
     # str, name of the method to invoke
     method = Field()
     # list or tuple, arguments for the method

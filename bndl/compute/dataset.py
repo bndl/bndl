@@ -13,7 +13,7 @@
 from collections import Counter, defaultdict, deque, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
 from itertools import islice, product, chain, starmap, groupby
-from math import sqrt, log, ceil, floor
+from math import sqrt, log, ceil
 from operator import add
 import concurrent.futures
 import gzip
@@ -1636,7 +1636,7 @@ class Dataset(object):
         def clear(provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
 
-        tasks = [worker.execute for worker in self.ctx.workers]
+        tasks = [worker.service('tasks').execute for worker in self.ctx.workers]
         if timeout:
             tasks = [task.with_timeout(timeout) for task in tasks]
         tasks = [task(clear) for task in tasks]
@@ -1735,7 +1735,7 @@ class Partition(object):
                 else:
                     logger.debug('Using remote cache for %r on %r', self, cache_loc)
                     peer = self.dset.ctx.node.peers[cache_loc]
-                    return peer.execute(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
+                    return peer.service('tasks').execute(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
             except KeyError:
                 pass
             except NotConnected:
