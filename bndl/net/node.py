@@ -21,11 +21,9 @@ import os
 import random
 import socket
 
-from bndl.net.connection import urlparse, Connection, filter_ip_addresses, \
-    getlocalhostname
+from bndl.net.connection import urlparse, Connection, filter_ip_addresses
 from bndl.net.peer import PeerNode, PeerTable
 from bndl.net.watchdog import Watchdog
-from bndl.run.supervisor import CHILD_ID
 from bndl.util import aio
 from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
@@ -46,25 +44,24 @@ class Node(object):
     def __init__(self, name=None, addresses=None, seeds=None, loop=None):
         self.loop = loop or get_loop()
         self.node_type = camel_to_snake(self.__class__.__name__)
+
         if name:
             self.name = name
         else:
-            self.name = '.'.join(reversed(socket.getfqdn().split('.'))) + '.' + self.node_type
-            child_id = os.environ.get(CHILD_ID)
-            if child_id:
-                self.name += '.' + str(os.getppid())
-                self.name += '.' + child_id
-                self.name += '.' + str(os.getpid())
-            else:
-                self.name += '.' + str(os.getpid())
-                self.name += '.' + str(next(Node._nodeids))
-        self.servers = {address: None for address in (addresses or ())}
-        if not self.servers:
-            self.servers = {'tcp://%s:%s' % (getlocalhostname(), 5000): None}
+            self.name = '.'.join(reversed(socket.getfqdn().split('.'))) + \
+                        '.' + self.node_type + \
+                        '.' + str(os.getpid())
+            node_id = next(Node._nodeids)
+            if node_id:
+                self.name += '.' + next(Node._nodeids)
 
-        # TODO ensure that if a seed can't be connected to, it is retried
+        self.servers = {address: None
+                        for address in
+                        (addresses or ())}
+
         self.seeds = seeds or ()
         self.peers = PeerTable()
+
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
         self._iotasks = set()
@@ -96,6 +93,8 @@ class Node(object):
         # start the watchdog
         self._watchdog = Watchdog(self)
         self._watchdog.start()
+        
+        logger.debug('Node %r started', self.name)
 
 
     @asyncio.coroutine
