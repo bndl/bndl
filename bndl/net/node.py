@@ -170,7 +170,7 @@ class Node(object):
 
         for port in range(port, port + 1000):
             try:
-                server = yield from asyncio.start_server(self._serve, host, port, loop=self.loop)
+                server = yield from asyncio.start_server(self.serve, host, port, loop=self.loop)
                 break
             except OSError as exc:
                 if exc.errno == errno.EADDRINUSE:
@@ -202,10 +202,13 @@ class Node(object):
 
 
     @asyncio.coroutine
-    def _serve(self, reader, writer):
+    def serve(self, reader, writer, init=False):
         try:
             conn = Connection(self.loop, reader, writer)
-            yield from self.PeerNode(self.loop, self)._connected(conn)
+            peer = self.PeerNode(self.loop, self)
+            connect = peer._connect if init else \
+                      peer._connected
+            yield from connect(conn)
         except GeneratorExit:
             conn.close()
         except Exception:

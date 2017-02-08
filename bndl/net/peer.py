@@ -159,35 +159,41 @@ class PeerNode(object):
 
 
     @asyncio.coroutine
-    def _connect(self, url):
+    def _connect(self, arg):
         with (yield from self.handshake_lock):
             if self.is_connected:
                 return
 
-            logger.debug('connecting with %s', url)
+            logger.debug('connecting with %s', arg)
 
             try:
-                address = urlparse(url)
-                if address.scheme != 'tcp':
-                    raise ValueError('unsupported scheme in %s', url)
+                if isinstance(arg, str):
+                    address = urlparse(arg)
+                    if address.scheme != 'tcp':
+                        raise ValueError('unsupported scheme in %s', arg)
 
-                reader, writer = yield from asyncio.open_connection(address.hostname, address.port, loop=self.loop)
-                self.conn = Connection(self.loop, reader, writer)
+                    reader, writer = yield from asyncio.open_connection(address.hostname, address.port, loop=self.loop)
+                    self.conn = Connection(self.loop, reader, writer)
+                elif isinstance(arg, Connection):
+                    self.conn = arg
+                else:
+                    raise ValueError('Can only connect to url (str) or b.n.c.Connection')
+
                 logger.debug('%s connected', self.conn)
 
                 # Say hello
                 yield from self._send_hello()
 
                 # wait for hello back
-                logger.debug('waiting for hello from %s', url)
+                logger.debug('waiting for hello from %s', self.conn)
                 hello = yield from self.recv(HELLO_TIMEOUT)
 
                 # check the hello
                 if isinstance(hello, Disconnect):
-                    logger.debug("received Disconnect from %s, disconnecting", url)
+                    logger.debug("received Disconnect from %s, disconnecting", self.conn)
                     yield from self.disconnect(reason="received disconnect", active=False)
                 elif not isinstance(hello, Hello):
-                    logger.error("didn't receive Hello back from %s, disconnecting", url)
+                    logger.error("didn't receive Hello back from %s, disconnecting", self.conn)
                     yield from self.disconnect(reason="didn't receive hello")
                 elif hello.name == self.local.name:
                     logger.debug('self connect attempt of %s', hello.name)
@@ -201,20 +207,20 @@ class PeerNode(object):
                     self.local.peers[hello.name] = self
 
             except (asyncio.futures.CancelledError, GeneratorExit):
-                logger.info('connection with %s cancelled', url)
+                logger.info('connection with %s cancelled', self.conn)
                 yield from self.disconnect(reason='connection cancelled')
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
-                logger.info('%s %s', type(exc).__name__, url)
+                logger.info('%s %s', type(exc).__name__, self.conn)
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except TimeoutError:
-                logger.warning('hello not received in time from %s on %s', url, self.conn)
+                logger.warning('hello not received in time from %s on %s', self.conn, self.conn)
                 yield from self.disconnect(reason='hello timed out')
             except OSError as exc:
-                logger.info('unable to connect with %s on %s', url, self.conn,
+                logger.info('unable to connect with %s on %s', self.conn, self.conn,
                             exc_info=bool(exc.errno in (errno.ECONNREFUSED, errno.ECONNRESET)))
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except Exception as exc:
-                logger.exception('unable to connect with %s on %s', url, self.conn)
+                logger.exception('unable to connect with %s on %s', self.conn, self.conn)
                 yield from self.disconnect(reason=str(type(exc)))
 
             if not self.is_connected:
