@@ -134,8 +134,9 @@ class Connection(object):
         self.bytes_sent = 0
 
         sock = self.socket()
-        if bndl.conf['bndl.net.connection.nodelay'] and sock.family in (socket.AF_INET, socket.AF_INET6):
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        if sock and sock.family in (socket.AF_INET, socket.AF_INET6):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
+                            bndl.conf['bndl.net.connection.nodelay'] )
 
 
     @property
@@ -288,7 +289,11 @@ class Connection(object):
 
 
     def __repr__(self):
+        try:
+            desc = '%s:%s' % self.sockname()[:2] + ' <-> ' + '%s:%s' % self.peername()[:2]
+        except Exception:
+            desc = '%s, %s' % (self.reader, self.writer)
         return '<Connection %s %s>' % (
-            '%s:%s' % self.sockname()[:2] + ' <-> ' + '%s:%s' % self.peername()[:2],
+            desc,
             'connected' if self.is_connected else 'not connected'
         )
