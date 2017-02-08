@@ -53,7 +53,7 @@ class Node(object):
                         '.' + str(os.getpid())
             node_id = next(Node._nodeids)
             if node_id:
-                self.name += '.' + next(Node._nodeids)
+                self.name += '.' + str(next(Node._nodeids))
 
         self.servers = {address: None
                         for address in
