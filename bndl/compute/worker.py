@@ -11,11 +11,13 @@
 # limitations under the License.
 
 import argparse
+import asyncio
 import logging
 import os
 
 from bndl.compute.blocks import BlockManager
 from bndl.compute.broadcast import BroadcastManager
+from bndl.compute.memory import LocalMemoryManager, MemorySupervisor
 from bndl.compute.shuffle import ShuffleManager
 from bndl.execute.worker import Worker as ExecutionWorker
 from bndl.net import run
@@ -34,6 +36,19 @@ class Worker(ExecutionWorker):
         self.services['blocks'] = BlockManager(self)
         self.services['broadcast'] = BroadcastManager(self)
         self.services['shuffle'] = ShuffleManager(self)
+        self.memory = LocalMemoryManager()
+
+
+    @asyncio.coroutine
+    def start(self):
+        self.memory.start()
+        return (yield from super().start())
+
+
+    @asyncio.coroutine
+    def stop(self):
+        self.memory.stop()
+        return (yield from super().stop())
 
 
 main_argparser = argparse.ArgumentParser(parents=[run.argparser])
@@ -46,7 +61,27 @@ def main():
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
     seeds = args.seeds or conf.get('bndl.net.seeds') or ['tcp://%s:5000' % getlocalhostname()]
     worker = Worker(addresses=listen_addresses, seeds=seeds)
+    from __main__ import control_node
+    control_node.services['memory'] = worker.memory
     run.run_nodes(worker)
+
+
+
+class WorkerSupervisor(supervisor.Supervisor):
+    def __init__(self, *args, **kwargs):
+        super().__init__('bndl.compute.worker', 'main', *args, **kwargs)
+        self.memory = MemorySupervisor(self.rmi)
+        self.memory.start()
+
+    @classmethod
+    def from_args(cls, args, prog_args=()):
+        return cls(
+            prog_args,
+            args.process_count,
+            args.numactl,
+            args.pincore,
+            args.jemalloc
+        )
 
 
 def run_workers():
@@ -58,7 +93,6 @@ def run_workers():
                             metavar='worker count', help='The number of workers to start (defaults'
                                                          ' to %s).' % def_worker_count)
     args = argparser.parse_args()
-    args.entry_point = 'bndl.compute.worker', 'main'
 
     # reconstruct the arguments for the worker
     # parse_known_args doesn't take out the worker_count positional argument correctly
@@ -68,7 +102,7 @@ def run_workers():
     if args.seeds:
         worker_args += ['--seeds'] + args.seeds
 
-    superv = supervisor.Supervisor.from_args(args, worker_args)
+    superv = WorkerSupervisor.from_args(args, worker_args)
     superv.start()
     try:
         superv.wait()

@@ -18,8 +18,8 @@ import threading
 
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
+from bndl.compute.worker import WorkerSupervisor
 from bndl.net.run import run_nodes
-from bndl.run.supervisor import Supervisor
 from bndl.util.aio import get_loop
 from bndl.util.exceptions import catch
 import bndl
@@ -76,7 +76,7 @@ def create_ctx(config=None, daemon=True):
             args = ['--seeds'] + list((seeds or driver.addresses))
             if listen_addresses:
                 args += ['--listen-addresses'] + listen_addresses
-            supervisor = Supervisor('bndl.compute.worker', 'main', args, worker_count)
+            supervisor = WorkerSupervisor(args, worker_count)
             supervisor.start()
 
         # create compute context
