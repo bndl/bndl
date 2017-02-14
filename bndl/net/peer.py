@@ -91,8 +91,11 @@ class PeerNode(object):
     def recv(self, timeout=None):
         if not self.conn:
             raise NotConnected()
-        msg = yield from self.conn.recv(timeout)
-        return Message.load(msg)
+        try:
+            msg = yield from self.conn.recv(timeout)
+            return Message.load(msg)
+        except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError) as e:
+            raise NotConnected() from e
 
 
     @property
@@ -321,7 +324,7 @@ class PeerNode(object):
                 logger.debug('connection with %s cancelled', self.name)
                 yield from self.disconnect('connection cancelled', active=False)
                 break
-            except ConnectionResetError:
+            except (ConnectionResetError, ConnectionRefusedError):
                 logger.debug('connection with %s closed unexpectedly', self.name)
                 yield from self.disconnect('connection reset', active=False)
                 break
