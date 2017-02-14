@@ -147,12 +147,12 @@ class RMIPeerNode(PeerNode):
             service = self.local.services[request.service]
             method = getattr(service, request.method)
         except KeyError:
-            logger.exception('unable to process message for unknown service %r from %r: %r',
-                             request.service, self, request)
+            logger.info('unable to process message for unknown service %r from %r: %r',
+                        request.service, self, request)
             exc = sys.exc_info()
         except AttributeError:
-            logger.exception('unable to process message for unknown method %r.%r from %r: %r',
-                             request.service, request.method, self, request)
+            logger.info('unable to process message for unknown method %r.%r from %r: %r',
+                        request.service, request.method, self, request)
             exc = sys.exc_info()
 
         if method:
