@@ -11,19 +11,32 @@
 # limitations under the License.
 
 import importlib
+import os
 import signal
 import sys
 
+from bndl.rmi.node import RMINode
+
+
+control_node = None
+
 
 def exit_handler(sig, frame):
-    assert sig != signal.SIGINT
     sys.exit(sig)
 
 
 def main():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGTERM, exit_handler)
-    script, module, main, *args = sys.argv
+
+    script, module, main, supervisor_address, *args = sys.argv
+
+    global control_node
+    control_node = RMINode(name='supervisor.child.%s' % os.getpid(),
+                       addresses=['localhost:0'],
+                       seeds=[supervisor_address])
+    control_node.start_async().result()
+
     sys.argv = [script] + args
     module = importlib.import_module(module)
     main = getattr(module, main)

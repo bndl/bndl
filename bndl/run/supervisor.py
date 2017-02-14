@@ -21,15 +21,13 @@ import sys
 import threading
 import time
 
+from bndl.rmi.node import RMINode
+from bndl.util.aio import get_loop
 import bndl
 
 
 logger = logging.getLogger(__name__)
 
-
-# Environment variable to indicate which child the process is. It's value is
-# formatted as {supervisor.id}.{child.id}
-CHILD_ID = 'BNDL_SUPERVISOR_CHILD'
 
 # Every CHECK_INTERVAL seconds supervised children are checked for exit codes
 # and restarted if necessary.
@@ -39,6 +37,7 @@ CHECK_INTERVAL = 1
 # If a supervised child fails within MIN_RUN_TIME seconds, the child is
 # considered unstable and isn't rebooted.
 MIN_RUN_TIME = 10
+
 
 # When a child exits with one of the following return codes, it is not revived.
 # 0 indicates the process exited 'normally'
@@ -114,15 +113,16 @@ def _check_command_exists(name):
 
 
 class Child(object):
-    def __init__(self, child_id, module, main, args, numactl, pincore, jemalloc):
+    def __init__(self, supervisor, child_id, module, main, args, numactl, pincore, jemalloc):
+        self.supervisor = supervisor
         self.id = child_id
         self.module = module
         self.main = main
         self.args = args
 
         self.proc = None
+        self.pipes = None
         self.pid = None
-        self.watcher = None
         self.started_on = None
 
         self.executable = [sys.executable]
@@ -151,23 +151,21 @@ class Child(object):
         if self.running:
             raise RuntimeError("Can't run a child twice")
 
-        child_id = '.'.join(map(str, self.id))
-        env = {CHILD_ID: child_id}
-        env.update(os.environ)
-        env['PYTHONHASHSEED'] = '0'
+        env = dict(
+            os.environ,
+            PYTHONHASHSEED='0'
+        )
 
+        child_id = '.'.join(map(str, self.id))
         logger.info('Starting child %s (%s:%s)', child_id, self.module, self.main)
 
-        args = self.executable \
-               + ['-m', 'bndl.run.child', self.module, self.main] \
-               + list(self.args)
-
+        args = self.executable
+        args += ['-m', 'bndl.run.child', self.module, self.main, self.supervisor.rmi.addresses[0]]
+        args += list(self.args)
 
         self.proc = subprocess.Popen(args, env=env)
         self.pid = self.proc.pid
         self.started_on = time.time()
-
-        atexit.register(self.terminate)
 
 
     @property
@@ -207,7 +205,7 @@ class Supervisor(object):
         self.main = main
         self.args = args
         self.process_count = process_count
-        
+
         if numactl is None:
             numactl = bndl.conf['bndl.run.numactl']
         if pincore is None:
@@ -218,12 +216,19 @@ class Supervisor(object):
         self.numactl = numactl
         self.pincore = pincore
         self.jemalloc = jemalloc
-        
+
         self.children = []
         self.min_run_time = min_run_time
         self.check_interval = check_interval
         self._watcher = threading.Thread(target=self._watch, daemon=True,
                                          name='bndl-supervisor-%s' % self.id)
+
+        self.rmi = RMINode(name='supervisor.%s' % self.id,
+                           addresses=['localhost:0'],
+                           loop=get_loop())
+        self.rmi.start_async().result()
+
+        atexit.register(self.stop)
 
 
     def start(self):
@@ -234,7 +239,7 @@ class Supervisor(object):
 
     def _start(self):
         child_id = (self.id, len(self.children))
-        child = Child(child_id, self.module, self.main, self.args,
+        child = Child(self, child_id, self.module, self.main, self.args,
                       numactl=self.numactl, pincore=self.pincore, jemalloc=self.jemalloc)
         self.children.append(child)
         child.start()
@@ -272,7 +277,8 @@ class Supervisor(object):
         while self._watcher == threading.current_thread():
             if self.children:
                 check_interval = self.check_interval / len(self.children)
-                for child in self.children:
+                terminated = []
+                for child in list(self.children):
                     returncode = child.returncode
                     if returncode is not None:
                         restart = returncode not in DNR_CODES and (time.time() - child.started_on) > self.min_run_time
@@ -280,9 +286,12 @@ class Supervisor(object):
                                    'Child %s (%s:%s, pid %s) exited with code %s',
                                    child.id , child.module, child.main, child.pid, returncode)
                         if restart:
-                            child.start()
+                            self._start()
+                        terminated.append(child)
                     else:
                         time.sleep(check_interval)
+                for child in terminated:
+                    self.children.remove(child)
             else:
                 time.sleep(self.check_interval)
 
