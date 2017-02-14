@@ -39,7 +39,7 @@ NOTIFY_KNOWN_PEERS_WAIT = 1
 class Node(object):
     PeerNode = PeerNode
 
-    _nodeids = itertools.count()
+    _nodeids = {}
 
     def __init__(self, name=None, addresses=None, seeds=None, loop=None):
         self.loop = loop or get_loop()
@@ -51,7 +51,9 @@ class Node(object):
             self.name = '.'.join(reversed(socket.getfqdn().split('.'))) + \
                         '.' + self.node_type + \
                         '.' + str(os.getpid())
-            node_id = next(Node._nodeids)
+
+            node_ids = Node._nodeids.setdefault(self.node_type, itertools.count())
+            node_id = next(node_ids)
             if node_id:
                 self.name += '.' + str(next(Node._nodeids))
 
@@ -182,13 +184,13 @@ class Node(object):
             return
 
         del self.servers[address]
-        
+
         for s in server.sockets:
             port = s.getsockname()[1]
             address = 'tcp://%s:%s' % (host, port)
             logger.info('server socket opened at %s', address)
             self.servers[address] = server
-        
+
 
 
     @asyncio.coroutine
