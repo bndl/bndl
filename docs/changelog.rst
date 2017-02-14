@@ -1,6 +1,23 @@
 Change log
 ==========
 
+0.5.0
+-----
+ * Introduced a node (supervisor) global memory management
+ * Use new memory management system in shuffle spilling
+ * Improve (prevent) node-local transmission of files on disk
+ * Introduced (internal) concept of RMI services
+ * Use TCP_NODELAY
+ * Various bug fixes and tweaks
+
+0.4.0
+-----
+ * Expose pcount on Dataset
+ * Added basic coalescing of Partitions
+ * mask_partitions signature changed
+ * Distributed arrays support moved out of core bndl.compute into bndl-array
+ * Various bug fixes and tweaks
+
 0.3.5
 -----
  * Moved hyperloglog and cycloudpickle out of BNDL
