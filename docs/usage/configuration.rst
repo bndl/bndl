@@ -136,14 +136,13 @@ Workers execute ``concurrency`` tasks simultaneously for each job started.
 
 Shuffle
 ~~~~~~~
-Shuffles are executed in memory for as long as a worker consumes less than ``max_mem_pct`` /
-``os.cpu_count()`` (in the assumption that one worker per core is used. Over this limit, shuffle
-data is spilled to disk. Not that shuffle data is also spilled when less than 10% or 1 GB of system
-wide memory is available. Shuffle data is spilled in blocks (approximately) no larger than
-``block_size_mb``.
+Shuffles are executed in memory for as long as a workers consumes less than
+``bndl.compute.memory.limit`` and the system memory usage is below
+``bndl.compute.memory.limit_system``. Over this limit, shuffle data is spilled to disk. Shuffle
+data is spilled in blocks (approximately) no larger than ``block_size_mb``.
 
-.. autodata:: bndl.compute.shuffle.max_mem_pct
-.. autodata:: bndl.compute.shuffle.block_size_mb
+.. autodata:: bndl.compute.memory.limit
+.. autodata:: bndl.compute.memory.limit_system
 
 Broadcast
 ~~~~~~~~~
