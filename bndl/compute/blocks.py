@@ -52,15 +52,16 @@ class Block(object):
 
 
     def __getstate__(self):
+        data = self.data
         @contextlib.contextmanager
         def _attacher(loop, writer):
             @asyncio.coroutine
             def sender():
-                writer.write(self.data)
-            yield len(self.data), sender
+                writer.write(data)
+            yield len(data), sender
         attach(str(self.id).encode(), _attacher)
         state = dict(self.__dict__)
-        del state['data']
+        state.pop('data', None)
         return state
 
 
