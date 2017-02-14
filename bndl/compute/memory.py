@@ -197,7 +197,6 @@ class AsyncReleaseHelper(object):
 
 
     def release(self, nbytes):
-        logger.debug('Release of %.0f mb requested', nbytes / 1024 / 1024)
         with self._condition:
             self._release_queue.append(nbytes)
             self._condition.notify_all()
