@@ -47,7 +47,7 @@ def current_worker():
 
 class TaskExecutor(threading.Thread):
     def __init__(self, tasks, task, args, kwargs):
-        super().__init__()
+        super().__init__(name='task-executor')
         self.tasks = tasks
         self.worker = tasks.worker
         self.task = task
