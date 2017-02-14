@@ -79,21 +79,20 @@ class _GzipIOWrapper(gzip.GzipFile):
 
 
 
-class BytearrayIO(io.RawIOBase):
+class ByteArrayIO(io.RawIOBase):
     def __init__(self, buffer, mode='rb'):
         self.buffer = buffer
         self.mode = mode
         self.pos = 0
 
     def read(self, size=-1):
-        # TODO investigate use of memoryview
         if size == -1 or not size:
             b = self.buffer[self.pos:]
             self.pos = len(self.buffer)
         else:
             b = self.buffer[self.pos:self.pos + size]
             self.pos += size
-        return bytes(b)
+        return b  # bytes(b)
 
     def write(self, b):
         self.buffer.extend(b)
@@ -103,6 +102,27 @@ class BytearrayIO(io.RawIOBase):
 
     def writable(self):
         return True
+
+    def seekable(self):
+        return True
+
+    @property
+    def closed(self):
+        return False
+
+    def tell(self):
+        return self.pos
+
+    def seek(self, pos, whence=io.SEEK_SET):
+        if whence == io.SEEK_CUR:
+            pos += self.pos
+        elif whence == io.SEEK_END:
+            pos += len(self.buffer)
+        if pos < 0:
+            pos = 0
+        assert pos < len(self.buffer)
+        self.pos = pos
+        return pos
 
 
 
@@ -246,9 +266,8 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         assert mode in 'rw'
         if mode[0] == 'w':
             self.data = bytearray()
-            baio = BytearrayIO(self.data, mode)
+            baio = ByteArrayIO(self.data, mode)
         else:
-            # TODO use BytearrayIO, this costs a memory copy
             baio = io.BytesIO(self.data)
             baio.mode = mode
         return baio
