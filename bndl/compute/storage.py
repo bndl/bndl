@@ -76,7 +76,7 @@ def _binary_load_gen(fileobj):
 class _GzipIOWrapper(gzip.GzipFile):
     def __init__(self, fileobj):
         super().__init__(fileobj=fileobj)
-
+        
 
 
 class ByteArrayIO(io.RawIOBase):
@@ -84,7 +84,7 @@ class ByteArrayIO(io.RawIOBase):
         self.buffer = buffer
         self.mode = mode
         self.pos = 0
-
+ 
     def read(self, size=-1):
         if size == -1 or not size:
             b = self.buffer[self.pos:]
@@ -93,26 +93,26 @@ class ByteArrayIO(io.RawIOBase):
             b = self.buffer[self.pos:self.pos + size]
             self.pos += size
         return b  # bytes(b)
-
+ 
     def write(self, b):
         self.buffer.extend(b)
-
+ 
     def readable(self):
         return True
-
+ 
     def writable(self):
         return True
-
+ 
     def seekable(self):
         return True
-
+ 
     @property
     def closed(self):
         return False
-
+ 
     def tell(self):
         return self.pos
-
+ 
     def seek(self, pos, whence=io.SEEK_SET):
         if whence == io.SEEK_CUR:
             pos += self.pos
