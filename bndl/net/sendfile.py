@@ -24,26 +24,41 @@ from bndl.util import aio
 CHUNK_SIZE = 8 * 1024
 
 
+_REMOTE = b'r'
+_LOCAL = b'l'
+
+
+def is_remote(data):
+    return data[0] == _REMOTE[0]
+
+
 def file_attachment(filename, offset, size):
     assert hasattr(os, "sendfile")
 
-    @contextlib.contextmanager
-    def _attacher():
-        @asyncio.coroutine
-        def sender(loop, writer):
-            '''
-            make sure there is no data pending in the writer's buffer
-            get the socket from the writer
-            use sendfile to send file to socket
-            '''
-            with open(filename, 'rb') as file:
-                yield from aio.drain(writer)
-                socket = writer.get_extra_info('socket').dup()
-                socket.setblocking(False)
-                yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
-        yield size, sender
+    filename = filename.encode('utf-8')
 
-    return filename.encode('utf-8'), _attacher
+    @contextlib.contextmanager
+    def _attacher(loop, writer):
+        socket = writer.get_extra_info('socket')
+        if socket.getpeername()[0] in ('::1', '127.0.0.1', socket.getsockname()[0]):
+            @asyncio.coroutine
+            def sender():
+                writer.write(_LOCAL)
+                yield from aio.drain(writer)
+            yield 1, sender
+        else:
+            @asyncio.coroutine
+            def sender():
+                nonlocal socket
+                with open(filename, 'rb') as file:
+                    writer.write(_REMOTE)
+                    yield from aio.drain(writer)
+                    socket = socket.dup()
+                    socket.setblocking(False)
+                    yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
+            yield size + 1, sender
+
+    return filename, _attacher
 
 
 

@@ -176,12 +176,12 @@ class Connection(object):
                 # send attachment count
                 self.writer.writelines((struct.pack('c', fmt), struct.pack('I', len(attachments))))
                 for key, attachment in attachments.items():
-                    with attachment() as (size, sender):
+                    with attachment(self.loop, self.writer) as (size, sender):
                         self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('Q', size)))
                         if asyncio.iscoroutinefunction(sender):
-                            yield from sender(self.loop, self.writer)
+                            yield from sender()
                         else:
-                            sender(self.loop, self.writer)
+                            sender()
                         self.bytes_sent += size
                 self.writer.writelines((struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)

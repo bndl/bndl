@@ -24,7 +24,7 @@ import struct
 import tempfile
 
 from bndl.compute.blocks import Block
-from bndl.net.sendfile import file_attachment
+from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, noop
@@ -368,8 +368,10 @@ class OnDisk(SerializedContainer):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.data = attachment(self.filepath.encode('utf-8'))
-        self.__class__ = SerializedInMemory
+        data = attachment(self.filepath.encode('utf-8'))
+        if is_remote(data):
+            self.data = memoryview(data)[1:]
+            self.__class__ = SerializedInMemory
 
 
     def __del__(self):

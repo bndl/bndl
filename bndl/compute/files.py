@@ -519,6 +519,6 @@ class _RemoteFilesSender(object):
         prefix = state['prefix']
         N = state['N']
         self.data = [
-            attachment(struct.pack('NN', prefix, idx))
+            memoryview(attachment(struct.pack('NN', prefix, idx)))[1:]
             for idx in range(N)
         ]

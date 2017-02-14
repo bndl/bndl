@@ -53,9 +53,9 @@ class Block(object):
 
     def __getstate__(self):
         @contextlib.contextmanager
-        def _attacher():
+        def _attacher(loop, writer):
             @asyncio.coroutine
-            def sender(loop, writer):
+            def sender():
                 writer.write(self.data)
             yield len(self.data), sender
         attach(str(self.id).encode(), _attacher)
