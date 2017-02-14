@@ -283,7 +283,7 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         clear_old = on_disk.clear
         on_disk.clear = noop
         on_disk.clear = noop
-        fileobj = on_disk.open('w')
+        fileobj = on_disk._open('w')
         try:
             fileobj.write(self.data)
         finally:
