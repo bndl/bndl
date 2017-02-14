@@ -14,9 +14,13 @@ import asyncio
 import concurrent.futures
 import functools
 import logging
+import threading
 
 
 logger = logging.getLogger(__name__)
+
+
+_loop = None
 
 
 def get_loop(stop_on=(), use_uvloop=True):
@@ -25,11 +29,16 @@ def get_loop(stop_on=(), use_uvloop=True):
     a new loop is created.
     :param stop_on:
     '''
+    global _loop
+
+    if _loop is not None:
+        return _loop
+
     if use_uvloop:
         try:
             import uvloop
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        except:
+        except Exception:
             logger.debug('uvloop not available, using default event loop')
 
     try:
@@ -45,9 +54,15 @@ def get_loop(stop_on=(), use_uvloop=True):
         # raised if there is no active loop.
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+
+    _loop = loop
+
     if stop_on:
         for sig in stop_on:
             loop.add_signal_handler(sig, loop.stop)
+
+    threading.Thread(target=loop.run_forever, name='asyncio-loop', daemon=True).start()
+
     return loop
 
 

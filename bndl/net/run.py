@@ -13,8 +13,10 @@
 import argparse
 import asyncio
 import atexit
+import concurrent.futures
 
 from bndl.net.connection import urlcheck
+from bndl.util.aio import run_coroutine_threadsafe
 
 
 argparser = argparse.ArgumentParser(add_help=False)
@@ -39,9 +41,12 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
     loop.set_exception_handler(exception_handler)
 
     try:
-        starts = [node.start() for node in nodes]
-        loop.run_until_complete(asyncio.wait(starts, loop=loop))
+        futs = [run_coroutine_threadsafe(node.start(), loop)
+                for node in nodes]
+
         if started_signal:
+            for fut in futs:
+                fut.result()
             started_signal.set_result(True)
     except Exception as e:
         if started_signal:
@@ -51,11 +56,10 @@ def run_nodes(*nodes, started_signal=None, stop_signal=None):
             raise
 
     try:
-        atexit.register(loop.stop)
-        if stop_signal:
-            loop.run_until_complete(loop.run_in_executor(None, stop_signal.result))
-        else:
-            loop.run_forever()
+        if not stop_signal:
+            stop_signal = concurrent.futures.Future()
+            atexit.register(stop_signal.set_result, (True,))
+        stop_signal.result()
     finally:
-        stops = [node.stop() for node in nodes]
-        loop.run_until_complete(asyncio.wait(stops, loop=loop))
+        for node in nodes:
+            loop.create_task(node.stop())
