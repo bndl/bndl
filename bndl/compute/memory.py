@@ -187,89 +187,42 @@ class AsyncReleaseHelper(object):
 
     def halt(self):
         with self._condition:
-            print('halting', self._key)
             self._halt_flag = True
-            # time.sleep(5)
             self._condition.notify_all()
 
 
     def resume(self):
         with self._condition:
-            print('resuming', self._key)
             self._halt_flag = False
-            # time.sleep(5)
             self._condition.notify_all()
 
 
     def release(self, nbytes):
+        logger.debug('Release of %.0f mb requested', nbytes / 1024 / 1024)
         with self._condition:
-            print('releasing', self._key)
-            # time.sleep(5)
             self._release_queue.append(nbytes)
             self._condition.notify_all()
-#         # print('release', self._key, 'waiting for completion')
         released = self._released_queue.get()
-        # self._halt_flag = False
         self.resume()
-#         # print('released', self._key, 'with', x)
         return released
 
 
     def check(self):
-        try:
-            if self._halt_flag:
-                with self._condition:
-                    print('halt after check', self._key)
-    #                 time.sleep(5)
-                    self._condition.wait_for(lambda: self._release_queue or not self._halt_flag)
-                    if self._release_queue:
-                        # print('release after check', self._key)
-                        nbytes = self._release_queue[-1]
-                        self._release_queue.clear()
-                        try:
-                            released = self._release(nbytes)
-                            print('release after check', self._key, 'completed with', mb(released))
-                        except Exception:
-                            logger.exception('Unable to release memory')
-                            released = 0
-                        self._released_queue.put(released)
-                    else:
-                        print('halted but no release requested')
-                        self._released_queue.put(0)
-        except Exception:
-            import traceback;traceback.print_exc()
-            raise
-
-
-# class AsyncReleaseHelper(object):
-#     def __init__(self, key, manager):
-#         self._key = key
-#         self._manager = manager
-#         self._semaphore = threading.Semaphore()
-#         self._nbytes_requested = queue.Queue()
-#         self._nbytes_released = queue.Queue()
-#         self.should_release = self._nbytes_requested.queue.__len__
-#
-#
-#     def release(self, nbytes):
-#         self._nbytes_requested.put(nbytes)
-#
-#
-#     def start(self):
-#         try:
-#             return self._nbytes_requested.get_nowait()
-#         except queue.Empty:
-#             return 0
-#
-#
-#     def released(self, nbytes):
-#         self._nbytes_released.put(nbytes)
-#
-#
-#     def __del__(self):
-#         if self._manager:
-#             self._manager.remove_releasable(self._key)
-#             self._manager = None
+        if self._halt_flag:
+            with self._condition:
+                self._condition.wait_for(lambda: self._release_queue or not self._halt_flag)
+                if self._release_queue:
+                    nbytes = self._release_queue[-1]
+                    self._release_queue.clear()
+                    try:
+                        released = self._release(nbytes)
+                        logger.debug('Released %.0f mb', nbytes / 1024 / 1024)
+                    except Exception:
+                        logger.exception('Unable to release memory')
+                        released = 0
+                    self._released_queue.put(released)
+                else:
+                    self._released_queue.put(0)
 
 
 
@@ -293,12 +246,6 @@ class ReleaseReference(object):
             return cls(release, callback).release
         else:
             return release
-
-
-
-def call_all(funcs):
-    for func in funcs:
-        func()
 
 
 
@@ -357,7 +304,7 @@ class LocalMemoryManager(threading.Thread):
             if nbytes == 0:
                 continue
 
-            print('executing release of', mb(nbytes), 'mb requested')
+            logger.debug('Executing release of %.0f mb', nbytes / 1024 / 1024)
 
             remaining = nbytes
 
@@ -375,23 +322,15 @@ class LocalMemoryManager(threading.Thread):
 
             for priority in priorities:
                 # release all fixed size candidates
-                fixed_size_released = 0
                 for key, (candidate, size) in candidates[priority]:
                     if size is not None:
                         candidate()
                         remaining -= size
-                        fixed_size_released += size
                         with self._candidates_lock:
                             self._keys.pop(key[-1], None)
                             self.candidates[priority].pop(key, None)
                     if remaining <= 0:
                         break
-
-    #                 time.sleep(5)
-
-                if fixed_size_released:
-                    print('releasing fixed sized candidates of', mb(fixed_size_released), 'mb ...',
-                          mb(remaining), 'mb remaining')
 
                 # release memory from / resume all async helpers
                 for key, (candidate, size) in candidates[priority]:
@@ -402,7 +341,3 @@ class LocalMemoryManager(threading.Thread):
                         # or release from async helper if not
                         else:
                             remaining -= candidate.release(remaining)
-
-    #                 time.sleep(5)
-
-        # return nbytes - remaining
