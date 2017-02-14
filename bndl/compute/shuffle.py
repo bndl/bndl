@@ -72,7 +72,7 @@ class Bucket:
     @property
     def memory_size(self):
         '''
-        The memory foot# print of a bucket in bytes. This includes elements in the bucket and the
+        The memory footprint of a bucket in bytes. This includes elements in the bucket and the
         size of serialized in memory blocks.
 
         When this bucket hasn't been serialized / spilled yet, the memory_size is grossly
@@ -380,10 +380,7 @@ class ShuffleWritingPartition(Partition):
             for element in self.src.compute():
                 bucket_add[partitioner(element) % bucket_count](element)
                 elements_partitioned += 1
-#                 time.sleep(.00001)
                 memcheck()
-
-#         print('partitioning done')
 
             # serialize the buckets for shuffle read
             for bucket in buckets:
@@ -644,9 +641,7 @@ class ShuffleReadingPartition(Partition):
         )
 
         def spill(nbytes):
-#             print('spilling in shuffle write')
             spilled = bucket.serialize(True)
-#             print('spilled', spilled, 'in shuffle read')
             logger.debug('spilled %.2f mb', spilled / 1024 / 1024)
             return spilled
 
