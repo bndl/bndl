@@ -11,7 +11,11 @@
 # limitations under the License.
 
 import concurrent.futures
+import os
+import sys
+import textwrap
 import threading
+import traceback
 
 from bndl.util.exceptions import catch
 
@@ -114,3 +118,14 @@ class Coordinator(object):
             # and notify (future) other threads
             done.set()
             return result
+
+
+def dump_threads(*args, **kwargs):
+    threads = list(threading.enumerate())
+    frames = sys._current_frames()
+    print('Threads (%s) of process %s' % (len(threads), os.getpid()))
+    for idx, thread in enumerate(threads):
+        print(' %s id=%s name=%s (%s%s)' % (idx, thread.ident, thread.name, type(thread).__name__,
+                                            (', daemon' if thread.daemon else '')))
+        stack = ''.join(traceback.format_stack(frames[thread.ident]))
+        print(textwrap.indent(stack, '   '))

@@ -11,6 +11,7 @@
 # limitations under the License.
 
 import argparse
+import signal
 
 from cytoolz.itertoolz import groupby
 
@@ -18,6 +19,7 @@ from bndl.compute.run import create_ctx
 from bndl.compute.worker import many_argparser
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity
+from bndl.util.threads import dump_threads
 import bndl
 
 
@@ -39,6 +41,8 @@ argparser.add_argument('--conf', nargs='*', default=(),
 
 
 def main():
+    signal.signal(signal.SIGUSR1, dump_threads)
+
     try:
         args = argparser.parse_args()
         config = bndl.conf
