@@ -359,7 +359,11 @@ class OnDisk(SerializedContainer):
 
     def __getstate__(self):
         attach(*file_attachment(self.filepath, 0, os.path.getsize(self.filepath)))
-        return dict(self.__dict__)
+        return {
+            'id': self.id,
+            'filepath': self.filepath,
+            'provider': self.provider,
+        }
 
 
     def __setstate__(self, state):
