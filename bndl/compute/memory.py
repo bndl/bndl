@@ -46,7 +46,6 @@ class MemorySupervisor(threading.Thread):
 
         supervisor_rmi.peers.listeners.add(self.children_changed)
         self.procs = {}
-        self.procs_busy = set()
         self.lock = threading.Lock()
 
         self._total = virtual_memory().total

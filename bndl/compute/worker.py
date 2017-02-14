@@ -71,7 +71,14 @@ class WorkerSupervisor(supervisor.Supervisor):
     def __init__(self, *args, **kwargs):
         super().__init__('bndl.compute.worker', 'main', *args, **kwargs)
         self.memory = MemorySupervisor(self.rmi)
+    
+    def start(self):
+        super().start()
         self.memory.start()
+        
+    def stop(self):
+        self.memory.stop()
+        super().stop()
 
     @classmethod
     def from_args(cls, args, prog_args=()):
