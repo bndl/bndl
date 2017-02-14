@@ -165,7 +165,7 @@ class Node(object):
         if parsed.scheme != 'tcp':
             raise ValueError('unsupported scheme %s in address %s' % (parsed.scheme, address))
 
-        host, port = parsed.hostname, parsed.port or 5000
+        host, port = parsed.hostname, 5000 if parsed.port is None else parsed.port
         server = None
 
         for port in range(port, port + 1000):
@@ -181,11 +181,14 @@ class Node(object):
         if not server:
             return
 
-        if parsed.port != port:
-            del self.servers[address]
+        del self.servers[address]
+
+        for s in server.sockets:
+            port = s.getsockname()[1]
             address = 'tcp://%s:%s' % (host, port)
-        logger.info('server socket opened at %s', address)
-        self.servers[address] = server
+            logger.info('server socket opened at %s', address)
+            self.servers[address] = server
+
 
 
     @asyncio.coroutine

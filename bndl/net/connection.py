@@ -53,9 +53,11 @@ def urlparse(address):
     else:
         raise ValueError('Illegal url: "%s", unsupported scheme "%s"' % (address, parsed.scheme))
 
-    if not parsed.port:
+    if parsed.port is None:
         components = list(parsed)
-        components[1] += ":5000"
+        if not components[1].endswith(':'):
+            components[1] += ':'
+        components[1] += "5000"
         with_port = urllib.parse.urlunparse(components)
         return urllib.parse.urlparse(with_port)
 
@@ -136,7 +138,7 @@ class Connection(object):
         sock = self.socket()
         if sock and sock.family in (socket.AF_INET, socket.AF_INET6):
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY,
-                            bndl.conf['bndl.net.connection.nodelay'] )
+                            bndl.conf['bndl.net.connection.nodelay'])
 
 
     @property
