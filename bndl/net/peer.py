@@ -32,6 +32,23 @@ HELLO_TIMEOUT = 60
 
 
 class PeerTable(dict):
+    def __init__(self):
+        self.listeners = set()
+
+
+    def __setitem__(self, name, peer):
+        super().__setitem__(name, peer)
+        for listener in self.listeners:
+            listener('added', peer)
+
+
+    def __delitem__(self, name):
+        peer = self[name]
+        super().__delitem__(name)
+        for listener in self.listeners:
+            listener('removed', peer)
+
+
     def filter(self, address=None, node_type=None, connected=True):
         while True:
             try:
