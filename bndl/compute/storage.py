@@ -280,6 +280,8 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
     def to_disk(self):
         on_disk = OnDisk(self.id, self.provider)
+        clear_old = on_disk.clear
+        on_disk.clear = noop
         on_disk.clear = noop
         fileobj = on_disk.open('w')
         try:
@@ -287,8 +289,10 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
         finally:
             fileobj.close()
         self.__dict__.update(on_disk.__dict__)
+        self.clear = clear_old
         self.__class__ = OnDisk
         self.__dict__.pop('data')
+
 
 
 def _get_work_dir():
@@ -317,7 +321,11 @@ def get_work_dir():
 def clean_work_dir():
     wdir = get_work_dir()
     if os.path.exists(wdir):
-        shutil.rmtree(wdir)
+        try:
+            shutil.rmtree(wdir)
+        except (FileNotFoundError, OSError):
+            pass
+
 
 
 class OnDisk(SerializedContainer):
@@ -327,6 +335,8 @@ class OnDisk(SerializedContainer):
         dirpath = os.path.join(get_work_dir(), *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
         self.filepath = os.path.join(dirpath, str(filename))
+        self.file = open(self.filepath, 'w+b')
+        os.remove(self.filepath)
 
 
     def _open(self, mode):
