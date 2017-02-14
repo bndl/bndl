@@ -93,7 +93,7 @@ class Node(object):
         # start the watchdog
         self._watchdog = Watchdog(self)
         self._watchdog.start()
-        
+
         logger.debug('Node %r started', self.name)
 
 
@@ -182,13 +182,13 @@ class Node(object):
             return
 
         del self.servers[address]
-
+        
         for s in server.sockets:
             port = s.getsockname()[1]
             address = 'tcp://%s:%s' % (host, port)
             logger.info('server socket opened at %s', address)
             self.servers[address] = server
-
+        
 
 
     @asyncio.coroutine
