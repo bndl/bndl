@@ -55,7 +55,7 @@ class Node(object):
             node_ids = Node._nodeids.setdefault(self.node_type, itertools.count())
             node_id = next(node_ids)
             if node_id:
-                self.name += '.' + str(next(Node._nodeids))
+                self.name += '.' + str(node_id)
 
         self.servers = {address: None
                         for address in
