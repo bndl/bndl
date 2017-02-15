@@ -38,6 +38,7 @@ install_requires = [
     'tblib',
     'marisa_trie',
     'yappi<=0.93',
+    'lz4',
 ]
 
 if sys.version_info >= (3, 5):

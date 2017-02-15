@@ -244,7 +244,7 @@ class ShuffleWritingDataset(Dataset):
 
 
     def __init__(self, src, pcount, partitioner=None, bucket=None, key=None, comb=None, *,
-            block_size_mb=None, serialization='pickle', compression=None):
+            block_size_mb=None, serialization='pickle', compression='lz4'):
         '''
         :param src: Dataset
             Dataset to be shuffled.

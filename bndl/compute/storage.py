@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from itertools import chain
 from os.path import getsize
 import atexit
-import gzip
-import io
+import importlib
 import json
 import logging
 import marshal
@@ -23,11 +23,13 @@ import shutil
 import struct
 import tempfile
 
+from cytoolz.functoolz import compose
+
 from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
-from bndl.util.exceptions import catch
-from bndl.util.funcs import identity, noop
+from bndl.util.funcs import noop
+import lz4
 
 
 logger = logging.getLogger(__name__)
@@ -37,92 +39,37 @@ _LENGTH_FIELD_FMT = 'I'
 _LENGTH_FIELD_SIZE = struct.calcsize(_LENGTH_FIELD_FMT)
 
 
-def _text_dump(lines, fileobj):
+def _text_dumps(lines):
     chunks = (line.encode() for line in lines)
-    _binary_dump(chunks, fileobj)
+    return _binary_dumps(chunks)
 
 
-def _text_load(fileobj):
-    chunks = _binary_load_gen(fileobj)
+def _text_loads(data):
+    chunks = _binary_load_gen(data)
     return [chunk.decode() for chunk in chunks]
 
 
-def _binary_dump(chunks, fileobj):
+def _binary_dumps(chunks):
     len_fmt = _LENGTH_FIELD_FMT
     pack = struct.pack
-    write = fileobj.write
-    for chunk in chunks:
-        write(pack(len_fmt, len(chunk)))
-        write(chunk)
+    return b''.join(chain.from_iterable(
+        (pack(len_fmt, len(chunk)), chunk) for chunk in chunks
+    ))
 
-def _binary_load(fileobj):
-    return list(_binary_load_gen(fileobj))
+def _binary_loads(data):
+    return list(_binary_load_gen(data))
 
 
-def _binary_load_gen(fileobj):
+def _binary_load_gen(data):
     len_fmt = _LENGTH_FIELD_FMT
-    len_buffer = bytearray(_LENGTH_FIELD_SIZE)
-    read = fileobj.read
-    readinto = fileobj.readinto
     unpack = struct.unpack
-    while True:
-        if not readinto(len_buffer):
-            break
-        chunk_len = unpack(len_fmt, len_buffer)[0]
-        yield read(chunk_len)
-
-
-
-class _GzipIOWrapper(gzip.GzipFile):
-    def __init__(self, fileobj):
-        super().__init__(fileobj=fileobj)
-        
-
-
-class ByteArrayIO(io.RawIOBase):
-    def __init__(self, buffer, mode='rb'):
-        self.buffer = buffer
-        self.mode = mode
-        self.pos = 0
- 
-    def read(self, size=-1):
-        if size == -1 or not size:
-            b = self.buffer[self.pos:]
-            self.pos = len(self.buffer)
-        else:
-            b = self.buffer[self.pos:self.pos + size]
-            self.pos += size
-        return b  # bytes(b)
- 
-    def write(self, b):
-        self.buffer.extend(b)
- 
-    def readable(self):
-        return True
- 
-    def writable(self):
-        return True
- 
-    def seekable(self):
-        return True
- 
-    @property
-    def closed(self):
-        return False
- 
-    def tell(self):
-        return self.pos
- 
-    def seek(self, pos, whence=io.SEEK_SET):
-        if whence == io.SEEK_CUR:
-            pos += self.pos
-        elif whence == io.SEEK_END:
-            pos += len(self.buffer)
-        if pos < 0:
-            pos = 0
-        assert pos < len(self.buffer)
-        self.pos = pos
-        return pos
+    data_len = len(data)
+    pos = 0
+    while pos < data_len:
+        chunk_len = unpack(len_fmt, data[pos:pos + _LENGTH_FIELD_SIZE])[0]
+        pos += _LENGTH_FIELD_SIZE
+        yield data[pos:pos+chunk_len]
+        pos += chunk_len
 
 
 
@@ -138,32 +85,32 @@ class StorageContainerFactory(object):
             self.serialize, self.deserialize = None, None
         else:
             if serialization == 'json':
-                self.serialize = json.dump
-                self.deserialize = json.load
+                self.serialize = json.dumps
+                self.deserialize = json.loads
                 self.mode = 't'
             elif serialization == 'marshal':
-                self.serialize = marshal.dump
-                self.deserialize = marshal.load
+                self.serialize = marshal.dumps
+                self.deserialize = marshal.loads
                 self.mode = 'b'
             elif serialization == 'pickle':
-                self.serialize = pickle.dump
-                self.deserialize = pickle.load
+                self.serialize = pickle.dumps
+                self.deserialize = pickle.loads
                 self.mode = 'b'
             elif serialization == 'msgpack':
                 try:
                     import msgpack
                 except ImportError:
                     from pandas import msgpack
-                self.serialize = msgpack.dump
-                self.deserialize = msgpack.load
+                self.serialize = msgpack.dumps
+                self.deserialize = msgpack.loads
                 self.mode = 'b'
             elif serialization == 'text':
-                self.serialize = _text_dump
-                self.deserialize = _text_load
+                self.serialize = _text_dumps
+                self.deserialize = _text_loads
                 self.mode = 'b'
             elif serialization == 'binary':
-                self.serialize = _binary_dump
-                self.deserialize = _binary_load
+                self.serialize = _binary_dumps
+                self.deserialize = _binary_loads
                 self.mode = 'b'
             elif isinstance(serialization, (list, tuple)) \
                 and len(serialization) != 3 \
@@ -171,24 +118,9 @@ class StorageContainerFactory(object):
                 self.serialize, self.deserialize, self.mode = serialization
             else:
                 raise ValueError('serialization must one of json, marshal, pickle or a 3-tuple of'
-                                 ' dump(data, fileobj) and load(fileobj) functions and "b" or "t" '
+                                 ' dumps(data) and loads(data) functions and "b" or "t" '
                                  ' (indicating binary or text mode), not %r'
                                  % (serialization,))
-
-        if compression is None:
-            self.io_wrapper = identity
-        else:
-            if compression == 'gzip':
-                self.io_wrapper = _GzipIOWrapper
-                if serialization is None:
-                    raise ValueError('can\'t specify compression without specifying serialization')
-            elif not callable(compression):
-                raise ValueError('compression must be None, "gzip" or a callable to provide'
-                                 ' (transparant) (de)compression on a file-like object,'
-                                 ' not %r' % compression)
-            else:
-                self.io_wrapper = compression
-
 
         if location == 'memory':
             if self.serialize:
@@ -205,6 +137,29 @@ class StorageContainerFactory(object):
             raise ValueError('location must be "memory" or "disk" or a class which conforms to'
                              ' bndl.compute.storage.Container')
 
+        if compression is not None:
+            if compression == 'lz4':
+                self.serialize = compose(lz4.compress, self.serialize)
+                self.deserialize = compose(self.deserialize, lz4.decompress, bytes)
+            elif isinstance(compression, str):
+                mod = importlib.import_module(compression)
+                self.serialize = compose(mod.compress, self.serialize)
+                self.deserialize = compose(self.deserialize, mod.decompress)
+            elif isinstance(compression, tuple) and all(map(callable, compression)):
+                compress, decompress = compression
+                self.serialize = compose(compress, self.serialize)
+                self.deserialize = compose(self.deserialize, decompress)
+            else:
+                raise ValueError('compression must be None, a module name which provides the'
+                                 ' compress and decompress functions (like "gzip" or "lz4" )or a'
+                                 ' 2-tuple of callables to provide (transparant like dumps/loads)'
+                                 ' (de)compression on a bytes-like object, not %r' % compression)
+
+
+            if serialization is None:
+                raise ValueError('can\'t specify compression without specifying serialization')
+
+
     def __call__(self, container_id):
         return self.container_cls(container_id, self)
 
@@ -215,10 +170,16 @@ class Container(object):
         self.provider = provider
 
     def read(self):
-        raise Exception('not implemented')
+        raise NotImplemented()
 
     def write(self, data):
-        raise Exception('not implemented')
+        raise NotImplemented()
+
+    def clear(self):
+        raise NotImplemented()
+
+    def __del__(self):
+        self.clear()
 
 
 class InMemory(Container):
@@ -232,62 +193,31 @@ class InMemory(Container):
     def write(self, data):
         self.data = data
 
+    _read = read
+    _write = write
+
     def clear(self):
         self.data = None
 
 
 class SerializedContainer(Container):
     def read(self):
-        fileobj = self.open('r')
-        try:
-            return self.provider.deserialize(fileobj)
-        finally:
-            with catch():
-                fileobj.close()
+        return self.provider.deserialize(self._read())
 
     def write(self, data):
-        fileobj = self.open('w')
-        try:
-            return self.provider.serialize(data, fileobj)
-        finally:
-            with catch():
-                fileobj.close()
-
-    def open(self, mode):
-        fileobj = self._open(mode)
-        fileobj = self.provider.io_wrapper(fileobj)
-        if self.provider.mode == 't':
-            fileobj = io.TextIOWrapper(fileobj)
-        return fileobj
+        self._write(self.provider.serialize(data))
 
 
 class SerializedInMemory(SerializedContainer, InMemory, Block):
-    def _open(self, mode):
-        assert mode in 'rw'
-        if mode[0] == 'w':
-            self.data = bytearray()
-            baio = ByteArrayIO(self.data, mode)
-        else:
-            baio = io.BytesIO(self.data)
-            baio.mode = mode
-        return baio
-
-
     @property
     def size(self):
         return len(self.data) if self.data else 0
-
 
     def to_disk(self):
         on_disk = OnDisk(self.id, self.provider)
         clear_old = on_disk.clear
         on_disk.clear = noop
-        on_disk.clear = noop
-        fileobj = on_disk._open('w')
-        try:
-            fileobj.write(self.data)
-        finally:
-            fileobj.close()
+        on_disk._write(self.data)
         self.__dict__.update(on_disk.__dict__)
         self.clear = clear_old
         self.__class__ = OnDisk
@@ -335,12 +265,16 @@ class OnDisk(SerializedContainer):
         dirpath = os.path.join(get_work_dir(), *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
         self.filepath = os.path.join(dirpath, str(filename))
-        self.file = open(self.filepath, 'w+b')
-        os.remove(self.filepath)
 
 
-    def _open(self, mode):
-        return open(self.filepath, mode + 'b')
+    def _read(self):
+        with open(self.filepath, 'r' + self.provider.mode) as f:
+            return f.read()
+
+
+    def _write(self, data):
+        with open(self.filepath, 'w' + self.provider.mode) as f:
+            f.write(data)
 
 
     def clear(self):
@@ -351,6 +285,7 @@ class OnDisk(SerializedContainer):
         except Exception:
             logger.exception('Unable to clear file %s for id %s' %
                              (self.filepath, self.id))
+
 
     @property
     def size(self):
@@ -372,7 +307,3 @@ class OnDisk(SerializedContainer):
         if is_remote(data):
             self.data = memoryview(data)[1:]
             self.__class__ = SerializedInMemory
-
-
-    def __del__(self):
-        self.clear()
