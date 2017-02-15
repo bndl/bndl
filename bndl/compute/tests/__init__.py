@@ -15,6 +15,7 @@ import unittest
 
 from bndl.compute.run import create_ctx
 from bndl.util.conf import Config
+import bndl
 
 
 class ComputeTest(unittest.TestCase):
@@ -26,9 +27,9 @@ class ComputeTest(unittest.TestCase):
         # Increase switching interval to lure out race conditions a bit ...
         sys.setswitchinterval(1e-6)
 
-        config = Config()
+        config = bndl.conf
         config['bndl.compute.worker_count'] = cls.worker_count
-        config['bndl.net.listen_addresses'] = 'tcp://127.0.0.11:5000'
+        config['bndl.net.listen_addresses'] = 'tcp://127.0.0.11:0'
         config.update(cls.config)
         cls.ctx = create_ctx(config, daemon=True)
         cls.ctx.await_workers(cls.worker_count, 120, 120)
