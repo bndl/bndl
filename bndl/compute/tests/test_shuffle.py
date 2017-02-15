@@ -13,65 +13,55 @@
 import logging
 import os
 import signal
-import sys
 import threading
 import time
 
 from cytoolz.itertoolz import pluck
+import psutil
 
 from bndl.compute.tests import DatasetTest
-from bndl.util import psutil
+import itertools
+from math import ceil
 
 
 logger = logging.getLogger(__name__)
 
 
 class ShuffleTest(DatasetTest):
-    worker_count = max(3, min(20, os.cpu_count() * 2))
+    worker_count = max(3, min(8, ceil(os.cpu_count() * 1.5)))
 
-    # TODO test Dataset.clean
+    config = {
+        'bndl.compute.memory.limit': \
+            round((200 * 1024 * 1024) / psutil.virtual_memory().total * 100, 2)
+    }
 
     def test_shuffle(self):
-        min_mem_pct_old = self.ctx.conf['bndl.compute.shuffle.min_mem_pct']
-        max_mem_pct_old = self.ctx.conf['bndl.compute.shuffle.max_mem_pct']
-
-        self.assertGreater(min_mem_pct_old, 0)
-        self.assertGreater(max_mem_pct_old, 0)
-
         size = 2 * 1000 * 1000
-        data = self.ctx.range(size, pcount=30).map(str)
-
-        total_mem = psutil.virtual_memory().total
-        data_size = data.map(sys.getsizeof).sum() / total_mem * 100
-
-        thresholds = [
-            (25, 50),
-            (data_size / 8, data_size / 4),
-        ]
+        data = self.ctx.range(size, pcount=self.worker_count * 2).map(str)
 
         part0_data = set(map(str, range(0, size, 2)))
         part1_data = set(map(str, range(1, size, 2)))
 
-        for sort in (True, False):
-            try:
-                for min_mem_pct, max_mem_pct in thresholds:
-                    self.ctx.conf['bndl.compute.shuffle.min_mem_pct'] = min_mem_pct
-                    self.ctx.conf['bndl.compute.shuffle.max_mem_pct'] = max_mem_pct
+        sorts = [True, False]
+        serializations = ['marshal', 'pickle', 'json']
+        compressions = [None, 'gzip', 'lz4']
 
-                    shuffled = data.shuffle(sort=sort).shuffle(pcount=3,
-                                                               partitioner=lambda i: int(i) % 2)
-                    parts = list(filter(None, map(set, shuffled.collect(parts=True))))
+        options = itertools.product(sorts, serializations, compressions)
+        for sort, serialization, compression in options:
+            opts = dict(sort=sort, serialization=serialization, compression=compression)
+            print(opts)
+            shuffled = data.shuffle(**opts) \
+                           .shuffle(**opts, pcount=3, partitioner=lambda i: int(i) % 2) \
+                           .collect(parts=True)
+            parts = list(filter(None, map(set, shuffled)))
 
-                    self.assertEqual(len(parts), 2)
-                    self.assertEqual(len(parts[0]), size / 2)
-                    self.assertEqual(len(parts[1]), size / 2)
+            self.assertEqual(len(parts), 2)
+            self.assertEqual(len(parts[0]), size / 2)
+            self.assertEqual(len(parts[1]), size / 2)
 
-                    parts.sort(key=lambda part: min(part))
-                    self.assertEqual(parts[0], part0_data)
-                    self.assertEqual(parts[1], part1_data)
-            finally:
-                self.ctx.conf['bndl.compute.shuffle.min_mem_pct'] = min_mem_pct_old
-                self.ctx.conf['bndl.compute.shuffle.max_mem_pct'] = max_mem_pct_old
+            parts.sort(key=lambda part: min(part))
+            self.assertEqual(parts[0], part0_data)
+            self.assertEqual(parts[1], part1_data)
 
 
 
