@@ -83,7 +83,6 @@ def _binary_load_gen(data):
 class StorageContainerFactory(object):
     serialize = None
     deserialize = None
-    mode = None
     io_wrapper = None
     container_cls = None
 
@@ -92,17 +91,14 @@ class StorageContainerFactory(object):
             self.serialize, self.deserialize = None, None
         else:
             if serialization == 'json':
-                self.serialize = json.dumps
-                self.deserialize = json.loads
-                self.mode = 't'
+                self.serialize = compose(str.encode, json.dumps)
+                self.deserialize = compose(json.loads, lambda b: b.decode())
             elif serialization == 'marshal':
                 self.serialize = marshal.dumps
                 self.deserialize = marshal.loads
-                self.mode = 'b'
             elif serialization == 'pickle':
                 self.serialize = pickle.dumps
                 self.deserialize = pickle.loads
-                self.mode = 'b'
             elif serialization == 'msgpack':
                 try:
                     import msgpack
@@ -110,23 +106,19 @@ class StorageContainerFactory(object):
                     from pandas import msgpack
                 self.serialize = msgpack.dumps
                 self.deserialize = msgpack.loads
-                self.mode = 'b'
             elif serialization == 'text':
                 self.serialize = _text_dumps
                 self.deserialize = _text_loads
-                self.mode = 'b'
             elif serialization == 'binary':
                 self.serialize = _binary_dumps
                 self.deserialize = _binary_loads
-                self.mode = 'b'
             elif isinstance(serialization, (list, tuple)) \
                 and len(serialization) != 3 \
                 and all(callable, serialization[:2]):
-                self.serialize, self.deserialize, self.mode = serialization
+                self.serialize, self.deserialize = serialization
             else:
-                raise ValueError('serialization must one of json, marshal, pickle or a 3-tuple of'
-                                 ' dumps(data) and loads(data) functions and "b" or "t" '
-                                 ' (indicating binary or text mode), not %r'
+                raise ValueError('serialization must one of json, marshal, pickle or a 2-tuple of'
+                                 ' dumps(data) and loads(data) functions, not %r'
                                  % (serialization,))
 
         if location == 'memory':
@@ -161,11 +153,6 @@ class StorageContainerFactory(object):
                                  ' 2-tuple of callables to provide (transparant like dumps/loads)'
                                  ' (de)compression on a bytes-like object, not %r' % compression)
 
-            if self.mode == 't':
-                compress = compress + (str.encode,)
-                decompress = (bytes.decode,) + decompress
-                self.mode = 'b'
-
             compress = compress + (self.serialize,)
             decompress = (self.deserialize,) + decompress
 
@@ -198,6 +185,7 @@ class Container(object):
         self.clear()
 
 
+
 class InMemory(Container):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -216,12 +204,14 @@ class InMemory(Container):
         self.data = None
 
 
+
 class SerializedContainer(Container):
     def read(self):
         return self.provider.deserialize(self._read())
 
     def write(self, data):
         self._write(self.provider.serialize(data))
+
 
 
 class SerializedInMemory(SerializedContainer, InMemory, Block):
@@ -286,12 +276,12 @@ class OnDisk(SerializedContainer):
 
 
     def _read(self):
-        with open(self.filepath, 'r' + self.provider.mode) as f:
+        with open(self.filepath, 'rb') as f:
             return f.read()
 
 
     def _write(self, data):
-        with open(self.filepath, 'w' + self.provider.mode) as f:
+        with open(self.filepath, 'wb') as f:
             f.write(data)
 
 
