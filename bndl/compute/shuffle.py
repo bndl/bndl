@@ -374,7 +374,7 @@ class ShuffleWritingPartition(Partition):
 
         partitioner = self.partitioner()
 
-        with memory.async_release_helper(self.id, spill, priority=1) as memcheck:
+        with memory.async_release_helper(self.id, spill, priority=2) as memcheck:
             # add each element to the bucket assigned to by the partitioner
             # (limited by the bucket count and wrapped around)
             for element in self.src.compute():
