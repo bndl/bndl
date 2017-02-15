@@ -29,7 +29,7 @@ class ComputeTest(unittest.TestCase):
 
         config = bndl.conf
         config['bndl.compute.worker_count'] = cls.worker_count
-        config['bndl.net.listen_addresses'] = 'tcp://127.0.0.11:0'
+        config['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
         config.update(cls.config)
         cls.ctx = create_ctx(config, daemon=True)
         cls.ctx.await_workers(cls.worker_count, 120, 120)
