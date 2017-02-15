@@ -28,7 +28,9 @@ from cytoolz.functoolz import compose
 from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
+from bndl.util.conf import String
 from bndl.util.funcs import noop
+import bndl
 import lz4
 
 
@@ -37,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 _LENGTH_FIELD_FMT = 'I'
 _LENGTH_FIELD_SIZE = struct.calcsize(_LENGTH_FIELD_FMT)
+
+
+work_dir = String(None, desc='The working directory for bndl.compute (used for caching, shuffle '
+                             'data, etc.).')
 
 
 def _text_dumps(lines):
@@ -56,6 +62,7 @@ def _binary_dumps(chunks):
         (pack(len_fmt, len(chunk)), chunk) for chunk in chunks
     ))
 
+
 def _binary_loads(data):
     return list(_binary_load_gen(data))
 
@@ -68,7 +75,7 @@ def _binary_load_gen(data):
     while pos < data_len:
         chunk_len = unpack(len_fmt, data[pos:pos + _LENGTH_FIELD_SIZE])[0]
         pos += _LENGTH_FIELD_SIZE
-        yield data[pos:pos+chunk_len]
+        yield data[pos:pos + chunk_len]
         pos += chunk_len
 
 
@@ -155,7 +162,6 @@ class StorageContainerFactory(object):
                                  ' 2-tuple of callables to provide (transparant like dumps/loads)'
                                  ' (de)compression on a bytes-like object, not %r' % compression)
 
-
             if serialization is None:
                 raise ValueError('can\'t specify compression without specifying serialization')
 
@@ -226,16 +232,19 @@ class SerializedInMemory(SerializedContainer, InMemory, Block):
 
 
 def _get_work_dir():
-    tempdir = tempfile.gettempdir()
+    work_dir = os.environ.get('TMPDIR') or \
+               os.environ.get('TEMP') or \
+               os.environ.get('TMP') or \
+               bndl.conf.get('bndl.compute.storage.work_dir') or \
+               tempfile.gettempdir()
     if os.path.exists('/proc/mounts'):
         with open('/proc/mounts') as mounts:
             for mount in mounts:
                 mount = mount.split()
-                if mount[1] == tempdir:
-                    if mount[0] == 'tmpfs' and os.path.isdir('/var/tmp'):
-                        tempdir = '/var/tmp'
-                    break
-    return tempfile.mkdtemp('', 'bndl-%s-' % str(os.getpid()), tempdir)
+                if work_dir.startswith(mount[1]) and mount[0] == 'tmpfs':
+                    if os.path.exists('/var/tmp'):
+                        work_dir = '/var/tmp'
+    return tempfile.mkdtemp('', 'bndl-%s-' % str(os.getpid()), work_dir)
 
 
 _work_dir = None
@@ -249,10 +258,9 @@ def get_work_dir():
 
 @atexit.register
 def clean_work_dir():
-    wdir = get_work_dir()
-    if os.path.exists(wdir):
+    if _work_dir:
         try:
-            shutil.rmtree(wdir)
+            shutil.rmtree(_work_dir)
         except (FileNotFoundError, OSError):
             pass
 
