@@ -147,7 +147,7 @@ class StorageContainerFactory(object):
         if compression is not None:
             if compression == 'lz4':
                 compress = (lz4.compress,)
-                decompress = (lz4.decompress,)
+                decompress = (lz4.decompress, bytes)
             elif isinstance(compression, str):
                 mod = importlib.import_module(compression)
                 compress = (mod.compress,)
