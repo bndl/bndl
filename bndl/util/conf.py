@@ -112,7 +112,10 @@ class Config(object):
 
     def update(self, *args, **kwargs):
         for arg in args:
-            if isinstance(arg, tuple):
+            if isinstance(arg, dict):
+                assert len(args) == 1
+                self.values.update(arg)
+            elif isinstance(arg, tuple):
                 assert len(arg) == 2
                 self.set(*arg)
             elif isinstance(arg, str):
