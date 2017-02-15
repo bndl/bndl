@@ -33,7 +33,7 @@ def main():
 
     global control_node
     control_node = RMINode(name='supervisor.child.%s' % os.getpid(),
-                       addresses=['localhost:0'],
+                       addresses=['127.0.0.1:0'],
                        cluster=None,
                        seeds=[supervisor_address])
     control_node.start_async().result()

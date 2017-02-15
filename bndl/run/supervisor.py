@@ -224,7 +224,7 @@ class Supervisor(object):
                                          name='bndl-supervisor-%s' % self.id)
 
         self.rmi = RMINode(name='supervisor.%s' % self.id,
-                           addresses=['localhost:0'],
+                           addresses=['127.0.0.1:0'],
                            cluster=None,
                            loop=get_loop())
         self.rmi.start_async().result()
