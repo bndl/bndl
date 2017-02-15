@@ -45,7 +45,7 @@ class CachingTest(DatasetTest):
 
         locations = ('memory', 'disk')
         serializations = (None, 'marshal', 'pickle', 'json', 'text', 'binary')
-        compressions = (None, 'gzip')
+        compressions = (None, 'gzip', 'lz4')
 
         options = itertools.product(locations, serializations, compressions)
         for location, serialization, compression in options:
