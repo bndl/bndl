@@ -17,7 +17,7 @@ import string
 
 from bndl.compute.storage import StorageContainerFactory
 from bndl.net.connection import Connection
-from bndl.util.aio import get_loop
+from bndl.util.aio import get_loop, run_coroutine_threadsafe
 
 
 class StorageTest(TestCase):
@@ -47,7 +47,7 @@ class StorageTest(TestCase):
 
         @asyncio.coroutine
         def run_pair():
-            server = yield from asyncio.start_server(connected, '0.0.0.0', 0)
+            server = yield from asyncio.start_server(connected, '0.0.0.0', 0, loop=self.loop)
             socket = server.sockets[0]
             host, port = socket.getsockname()[:2]
 
@@ -61,4 +61,4 @@ class StorageTest(TestCase):
             self.assertEqual(on_disk.read(), b.read())
             self.assertEqual(to_disk.read(), c.read())
 
-        self.loop.run_until_complete(run_pair())
+        run_coroutine_threadsafe(run_pair(), self.loop).result()
