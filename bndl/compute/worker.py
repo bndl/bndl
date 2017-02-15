@@ -25,6 +25,8 @@ from bndl.net.connection import getlocalhostname
 from bndl.run import supervisor
 from bndl.util.exceptions import catch
 import bndl
+from bndl.util.threads import dump_threads
+import signal
 
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,8 @@ many_argparser = argparse.ArgumentParser(parents=[run.argparser, supervisor.base
 
 
 def main():
+    signal.signal(signal.SIGUSR1, dump_threads)
+
     conf = bndl.conf
     args = main_argparser.parse_args()
     listen_addresses = args.listen_addresses or conf.get('bndl.net.listen_addresses')
@@ -71,11 +75,11 @@ class WorkerSupervisor(supervisor.Supervisor):
     def __init__(self, *args, **kwargs):
         super().__init__('bndl.compute.worker', 'main', *args, **kwargs)
         self.memory = MemorySupervisor(self.rmi)
-    
+
     def start(self):
         super().start()
         self.memory.start()
-        
+
     def stop(self):
         self.memory.stop()
         super().stop()
@@ -92,6 +96,8 @@ class WorkerSupervisor(supervisor.Supervisor):
 
 
 def run_workers():
+    signal.signal(signal.SIGUSR1, dump_threads)
+
     argparser = argparse.ArgumentParser(parents=[many_argparser])
 
     conf = bndl.conf
