@@ -146,21 +146,31 @@ class StorageContainerFactory(object):
 
         if compression is not None:
             if compression == 'lz4':
-                self.serialize = compose(lz4.compress, self.serialize)
-                self.deserialize = compose(self.deserialize, lz4.decompress, bytes)
+                compress = (lz4.compress,)
+                decompress = (lz4.decompress,)
             elif isinstance(compression, str):
                 mod = importlib.import_module(compression)
-                self.serialize = compose(mod.compress, self.serialize)
-                self.deserialize = compose(self.deserialize, mod.decompress)
+                compress = (mod.compress,)
+                decompress = (mod.decompress,)
             elif isinstance(compression, tuple) and all(map(callable, compression)):
-                compress, decompress = compression
-                self.serialize = compose(compress, self.serialize)
-                self.deserialize = compose(self.deserialize, decompress)
+                compress = compression[:1]
+                decompress = compression[1:]
             else:
                 raise ValueError('compression must be None, a module name which provides the'
                                  ' compress and decompress functions (like "gzip" or "lz4" )or a'
                                  ' 2-tuple of callables to provide (transparant like dumps/loads)'
                                  ' (de)compression on a bytes-like object, not %r' % compression)
+
+            if self.mode == 't':
+                compress = compress + (str.encode,)
+                decompress = (bytes.decode,) + decompress
+                self.mode = 'b'
+
+            compress = compress + (self.serialize,)
+            decompress = (self.deserialize,) + decompress
+
+            self.serialize = compose(*compress)
+            self.deserialize = compose(*decompress)
 
             if serialization is None:
                 raise ValueError('can\'t specify compression without specifying serialization')
