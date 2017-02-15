@@ -98,9 +98,8 @@ class MemorySupervisor(threading.Thread):
                 release += rate_release
 
             if release > 0:
-                logger.log(logging.INFO if over > 0 else logging.DEBUG,
-                           'usage %.0f/%.0f (system usage %.0f/%.0f)',
-                           usage, self.limit, usage_system, self.limit_system)
+                logger.debug('usage %.0f/%.0f (system usage %.0f/%.0f)',
+                             usage, self.limit, usage_system, self.limit_system)
 
                 release = release / 100 * self._total
                 self.release(release)
