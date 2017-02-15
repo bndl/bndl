@@ -58,8 +58,12 @@ class MemorySupervisor(threading.Thread):
         pid = int(peer.name.split('.')[-1])
         with self.lock:
             if event == 'added':
-                proc = Process(pid)
-                self.procs[pid] = (proc, peer.service('memory').release)
+                try:
+                    proc = Process(pid)
+                except NoSuchProcess:
+                    pass
+                else:
+                    self.procs[pid] = (proc, peer.service('memory').release)
             elif event == 'removed':
                 del self.procs[pid]
 
