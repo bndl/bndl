@@ -225,6 +225,7 @@ class Supervisor(object):
 
         self.rmi = RMINode(name='supervisor.%s' % self.id,
                            addresses=['localhost:0'],
+                           cluster=None,
                            loop=get_loop())
         self.rmi.start_async().result()
 

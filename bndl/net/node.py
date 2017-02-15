@@ -41,7 +41,7 @@ class Node(object):
 
     _nodeids = {}
 
-    def __init__(self, name=None, addresses=None, seeds=None, loop=None):
+    def __init__(self, name=None, addresses=None, seeds=None, cluster='default', loop=None):
         self.loop = loop or get_loop()
         self.node_type = camel_to_snake(self.__class__.__name__)
 
@@ -63,6 +63,8 @@ class Node(object):
 
         self.seeds = seeds or ()
         self.peers = PeerTable()
+
+        self.cluster = cluster
 
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
@@ -265,9 +267,10 @@ class Node(object):
             self.peers[peer.name] = peer
 
         # notify others of the new peer
-        task = self.loop.create_task(self._notifiy_peers(peer))
-        self._iotasks.add(task)
-        task.add_done_callback(self._iotasks.discard)
+        if peer.cluster:
+            task = self.loop.create_task(self._notifiy_peers(peer))
+            self._iotasks.add(task)
+            task.add_done_callback(self._iotasks.discard)
 
         return True
 

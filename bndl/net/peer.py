@@ -14,6 +14,7 @@ from asyncio.futures import CancelledError
 from datetime import datetime
 import asyncio
 import atexit
+import concurrent.futures
 import errno
 import logging
 
@@ -22,7 +23,6 @@ from bndl.net.connection import urlparse, Connection, NotConnected, \
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util import aio
 from bndl.util.exceptions import catch
-import concurrent.futures
 
 
 logger = logging.getLogger(__name__)
@@ -65,12 +65,13 @@ class PeerTable(dict):
 
 
 class PeerNode(object):
-    def __init__(self, loop, local, addresses=(), name=None, node_type=None):
+    def __init__(self, loop, local, addresses=(), name=None, node_type=None, cluster=None):
         self.loop = loop
         self.local = local
         self.addresses = addresses
         self.name = name
         self.node_type = node_type
+        self.cluster = cluster
         self.handshake_lock = asyncio.Lock(loop=self.loop)
         self.conn = None
         self.server = None
@@ -178,6 +179,15 @@ class PeerNode(object):
         self.conn = None
 
 
+    def _update_info(self, hello):
+        self.name = hello.name
+        self.node_type = hello.node_type
+        self.cluster = hello.cluster
+        self.addresses = hello.addresses
+
+        logger.debug('handshake between %s and %s complete', self.local.name, self.name)
+
+
     @asyncio.coroutine
     def _connect(self, arg):
         with (yield from self.handshake_lock):
@@ -246,13 +256,7 @@ class PeerNode(object):
             if not self.is_connected:
                 return False
 
-            # take info from hello
-            self.name = hello.name
-            self.node_type = hello.node_type
-            self.addresses = hello.addresses
-
-            # notify local node that connection was established and start a server task
-            logger.debug('handshake between %s and %s complete', self.local.name, self.name)
+            self._update_info(hello)
 
             self.server = self.loop.create_task(self._serve())
             return True
@@ -294,9 +298,7 @@ class PeerNode(object):
                 logger.exception('unable to complete handshake with %s', hello.name)
                 connection.close()
 
-            self.name = hello.name
-            self.node_type = hello.node_type
-            self.addresses = hello.addresses
+            self._update_info(hello)
 
             logger.debug('handshake between %s and %s complete', self.local.name, self.name)
 
@@ -310,6 +312,7 @@ class PeerNode(object):
         yield from self.send(Hello(
             name=self.local.name,
             node_type=self.local.node_type,
+            cluster=self.local.cluster,
             addresses=list(self.local.servers.keys()),
         ), drain=True)
 
