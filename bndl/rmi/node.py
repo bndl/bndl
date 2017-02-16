@@ -226,6 +226,7 @@ class RMIPeerNode(PeerNode):
         self.handlers.clear()
 
 
+
 class RMINode(Node):
     '''
     A :class:`bndl.net.Node` which expects it's peers to support remote method invocation as
@@ -236,12 +237,6 @@ class RMINode(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.services = {}
-
-
-    @asyncio.coroutine
-    def stop(self):
-        self.services.clear()
-        super().stop()
 
 
     def service(self, name):
