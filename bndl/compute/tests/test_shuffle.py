@@ -30,19 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 class ShuffleTest(DatasetTest):
-    worker_count = max(3, min(8, ceil(os.cpu_count() * 1.5)))
+    worker_count = 3
 
     config = {
-        'bndl.compute.memory.limit': \
-            round((200 * 1024 * 1024) / psutil.virtual_memory().total * 100, 2)
+        'bndl.compute.memory.limit': 1
     }
-
 
     def _test_shuffle(self, size, **opts):
         part0_data = set(map(str, range(0, size, 2)))
         part1_data = set(map(str, range(1, size, 2)))
 
-        print('testing with options', opts)
         data = self.ctx.range(size, pcount=self.worker_count * 2).map(str)
 
 
@@ -62,7 +59,7 @@ class ShuffleTest(DatasetTest):
 
     @classmethod
     def _setup_tests(cls):
-        sizes = [2 * 1000]
+        sizes = [1000, 1000 * 1000]
         sorts = [True, False]
         serializations = ['marshal', 'pickle', 'json']
         compressions = [None, 'gzip', 'lz4']
