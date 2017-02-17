@@ -15,7 +15,7 @@ from unittest.case import TestCase
 
 from bndl.net.connection import Connection
 from bndl.net.messages import Hello
-from bndl.util.aio import get_loop
+from bndl.util.aio import get_loop, run_coroutine_threadsafe
 from bndl.net import serialize
 import contextlib
 
@@ -27,10 +27,12 @@ class WithAttachment(object):
 
     def __getstate__(self):
         body = self.body.encode('utf-8')
+        @contextlib.contextmanager
         def write(loop, writer):
-            writer.write(body)
-        serialize.attach(self.name.encode('utf-8'),
-                         contextlib.contextmanager(lambda: (yield (len(body), write))))
+            def _write():
+                writer.write(body)
+            yield len(body), _write
+        serialize.attach(self.name.encode('utf-8'), write)
         return dict(name=self.name)
 
     def __setstate__(self, state):
@@ -63,23 +65,21 @@ class ConnectionTest(TestCase):
                 self.server.close()
             for conn in self.conns:
                 if conn:
-                    self.loop.run_until_complete(conn.close())
+                    run_coroutine_threadsafe(conn.close(), loop=self.loop).result()
 
         self.addCleanup(close)
-        self.loop.run_until_complete(connect())
+        run_coroutine_threadsafe(connect(), loop=self.loop).result()
 
 
     def send(self, conn, msg):
-        self.loop.run_until_complete(conn.send(msg, drain=False))
+        run_coroutine_threadsafe(conn.send(msg, drain=False), loop=self.loop).result()
 
 
     def recv(self, conn, timeout=None):
-        holder = [None]
         @asyncio.coroutine
         def _recv():
-            holder[0] = yield from conn.recv(timeout)
-        self.loop.run_until_complete(_recv())
-        return holder[0]
+            return (yield from conn.recv(timeout))
+        return run_coroutine_threadsafe(_recv(), loop=self.loop).result()
 
 
     def test_marshallable(self):
@@ -107,5 +107,3 @@ class ConnectionTest(TestCase):
         obj2 = self.recv(self.conns[1]).name
         self.assertEqual(obj.name, obj2.name)
         self.assertEqual(obj.body, obj2.body)
-
-

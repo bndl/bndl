@@ -19,16 +19,13 @@ import threading
 from unittest.case import TestCase
 
 from bndl.net.sendfile import sendfile
-from bndl.util.aio import get_loop
+from bndl.util.aio import get_loop, run_coroutine_threadsafe
 
 
 class ConnectionTest(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.data = ''.join(random.choice(string.ascii_lowercase) for _ in range(500 * 1000)).encode('utf-8')
-
-    def setUp(self):
-        self.loop = get_loop()
 
 
     def test_sendfile(self):
@@ -45,7 +42,7 @@ class ConnectionTest(TestCase):
         receiver = threading.Thread(target=receive)
         receiver.start()
         loop = get_loop()
-        loop.run_until_complete(sendfile(sendsock.fileno(), src.file.fileno(), 0, len(self.data), loop))
+        run_coroutine_threadsafe(sendfile(sendsock.fileno(), src.file.fileno(), 0, len(self.data), loop=loop), loop=loop).result()
         receiver.join()
         received = b''.join(received)
         self.assertEqual(self.data, received)
@@ -60,7 +57,7 @@ class ConnectionTest(TestCase):
         dst = tempfile.NamedTemporaryFile(prefix='bndl-sendfiletest-')
 
         loop = get_loop()
-        loop.run_until_complete(sendfile(dst.file.fileno(), src.file.fileno(), 0, size, loop))
+        run_coroutine_threadsafe(sendfile(dst.file.fileno(), src.file.fileno(), 0, size, loop=loop), loop=loop).result()
         self.assertEqual(size, os.stat(dst.fileno()).st_size)
 
         src.file.seek(0)

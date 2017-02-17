@@ -11,7 +11,7 @@
 # limitations under the License.
 
 from asyncio import sleep  # @UnresolvedImport
-from concurrent.futures import Future
+from concurrent.futures import Future, wait
 from threading import Thread
 from unittest.case import TestCase
 import asyncio
@@ -20,8 +20,19 @@ import sys
 import traceback
 
 from bndl.net.node import Node
-from bndl.util.aio import get_loop
+from bndl.util.aio import get_loop, run_coroutine_threadsafe
 from bndl.util.exceptions import catch
+import time
+import concurrent
+
+
+@asyncio.coroutine
+def wait_for_discovery(node, peer_count):
+    for _ in range(20):
+        connected_count = sum(1 for peer in node.peers.values() if peer.is_connected)
+        if connected_count >= peer_count:
+            break
+        yield from sleep(.1, loop=node.loop)
 
 
 class NetTest(TestCase):
@@ -37,15 +48,34 @@ class NetTest(TestCase):
 
 
     def setUp(self):
-        self._started = Future()
-        self._stopped = Future()
-        self._loop_thread = Thread(target=self._run_nodes)
-        self._loop_thread.start()
-        self._started.result()
+        self.loop = get_loop()
+        self.loop.set_debug(True)
+
+        if not self.seeds:
+            self.seeds = [
+                self.address + ':%s' % port
+                for port in range(5000, min(5000 + self.node_count, 5004))
+            ]
+
+        self.nodes = self.create_nodes()
+
+        for i, node in enumerate(self.nodes):
+            run_coroutine_threadsafe(node.start(), loop=self.loop).result()
+            if self.ease_discovery:
+                run_coroutine_threadsafe(wait_for_discovery(node, i), loop=self.loop).result()
+
+        for node in self.nodes:
+            run_coroutine_threadsafe(wait_for_discovery(node, self.node_count - 1), loop=self.loop).result()
+            # time.sleep(.5)
+
 
     def tearDown(self):
-        self._stopped.set_result(True)
-        self._loop_thread.join()
+        wait([
+            run_coroutine_threadsafe(node.stop(), loop=self.loop)
+            for node in self.nodes
+        ])
+        # time.sleep(.2 * len(self.nodes))
+
 
 
     def create_nodes(self):
@@ -53,49 +83,3 @@ class NetTest(TestCase):
             self.node_class(addresses=[self.address], seeds=self.seeds, loop=self.loop)
             for _ in range(self.node_count)
         ]
-
-    def _run_nodes(self):
-        try:
-            self.loop = get_loop(None)
-            self.loop.set_debug(True)
-
-            if not self.seeds:
-                self.seeds = [
-                    self.address + ':%s' % port
-                    for port in range(5000, min(5000 + self.node_count, 5004))
-                ]
-
-            self.nodes = self.create_nodes()
-
-            @asyncio.coroutine
-            def wait_for_discovery(node, peer_count):
-                for _ in range(20):
-                    if len(node.peers) >= peer_count and all(peer.conn for peer in node.peers.values()):
-                        break
-                    yield from sleep(.1)
-
-            try:
-                # start the nodes
-                for i, node in enumerate(self.nodes):
-                    self.loop.run_until_complete(node.start())
-                    if self.ease_discovery:
-                        self.loop.run_until_complete(wait_for_discovery(node, i))
-                        self.loop.run_until_complete(sleep(.1))
-                # give the nodes a final shot to connect
-                for node in self.nodes:
-                    self.loop.run_until_complete(wait_for_discovery(node, self.node_count - 1))
-                    self.loop.run_until_complete(sleep(.5))
-                # notify started
-                self._started.set_result(True)
-                # wait for stopped notification
-                self.loop.run_until_complete(
-                    self.loop.run_in_executor(None, self._stopped.result)
-                )
-            finally:
-                with catch(RuntimeError):
-                    for node in self.nodes:
-                        self.loop.run_until_complete(node.stop())
-                    self.loop.run_until_complete(sleep(.2 * len(self.nodes)))
-                self.loop.close()
-        finally:
-            self._started.set_result(True)

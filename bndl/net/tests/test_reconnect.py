@@ -34,7 +34,7 @@ class ReconnectTestBase(NetTest):
 
     def wait_connected(self):
         for _ in range(50):
-            time.sleep(watchdog.WATCHDOG_INTERVAL / 10)
+            time.sleep(watchdog.WATCHDOG_INTERVAL)
             if self.all_connected():
                 break
 
@@ -44,7 +44,7 @@ class ReconnectTest(ReconnectTestBase):
 
     def test_disconnect(self):
         wdog_interval = watchdog.WATCHDOG_INTERVAL
-        watchdog.WATCHDOG_INTERVAL = .5
+        watchdog.WATCHDOG_INTERVAL = .1
         try:
             self.assertTrue(self.all_connected())
 

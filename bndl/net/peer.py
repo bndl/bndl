@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 HELLO_TIMEOUT = 60
 
+TIMEOUT_ERRORS = TimeoutError, concurrent.futures.TimeoutError, asyncio.TimeoutError
+
 
 class PeerTable(dict):
     def __init__(self):
@@ -242,7 +244,7 @@ class PeerNode(object):
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
                 logger.info('%s %s', type(exc).__name__, self.conn)
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
-            except TimeoutError:
+            except TIMEOUT_ERRORS:
                 logger.warning('hello not received in time from %s on %s', self.conn, self.conn)
                 yield from self.disconnect(reason='hello timed out')
             except OSError as exc:
@@ -271,7 +273,7 @@ class PeerNode(object):
         with (yield from self.handshake_lock):
             try:
                 hello = yield from self.recv(HELLO_TIMEOUT)
-            except TimeoutError:
+            except TIMEOUT_ERRORS:
                 logger.warning('receiving hello timed out from %s', self.conn.peername())
                 yield from self.disconnect(reason='hello timed out')
             except NotConnected:
