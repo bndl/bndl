@@ -34,8 +34,8 @@ class Config(object):
             # read from .bndl.ini files
             config = ConfigParser()
             config.read([
-                '~/.bndl.ini',
-                '~/bndl.ini',
+                os.path.expanduser('~/.bndl.ini'),
+                os.path.expanduser('~/bndl.ini'),
                 './.bndl.ini',
                 './bndl.ini',
             ])
