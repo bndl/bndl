@@ -442,9 +442,9 @@ class FilesPartition(Partition):
 
 
     def _remote(self):
-        for worker in self.dset.ctx.workers:
-            if worker.ip_addresses() & self.location:
-                request = worker.service('tasks').execute(_RemoteFilesSender, self.file_chunks)
+        for node in self.dset.ctx.node.peers.values():
+            if node.ip_addresses() & self.location:
+                request = node.service('tasks').execute(_RemoteFilesSender, self.file_chunks)
                 contents = request.result().data
                 assert len(contents) == len(self.file_chunks)
                 return zip(self.file_chunks.keys(), contents)
@@ -488,9 +488,10 @@ class LinesPartition(FilesPartition):
 
 
     def _remote(self):
-        contents = pluck(0, super()._remote())
-        decoded = map(partial(_decode, self.encoding, self.errors), contents)
-        lines = map(partial(_splitlines, True), decoded)
+        contents = pluck(1, super()._remote())
+        if self.dset.encoding is not None:
+            contents = map(partial(_decode, self.dset.encoding, self.dset.errors), contents)
+        lines = map(partial(_splitlines, True), contents)
         return chain.from_iterable(lines)
 
 
@@ -509,7 +510,7 @@ class _RemoteFilesSender(object):
                 os.close(fd)
             except Exception:
                 pass
-            _, attacher = file_attachment(filename, offset, size)
+            _, attacher = file_attachment(filename, offset, size, False)
             key = struct.pack('NN', prefix, idx)
             attach(key, attacher)
         return {'prefix': prefix, 'N': idx + 1}
@@ -519,6 +520,6 @@ class _RemoteFilesSender(object):
         prefix = state['prefix']
         N = state['N']
         self.data = [
-            memoryview(attachment(struct.pack('NN', prefix, idx)))[1:]
+            attachment(struct.pack('NN', prefix, idx))
             for idx in range(N)
         ]

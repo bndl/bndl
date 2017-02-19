@@ -32,7 +32,7 @@ def is_remote(data):
     return data[0] == _REMOTE[0]
 
 
-def file_attachment(filename, offset, size):
+def file_attachment(filename, offset, size, maybe_local=True):
     assert hasattr(os, "sendfile")
 
     filename = filename.encode('utf-8')
@@ -40,7 +40,7 @@ def file_attachment(filename, offset, size):
     @contextlib.contextmanager
     def _attacher(loop, writer):
         socket = writer.get_extra_info('socket')
-        if socket.getpeername()[0] in ('::1', '127.0.0.1', socket.getsockname()[0]):
+        if maybe_local and socket.getpeername()[0] in ('::1', '127.0.0.1', socket.getsockname()[0]):
             @asyncio.coroutine
             def sender():
                 writer.write(_LOCAL)
@@ -49,17 +49,17 @@ def file_attachment(filename, offset, size):
         else:
             @asyncio.coroutine
             def sender():
-                nonlocal socket
+                socket = writer.get_extra_info('socket')
                 with open(filename, 'rb') as file:
-                    writer.write(_REMOTE)
+                    if maybe_local:
+                        writer.write(_REMOTE)
                     yield from aio.drain(writer)
                     socket = socket.dup()
                     socket.setblocking(False)
                     yield from sendfile(socket.fileno(), file.fileno(), offset, size, loop)
-            yield size + 1, sender
+            yield size + int(maybe_local), sender
 
     return filename, _attacher
-
 
 
 def _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, registered):

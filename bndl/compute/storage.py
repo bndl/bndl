@@ -313,5 +313,5 @@ class OnDisk(SerializedContainer):
         self.__dict__.update(state)
         data = attachment(self.filepath.encode('utf-8'))
         if is_remote(data):
-            self.data = memoryview(data)[1:]
+            self.data = data[1:]
             self.__class__ = SerializedInMemory

@@ -19,7 +19,7 @@ import os.path
 
 from bndl.compute.tests import DatasetTest
 from bndl.util import strings
-from cytoolz import pluck
+from cytoolz import interleave, pluck
 
 
 class FilesTest(DatasetTest):
@@ -89,9 +89,10 @@ class FilesTest(DatasetTest):
         self.assertEqual(self.dset.size, self.total_size)
 
 
-    def _check_contents(self, dset):
+    def _check_contents(self, dset, duplication=1):
         files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
-        self.assertEqual(b''.join(pluck(1, files)), b''.join(self.contents))
+        expected = b''.join(interleave([self.contents] * duplication))
+        self.assertEqual(b''.join(pluck(1, files)), expected)
 
 
     def test_listings(self):
@@ -108,14 +109,16 @@ class FilesTest(DatasetTest):
         dirname = os.path.dirname(self.filenames[0])
         for loc in ('driver', 'workers'):
             dset = self.ctx.files(dirname, True, None, filter_test_files, location=loc).cache()
-            self.assertEqual(dset.count(), self.file_count)
+            duplication = 1 if loc == 'driver' else self.node_count
+            expected = self.file_count * duplication
+            self.assertEqual(dset.count(), expected)
             self.assertEqual(
                 sum(1 for _ in filter(
                     filter_test_files,
                     dset.filenames
                 )
-            ), self.file_count)
-            self._check_contents(dset)
+            ), expected)
+            self._check_contents(dset, duplication)
 
 
     def test_binary(self):
