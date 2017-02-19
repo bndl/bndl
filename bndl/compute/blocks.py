@@ -279,4 +279,4 @@ class BlockManager(object):
             else:
                 # no non-seeder candidates, or all failed
                 # fall back to downloading from seeder
-                download(self.peers[block_spec.seeder])
+                download(self.worker.peers[block_spec.seeder])
