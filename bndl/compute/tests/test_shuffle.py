@@ -11,7 +11,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from math import ceil
 import itertools
 import logging
 import os
@@ -20,7 +19,6 @@ import threading
 import time
 
 from cytoolz.itertoolz import pluck
-import psutil
 
 from bndl.compute.tests import DatasetTest
 from bndl.util.collection import flatten
@@ -73,7 +71,7 @@ class ShuffleTest(DatasetTest):
             opts['compression'] = compression
 
             setattr(
-                ShuffleTest,
+                cls,
                 'test_shuffle_' + '_'.join(map(lambda o: str(o).lower(), opts.values())),
                 lambda self, opts=opts: self._test_shuffle(**opts)
             )
