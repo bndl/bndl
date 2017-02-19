@@ -40,21 +40,28 @@ class CachingTest(DatasetTest):
         time.sleep(1)
 
 
-    def test_caching(self):
-        dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str)
-
+    @classmethod
+    def _setup_tests(cls):
         locations = ('memory', 'disk')
         serializations = (None, 'marshal', 'pickle', 'json', 'text', 'binary')
         compressions = (None, 'gzip', 'lz4')
 
-        options = itertools.product(locations, serializations, compressions)
-        for location, serialization, compression in options:
-            if not serialization and (location == 'disk' or compression):
+        cases = itertools.product(locations, serializations, compressions)
+
+        for case in cases:
+            _, serialization, compression = case
+            if compression and not serialization:
                 continue
-            self.caching_subtest(dset, location, serialization, compression)
+            setattr(
+                cls,
+                'test_caching_' + '_'.join(map(lambda o: str(o).lower(), case)),
+                lambda self, case=case: self._test_caching(*case)
+            )
 
 
-    def caching_subtest(self, dset, location, serialization, compression):
+    def _test_caching(self, location, serialization, compression):
+        dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str)
+
         self.assertEqual(self.get_cachekeys(), [])
 
         dset = dset.map(identity)
@@ -109,3 +116,6 @@ class CachingTest(DatasetTest):
         del dset
         self.gc_collect()
         self.assertEqual(self.get_cachekeys(), [])
+
+
+CachingTest._setup_tests()
