@@ -118,9 +118,7 @@ class Watchdog(object):
 
 
     def stop(self):
-        if self.monitor_task:
-            self.monitor_task.cancel()
-            self.monitor_task = None
+        self.monitor_task = None
 
 
     def peer_stats(self, peer):
@@ -133,7 +131,7 @@ class Watchdog(object):
     @asyncio.coroutine
     def _monitor(self):
         try:
-            while self.node.running:
+            while self.monitor_task and self.node.running:
                 yield from asyncio.sleep(WATCHDOG_INTERVAL, loop=self.node.loop)  # @UndefinedVariable
                 yield from self._check()
         except CancelledError:
