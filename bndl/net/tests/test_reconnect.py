@@ -12,9 +12,8 @@
 
 import time
 
-from bndl.net.tests import NetTest
-from bndl.util import aio
 from bndl.net import watchdog
+from bndl.net.tests import NetTest
 
 
 class ReconnectTestBase(NetTest):
@@ -42,28 +41,35 @@ class ReconnectTestBase(NetTest):
 class ReconnectTest(ReconnectTestBase):
     node_count = 4
 
-    def test_disconnect(self):
-        wdog_interval = watchdog.WATCHDOG_INTERVAL
+    def setUp(self):
+        super().setUp()
+        self.wdog_interval = watchdog.WATCHDOG_INTERVAL
         watchdog.WATCHDOG_INTERVAL = .1
-        try:
-            self.assertTrue(self.all_connected())
 
-            node = self.nodes[0]
-            peer = next(iter(node.peers.values()))
-            aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
 
-            self.wait_connected()
-            self.assertTrue(self.all_connected())
+    def tearDown(self):
+        super().tearDown()
+        watchdog.WATCHDOG_INTERVAL = self.wdog_interval
 
-            node = self.nodes[1]
-            for server in node.servers.values():
-                server.close()
 
-            for peer in node.peers.values():
-                aio.run_coroutine_threadsafe(peer.disconnect(reason='unit-test', active=False), self.loop)
+    def test_disconnect_peer(self):
+        self.assertTrue(self.all_connected())
 
-            self.wait_connected()
-            self.assertTrue(self.all_connected())
-        finally:
-            watchdog.WATCHDOG_INTERVAL = wdog_interval
+        node = self.nodes[0]
+        peer = next(iter(node.peers.values()))
+        self.run_coro(peer.disconnect(reason='unit-test'))
+
+        self.wait_connected()
+        self.assertTrue(self.all_connected())
+
+
+    def test_disconnect_node(self):
+        self.assertTrue(self.all_connected())
+
+        node = self.nodes[1]
+        for peer in node.peers.values():
+            self.run_coro(peer.disconnect(reason='unit-test', active=False))
+
+        self.wait_connected()
+        self.assertTrue(self.all_connected())
 

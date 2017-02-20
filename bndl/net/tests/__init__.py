@@ -15,15 +15,16 @@ from concurrent.futures import Future, wait
 from threading import Thread
 from unittest.case import TestCase
 import asyncio
+import concurrent
 import logging.config
 import sys
+import time
 import traceback
 
 from bndl.net.node import Node
+from bndl.net.run import stop_nodes
 from bndl.util.aio import get_loop, run_coroutine_threadsafe
 from bndl.util.exceptions import catch
-import time
-import concurrent
 
 
 @asyncio.coroutine
@@ -41,10 +42,15 @@ class NetTest(TestCase):
     node_count = 4
     ease_discovery = True
 
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.seeds = []
         self.nodes = []
+
+
+    def run_coro(self, coro):
+        return run_coroutine_threadsafe(coro, loop=self.loop)
 
 
     def setUp(self):
@@ -53,33 +59,30 @@ class NetTest(TestCase):
 
         if not self.seeds:
             self.seeds = [
-                self.address + ':%s' % port
+                self.address + ':' + str(port)
                 for port in range(5000, min(5000 + self.node_count, 5004))
             ]
 
         self.nodes = self.create_nodes()
 
         for i, node in enumerate(self.nodes):
-            run_coroutine_threadsafe(node.start(), loop=self.loop).result()
+            self.run_coro(node.start())
             if self.ease_discovery:
-                run_coroutine_threadsafe(wait_for_discovery(node, i), loop=self.loop).result()
+                self.run_coro(wait_for_discovery(node, i)).result()
 
         for node in self.nodes:
-            run_coroutine_threadsafe(wait_for_discovery(node, self.node_count - 1), loop=self.loop).result()
-            # time.sleep(.5)
+            self.run_coro(wait_for_discovery(node, self.node_count - 1)).result()
 
 
     def tearDown(self):
-        wait([
-            run_coroutine_threadsafe(node.stop(), loop=self.loop)
-            for node in self.nodes
-        ])
-        # time.sleep(.2 * len(self.nodes))
-
+        stop_nodes(self.nodes)
 
 
     def create_nodes(self):
         return [
-            self.node_class(addresses=[self.address], seeds=self.seeds, loop=self.loop)
-            for _ in range(self.node_count)
+            self.node_class(name='%s-node-%s' % (type(self).__name__, i),
+                            addresses=[self.address],
+                            seeds=self.seeds,
+                            loop=self.loop)
+            for i in range(self.node_count)
         ]
