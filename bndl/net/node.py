@@ -126,20 +126,20 @@ class Node(object):
     def _stop_tasks(self):
         # stop watching
         if self._watchdog:
-            with catch(RuntimeError):
+            with catch(RuntimeError, log_level=logging.WARNING):
                 self._watchdog.stop()
                 self._watchdog = None
 
         # cancel any pending io work
         for task in self._iotasks:
-            with catch(RuntimeError):
+            with catch(RuntimeError, log_level=logging.WARNING):
                 task.cancel()
         self._iotasks.clear()
 
         # close the servers
         for server in self.servers.values():
             if server:
-                with catch(RuntimeError):
+                with catch(RuntimeError, log_level=logging.WARNING):
                     server.close()
 
 
