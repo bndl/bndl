@@ -49,6 +49,7 @@ class ComputeTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        bndl.conf.clear()
         sys.setswitchinterval(5e-3)
         cls.ctx.stop()
         for superv in cls.supervisors:

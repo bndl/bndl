@@ -110,6 +110,9 @@ class Config(object):
         self.values[key] = value
         return self
 
+    __getitem__ = get
+    __setitem__ = set
+
     def update(self, *args, **kwargs):
         for arg in args:
             if isinstance(arg, dict):
@@ -128,8 +131,8 @@ class Config(object):
                 assert False
         self.values.update(kwargs)
 
-    __getitem__ = get
-    __setitem__ = set
+    def clear(self):
+        self.values.clear()
 
     def __repr__(self):
         return '<Conf %r>' % self.values
