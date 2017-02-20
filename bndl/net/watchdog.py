@@ -132,8 +132,8 @@ class Watchdog(object):
     def _monitor(self):
         try:
             while self.monitor_task and self.node.running:
-                yield from asyncio.sleep(WATCHDOG_INTERVAL, loop=self.node.loop)  # @UndefinedVariable
                 yield from self._check()
+                yield from asyncio.sleep(WATCHDOG_INTERVAL, loop=self.node.loop)  # @UndefinedVariable
         except CancelledError:
             pass
 
