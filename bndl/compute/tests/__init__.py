@@ -43,7 +43,8 @@ class ComputeTest(unittest.TestCase):
             superv.start()
             cls.supervisors.append(superv)
 
-        cls.ctx.await_workers(cls.worker_count, 120, 120)
+        for _ in range(2):
+            cls.ctx.await_workers(cls.worker_count, 120, 120)
         assert cls.ctx.worker_count == cls.worker_count, \
             '%s != %s' % (cls.ctx.worker_count, cls.worker_count)
 
