@@ -229,7 +229,7 @@ class ExecutionContext(Lifecycle):
                 try:
                     actual += task.result()
                 except Exception:
-                    logger.warn("Couldn't get connected worker count from %r", worker, exc_info=True)
+                    logger.warning("Couldn't get connected worker count from %r", worker, exc_info=True)
             return expected == actual
 
         while True:
@@ -253,8 +253,8 @@ class ExecutionContext(Lifecycle):
                     warnings.warn('Worker count not stable after %r' % stable_timeout)
                     return len(self.workers)
 
-                time.sleep(step_sleep)
-                step_sleep = min(1, step_sleep * 1.5)
+            time.sleep(step_sleep)
+            step_sleep = min(1, step_sleep * 1.5)
 
 
     @property
