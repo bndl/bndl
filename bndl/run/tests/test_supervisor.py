@@ -78,4 +78,3 @@ class TestSupervisor(TestCase):
         # matches the last pid in the pidfile
         pids = self.get_pids()
         self.assertTrue(len(pids) >= 3, 'Only started %s times' % len(pids))
-        self.assertEqual(pids[-1], sup.children[0].proc.pid)
