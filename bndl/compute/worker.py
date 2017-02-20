@@ -1,3 +1,4 @@
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,6 +15,8 @@ import argparse
 import asyncio
 import logging
 import os
+import signal
+import threading
 
 from bndl.compute.blocks import BlockManager
 from bndl.compute.broadcast import BroadcastManager
@@ -24,9 +27,8 @@ from bndl.net import run
 from bndl.net.connection import getlocalhostname
 from bndl.run import supervisor
 from bndl.util.exceptions import catch
-import bndl
 from bndl.util.threads import dump_threads
-import signal
+import bndl
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,8 @@ def main():
     worker = Worker(addresses=listen_addresses, seeds=seeds)
     from __main__ import control_node
     control_node.services['memory'] = worker.memory
-    run.run_nodes(worker)
+    run.start_nodes([worker])
+    threading.Event().wait()
 
 
 
@@ -120,7 +123,7 @@ def run_workers():
     try:
         superv.wait()
     except KeyboardInterrupt:
-        with catch():
+        with catch(log_level=logging.WARNING):
             superv.stop()
 
 

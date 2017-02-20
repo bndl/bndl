@@ -11,12 +11,13 @@
 # limitations under the License.
 
 import argparse
-import asyncio
-import atexit
-import concurrent.futures
+import logging
 
 from bndl.net.connection import urlcheck
 from bndl.util.aio import run_coroutine_threadsafe
+
+
+logger = logging.getLogger(__name__)
 
 
 argparser = argparse.ArgumentParser(add_help=False)
@@ -26,40 +27,23 @@ argparser.add_argument('--seeds', nargs='*', type=urlcheck,
                        help='The host:port pairs at which to "rendevous" with other nodes.')
 
 
-def exception_handler(loop, context):
-    exc = context.get('exception')
-    if type(exc) is not SystemExit:
-        loop.default_exception_handler(context)
 
-
-def run_nodes(*nodes, started_signal=None, stop_signal=None):
-    assert len(nodes) > 0
-
-    loop = nodes[0].loop
-    assert all(node.loop == loop for node in nodes)
-    asyncio.set_event_loop(loop)
-    loop.set_exception_handler(exception_handler)
-
+def start_nodes(nodes):
+    started = []
+    starts = [run_coroutine_threadsafe(node.start(), node.loop) for node in nodes]
     try:
-        futs = [run_coroutine_threadsafe(node.start(), loop)
-                for node in nodes]
+        for start in starts:
+            start.result()
+    except Exception:
+        logger.exception('Unable to start node')
+        stop_nodes(started)
+        raise
 
-        if started_signal:
-            for fut in futs:
-                fut.result()
-            started_signal.set_result(True)
-    except Exception as e:
-        if started_signal:
-            started_signal.set_result(e)
-            return
-        else:
-            raise
 
-    try:
-        if not stop_signal:
-            stop_signal = concurrent.futures.Future()
-            atexit.register(stop_signal.set_result, (True,))
-        stop_signal.result()
-    finally:
-        for node in nodes:
-            loop.create_task(node.stop())
+def stop_nodes(nodes):
+    stops = [run_coroutine_threadsafe(node.stop(), node.loop) for node in nodes]
+    for stop in stops:
+        try:
+            stop.result()
+        except Exception:
+            logger.exception('Unable to stop node')

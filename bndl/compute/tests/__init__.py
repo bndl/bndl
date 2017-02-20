@@ -32,7 +32,7 @@ class ComputeTest(unittest.TestCase):
         config['bndl.compute.worker_count'] = 0
         config['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
         config.update(cls.config)
-        cls.ctx = create_ctx(config, daemon=True)
+        cls.ctx = create_ctx(config)
 
         cls.node_count = 0 if not cls.worker_count else cls.worker_count // 2 + 1
         cls.supervisors = []

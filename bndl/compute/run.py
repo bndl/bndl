@@ -12,20 +12,18 @@
 
 from subprocess import TimeoutExpired
 import atexit
-import concurrent.futures
+import logging
 import os
-import threading
 
 from bndl.compute.context import ComputeContext
 from bndl.compute.driver import Driver
 from bndl.compute.worker import WorkerSupervisor
-from bndl.net.run import run_nodes
-from bndl.util.aio import get_loop
+from bndl.net.run import start_nodes, stop_nodes
 from bndl.util.exceptions import catch
 import bndl
 
 
-def create_ctx(config=None, daemon=True):
+def create_ctx(config=None):
     from bndl.util import dash
 
     if config is None:
@@ -35,42 +33,26 @@ def create_ctx(config=None, daemon=True):
     seeds = config.get('bndl.net.seeds')
     worker_count = config.get('bndl.compute.worker_count')
 
-    if not seeds and worker_count is None:
-        worker_count = os.cpu_count()
-
-    # signals for starting and stopping
-    started = concurrent.futures.Future()
-    stopped = concurrent.futures.Future()
-
-    # start the thread to set up the driver and run the aio loop
-    loop = get_loop()
-    driver = Driver(addresses=listen_addresses, seeds=seeds, loop=loop)
-    driver_thread = threading.Thread(target=run_nodes, daemon=daemon, args=(driver,),
-                                     kwargs=dict(started_signal=started, stop_signal=stopped),
-                                     name='bndl-driver-thread')
-    driver_thread.start()
-
-    # start the supervisor
     supervisor = None
 
     def stop():
         # signal the aio loop can stop and everything can be torn down
-        if not stopped.done():
-            if supervisor:
-                supervisor.stop()
-                try:
-                    supervisor.wait(timeout=60)
-                except TimeoutExpired:
-                    pass
-            stopped.set_result(True)
-            driver_thread.join(timeout=60)
-            dash.stop()
+        if supervisor:
+            supervisor.stop()
+            try:
+                supervisor.wait()
+            except TimeoutExpired:
+                pass
+
+        stop_nodes([driver])
+        dash.stop()
+
+    driver = Driver(addresses=listen_addresses, seeds=seeds)
+    start_nodes([driver])
 
     try:
-        # wait for driver to set up
-        result = started.result()
-        if isinstance(result, Exception):
-            raise result
+        if not seeds and worker_count is None:
+            worker_count = os.cpu_count()
 
         if worker_count:
             args = ['--seeds'] + list((seeds or driver.addresses))
@@ -79,18 +61,13 @@ def create_ctx(config=None, daemon=True):
             supervisor = WorkerSupervisor(args, worker_count)
             supervisor.start()
 
-        # create compute context
         ctx = ComputeContext(driver, config=config)
-
-        # start dash board
         dash.run(driver, ctx)
-
-        # register stop as 'exit' listeners
         ctx.add_listener(lambda obj: stop() if obj is ctx and ctx.stopped else None)
         atexit.register(stop)
         atexit.register(ctx.stop)
         return ctx
     except Exception:
-        with catch():
+        with catch(log_level=logging.WARNING):
             stop()
         raise

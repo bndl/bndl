@@ -20,6 +20,13 @@ import threading
 logger = logging.getLogger(__name__)
 
 
+
+def exception_handler(loop, context):
+    exc = context.get('exception')
+    if type(exc) is not SystemExit:
+        loop.default_exception_handler(context)
+
+
 _loop = None
 
 
@@ -56,6 +63,8 @@ def get_loop(stop_on=(), use_uvloop=True):
         asyncio.set_event_loop(loop)
 
     _loop = loop
+
+    loop.set_exception_handler(exception_handler)
 
     if stop_on:
         for sig in stop_on:
