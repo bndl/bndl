@@ -31,7 +31,7 @@ from bndl.execute import DependenciesFailed, TaskCancelled
 from bndl.execute.worker import task_context
 from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException
-from bndl.util.collection import batch as batch_data, ensure_collection
+from bndl.util.collection import batch as batch_data, ensure_collection, flatten
 from bndl.util.conf import Float
 from bndl.util.funcs import star_prefetch
 from bndl.util.hash import portable_hash
@@ -286,10 +286,8 @@ class ShuffleWritingDataset(Dataset):
 
 
     def _cleanup(self, job):
-        requests = [worker.service('shuffle').clear_bucket(self.id)
-                    for worker in job.ctx.workers]
-#         for request in requests:
-#             request.result()
+        for worker in job.ctx.workers:
+            worker.service('shuffle').clear_bucket(self.id)
 
 
     def parts(self):
@@ -630,7 +628,6 @@ class ShuffleReadingPartition(Partition):
                     yield from blocks
 
 
-
     def merge_sorted(self, blocks):
         bucket = self.dset.src.bucket(
             (self.dset.id, self.idx),
@@ -639,6 +636,11 @@ class ShuffleReadingPartition(Partition):
             self.dset.src.memory_container,
             self.dset.src.disk_container
         )
+
+        def _block_stream(batch):
+            for block in reversed(batch):
+                yield from block.read()
+                block.clear()
 
         def spill(nbytes):
             spilled = bucket.serialize(True)
@@ -663,7 +665,7 @@ class ShuffleReadingPartition(Partition):
         else:
             streams = [bucket]
             for batch in bucket.batches:
-                streams.append(chain.from_iterable(block.read() for block in reversed(batch)))
+                streams.append(_block_stream(batch))
             return merge_sorted(*streams, key=self.dset.src.key)
 
 
@@ -694,9 +696,11 @@ class ShuffleManager(object):
         # output buckets structured as:
         # - dict keyed by: shuffle write data set id
         # - dict keyed by: source partition index
-        # - dict keyed by: destination partition index (in shuffle read data set)
+        # - list of batches per destination partition (1)
         # - list of batches
         # - list of blocks
+        #
+        # (1) indexed by destination partition in shuffle read data set
         self.buckets = {}
 
 
