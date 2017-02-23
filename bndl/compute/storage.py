@@ -83,10 +83,13 @@ def _binary_load_gen(data):
 class StorageContainerFactory(object):
     serialize = None
     deserialize = None
-    io_wrapper = None
     container_cls = None
 
     def __init__(self, location, serialization='pickle', compression=None):
+        self.location = location
+        self.serialization = serialization
+        self.compression = compression
+
         if serialization == None:
             self.serialize, self.deserialize = None, None
         else:
@@ -165,6 +168,10 @@ class StorageContainerFactory(object):
 
     def __call__(self, container_id):
         return self.container_cls(container_id, self)
+
+    def __repr__(self):
+        return '<StorageContainerFactory location=%s, serialization=%s, compression=%s>' % (
+            self.location, self.serialization, self.compression)
 
 
 class Container(object):
