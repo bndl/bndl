@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from _collections import defaultdict
-from math import sqrt, log
+from collections import defaultdict, deque
+from math import sqrt, log, ceil
 import atexit
 import logging
 import queue
@@ -22,12 +22,12 @@ import weakref
 
 from psutil import virtual_memory, Process, NoSuchProcess
 from sortedcontainers.sorteddict import SortedDict
-from toolz.itertoolz import pluck
 
 from bndl.net.connection import NotConnected
 from bndl.util.conf import Float
 from bndl.util.funcs import getter
 import bndl
+import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class MemorySupervisor(threading.Thread):
     def run(self):
         self.running = True
         interval = .1
-        rate = 0
+        rates = deque(maxlen=10)
 
         usage_prev = self.usage_pct()
         time_prev = time.time()
@@ -85,11 +85,15 @@ class MemorySupervisor(threading.Thread):
             usage = self.usage_pct()
 
             over = max(usage - self.limit, usage_system - self.limit_system)
-            release = over if over > 0 else 0
+            release = (over * 1.1) if over > 0 else 0
 
             now = time.time()
             rate = (usage - usage_prev) / (now - time_prev)
             time_prev = now
+
+            rates.append(rate)
+            if rate > 0:
+                rate = np.average(rates, weights=range(len(rates)))
 
             rate_factor = 0
             if usage > self.limit * .75:
@@ -102,10 +106,12 @@ class MemorySupervisor(threading.Thread):
                 release += rate_release
 
             if release > 0:
-                logger.debug('usage %.0f/%.0f (system usage %.0f/%.0f)',
-                             usage, self.limit, usage_system, self.limit_system)
-
                 release = release / 100 * self._total
+
+                logger.debug('Usage %.0f/%.0f (system usage %.0f/%.0f), requesting release of '
+                             '%.0f mb', usage, self.limit, usage_system, self.limit_system,
+                             release / 1024 / 1024)
+
                 self.release(release)
 
                 time.sleep(.1)
@@ -125,17 +131,31 @@ class MemorySupervisor(threading.Thread):
 
     def release(self, nbytes):
         with self.lock:
-            candidates = ((self.usage(proc), release) for proc, release in self.procs.values())
-            candidates = sorted(candidates, key=getter(0), reverse=True)
+            candidates = list(self.procs.values())
 
-        available = sum(pluck(0, candidates))
-        if available:
-            for usage, release in candidates:
-                amount = max(0, usage / available * nbytes)
-                try:
-                    release(amount)
-                except NotConnected:
-                    pass
+        candidates = ((self.usage(proc), release) for proc, release in candidates)
+        candidates = sorted(candidates, key=getter(0), reverse=True)
+        ncandidates = len(candidates)
+
+        if not ncandidates:
+            return
+
+        amounts = [ceil(nbytes / ncandidates)] * ncandidates
+
+        unallocated = 0
+        for idx, (usage, release) in enumerate(candidates):
+            amount = amounts[idx]
+            if amount > usage:
+                amounts[idx] = usage
+                unallocated += amount - usage
+
+        for (usage, release), amount in zip(candidates, amounts):
+            amount2 = min(usage, amount + unallocated)
+            unallocated -= amount2 - amount
+            try:
+                release(amount2)
+            except NotConnected:
+                pass
 
 
     def usage(self, proc):
@@ -175,8 +195,9 @@ class AsyncReleaseHelper(object):
 
     def __enter__(self):
         assert self._manager is not None
-        self._condition = threading.Condition(threading.Lock())
-        self._release_queue = []
+        self._halt_flag = False
+        self._condition = threading.Condition()
+        self._release_queue = deque()
         self._released_queue = queue.Queue()
         return self.check
 
@@ -185,6 +206,7 @@ class AsyncReleaseHelper(object):
         self._manager.remove_releasable(self._key)
         self._manager = None
         self._released_queue.put(0)
+        self._halt_flag = False
 
 
     def halt(self):
@@ -201,29 +223,24 @@ class AsyncReleaseHelper(object):
 
     def release(self, nbytes):
         with self._condition:
+            self._halt_flag = False
             self._release_queue.append(nbytes)
             self._condition.notify_all()
-        released = self._released_queue.get()
-        self.resume()
-        return released
+        return self._released_queue.get()
 
 
     def check(self):
-        if self._halt_flag:
+        if self._halt_flag or self._release_queue:
             with self._condition:
-                self._condition.wait_for(lambda: self._release_queue or not self._halt_flag)
+                self._condition.wait_for(lambda: not self._halt_flag or self._release_queue)
                 if self._release_queue:
-                    nbytes = self._release_queue[-1]
-                    self._release_queue.clear()
                     try:
+                        nbytes = self._release_queue.popleft()
                         released = self._release(nbytes)
                         logger.debug('Released %.0f mb', nbytes / 1024 / 1024)
                     except Exception:
                         logger.exception('Unable to release memory')
-                        released = 0
-                    self._released_queue.put(released)
-                else:
-                    self._released_queue.put(0)
+                        self._released_queue.put(released)
 
 
 
@@ -231,6 +248,7 @@ class ReleaseReference(object):
     def __init__(self, method, callback):
         self.obj = weakref.ref(method.__self__, callback)
         self.func = method.__func__
+
 
     def release(self, *args):
         obj = self.obj()
@@ -342,3 +360,7 @@ class LocalMemoryManager(threading.Thread):
                         # or release from async helper if not
                         else:
                             remaining -= candidate.release(remaining)
+
+            logger.info('Released %.0f mb of %.0f mb',
+                        (nbytes - remaining) / 1024 / 1024,
+                        nbytes / 1024 / 1024)
