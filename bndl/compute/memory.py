@@ -93,7 +93,7 @@ class MemorySupervisor(threading.Thread):
 
             rates.append(rate)
             if rate > 0:
-                rate = np.average(rates, weights=range(len(rates)))
+                rate = np.average(rates, weights=range(1, len(rates) + 1))
 
             rate_factor = 0
             if usage > self.limit * .75:
