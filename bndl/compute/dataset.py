@@ -1364,21 +1364,21 @@ class Dataset(object):
         return s
 
 
-    def collect_as_pickles(self, directory=None, compress=None):
+    def collect_as_pickles(self, directory=None, compression=None):
         '''
         Collect each partition as a pickle file into directory
         '''
-        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', 'b', compress)
+        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', 'b', compression)
 
 
-    def collect_as_json(self, directory=None, compress=None):
+    def collect_as_json(self, directory=None, compression=None):
         '''
         Collect each partition as a line separated json file into directory.
         '''
-        self.map(json.dumps).concat(os.linesep).collect_as_files(directory, '.json', 't', compress)
+        self.map(json.dumps).concat(os.linesep).collect_as_files(directory, '.json', 't', compression)
 
 
-    def collect_as_files(self, directory=None, ext='', mode='b', compress=None):
+    def collect_as_files(self, directory=None, ext='', mode='b', compression=None):
         '''
         Collect each element in this data set into a file into directory.
 
@@ -1391,18 +1391,19 @@ class Dataset(object):
         '''
         if not directory:
             directory = os.getcwd()
+        directory = os.path.expanduser(directory)
         if mode not in ('t', 'b'):
             raise ValueError('mode should be t(ext) or b(inary)')
         data = self
         # compress if necessary
-        if compress == 'gzip':
+        if compression == 'gzip':
             ext += '.gz'
             if mode == 't':
                 data = data.map(lambda e: e.encode())
             # compress concatenation of partition, not just each element
             mode = 'b'
             data = data.concat(b'').map(gzip.compress)
-        elif compress is not None:
+        elif compression is not None:
             raise ValueError('Only gzip compression is supported')
         # add an index to the partitions (for in the filename)
         with_idx = data.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
