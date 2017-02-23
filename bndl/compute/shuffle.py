@@ -35,6 +35,8 @@ from bndl.util.collection import batch as batch_data, ensure_collection, flatten
 from bndl.util.conf import Float
 from bndl.util.funcs import star_prefetch
 from bndl.util.hash import portable_hash
+import threading
+import queue
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +90,7 @@ class Bucket:
         '''
         try:
             test_set = data[:max(10, len(data) // 1000)]
+            # TODO, don't take compression into account here
             c = self.memory_container(('tmp',))
             c.write(test_set)
             return c.size // len(test_set)
@@ -372,10 +375,12 @@ class ShuffleWritingPartition(Partition):
 
         partitioner = self.partitioner()
 
+        src = self.src.compute()
+
         with memory.async_release_helper(self.id, spill, priority=2) as memcheck:
             # add each element to the bucket assigned to by the partitioner
             # (limited by the bucket count and wrapped around)
-            for element in self.src.compute():
+            for element in src:
                 bucket_add[partitioner(element) % bucket_count](element)
                 elements_partitioned += 1
                 memcheck()
@@ -383,10 +388,9 @@ class ShuffleWritingPartition(Partition):
             # serialize the buckets for shuffle read
             for bucket in buckets:
                 bytes_serialized += bucket.serialize(False)
-                for batch in bucket.batches:
-                    for block in batch:
-                        if isinstance(block, InMemory):
-                            memory.add_releasable(block.to_disk, block.id, 0, block.size)
+                for block in flatten(bucket.batches):
+                    if isinstance(block, InMemory):
+                        memory.add_releasable(block.to_disk, block.id, 0, block.size)
                 memcheck()
 
         worker.service('shuffle').set_buckets(self, buckets)
@@ -563,7 +567,7 @@ class ShuffleReadingPartition(Partition):
         if dependencies_missing:
             raise DependenciesFailed(dependencies_missing)
 
-        # # print some workload info
+        # print some workload info
         if logger.isEnabledFor(logging.INFO):
             batch_count = []
             block_count = []
@@ -637,32 +641,31 @@ class ShuffleReadingPartition(Partition):
             self.dset.src.disk_container
         )
 
-        def _block_stream(batch):
-            for block in reversed(batch):
-                yield from block.read()
-                block.clear()
+        bytes_received = 0
 
         def spill(nbytes):
             spilled = bucket.serialize(True)
             logger.debug('spilled %.2f mb', spilled / 1024 / 1024)
             return spilled
 
-        bytes_received = 0
-        with self.dset.ctx.node.memory.async_release_helper(self.id, spill, priority=1) as memcheck:
+        with self.dset.ctx.node.memory.async_release_helper(self.id, spill, priority=3) as memcheck:
             for block in blocks:
                 bytes_received += block.size
-                data = block.read()
-                bucket.extend(data)
+                bucket.extend(block.read())
                 memcheck()
 
-                logger.debug('received block of %.2f mb, %r items',
-                             block.size / 1024 / 1024, len(data))
-
-            logger.info('sorting %.1f mb', bytes_received / 1024 / 1024)
-
         if not bucket.batches:
+            logger.info('sorted %.1f mb', bytes_received / 1024 / 1024)
             return iter(bucket)
         else:
+            logger.info('merge sorting %.1f mb from %s blocks', bytes_received / 1024 / 1024,
+                        sum(1 for batch in bucket.batches for block in batch))
+
+            def _block_stream(batch):
+                for block in reversed(batch):
+                    yield from block.read()
+                    block.clear()
+
             streams = [bucket]
             for batch in bucket.batches:
                 streams.append(_block_stream(batch))
