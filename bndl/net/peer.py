@@ -148,13 +148,13 @@ class PeerNode(object):
     def _stop_tasks(self):
         # cancel any pending io work
         for task in self._iotasks:
-            with catch(RuntimeError):
+            with catch():
                 task.cancel()
         self._iotasks.clear()
 
         # close the servers
         if self.server:
-            with catch(RuntimeError):
+            with catch():
                 self.server.cancel()
 
 
