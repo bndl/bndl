@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from concurrent.futures import wait
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Thread
@@ -223,13 +224,16 @@ class ExecutionContext(Lifecycle):
         def worker_count_consistent():
             '''Check if the workers all see each other'''
             expected = len(self.workers) ** 2 - len(self.workers)
-            tasks = [(w, w.service('tasks').execute(_num_connected)) for w in self.workers]
+            tasks = [w.service('tasks').execute(_num_connected) for w in self.workers]
+            done, remaining = wait(tasks, timeout=connect_timeout.total_seconds())
+            if remaining:
+                return False
             actual = 0
-            for worker, task in tasks:
+            for task in done:
                 try:
                     actual += task.result()
                 except Exception:
-                    logger.warning("Couldn't get connected worker count from %r", worker, exc_info=True)
+                    logger.warning("Couldn't get connected worker count", exc_info=True)
             return expected == actual
 
         while True:
