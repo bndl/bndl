@@ -183,7 +183,7 @@ def _filesizes(root, recursive=True, dfilter=None, ffilter=None):
         ffilter = serialize.dumps(ffilter)
 
     scan_func = partial(_scan_dir_worker, recursive=recursive, dfilter=dfilter, ffilter=ffilter)
-    pool_size = max(4, os.cpu_count())
+    pool_size = min(16, max(4, os.cpu_count()))
 
     with ProcessPoolExecutor(pool_size) as executor:
         scans = Queue()
