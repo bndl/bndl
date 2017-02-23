@@ -127,5 +127,10 @@ def dump_threads(*args, **kwargs):
     for idx, thread in enumerate(threads):
         print(' %s id=%s name=%s (%s%s)' % (idx, thread.ident, thread.name, type(thread).__name__,
                                             (', daemon' if thread.daemon else '')))
-        stack = ''.join(traceback.format_stack(frames[thread.ident]))
-        print(textwrap.indent(stack, '   '))
+        try:
+            stack = frames[thread.ident]
+        except KeyError:
+            print('   -- terminated --')
+        else:
+            stack = ''.join(traceback.format_stack(stack))
+            print(textwrap.indent(stack, ' '))
