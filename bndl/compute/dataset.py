@@ -29,6 +29,7 @@ import subprocess
 import threading
 import weakref
 
+from cyhll import HyperLogLog
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
@@ -47,8 +48,8 @@ from bndl.util.collection import is_stable_iterable, ensure_collection
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
-from cyhll import HyperLogLog
 import cycloudpickle as cloudpickle
+import lz4
 import numpy as np
 
 
@@ -287,7 +288,7 @@ class Dataset(object):
                 for e in part:
                     extend(e)
                     extend(sep)
-                return (buffer,)
+                return (bytes(buffer),)
         else:
             raise ValueError('sep must be str, bytes or bytearray, not %s' % type(sep))
         return self.map_partitions(f)
@@ -1396,15 +1397,20 @@ class Dataset(object):
             raise ValueError('mode should be t(ext) or b(inary)')
         data = self
         # compress if necessary
-        if compression == 'gzip':
-            ext += '.gz'
+        if compression is not None:
             if mode == 't':
                 data = data.map(lambda e: e.encode())
+            if compression == 'gzip':
+                ext += '.gz'
+                compress = gzip.compress
+            elif compression == 'lz4':
+                ext += '.lz4'
+                compress = lz4.compress
+            elif compression is not None:
+                raise ValueError('Only gzip and lz4 compression is supported')
             # compress concatenation of partition, not just each element
             mode = 'b'
-            data = data.concat(b'').map(gzip.compress)
-        elif compression is not None:
-            raise ValueError('Only gzip compression is supported')
+            data = data.concat(b'').map(compress)
         # add an index to the partitions (for in the filename)
         with_idx = data.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
         # save each partition to a file

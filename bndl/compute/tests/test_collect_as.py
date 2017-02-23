@@ -12,14 +12,15 @@
 
 from io import StringIO
 from itertools import chain
+from tempfile import TemporaryDirectory
+import gzip
 import json
 import pickle
-from tempfile import TemporaryDirectory
 
 from bndl.compute.tests import DatasetTest
 from bndl.rmi import InvocationException
 from bndl.util.fs import listdirabs, read_file
-import gzip
+import lz4
 
 
 class CollectAsTest(DatasetTest):
@@ -53,16 +54,21 @@ class CollectAsTest(DatasetTest):
             self.check_elements(dset, fnames, elements, '.json')
 
 
-    def test_collect_gzipped(self):
-        with TemporaryDirectory() as d:
-            self.dset.collect_as_json(d, compress='gzip')
-            fnames = sorted(listdirabs(d))
-            elements = [
-                json.loads(line.decode())
-                for fname in fnames
-                for line in gzip.open(fname)
-            ]
-            self.check_elements(self.dset, fnames, elements, '.json.gz')
+    def test_collect_compressed(self):
+        cases = (
+            ('gzip', '.gz', gzip.decompress),
+            ('lz4', '.lz4', lz4.decompress)
+        )
+        for compression, ext, decompress in cases:
+            with TemporaryDirectory() as d:
+                self.dset.collect_as_json(d, compression=compression)
+                fnames = sorted(listdirabs(d))
+                elements = [
+                    json.loads(line)
+                    for fname in fnames
+                    for line in decompress(open(fname, 'rb').read()).decode().splitlines()
+                ]
+                self.check_elements(self.dset, fnames, elements, '.json' + ext)
 
 
     def check_elements(self, dset, fnames, elements, extension):
