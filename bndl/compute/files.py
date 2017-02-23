@@ -102,9 +102,9 @@ def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None,
     if isinstance(root, str):
         filesizes = list(_filesizes(root, recursive, dfilter, ffilter))
     else:
-        if not all(map(isfile, root)):
-            raise ValueError('Not every file in %r is a file' % root)
         filesizes = [(filename, getsize(filename)) for filename in root]
+        if not all(map(isfile, pluck(0, filesizes))):
+            raise ValueError('Not every file in %r is a file' % root)
     # batch in chunks by size / file count
     batches = _batch_files(filesizes, psize_bytes, psize_files, split)
     # compact filenames into a trie
