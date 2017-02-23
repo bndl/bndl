@@ -17,9 +17,11 @@ import gzip
 import math
 import os.path
 
+from cytoolz import interleave, pluck
+
 from bndl.compute.tests import DatasetTest
 from bndl.util import strings
-from cytoolz import interleave, pluck
+import lz4
 
 
 class FilesTest(DatasetTest):
@@ -144,12 +146,17 @@ class FilesTest(DatasetTest):
 
     def test_decompress(self):
         dset = self.ctx.range(100)
-        with TemporaryDirectory() as d:
-            strings = dset.map(str)
-            gzipped = strings.glom().map(lambda p: gzip.compress('\n'.join(p).encode()))
-            gzipped.collect_as_files(d)
-            self.assertEqual(dset.collect(),
-                             sorted(self.ctx.files(d).decompress().lines().map(int).collect()))
+        cases = (
+            (gzip.compress, 'gzip'),
+            (lz4.compress, 'lz4'),
+        )
+        for compress, compression in cases:
+            with TemporaryDirectory() as d:
+                strings = dset.map(str)
+                gzipped = strings.glom().map(lambda p: compress('\n'.join(p).encode()))
+                gzipped.collect_as_files(d)
+                self.assertEqual(dset.collect(),
+                                 sorted(self.ctx.files(d).decompress(compression).lines().map(int).collect()))
 
 
     def test_split_files(self):

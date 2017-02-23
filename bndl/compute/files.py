@@ -12,7 +12,7 @@
 
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
-from itertools import groupby, chain, cycle
+from itertools import chain, cycle
 from os import stat, posix_fadvise, POSIX_FADV_SEQUENTIAL
 from os.path import getsize, join, isfile
 from queue import Queue, Empty
@@ -26,15 +26,16 @@ import struct
 import sys
 
 from cytoolz import pluck, interleave
-import marisa_trie
 import scandir
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
+from bndl.execute.worker import current_worker
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
-from bndl.execute.worker import current_worker
+import lz4
+import marisa_trie
 
 
 logger = logging.getLogger(__name__)
@@ -369,8 +370,13 @@ class FilesDataset(DistributedFilesOps, Dataset):
 
 
     def decompress(self, compression='gzip'):
-        assert compression == 'gzip'
-        decompressed = self.map_values(gzip.decompress)
+        if compression == 'gzip':
+            decompress = gzip.decompress
+        elif compression == 'lz4':
+            decompress = lz4.decompress
+        elif compression is not None:
+            raise ValueError('Compression %r not supported' % compression)
+        decompressed = self.map_values(decompress)
         decompressed.__class__ = DecompressedFilesDataset
         return decompressed
 
