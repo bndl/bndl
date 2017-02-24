@@ -98,7 +98,22 @@ def files(ctx, root, recursive=True, dfilter=None, ffilter=None,
         return _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
 
 
-def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, split=False):
+def _ensure_min_pcount(batches, min_pcount):
+    while len(batches) < min_pcount:
+        splits = 0
+        for batch in list(batches):
+            if len(batch) > 1:
+                idx = len(batch) // 2
+                batches.append(list(batch[idx:]))
+                del batch[idx:]
+                splits += 1
+                if len(batches) >= min_pcount:
+                    break
+        if not splits:
+            break
+
+
+def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, min_pcount=None, split=False):
     if isinstance(root, str):
         filesizes = list(_filesizes(root, recursive, dfilter, ffilter))
     else:
@@ -107,12 +122,15 @@ def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None,
             raise ValueError('Not every file in %r is a file' % root)
     # batch in chunks by size / file count
     batches = _batch_files(filesizes, psize_bytes, psize_files, split)
+    # ensure len(batches) >= min_pcount
+    if min_pcount:
+        _ensure_min_pcount(batches, min_pcount)
     # compact filenames into a trie
     return [marisa_trie.RecordTrie('QQ', batch) for batch in batches]
 
 
 def _driver_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
-    batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, split)
+    batches = _batches(root, recursive, dfilter, ffilter, psize_bytes, psize_files, ctx.default_pcount, split)
     batches = list(zip(cycle((ctx.node.ip_addresses(),)), batches))
     logger.debug('created files dataset of %s batches', len(batches))
     return FilesDataset(ctx, batches, split)
@@ -132,7 +150,8 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
             seen.add(ips)
             batch_requests.append((worker, worker.service('tasks')
                                                  .execute(_batches, root, recursive, dfilter,
-                                                          ffilter, psize_bytes, psize_files, split)))
+                                                          ffilter, psize_bytes, psize_files,
+                                                          None, split)))
 
     batches = []
     for worker, batch_request in batch_requests:
