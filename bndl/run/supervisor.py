@@ -236,6 +236,7 @@ class Supervisor(object):
         self._watcher.start()
         for _ in range(self.process_count):
             self._start()
+            time.sleep(.01)
 
 
     def _start(self):
