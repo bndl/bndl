@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from itertools import product
 from unittest.case import TestCase
 import asyncio
 import random
@@ -18,47 +19,58 @@ import string
 from bndl.compute.storage import StorageContainerFactory
 from bndl.net.connection import Connection
 from bndl.util.aio import get_loop, run_coroutine_threadsafe
+from bndl.util.collection import batch
 
 
 class StorageTest(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.data = ''.join(random.choice(string.ascii_lowercase) for _ in range(100 * 1000)).encode('utf-8')
+        cls.data = ''.join(random.choice(string.ascii_lowercase) for _ in range(100 * 1000))
+
 
     def setUp(self):
         self.loop = get_loop()
 
 
     def test_send_on_disk(self):
-        in_memory = StorageContainerFactory('memory', 'pickle')('a')
-        on_disk = StorageContainerFactory('disk', 'pickle')('b')
-        to_disk = StorageContainerFactory('memory', 'pickle')('c')
+        data_a = list(batch(self.data[0::3], 100))
+        data_b = list(batch(self.data[1::3], 100))
+        data_c = list(batch(self.data[2::3], 100))
 
-        in_memory.write(self.data[0::3])
-        on_disk.write(self.data[1::3])
-        to_disk.write(self.data[2::3])
-        to_disk.to_disk()
+        rw = (('read', 'write'), ('read_all', 'write_all'))
+        serializations = 'pickle', 'marshal', 'json', 'msgpack'
+        compressions = (None, 'gzip', 'lz4')
 
-        def connected(reader, writer):
-            conn = Connection(self.loop, reader, writer)
-            yield from conn.send(in_memory)
-            yield from conn.send(on_disk)
-            yield from conn.send(to_disk)
+        for (read, write), serialization, compression in product(rw, serializations, compressions):
+            in_memory = StorageContainerFactory('memory', serialization, compression)('a')
+            on_disk = StorageContainerFactory('disk', serialization, compression)('b')
+            to_disk = StorageContainerFactory('memory', serialization, compression)('c')
 
-        @asyncio.coroutine
-        def run_pair():
-            server = yield from asyncio.start_server(connected, '0.0.0.0', 0, loop=self.loop)
-            socket = server.sockets[0]
-            host, port = socket.getsockname()[:2]
+            getattr(in_memory, write)(data_a)
+            getattr(on_disk, write)(data_b)
+            getattr(to_disk, write)(data_c)
+            to_disk.to_disk()
 
-            reader, writer = yield from asyncio.open_connection(host, port, loop=self.loop)
-            conn = Connection(self.loop, reader, writer)
-            a = yield from conn.recv()
-            b = yield from conn.recv()
-            c = yield from conn.recv()
+            def connected(reader, writer):
+                conn = Connection(self.loop, reader, writer)
+                yield from conn.send(in_memory)
+                yield from conn.send(on_disk)
+                yield from conn.send(to_disk)
 
-            self.assertEqual(in_memory.read(), a.read())
-            self.assertEqual(on_disk.read(), b.read())
-            self.assertEqual(to_disk.read(), c.read())
+            @asyncio.coroutine
+            def run_pair():
+                server = yield from asyncio.start_server(connected, '0.0.0.0', 0, loop=self.loop)
+                socket = server.sockets[0]
+                host, port = socket.getsockname()[:2]
 
-        run_coroutine_threadsafe(run_pair(), self.loop).result()
+                reader, writer = yield from asyncio.open_connection(host, port, loop=self.loop)
+                conn = Connection(self.loop, reader, writer)
+                a = yield from conn.recv()
+                b = yield from conn.recv()
+                c = yield from conn.recv()
+
+                self.assertEqual(list(getattr(in_memory, read)()), list(getattr(a, read)()))
+                self.assertEqual(list(getattr(on_disk, read)()), list(getattr(b, read)()))
+                self.assertEqual(list(getattr(to_disk, read)()), list(getattr(c, read)()))
+
+            run_coroutine_threadsafe(run_pair(), self.loop).result()
