@@ -33,8 +33,11 @@ from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException
 from bndl.util.collection import batch as batch_data, ensure_collection, flatten
 from bndl.util.conf import Float
-from bndl.util.funcs import star_prefetch
+from bndl.util.funcs import star_prefetch, identity
 from bndl.util.hash import portable_hash
+
+
+PARTITIONED_SORT_SPLITS = 128
 
 
 logger = logging.getLogger(__name__)
@@ -218,11 +221,14 @@ class SortedBucket(ListBucket):
     sorted = True
 
     def __iter__(self):
-        self.sort()
-        return list.__iter__(self)
-
-    def sort(self):
-        return super().sort(key=self.key)
+        if len(self) > PARTITIONED_SORT_SPLITS * 2 and self.key not in (None, identity):
+            batches = list(batch_data(self, len(self) // PARTITIONED_SORT_SPLITS))
+            for b in batches:
+                b.sort(key=self.key)
+            return merge_sorted(*batches, key=self.key)
+        else:
+            self.sort()
+            return list.__iter__(self)
 
 
 
