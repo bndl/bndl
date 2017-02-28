@@ -49,9 +49,9 @@ block_size_mb_net = Float(8, desc='Target (maximum) size (in megabytes) of block
 block_size_mb_merge = Float(100, desc='Target (maximum) size (in megabytes) of blocks created by '
                                       'spilling for merge sort in shuffle read. Determines size '
                                       'of files to merge.')
-chunk_size_mb_merge = Float(.1, desc='Target (maximum) size (in megabytes) of chunks created by '
-                                      'spilling for merge sort in shuffle read. Determines size '
-                                      'of reads during merge.')
+chunk_size_mb_merge = Float(1, desc='Target (maximum) size (in megabytes) of chunks created by '
+                                    'spilling for merge sort in shuffle read. Determines size '
+                                    'of reads during merge.')
 
 
 class Bucket:
