@@ -306,8 +306,6 @@ class PeerNode(object):
 
             self._update_info(hello)
 
-            logger.debug('handshake between %s and %s complete', self.local.name, self.name)
-
             self.server = self.loop.create_task(self._serve())
 
 
