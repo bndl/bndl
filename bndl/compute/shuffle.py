@@ -221,10 +221,6 @@ class SortedBucket(ListBucket):
         self.sort()
         return list.__iter__(self)
 
-    def _serialize_bucket(self, disk):
-        self.sort()
-        return super()._serialize_bucket(disk)
-
     def sort(self):
         return super().sort(key=self.key)
 
