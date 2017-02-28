@@ -10,7 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from concurrent.futures import wait
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Thread
@@ -27,6 +26,7 @@ from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.funcs import as_method
 from bndl.util.lifecycle import Lifecycle
+from bndl.util.aio import run_coroutine_threadsafe
 
 
 logger = logging.getLogger(__name__)
@@ -223,18 +223,26 @@ class ExecutionContext(Lifecycle):
 
         def worker_count_consistent():
             '''Check if the workers all see each other'''
-            expected = len(self.workers) ** 2 - len(self.workers)
-            tasks = [w.service('tasks').execute(_num_connected) for w in self.workers]
-            done, remaining = wait(tasks, timeout=connect_timeout.total_seconds())
-            if remaining:
-                return False
-            actual = 0
-            for task in done:
+            expected = len(self.workers) - 1
+            tasks = [(w, w.service('tasks').execute(_num_connected)) for w in self.workers]
+            deadline = time.time() + connect_timeout.total_seconds()
+            consistent = True
+            for worker, task in tasks:
                 try:
-                    actual += task.result()
+                    timeout = deadline - time.time()
+                    if timeout < 0:
+                        return False
+                    actual = task.result(timeout=timeout)
+                    if actual != expected:
+                        consistent = False
+                        run_coroutine_threadsafe(
+                            worker.notify_discovery([(w.name, w.addresses) for w in self.workers]),
+                            self.node.loop
+                        ).result()
                 except Exception:
                     logger.warning("Couldn't get connected worker count", exc_info=True)
-            return expected == actual
+                    consistent = False
+            return consistent
 
         while True:
             if worker_count == len(self.workers):
@@ -254,11 +262,11 @@ class ExecutionContext(Lifecycle):
                             return len(self.workers)
 
                 if datetime.now() > stable_deadline:
-                    warnings.warn('Worker count not stable after %r' % stable_timeout)
+                    warnings.warn('Worker count not stable after %s' % stable_timeout)
                     return len(self.workers)
 
             time.sleep(step_sleep)
-            step_sleep = min(1, step_sleep * 1.5)
+            step_sleep = min(connect_timeout.total_seconds(), step_sleep * 1.5)
 
 
     @property
