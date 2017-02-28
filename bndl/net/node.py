@@ -252,12 +252,12 @@ class Node(object):
                     # at the same time
                     if known_peer < peer:
                         # existing connection wins
-                        logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
+                        logger.debug('already connected with %s, closing new connection %s', peer.name, known_peer.conn)
                         yield from peer.disconnect(reason='already connected, old connection wins')
                         return
                     else:
                         # new connection wins
-                        logger.debug('already connected with %s, closing %s', peer.name, known_peer.conn)
+                        logger.debug('already connected with %s, closing old connection %s', peer.name, known_peer.conn)
                         yield from known_peer.disconnect(reason='already connected, new connection wins')
 
                 if known_peer.name != peer.name:
