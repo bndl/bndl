@@ -80,6 +80,8 @@ class PeerNode(object):
         self.connected_on = None
         self.disconnected_on = None
         self._iotasks = set()
+        self.last_rx = datetime.now()
+        self.last_tx = datetime.now()
 
         atexit.register(self._stop_tasks)
 
@@ -105,6 +107,7 @@ class PeerNode(object):
             raise NotConnected()
         logger.debug('sending %s to %s', msg.__class__.__name__, self.name)
         yield from self.conn.send(msg.__msgdict__(), drain)
+        self.last_tx = datetime.now()
 
 
     @asyncio.coroutine
@@ -113,6 +116,7 @@ class PeerNode(object):
             raise NotConnected()
         try:
             msg = yield from self.conn.recv(timeout)
+            self.last_rx = datetime.now()
             return Message.load(msg)
         except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError) as e:
             raise NotConnected() from e
