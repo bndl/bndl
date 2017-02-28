@@ -14,6 +14,7 @@ from psutil import *
 
 process = Process()
 process_memory_percent = process.memory_percent
+process_memory_info = process.memory_info
 
 
 def process_memory_percent_nonshared():
