@@ -131,7 +131,7 @@ class Node(object):
                 self._watchdog = None
 
         # cancel any pending io work
-        for task in self._iotasks:
+        for task in list(self._iotasks):
             with catch(RuntimeError, log_level=logging.WARNING):
                 task.cancel()
         self._iotasks.clear()
