@@ -35,15 +35,20 @@ from bndl.util.collection import batch as batch_data, ensure_collection, flatten
 from bndl.util.conf import Float
 from bndl.util.funcs import star_prefetch
 from bndl.util.hash import portable_hash
-import threading
-import queue
 
 
 logger = logging.getLogger(__name__)
 
 
-block_size_mb = Float(4, desc='Target (maximum) size (in megabytes) of blocks created by spilling'
-                              '/ serializing elements to disk')
+block_size_mb_net = Float(8, desc='Target (maximum) size (in megabytes) of blocks created in the '
+                                  'shuffle write (during spill and for transmission to shuffle '
+                                  'read).')
+block_size_mb_merge = Float(100, desc='Target (maximum) size (in megabytes) of blocks created by '
+                                      'spilling for merge sort in shuffle read. Determines size '
+                                      'of files to merge.')
+chunk_size_mb_merge = Float(.1, desc='Target (maximum) size (in megabytes) of chunks created by '
+                                      'spilling for merge sort in shuffle read. Determines size '
+                                      'of reads during merge.')
 
 
 class Bucket:
@@ -56,11 +61,12 @@ class Bucket:
 
     sorted = False
 
-    def __init__(self, bucket_id, key, comb, block_size_mb, memory_container, disk_container):
+    def __init__(self, bucket_id, key, comb, block_size_mb, chunk_size_mb, memory_container, disk_container):
         self.id = bucket_id
         self.key = key
         self.comb = comb
         self.block_size_mb = block_size_mb
+        self.chunk_size_mb = chunk_size_mb
         self.memory_container = memory_container
         self.disk_container = disk_container
 
@@ -89,6 +95,7 @@ class Bucket:
         Estimate the size of a element from data.
         '''
         try:
+            # test_set = list(np.random.choice(data, max(10, len(data) // 1000)))
             test_set = data[:max(10, len(data) // 1000)]
             # TODO, don't take compression into account here
             c = self.memory_container(('tmp',))
@@ -108,19 +115,28 @@ class Bucket:
         if self.element_size is None:
             self.element_size = self._estimate_element_size(data)
 
-        # split into several blocks if necessary
+        # split into several blocks and chunks if necessary
         block_size_recs = ceil(self.block_size_mb * 1024 * 1024 / self.element_size)
+
         if block_size_recs > len(data):
-            return [data]
+            blocks = [data]
         else:
-            return list(batch_data(data, block_size_recs))
+            blocks = list(batch_data(data, block_size_recs))
+        if self.chunk_size_mb != self.block_size_mb:
+            chunk_size_recs = ceil(self.chunk_size_mb * 1024 * 1024 / self.element_size)
+            for i in range(len(blocks)):
+                blocks[i] = list(batch_data(blocks[i], chunk_size_recs))
+            return blocks
+        else:
+            return [[b] for b in blocks]
 
 
     def serialize(self, disk):
         '''
         Serialize the elements in this bucket (not in the memory/disk blocks) to disk or in blocks
         in memory. The elements are serialized into a new batch of one ore more blocks
-        (approximately) at most self.block_size_mb large.
+        (approximately) at most self.block_size_mb large in chunks of at most
+        self.chunk_size_mb large.
 
         :param disk: bool
             Serialize to disk or memory.
@@ -135,6 +151,7 @@ class Bucket:
         bytes_spilled = 0
         elements_spilled = 0
         blocks_spilled = 0
+        chunks_spilled = 0
         batch_no = len(self.batches)
 
         Container = self.disk_container if disk else self.memory_container
@@ -143,21 +160,21 @@ class Bucket:
         while blocks:
             block = blocks.pop()
             container = Container(self.id + ('%r.%r' % (batch_no, len(batch)),))
-
-            container.write(block)
+            container.write_all(block)
             batch.append(container)
 
             blocks_spilled += 1
-            elements_spilled += len(block)
+            chunks_spilled += len(block)
+            elements_spilled += sum(map(len, block))
             bytes_spilled += container.size
 
         # recalculate the size of the elements given the bytes and elements just spilled
         # the re-estimation is dampened in a decay like fashion
         self.element_size = (self.element_size + bytes_spilled // elements_spilled) // 2
 
-        logger.debug('%s bucket %s of %.2f mb and %s recs to %s blocks @ %s b/rec',
+        logger.debug('%s bucket %s of %.2f mb and %s recs to %s blocks and %s chunks @ %s b/rec',
             'spilled' if disk else 'serialized', '.'.join(map(str, self.id)),
-            bytes_spilled / 1024 / 1024, elements_spilled, blocks_spilled, self.element_size)
+            bytes_spilled / 1024 / 1024, elements_spilled, blocks_spilled, chunks_spilled, self.element_size)
 
         return bytes_spilled
 
@@ -278,7 +295,7 @@ class ShuffleWritingDataset(Dataset):
         self.bucket = bucket or SortedBucket
         self.key = key
 
-        self.block_size_mb = block_size_mb or src.ctx.conf['bndl.compute.shuffle.block_size_mb']
+        self.block_size_mb = block_size_mb or src.ctx.conf['bndl.compute.shuffle.block_size_mb_net']
         self.serialization = serialization
         self.compression = compression
 
@@ -339,7 +356,7 @@ class ShuffleWritingPartition(Partition):
 
         # create a bucket for each output partition
         buckets = [self.dset.bucket((self.dset.id, self.idx, out_idx), self.dset.key,
-                                    self.dset.comb, self.dset.block_size_mb,
+                                    self.dset.comb, self.dset.block_size_mb, self.dset.block_size_mb,
                                     self.dset.memory_container, self.dset.disk_container)
                    for out_idx in range(self.dset.pcount)]
 
@@ -390,7 +407,7 @@ class ShuffleWritingPartition(Partition):
                 bytes_serialized += bucket.serialize(False)
                 for block in flatten(bucket.batches):
                     if isinstance(block, InMemory):
-                        memory.add_releasable(block.to_disk, block.id, 0, block.size)
+                        memory.add_releasable(block.to_disk, block.id, 1, block.size)
                 memcheck()
 
         worker.service('shuffle').set_buckets(self, buckets)
@@ -636,7 +653,8 @@ class ShuffleReadingPartition(Partition):
         bucket = self.dset.src.bucket(
             (self.dset.id, self.idx),
             self.dset.src.key, None,
-            self.dset.src.block_size_mb,
+            self.dset.ctx.conf['bndl.compute.shuffle.block_size_mb_merge'],
+            self.dset.ctx.conf['bndl.compute.shuffle.chunk_size_mb_merge'],
             self.dset.src.memory_container,
             self.dset.src.disk_container
         )
@@ -658,18 +676,21 @@ class ShuffleReadingPartition(Partition):
             logger.info('sorted %.1f mb', bytes_received / 1024 / 1024)
             return iter(bucket)
         else:
-            logger.info('merge sorting %.1f mb from %s blocks', bytes_received / 1024 / 1024,
-                        sum(1 for batch in bucket.batches for block in batch))
+            spill(0)
+
+            logger.info('merge sorting %.1f mb from %s blocks in %s batches', bytes_received / 1024 / 1024,
+                        sum(1 for batch in bucket.batches for block in batch), len(bucket.batches))
 
             def _block_stream(batch):
                 for block in reversed(batch):
-                    yield from block.read()
+                    for chunk in block.read_all():
+                        yield from chunk
                     block.clear()
 
-            streams = [bucket]
-            for batch in bucket.batches:
-                streams.append(_block_stream(batch))
-            return merge_sorted(*streams, key=self.dset.src.key)
+            streams = list(map(_block_stream, bucket.batches))
+            s = merge_sorted(*streams, key=self.dset.src.key)
+
+            return s
 
 
     def _compute(self):
