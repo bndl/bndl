@@ -105,7 +105,7 @@ class PeerNode(object):
         '''
         if not self.conn:
             raise NotConnected()
-        logger.debug('sending %s to %s', msg.__class__.__name__, self.name)
+        logger.debug('sending %s to %r', msg.__class__.__name__, self.name or 'unknown peer')
         yield from self.conn.send(msg.__msgdict__(), drain)
         self.last_tx = datetime.now()
 
@@ -164,10 +164,9 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def disconnect(self, reason='', active=True):
-        logger.log(logging.INFO if active and self.is_connected else logging.DEBUG,
-                   '%s (local) disconnected from %s (remote) with reason: %s (%s disconnect)',
-                   self.local.name, self.name,
-                   reason, 'active' if active and self.is_connected else 'passive')
+        logger.info('%s (local) disconnected from %s (remote) with reason: %s (%s disconnect)',
+                    self.local.name, self.name, reason,
+                    'active' if active and self.is_connected else 'passive')
         # possibly notify the other end
         if active and self.is_connected:
             with catch():
@@ -191,7 +190,7 @@ class PeerNode(object):
         self.cluster = hello.cluster
         self.addresses = hello.addresses
 
-        logger.debug('handshake between %s and %s complete', self.local.name, self.name)
+        logger.info('handshake between %s and %s complete', self.local.name, self.name)
 
 
     @asyncio.coroutine
@@ -200,7 +199,7 @@ class PeerNode(object):
             if self.is_connected:
                 return
 
-            logger.debug('connecting with %s', arg)
+            logger.info('connecting with %s', arg)
 
             try:
                 if isinstance(arg, str):
@@ -215,7 +214,7 @@ class PeerNode(object):
                 else:
                     raise ValueError('Can only connect to url (str) or b.n.c.Connection')
 
-                logger.debug('%s connected', self.conn)
+                logger.info('%s connected', self.conn)
 
                 # Say hello
                 yield from self._send_hello()
@@ -226,16 +225,16 @@ class PeerNode(object):
 
                 # check the hello
                 if isinstance(hello, Disconnect):
-                    logger.debug("received Disconnect from %s, disconnecting", self.conn)
+                    logger.info("received Disconnect from %s, disconnecting", self.conn)
                     yield from self.disconnect(reason="received disconnect", active=False)
                 elif not isinstance(hello, Hello):
                     logger.error("didn't receive Hello back from %s, disconnecting", self.conn)
                     yield from self.disconnect(reason="didn't receive hello")
                 elif hello.name == self.local.name:
-                    logger.debug('self connect attempt of %s', hello.name)
+                    logger.info('self connect attempt of %s', hello.name)
                     yield from self.disconnect(reason='self connect')
                 elif self.name is not None and self.name != hello.name:
-                    logger.debug('node %s at %s changed name to %s', self.name, self.addresses, hello.name)
+                    logger.info('node %s at %s changed name to %s', self.name, self.addresses, hello.name)
                     try:
                         del self.local.peers[self.name]
                     except KeyError:
@@ -270,7 +269,7 @@ class PeerNode(object):
 
     @asyncio.coroutine
     def _connected(self, connection):
-        logger.debug('%s connected', connection)
+        logger.info('%s connected', connection)
 
         self.conn = connection
 
@@ -291,10 +290,10 @@ class PeerNode(object):
                 return
 
             if hello.name == self.local.name:
-                logger.debug('self connect attempt of %s', hello.name)
+                logger.info('self connect attempt of %s', hello.name)
                 yield from self.disconnect(reason='self connect')
 
-            logger.debug('hello received from %s at %s', hello.name, hello.addresses)
+            logger.info('hello received from %s at %s', hello.name, hello.addresses)
 
             try:
                 yield from self._send_hello()
@@ -337,19 +336,17 @@ class PeerNode(object):
 
         while self.is_connected:
             try:
-                # logger.debug('%s is waiting for message from %s', self.local.name, self.name)
                 msg = yield from self.recv()
-                # logger.debug('%s received message from %s: %s', self.local.name, self.name, msg)
             except NotConnected:
-                logger.debug('read EOF on connection with %s', self.name)
+                logger.info('read EOF on connection with %s', self.name)
                 yield from self.disconnect('received EOF', active=False)
                 break
             except asyncio.futures.CancelledError:
-                logger.debug('connection with %s cancelled', self.name)
+                logger.info('connection with %s cancelled', self.name)
                 yield from self.disconnect('connection cancelled', active=False)
                 break
             except (ConnectionResetError, ConnectionRefusedError):
-                logger.debug('connection with %s closed unexpectedly', self.name)
+                logger.info('connection with %s closed unexpectedly', self.name)
                 yield from self.disconnect('connection reset', active=False)
                 break
             except asyncio.streams.IncompleteReadError:
@@ -365,7 +362,7 @@ class PeerNode(object):
             self._iotasks.add(task)
             task.add_done_callback(self._iotasks.discard)
 
-        logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
+        logger.info('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()
 
 
@@ -374,7 +371,7 @@ class PeerNode(object):
         if not peers:
             return
         try:
-            logger.debug('notifying %s of discovery of %s', self.name, peers)
+            logger.info('notifying %s of discovery of %s', self.name, peers)
             yield from self.send(Discovered(peers=peers))
         except NotConnected:
             pass
