@@ -372,7 +372,7 @@ class PeerNode(object):
 
 
     @asyncio.coroutine
-    def _notify_discovery(self, peers):
+    def notify_discovery(self, peers):
         if not peers:
             return
         try:
