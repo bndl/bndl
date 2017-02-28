@@ -46,8 +46,6 @@ class PeerStats(object):
         self.connection_attempts = 0
         self.last_update = datetime.now()
         self.last_reconnect = None
-        self.last_rx = None
-        self.last_tx = None
         self.error_since = None
 
         self.bytes_sent = 0
@@ -75,15 +73,10 @@ class PeerStats(object):
         self.bytes_received_rate = (self.peer.conn.bytes_received - self.bytes_received) / interval
         self.bytes_received = self.peer.conn.bytes_received
 
-        # mark rx activity
-        if self.bytes_received_rate:
-            self.last_rx = now
-        if self.bytes_sent_rate:
-            self.last_tx = now
-
-        if self.last_rx and (now - self.last_rx).total_seconds() > DT_MAX_INACTIVE:
+        if self.peer.last_rx and (now - self.peer.last_rx).total_seconds() > DT_MAX_INACTIVE:
             if not self.error_since:
-                logger.info('%r is inactive for more than %s seconds (%s)', self.peer, DT_MAX_INACTIVE, now - self.last_rx)
+                logger.info('%r is inactive for more than %s seconds (%s)', self.peer,
+                            DT_MAX_INACTIVE, now - self.peer.last_rx)
             self.error_since = self.error_since or now
         else:
             if self.error_since:
@@ -197,7 +190,7 @@ class Watchdog(object):
                 stats.connection_attempts += 1
                 stats.last_reconnect = now
                 yield from peer.connect()
-        elif stats.last_rx and (datetime.now() - stats.last_rx).total_seconds() > DT_PING_AFTER:
+        elif stats.peer.last_rx and (datetime.now() - stats.peer.last_rx).total_seconds() > DT_PING_AFTER:
             yield from self._ping(peer)
 
 
