@@ -244,6 +244,7 @@ class SerializedInMemory(SerializedContainer, InMemory):
 
 
     def __setstate__(self, state):
+        self.__dict__.update(state)
         self.data = [block.data for block in state['data']]
 
 
