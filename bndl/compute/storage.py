@@ -46,6 +46,7 @@ work_dir = String(None, desc='The working directory for bndl.compute (used for c
 
 
 def _text_dumps(lines):
+    assert not isinstance(lines, str)
     chunks = (line.encode() for line in lines)
     return _binary_dumps(chunks)
 
@@ -56,6 +57,7 @@ def _text_loads(data):
 
 
 def _binary_dumps(chunks):
+    assert not isinstance(chunks, bytes)
     len_fmt = _LENGTH_FIELD_FMT
     pack = struct.pack
     return b''.join(chain.from_iterable(
