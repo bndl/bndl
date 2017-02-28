@@ -147,7 +147,7 @@ class PeerNode(object):
 
     def _stop_tasks(self):
         # cancel any pending io work
-        for task in self._iotasks:
+        for task in list(self._iotasks):
             with catch():
                 task.cancel()
         self._iotasks.clear()
