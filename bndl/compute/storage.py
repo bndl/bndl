@@ -174,15 +174,22 @@ class StorageContainerFactory(object):
             self.location, self.serialization, self.compression)
 
 
+
 class Container(object):
     def __init__(self, container_id, provider):
         self.id = container_id
         self.provider = provider
 
     def read(self):
-        raise NotImplemented()
+        return next(self.read_all())
 
     def write(self, data):
+        self.write_all((data,))
+
+    def read_all(self):
+        raise NotImplemented()
+
+    def write_all(self):
         raise NotImplemented()
 
     def clear(self):
@@ -196,41 +203,57 @@ class Container(object):
 class InMemory(Container):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.data = None
+        self.data = ()
 
-    def read(self):
-        return self.data
 
-    def write(self, data):
-        self.data = data
+    def read_all(self):
+        return iter(self.data)
 
-    _read = read
-    _write = write
+
+    def write_all(self, chunks):
+        self.data = list(chunks)
+
+    _read_all = read_all
+    _write_all = write_all
+
 
     def clear(self):
-        self.data = None
+        self.data = ()
 
 
 
 class SerializedContainer(Container):
-    def read(self):
-        return self.provider.deserialize(self._read())
+    def read_all(self):
+        yield from map(self.provider.deserialize, self._read_all())
 
-    def write(self, data):
-        self._write(self.provider.serialize(data))
+    def write_all(self, chunks):
+        chunks = map(self.provider.serialize, chunks)
+        self._write_all(chunks)
 
 
 
-class SerializedInMemory(SerializedContainer, InMemory, Block):
+class SerializedInMemory(SerializedContainer, InMemory):
     @property
     def size(self):
-        return len(self.data) if self.data else 0
+        return sum(map(len, self.data))
+
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        state['data'] = [Block((self.id, idx), chunk)
+                         for idx, chunk in enumerate(self.data)]
+        return state
+
+
+    def __setstate__(self, state):
+        self.data = [block.data for block in state['data']]
+
 
     def to_disk(self):
         on_disk = OnDisk(self.id, self.provider)
         clear_old = on_disk.clear
         on_disk.clear = noop
-        on_disk._write(self.data)
+        on_disk._write_all(self.data)
         self.__dict__.update(on_disk.__dict__)
         self.clear = clear_old
         self.__class__ = OnDisk
@@ -282,14 +305,25 @@ class OnDisk(SerializedContainer):
         self.filepath = os.path.join(dirpath, str(filename))
 
 
-    def _read(self):
+    def _read_all(self):
         with open(self.filepath, 'rb') as f:
-            return f.read()
+            len_fmt = _LENGTH_FIELD_FMT
+            unpack = struct.unpack
+            read = f.read
+            while True:
+                y = read(_LENGTH_FIELD_SIZE)
+                if not y:
+                    break
+                chunk_len = unpack(len_fmt, y)[0]
+                yield read(chunk_len)
 
 
-    def _write(self, data):
+    def _write_all(self, chunks):
+        len_fmt = _LENGTH_FIELD_FMT
+        pack = struct.pack
         with open(self.filepath, 'wb') as f:
-            f.write(data)
+            for chunk in chunks:
+                f.writelines((pack(len_fmt, len(chunk)), chunk))
 
 
     def clear(self):
@@ -320,5 +354,5 @@ class OnDisk(SerializedContainer):
         self.__dict__.update(state)
         data = attachment(self.filepath.encode('utf-8'))
         if is_remote(data):
-            self.data = data[1:]
+            self.data = list(map(bytes, _binary_load_gen(memoryview(data)[1:])))
             self.__class__ = SerializedInMemory
