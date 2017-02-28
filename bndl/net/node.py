@@ -278,7 +278,7 @@ class Node(object):
     @asyncio.coroutine
     def _notifiy_peers(self, new_peer):
         with(yield from self._peer_table_lock):
-            peers = list(self.peers.filter())
+            peers = self.peers.filter()
 
         random.shuffle(peers)
         peer_list = [
