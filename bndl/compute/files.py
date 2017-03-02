@@ -269,7 +269,7 @@ def _scan_dir(directory, recursive, dfilter, ffilter):
 def _batch_files(filesizes, psize_bytes, psize_files, split):
     if not psize_bytes:
         with_offset = ((file, (0, size)) for file, size in filesizes)
-        return collection.batch(with_offset, psize_files)
+        return list(collection.batch(with_offset, psize_files))
 
     if isinstance(split, str):
         sep = split.encode()
