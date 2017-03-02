@@ -11,10 +11,13 @@
 # limitations under the License.
 
 import asyncio
+import atexit
 import concurrent.futures
 import functools
 import logging
 import threading
+
+from bndl.util.exceptions import catch
 
 
 logger = logging.getLogger(__name__)
@@ -73,6 +76,27 @@ def get_loop(stop_on=(), use_uvloop=True):
     threading.Thread(target=loop.run_forever, name='asyncio-loop', daemon=True).start()
 
     return loop
+
+
+
+class IOTasks(object):
+    def __init__(self):
+        self._iotasks = set()
+        atexit.register(self._stop_tasks)
+
+
+    def _create_task(self, coro):
+        task = self.loop.create_task(coro)
+        self._iotasks.add(task)
+        task.add_done_callback(self._iotasks.discard)
+
+
+    def _stop_tasks(self):
+        # cancel any pending io work
+        for task in list(self._iotasks):
+            with catch():
+                task.cancel()
+
 
 
 def async_call(loop, executor, method, *args, **kwargs):
