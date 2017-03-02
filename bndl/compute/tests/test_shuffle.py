@@ -34,15 +34,16 @@ class ShuffleTest(DatasetTest):
         'bndl.compute.memory.limit': 1
     }
 
-    def _test_shuffle(self, size, **opts):
+    def _test_shuffle(self, size, sort, serialization, compression):
         part0_data = set(map(str, range(0, size, 2)))
         part1_data = set(map(str, range(1, size, 2)))
 
         data = self.ctx.range(size, pcount=self.worker_count * 2).map(str)
 
 
-        shuffled = data.shuffle(**opts) \
-                       .shuffle(**opts, pcount=3, partitioner=lambda i: int(i) % 2) \
+        shuffled = data.shuffle(sort=sort, serialization=serialization, compression=compression) \
+                       .shuffle(sort=sort, serialization=serialization, compression=compression,
+                                pcount=3, partitioner=lambda i: int(i) % 2) \
                        .collect(parts=True)
         parts = list(filter(None, map(set, shuffled)))
 
