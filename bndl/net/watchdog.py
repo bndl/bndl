@@ -68,10 +68,11 @@ class PeerStats(object):
             return
 
         # calculate tx and rx rates
-        self.bytes_sent_rate = (self.peer.conn.bytes_sent - self.bytes_sent) / interval
-        self.bytes_sent = self.peer.conn.bytes_sent
-        self.bytes_received_rate = (self.peer.conn.bytes_received - self.bytes_received) / interval
-        self.bytes_received = self.peer.conn.bytes_received
+        if self.peer.is_connected:
+            self.bytes_sent_rate = (self.peer.conn.bytes_sent - self.bytes_sent) / interval
+            self.bytes_sent = self.peer.conn.bytes_sent
+            self.bytes_received_rate = (self.peer.conn.bytes_received - self.bytes_received) / interval
+            self.bytes_received = self.peer.conn.bytes_received
 
         if self.peer.last_rx and (now - self.peer.last_rx).total_seconds() > DT_MAX_INACTIVE:
             if not self.error_since:
@@ -190,7 +191,9 @@ class Watchdog(object):
                 stats.connection_attempts += 1
                 stats.last_reconnect = now
                 yield from peer.connect()
-        elif stats.peer.last_rx and (datetime.now() - stats.peer.last_rx).total_seconds() > DT_PING_AFTER:
+        elif peer.is_connected and \
+             peer.last_rx and \
+             (datetime.now() - peer.last_rx).total_seconds() > DT_PING_AFTER:
             yield from self._ping(peer)
 
 
