@@ -109,7 +109,7 @@ def now():
 
 @app.template_filter('fmt_timedelta')
 def fmt_timedelta(tdelta):
-    if not tdelta:
+    if tdelta is None:
         return ''
     elif isinstance(tdelta, (int, float)):
         if math.isnan(tdelta):
@@ -121,7 +121,7 @@ def fmt_timedelta(tdelta):
         seconds = tdelta.total_seconds()
 
     if seconds == 0:
-        return '0 µs'
+        return '0 s'
     elif seconds < 0.001:
         return str(round(seconds * 1000 * 1000)) + ' µs'
     elif seconds < 1:
