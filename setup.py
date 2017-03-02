@@ -107,6 +107,14 @@ if __name__ == '__main__':
             find_packages()
         ),
 
+        data_files=[
+            (
+                os.path.join('docs/bndl', root.replace('docs/build/', '')),
+                [os.path.join(root, f) for f in files]
+            )
+            for root, dirs, files in os.walk('docs/build/html')
+        ],
+
         include_package_data=True,
         zip_safe=False,
 
