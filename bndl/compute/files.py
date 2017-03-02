@@ -25,7 +25,7 @@ import os.path
 import struct
 import sys
 
-from cytoolz import pluck, interleave
+from cytoolz import compose, interleave, pluck
 import scandir
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
@@ -393,7 +393,7 @@ class FilesDataset(DistributedFilesOps, Dataset):
         if compression == 'gzip':
             decompress = gzip.decompress
         elif compression == 'lz4':
-            decompress = lz4.decompress
+            decompress = compose(lz4.decompress, bytes)
         elif compression is not None:
             raise ValueError('Compression %r not supported' % compression)
         decompressed = self.map_values(decompress)
