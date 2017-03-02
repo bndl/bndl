@@ -115,6 +115,7 @@ def _ensure_min_pcount(batches, min_pcount):
 
 def _batches(root, recursive=True, dfilter=None, ffilter=None, psize_bytes=None, psize_files=None, min_pcount=None, split=False):
     if isinstance(root, str):
+        root = os.path.expanduser(root)
         filesizes = list(_filesizes(root, recursive, dfilter, ffilter))
     else:
         filesizes = [(filename, getsize(filename)) for filename in root]
