@@ -1537,10 +1537,12 @@ class Dataset(object):
             else:
                 stack.append(src)
 
+        cached = False
+
         while stack:
             d = stack.popleft()
+            cached = cached or bool(d.cached and d._cache_locs)
             if d.sync_required:
-                cached = d.cached and d._cache_locs
                 groups, dependencies = d._generate_tasks(tasks, group + 1, max(groups, group + 1))
                 barrier = BarrierTask(d.ctx, (d.id, len(dependencies)), group='hidden')
                 tasks[barrier.id] = barrier
