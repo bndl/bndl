@@ -46,18 +46,6 @@ example::
    >>> 
 
 
-Dense arrays
-~~~~~~~~~~~~
-Dense distributed and partitioned Numpy based array datasets can be created through
-:meth:`ctx.dense <context.ComputeContext.dense>`::
-
-   ctx.dense.array()
-   ctx.dense.range()
-   ctx.dense.empty()
-   ctx.dense.zeros()
-   ctx.dense.ones()
-
-
 Key-value pair datasets
 -----------------------
 Python as little to no support for typing variables, the return type of functions, nor for

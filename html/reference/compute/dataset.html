@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Datasets and partitions &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>Datasets and partitions &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../genindex.html"/>
         <link rel="search" title="Search" href="../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../index.html"/>
         <link rel="up" title="Compute" href="index.html"/>
         <link rel="next" title="Broadcast and Accumulate" href="oob.html"/>
         <link rel="prev" title="Compute Context" href="context.html"/> 
@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -1150,6 +1150,12 @@ ascending order.</li>
 </dd></dl>
 
 <dl class="method">
+<dt id="bndl.compute.dataset.Dataset.coalesce_parts">
+<code class="descname">coalesce_parts</code><span class="sig-paren">(</span><em>pcount</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.coalesce_parts"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.coalesce_parts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Coalesce partitions into pcount partitions.</p>
+</dd></dl>
+
+<dl class="method">
 <dt id="bndl.compute.dataset.Dataset.zip">
 <code class="descname">zip</code><span class="sig-paren">(</span><em>other</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.zip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.zip" title="Permalink to this definition">¶</a></dt>
 <dd><p>Zip the elements of another data set with the elements of this data set.</p>
@@ -1243,19 +1249,19 @@ per partition or a &#8216;flattened&#8217; list of the elements in the dataset (
 
 <dl class="method">
 <dt id="bndl.compute.dataset.Dataset.collect_as_pickles">
-<code class="descname">collect_as_pickles</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_pickles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_pickles" title="Permalink to this definition">¶</a></dt>
+<code class="descname">collect_as_pickles</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compression=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_pickles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_pickles" title="Permalink to this definition">¶</a></dt>
 <dd><p>Collect each partition as a pickle file into directory</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="bndl.compute.dataset.Dataset.collect_as_json">
-<code class="descname">collect_as_json</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_json" title="Permalink to this definition">¶</a></dt>
+<code class="descname">collect_as_json</code><span class="sig-paren">(</span><em>directory=None</em>, <em>compression=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_json"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_json" title="Permalink to this definition">¶</a></dt>
 <dd><p>Collect each partition as a line separated json file into directory.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="bndl.compute.dataset.Dataset.collect_as_files">
-<code class="descname">collect_as_files</code><span class="sig-paren">(</span><em>directory=None</em>, <em>ext=''</em>, <em>mode='b'</em>, <em>compress=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_files" title="Permalink to this definition">¶</a></dt>
+<code class="descname">collect_as_files</code><span class="sig-paren">(</span><em>directory=None</em>, <em>ext=''</em>, <em>mode='b'</em>, <em>compression=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#Dataset.collect_as_files"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.Dataset.collect_as_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Collect each element in this data set into a file into directory.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -1388,7 +1394,7 @@ serialization and compression and use this custom <code class="docutils literal"
 
 <dl class="class">
 <dt id="bndl.compute.dataset.CartesianProductDataset">
-<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">CartesianProductDataset</code><span class="sig-paren">(</span><em>src</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#CartesianProductDataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.CartesianProductDataset" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">bndl.compute.dataset.</code><code class="descname">CartesianProductDataset</code><span class="sig-paren">(</span><em>src</em>, <em>func=&lt;class 'itertools.product'&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dataset.html#CartesianProductDataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dataset.CartesianProductDataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.compute.dataset._MultiSourceDataset</span></code></p>
 </dd></dl>
 
@@ -1435,7 +1441,7 @@ serialization and compression and use this custom <code class="docutils literal"
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

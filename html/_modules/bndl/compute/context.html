@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.compute.context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.compute.context &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
         <link rel="up" title="Module code" href="../../index.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -143,8 +143,19 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.compute.context</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">bndl.compute.accumulate</span> <span class="k">import</span> <span class="n">Accumulator</span>
-<span class="kn">from</span> <span class="nn">bndl.compute.dense</span> <span class="k">import</span> <span class="n">arrays</span> <span class="k">as</span> <span class="n">dense</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">bndl.compute.accumulate</span> <span class="k">import</span> <span class="n">Accumulator</span>
 <span class="kn">from</span> <span class="nn">bndl.compute.broadcast</span> <span class="k">import</span> <span class="n">broadcast</span>
 <span class="kn">from</span> <span class="nn">bndl.compute.collections</span> <span class="k">import</span> <span class="n">DistributedCollection</span>
 <span class="kn">from</span> <span class="nn">bndl.compute.files</span> <span class="k">import</span> <span class="n">files</span>
@@ -235,7 +246,7 @@
 
 <span class="sd">        Example::</span>
 
-<span class="sd">            &gt;&gt;&gt; from bndl.compute.run import ctx</span>
+<span class="sd">            &gt;&gt;&gt; from bndl.compute import ctx</span>
 <span class="sd">            &gt;&gt;&gt; accum = ctx.accumulator(0)</span>
 <span class="sd">            &gt;&gt;&gt; def mapper(i):</span>
 <span class="sd">            ...     global accum</span>
@@ -256,13 +267,12 @@
 <span class="sd">            90</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="n">accumulator</span> <span class="o">=</span> <span class="n">Accumulator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">initial</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">_register_accumulator</span><span class="p">(</span><span class="n">accumulator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;accumulate&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">accumulator</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">accumulator</span></div>
 
 
     <span class="n">broadcast</span> <span class="o">=</span> <span class="n">broadcast</span>
-    <span class="n">files</span> <span class="o">=</span> <span class="n">files</span>
-    <span class="n">dense</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">dense</span><span class="p">)</span></div>
+    <span class="n">files</span> <span class="o">=</span> <span class="n">files</span></div>
 </pre></div>
 
            </div>
@@ -296,7 +306,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>RMI &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>RMI &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../genindex.html"/>
         <link rel="search" title="Search" href="../search.html"/>
         <link rel="copyright" title="Copyright" href="../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../index.html"/>
         <link rel="up" title="API Reference" href="index.html"/>
         <link rel="next" title="Net" href="net.html"/>
         <link rel="prev" title="Execute" href="execute.html"/> 
@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -159,9 +159,25 @@
 <p>The implementation is rather straight forward: <code class="xref py py-class docutils literal"><span class="pre">RMIPeerNode</span></code> provides is the means to send
 and receive Request and Response Methods. Requests are targeting a method of the remote node by
 name. It is simply looked up by <code class="docutils literal"><span class="pre">getattr</span></code>.</p>
+<dl class="function">
+<dt id="bndl.rmi.direct">
+<code class="descclassname">bndl.rmi.</code><code class="descname">direct</code><span class="sig-paren">(</span><em>remote_method</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi.html#direct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.direct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorator to mark a method such that when remotely invoked, no thread is created for its
+execution, but instead is executed within the IO loop. This may optimize performance when the
+result is readily available. However (!) if not (e.g. the method blocks in order to get the
+result) this will stall the IO loop, which _may_ cause issues (e.g. a node becoming
+unresponsive, other nodes assuming the node is lost, etc.).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="bndl.rmi.is_direct">
+<code class="descclassname">bndl.rmi.</code><code class="descname">is_direct</code><span class="sig-paren">(</span><em>method</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi.html#is_direct"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.is_direct" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if a method is marked with the &#64;direct decorator</p>
+</dd></dl>
+
 <dl class="class">
 <dt id="bndl.rmi.node.RMINode">
-<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">RMINode</code><span class="sig-paren">(</span><em>name=None</em>, <em>addresses=None</em>, <em>seeds=None</em>, <em>loop=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#RMINode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.RMINode" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">RMINode</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#RMINode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.RMINode" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.node.Node</span></code></p>
 <p>A <code class="xref py py-class docutils literal"><span class="pre">bndl.net.Node</span></code> which expects it&#8217;s peers to support remote method invocation as
 implemented in <code class="xref py py-class docutils literal"><span class="pre">RMIPeerNode</span></code>.</p>
@@ -175,7 +191,7 @@ implemented in <code class="xref py py-class docutils literal"><span class="pre"
 
 <dl class="class">
 <dt id="bndl.rmi.node.Invocation">
-<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">Invocation</code><span class="sig-paren">(</span><em>peer</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#Invocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.Invocation" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">bndl.rmi.node.</code><code class="descname">Invocation</code><span class="sig-paren">(</span><em>peer</em>, <em>service</em>, <em>name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/node.html#Invocation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.node.Invocation" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
 <p>Invocation of a method on a PeerNode.</p>
 <dl class="method">
@@ -194,7 +210,7 @@ implemented in <code class="xref py py-class docutils literal"><span class="pre"
 <dt id="bndl.rmi.messages.Request">
 <em class="property">class </em><code class="descclassname">bndl.rmi.messages.</code><code class="descname">Request</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/bndl/rmi/messages.html#Request"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.rmi.messages.Request" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.net.messages.Message</span></code></p>
-<p>A request for a peer RMI node. It contains a request id (to which the <code class="xref py py-class docutils literal"><span class="pre">Reponse</span></code> must
+<p>A request for a peer RMI node. It contains a request id (to which the <a class="reference internal" href="#bndl.rmi.messages.Response" title="bndl.rmi.messages.Response"><code class="xref py py-class docutils literal"><span class="pre">Response</span></code></a> must
 refer), the name of the method to be invoked, and the positional and keyword arguments for
 invocation.</p>
 </dd></dl>
@@ -279,7 +295,7 @@ worker doesn&#8217;t matter).</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -9,7 +9,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Index &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>Index &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -35,7 +35,7 @@
               href="#"/>
         <link rel="search" title="Search" href="search.html"/>
         <link rel="copyright" title="Copyright" href="copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="index.html"/> 
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -159,7 +159,6 @@
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
- | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
@@ -195,22 +194,14 @@
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.aggregate">aggregate() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.aggregate_by_key">aggregate_by_key() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.allow_all_workers">allow_all_workers() (bndl.compute.dataset.Dataset method)</a>
-  </dt>
-
-      
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.array">array (bndl.compute.dense.arrays attribute)</a>
-  </dt>
-
-      
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays">arrays (class in bndl.compute.dense)</a>
   </dt>
 
       
@@ -229,10 +220,6 @@
   <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/execute.html#bndl.compute.dataset.BarrierTask">BarrierTask (class in bndl.compute.dataset)</a>
-  </dt>
-
-      
-  <dt><a href="usage/configuration.html#bndl.compute.shuffle.block_size_mb">block_size_mb (in module bndl.compute.shuffle)</a>
   </dt>
 
       
@@ -338,6 +325,10 @@
   </dt>
 
       
+  <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.coalesce_parts">coalesce_parts() (bndl.compute.dataset.Dataset method)</a>
+  </dt>
+
+      
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect">collect() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
@@ -434,11 +425,11 @@
   </dt>
 
       
-  <dt><a href="reference/compute/context.html#bndl.compute.context.ComputeContext.dense">dense (bndl.compute.context.ComputeContext attribute)</a>
+  <dt><a href="reference/execute.html#bndl.execute.exceptions.DependenciesFailed">DependenciesFailed</a>
   </dt>
 
       
-  <dt><a href="reference/execute.html#bndl.execute.exceptions.DependenciesFailed">DependenciesFailed</a>
+  <dt><a href="reference/rmi.html#bndl.rmi.direct">direct() (in module bndl.rmi)</a>
   </dt>
 
   </dl></td>
@@ -465,10 +456,6 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
-      
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.empty">empty (bndl.compute.dense.arrays attribute)</a>
-  </dt>
-
       
   <dt><a href="reference/execute.html#bndl.execute.job.Task.exception">exception() (bndl.execute.job.Task method)</a>
   </dt>
@@ -602,6 +589,10 @@
   </dt>
 
       
+  <dt><a href="reference/rmi.html#bndl.rmi.is_direct">is_direct() (in module bndl.rmi)</a>
+  </dt>
+
+      
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.itake">itake() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
@@ -652,11 +643,19 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="usage/configuration.html#bndl.net.listen_addresses">listen_addresses (in module bndl.net)</a>
+  <dt><a href="usage/configuration.html#bndl.compute.memory.limit">limit (in module bndl.compute.memory)</a>
+  </dt>
+
+      
+  <dt><a href="usage/configuration.html#bndl.compute.memory.limit_system">limit_system (in module bndl.compute.memory)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="usage/configuration.html#bndl.net.listen_addresses">listen_addresses (in module bndl.net)</a>
+  </dt>
+
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Partition.locality">locality() (bndl.compute.dataset.Partition method)</a>
   </dt>
@@ -705,22 +704,18 @@
   <dt><a href="reference/execute.html#bndl.execute.job.Task.mark_failed">mark_failed() (bndl.execute.job.Task method)</a>
   </dt>
 
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.mask_partitions">mask_partitions() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.max">max() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
       
   <dt><a href="usage/configuration.html#bndl.compute.broadcast.max_block_size">max_block_size (in module bndl.compute.broadcast)</a>
-  </dt>
-
-      
-  <dt><a href="usage/configuration.html#bndl.compute.shuffle.max_mem_pct">max_mem_pct (in module bndl.compute.shuffle)</a>
   </dt>
 
       
@@ -773,16 +768,6 @@
 
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.nsmallest_by_key">nsmallest_by_key() (bndl.compute.dataset.Dataset method)</a>
-  </dt>
-
-  </dl></td>
-</tr></table>
-
-<h2 id="O">O</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%" valign="top"><dl>
-      
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.ones">ones (bndl.compute.dense.arrays attribute)</a>
   </dt>
 
   </dl></td>
@@ -843,14 +828,6 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.random">random (bndl.compute.dense.arrays attribute)</a>
-  </dt>
-
-      
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.range">range (bndl.compute.dense.arrays attribute)</a>
-  </dt>
-
-      
   <dt><a href="reference/compute/context.html#bndl.compute.context.ComputeContext.range">range() (bndl.compute.context.ComputeContext method)</a>
   </dt>
 
@@ -874,12 +851,12 @@
   <dt><a href="reference/rmi.html#bndl.rmi.messages.Request">Request (class in bndl.rmi.messages)</a>
   </dt>
 
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.require_local_workers">require_local_workers() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.require_workers">require_workers() (bndl.compute.dataset.Dataset method)</a>
   </dt>
@@ -1089,15 +1066,11 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="reference/compute/context.html#bndl.compute.dense.arrays.zeros">zeros (bndl.compute.dense.arrays attribute)</a>
+  <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip">zip() (bndl.compute.dataset.Dataset method)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
-      
-  <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip">zip() (bndl.compute.dataset.Dataset method)</a>
-  </dt>
-
       
   <dt><a href="reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip_partitions">zip_partitions() (bndl.compute.dataset.Dataset method)</a>
   </dt>
@@ -1138,7 +1111,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.net.connection &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.net.connection &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
         <link rel="up" title="Module code" href="../../index.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -143,7 +143,19 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.net.connection</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">asyncio</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">import</span> <span class="nn">asyncio</span>
 <span class="kn">import</span> <span class="nn">functools</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">socket</span>
@@ -155,10 +167,14 @@
 <span class="kn">from</span> <span class="nn">bndl.net</span> <span class="k">import</span> <span class="n">serialize</span>
 <span class="kn">from</span> <span class="nn">bndl.util</span> <span class="k">import</span> <span class="n">aio</span>
 <span class="kn">from</span> <span class="nn">bndl.util.aio</span> <span class="k">import</span> <span class="n">readexactly</span>
+<span class="kn">from</span> <span class="nn">bndl.util.conf</span> <span class="k">import</span> <span class="n">Bool</span>
+<span class="kn">import</span> <span class="nn">bndl</span>
+
+
+<span class="n">nodelay</span> <span class="o">=</span> <span class="n">Bool</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Whether to set TCP_NODELAY on bndl.net.connection.Connection objects&#39;</span><span class="p">)</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
-
 
 
 <div class="viewcode-block" id="urlparse"><a class="viewcode-back" href="../../../reference/net.html#bndl.net.connection.urlparse">[docs]</a><span class="k">def</span> <span class="nf">urlparse</span><span class="p">(</span><span class="n">address</span><span class="p">):</span>
@@ -182,9 +198,11 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Illegal url: &quot;</span><span class="si">%s</span><span class="s1">&quot;, unsupported scheme &quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">parsed</span><span class="o">.</span><span class="n">scheme</span><span class="p">))</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">parsed</span><span class="o">.</span><span class="n">port</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">parsed</span><span class="o">.</span><span class="n">port</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">parsed</span><span class="p">)</span>
-        <span class="n">components</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="s2">&quot;:5000&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">components</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">):</span>
+            <span class="n">components</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="s1">&#39;:&#39;</span>
+        <span class="n">components</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="s2">&quot;5000&quot;</span>
         <span class="n">with_port</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlunparse</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">with_port</span><span class="p">)</span>
 
@@ -262,6 +280,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">bytes_received</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bytes_sent</span> <span class="o">=</span> <span class="mi">0</span>
 
+        <span class="n">sock</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">socket</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">sock</span> <span class="ow">and</span> <span class="n">sock</span><span class="o">.</span><span class="n">family</span> <span class="ow">in</span> <span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">AF_INET6</span><span class="p">):</span>
+            <span class="n">sock</span><span class="o">.</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">IPPROTO_TCP</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">TCP_NODELAY</span><span class="p">,</span>
+                            <span class="n">bndl</span><span class="o">.</span><span class="n">conf</span><span class="p">[</span><span class="s1">&#39;bndl.net.connection.nodelay&#39;</span><span class="p">])</span>
+
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">is_connected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -298,12 +321,12 @@
                 <span class="c1"># send attachment count</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">writelines</span><span class="p">((</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">fmt</span><span class="p">),</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;I&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">attachments</span><span class="p">))))</span>
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">attachment</span> <span class="ow">in</span> <span class="n">attachments</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="k">with</span> <span class="n">attachment</span><span class="p">()</span> <span class="k">as</span> <span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">sender</span><span class="p">):</span>
+                    <span class="k">with</span> <span class="n">attachment</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">sender</span><span class="p">):</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">writelines</span><span class="p">((</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;I&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">key</span><span class="p">)),</span> <span class="n">key</span><span class="p">,</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="n">size</span><span class="p">)))</span>
                         <span class="k">if</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">sender</span><span class="p">):</span>
-                            <span class="k">yield from</span> <span class="n">sender</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">)</span>
+                            <span class="k">yield from</span> <span class="n">sender</span><span class="p">()</span>
                         <span class="k">else</span><span class="p">:</span>
-                            <span class="n">sender</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">)</span>
+                            <span class="n">sender</span><span class="p">()</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="n">size</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">writelines</span><span class="p">((</span><span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">serialized</span><span class="p">)),</span> <span class="n">serialized</span><span class="p">))</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">serialized</span><span class="p">)</span>
@@ -361,8 +384,6 @@
 <span class="sd">        Args:</span>
 <span class="sd">            timeout (float): timeout in seconds</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">NotConnected</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">payload</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recv</span><span class="p">(),</span> <span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">serialize</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="o">*</span><span class="n">payload</span><span class="p">)</span>
@@ -373,6 +394,7 @@
                 <span class="k">raise</span> <span class="n">NotConnected</span><span class="p">()</span> <span class="kn">from</span> <span class="nn">exc</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span></div>
+
 
     <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
@@ -414,8 +436,12 @@
 
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">desc</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">sockname</span><span class="p">()[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39; &lt;-&gt; &#39;</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">peername</span><span class="p">()[:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">desc</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">, </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="p">)</span>
         <span class="k">return</span> <span class="s1">&#39;&lt;Connection </span><span class="si">%s</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">sockname</span><span class="p">()[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s1">&#39; &lt;-&gt; &#39;</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">:</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">peername</span><span class="p">()[:</span><span class="mi">2</span><span class="p">],</span>
+            <span class="n">desc</span><span class="p">,</span>
             <span class="s1">&#39;connected&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span> <span class="k">else</span> <span class="s1">&#39;not connected&#39;</span>
         <span class="p">)</span></div>
 </pre></div>
@@ -451,7 +477,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

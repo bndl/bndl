@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.rmi.messages &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.rmi.messages &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
-        <link rel="up" title="Module code" href="../../index.html"/> 
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
+        <link rel="up" title="bndl.rmi" href="../rmi.html"/> 
 
   
   <script src="../../../_static/js/modernizr.min.js"></script>
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -130,6 +130,8 @@
       
           <li><a href="../../index.html">Module code</a> &raquo;</li>
       
+          <li><a href="../rmi.html">bndl.rmi</a> &raquo;</li>
+      
     <li>bndl.rmi.messages</li>
       <li class="wy-breadcrumbs-aside">
         
@@ -143,17 +145,31 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.rmi.messages</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">bndl.net.messages</span> <span class="k">import</span> <span class="n">Message</span><span class="p">,</span> <span class="n">Field</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">bndl.net.messages</span> <span class="k">import</span> <span class="n">Message</span><span class="p">,</span> <span class="n">Field</span>
 
 
 <div class="viewcode-block" id="Request"><a class="viewcode-back" href="../../../reference/rmi.html#bndl.rmi.messages.Request">[docs]</a><span class="k">class</span> <span class="nc">Request</span><span class="p">(</span><span class="n">Message</span><span class="p">):</span>
     <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">    A request for a peer RMI node. It contains a request id (to which the :class:`Reponse` must</span>
+<span class="sd">    A request for a peer RMI node. It contains a request id (to which the :class:`Response` must</span>
 <span class="sd">    refer), the name of the method to be invoked, and the positional and keyword arguments for</span>
 <span class="sd">    invocation.</span>
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="c1"># int, id of the request</span>
     <span class="n">req_id</span> <span class="o">=</span> <span class="n">Field</span><span class="p">()</span>
+    <span class="c1"># str, name of the service to invoke a method from</span>
+    <span class="n">service</span> <span class="o">=</span> <span class="n">Field</span><span class="p">()</span>
     <span class="c1"># str, name of the method to invoke</span>
     <span class="n">method</span> <span class="o">=</span> <span class="n">Field</span><span class="p">()</span>
     <span class="c1"># list or tuple, arguments for the method</span>
@@ -206,7 +222,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

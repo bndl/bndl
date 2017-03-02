@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.execute.job &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.execute.job &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
         <link rel="up" title="Module code" href="../../index.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -143,7 +143,19 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.execute.job</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="k">import</span> <span class="n">CancelledError</span><span class="p">,</span> <span class="n">Future</span><span class="p">,</span> <span class="ne">TimeoutError</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">concurrent.futures</span> <span class="k">import</span> <span class="n">CancelledError</span><span class="p">,</span> <span class="n">Future</span><span class="p">,</span> <span class="ne">TimeoutError</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">lru_cache</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">count</span>
@@ -282,8 +294,10 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
             <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">future</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
             <span class="n">future</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">stopped_on</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stopped_on</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">started_on</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">started_on</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">started_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stopped_on</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">signal_stop</span><span class="p">()</span></div>
 
 
@@ -315,7 +329,7 @@
         <span class="sd">&#39;&#39;&#39;The name of the worker this task executed on last (if any).&#39;&#39;&#39;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">executed_on</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span></div>
 
 
@@ -361,7 +375,7 @@
     <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scheduler</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">set_executing</span><span class="p">(</span><span class="n">worker</span><span class="p">)</span>
         <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">future</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
-        <span class="n">future2</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">execute_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">future2</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">execute_async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="c1"># TODO remove future.worker, just for checking</span>
         <span class="n">future2</span><span class="o">.</span><span class="n">worker</span> <span class="o">=</span> <span class="n">worker</span>
         <span class="c1"># TODO put time sleep here to test what happens if task</span>
@@ -384,7 +398,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="c1"># TODO remove future.worker</span>
                 <span class="c1"># assert future.worker == self._last_worker, &#39;%r != %r&#39; % (future.worker, self._last_worker)</span>
-                <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_worker</span><span class="o">.</span><span class="n">get_task_result</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
+                <span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_worker</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">get_task_result</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
                 <span class="c1"># TODO put time sleep here to test what happens if task</span>
                 <span class="c1"># is done before adding callack (callback gets executed in this thread)</span>
                 <span class="n">future</span><span class="o">.</span><span class="n">add_done_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_task_completed</span><span class="p">)</span>
@@ -417,7 +431,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;canceling </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_last_worker</span><span class="o">.</span><span class="n">cancel_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_last_worker</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">cancel_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handle</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">handle</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">future</span><span class="p">:</span>
@@ -464,7 +478,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

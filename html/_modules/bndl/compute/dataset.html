@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.compute.dataset &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.compute.dataset &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
         <link rel="up" title="Module code" href="../../index.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -143,7 +143,19 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.compute.dataset</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">deque</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sized</span><span class="p">,</span> <span class="n">OrderedDict</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span><span class="p">,</span> <span class="n">deque</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sized</span><span class="p">,</span> <span class="n">OrderedDict</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">partial</span><span class="p">,</span> <span class="n">total_ordering</span><span class="p">,</span> <span class="n">reduce</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="k">import</span> <span class="n">islice</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="n">chain</span><span class="p">,</span> <span class="n">starmap</span><span class="p">,</span> <span class="n">groupby</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="k">import</span> <span class="n">sqrt</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">ceil</span>
@@ -158,11 +170,11 @@
 <span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shlex</span>
-<span class="kn">import</span> <span class="nn">struct</span>
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">threading</span>
 <span class="kn">import</span> <span class="nn">weakref</span>
 
+<span class="kn">from</span> <span class="nn">cyhll</span> <span class="k">import</span> <span class="n">HyperLogLog</span>
 <span class="kn">from</span> <span class="nn">cytoolz.functoolz</span> <span class="k">import</span> <span class="n">compose</span>
 <span class="kn">from</span> <span class="nn">cytoolz.itertoolz</span> <span class="k">import</span> <span class="n">pluck</span><span class="p">,</span> <span class="n">take</span>
 
@@ -181,28 +193,16 @@
 <span class="kn">from</span> <span class="nn">bndl.util.exceptions</span> <span class="k">import</span> <span class="n">catch</span>
 <span class="kn">from</span> <span class="nn">bndl.util.funcs</span> <span class="k">import</span> <span class="n">identity</span><span class="p">,</span> <span class="n">getter</span><span class="p">,</span> <span class="n">key_or_getter</span><span class="p">,</span> <span class="n">partial_func</span>
 <span class="kn">from</span> <span class="nn">bndl.util.hash</span> <span class="k">import</span> <span class="n">portable_hash</span>
-<span class="kn">from</span> <span class="nn">bndl.util.hyperloglog</span> <span class="k">import</span> <span class="n">HyperLogLog</span>
 <span class="kn">import</span> <span class="nn">cycloudpickle</span> <span class="k">as</span> <span class="nn">cloudpickle</span>
+<span class="kn">import</span> <span class="nn">lz4</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_as_bytes</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
-    <span class="n">t</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">t</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
-    <span class="k">elif</span> <span class="n">t</span> <span class="o">==</span> <span class="nb">tuple</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_as_bytes</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">obj</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">t</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">bit_length</span><span class="p">(),</span> <span class="s1">&#39;little&#39;</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">t</span> <span class="o">==</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="n">obj</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s1">&#39;&gt;f&#39;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
-        <span class="n">obj</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;&gt;l&#39;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">bit_length</span><span class="p">(),</span> <span class="s1">&#39;little&#39;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">new_dset_id</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">strings</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Dataset"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset">[docs]</a><span class="k">class</span> <span class="nc">Dataset</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -212,11 +212,24 @@
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dset_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">ctx</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">src</span> <span class="o">=</span> <span class="n">src</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">dset_id</span> <span class="ow">or</span> <span class="n">strings</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">dset_id</span> <span class="ow">or</span> <span class="n">new_dset_id</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_provider</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_locs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_workers_required</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">callsite</span> <span class="o">=</span> <span class="n">get_callsite</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">pcount</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">pcount</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;_pcount&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pcount</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pcount</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pcount</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">pcount</span>
+
+
+    <span class="nd">@pcount</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span> <span class="nf">pcount</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pcount</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pcount</span> <span class="o">=</span> <span class="n">pcount</span>
 
 
     <span class="k">def</span> <span class="nf">parts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -420,7 +433,7 @@
                 <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">part</span><span class="p">:</span>
                     <span class="n">extend</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
                     <span class="n">extend</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
-                <span class="k">return</span> <span class="p">(</span><span class="n">buffer</span><span class="p">,)</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">(</span><span class="n">buffer</span><span class="p">),)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;sep must be str, bytes or bytearray, not </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">sep</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
@@ -503,6 +516,7 @@
 <span class="sd">            &gt;&gt;&gt; ctx.range(5).key_by(lambda i: string.ascii_lowercase[i]).collect()</span>
 <span class="sd">            [(&#39;a&#39;, 0), (&#39;b&#39;, 1), (&#39;c&#39;, 2), (&#39;d&#39;, 3), (&#39;e&#39;, 4)]</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">key_or_getter</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">((</span><span class="n">key</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">p</span><span class="p">))</span></div>
 
 
@@ -710,6 +724,7 @@
 
 
     <span class="k">def</span> <span class="nf">_take_ordered_by_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">taker</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_opts</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">key_or_getter</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">local</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">taker</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">comb</span><span class="p">(</span><span class="n">iterables</span><span class="p">):</span>
@@ -780,7 +795,7 @@
 <span class="sd">            callable will be applied.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">local</span><span class="p">(</span><span class="n">p</span><span class="p">),))</span><span class="o">.</span><span class="n">icollect</span><span class="p">()</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">local</span><span class="p">(</span><span class="n">p</span><span class="p">),))</span><span class="o">.</span><span class="n">icollect</span><span class="p">(</span><span class="n">ordered</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">(</span><span class="n">comb</span> <span class="ow">or</span> <span class="n">local</span><span class="p">)(</span><span class="n">parts</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;dataset is empty&#39;</span><span class="p">)</span></div>
@@ -849,24 +864,32 @@
 <span class="sd">            results is roughly of the same size (the branching factor in the</span>
 <span class="sd">            tree is the same across the entire tree).</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">depth</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">depth</span> <span class="o">=</span> <span class="mi">16</span>
         <span class="k">if</span> <span class="n">depth</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="n">comb</span><span class="p">)</span>
+
+        <span class="n">pcount</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">scale</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ceil</span><span class="p">(</span><span class="nb">pow</span><span class="p">(</span><span class="n">pcount</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">depth</span><span class="p">))),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">pcount</span> <span class="o">/=</span> <span class="n">scale</span>
+        <span class="n">ipcount</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pcount</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ipcount</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="n">comb</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">comb</span><span class="p">:</span>
             <span class="n">comb</span> <span class="o">=</span> <span class="n">local</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">scale</span><span class="p">:</span>
-            <span class="n">pcount</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
-            <span class="n">scale</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">ceil</span><span class="p">(</span><span class="nb">pow</span><span class="p">(</span><span class="n">pcount</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">depth</span><span class="p">))),</span> <span class="mi">2</span><span class="p">)</span>
-
-        <span class="n">agg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions_with_index</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idx</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="p">[(</span><span class="n">idx</span> <span class="o">%</span> <span class="n">pcount</span><span class="p">,</span> <span class="n">local</span><span class="p">(</span><span class="n">p</span><span class="p">))])</span>
+        <span class="n">agg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions_with_index</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idx</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="p">[(</span><span class="n">idx</span> <span class="o">%</span> <span class="n">ipcount</span><span class="p">,</span> <span class="n">local</span><span class="p">(</span><span class="n">p</span><span class="p">))])</span>
 
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">depth</span><span class="p">):</span>
-            <span class="n">agg</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">_group_by_key</span><span class="p">(</span><span class="n">pcount</span><span class="o">=</span><span class="n">pcount</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_opts</span><span class="p">)</span><span class="o">.</span><span class="n">map_values</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">comb</span><span class="p">(</span><span class="n">pluck</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">v</span><span class="p">)))</span>
-            <span class="n">pcount</span> <span class="o">//=</span> <span class="n">scale</span>
+            <span class="n">agg</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">aggregate_by_key</span><span class="p">(</span><span class="n">comb</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="n">ipcount</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_opts</span><span class="p">)</span>
+            <span class="n">pcount</span> <span class="o">/=</span> <span class="n">scale</span>
+            <span class="n">ipcount</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">pcount</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">pcount</span> <span class="o">&lt;</span> <span class="n">scale</span><span class="p">:</span>
                 <span class="k">break</span>
-            <span class="n">agg</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">map_keys</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idx</span><span class="p">,</span> <span class="p">:</span> <span class="n">idx</span> <span class="o">%</span> <span class="n">pcount</span><span class="p">)</span>
+            <span class="n">agg</span> <span class="o">=</span> <span class="n">agg</span><span class="o">.</span><span class="n">map_keys</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idx</span><span class="p">,</span> <span class="p">:</span> <span class="n">idx</span> <span class="o">%</span> <span class="n">ipcount</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">comb</span><span class="p">(</span><span class="n">agg</span><span class="o">.</span><span class="n">values</span><span class="p">()</span><span class="o">.</span><span class="n">icollect</span><span class="p">())</span>
@@ -1007,7 +1030,6 @@
 <span class="sd">            [(0, [0, 6, 8, 4, 2]), (1, [1, 3, 7, 9, 5])]</span>
 
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="n">key_or_getter</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key_by</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
                     <span class="o">.</span><span class="n">group_by_key</span><span class="p">(</span><span class="n">partitioner</span><span class="o">=</span><span class="n">partitioner</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="n">pcount</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_opts</span><span class="p">)</span>
                     <span class="o">.</span><span class="n">map_values</span><span class="p">(</span><span class="nb">list</span><span class="p">))</span></div>
@@ -1174,8 +1196,8 @@
                     <span class="o">.</span><span class="n">flatmap</span><span class="p">(</span><span class="n">local_join</span><span class="p">))</span></div>
 
 
-    <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="o">*</span><span class="n">others</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">CartesianProductDataset</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">+</span> <span class="n">others</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="o">*</span><span class="n">others</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">product</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">CartesianProductDataset</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">+</span> <span class="n">others</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">func</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="Dataset.distinct"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.distinct">[docs]</a>    <span class="k">def</span> <span class="nf">distinct</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pcount</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">shuffle_opts</span><span class="p">):</span>
@@ -1222,7 +1244,7 @@
 <span class="sd">        :param error_rate: float</span>
 <span class="sd">            The absolute error / cardinality</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">_as_bytes</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span>
             <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">HyperLogLog</span><span class="p">(</span><span class="n">error_rate</span><span class="p">)</span><span class="o">.</span><span class="n">add_all</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
             <span class="k">lambda</span> <span class="n">hlls</span><span class="p">:</span> <span class="n">HyperLogLog</span><span class="p">(</span><span class="n">error_rate</span><span class="p">)</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="o">*</span><span class="n">hlls</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">card</span><span class="p">()</span></div>
@@ -1339,6 +1361,16 @@
         <span class="k">return</span> <span class="n">ShuffleReadingDataset</span><span class="p">(</span><span class="n">shuffle</span><span class="p">,</span> <span class="n">sort</span><span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="Dataset.coalesce_parts"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.coalesce_parts">[docs]</a>    <span class="k">def</span> <span class="nf">coalesce_parts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pcount</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Coalesce partitions into pcount partitions.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">pcount</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcount</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CoalescedDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pcount</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="Dataset.zip"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.zip">[docs]</a>    <span class="k">def</span> <span class="nf">zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        Zip the elements of another data set with the elements of this data set.</span>
@@ -1387,7 +1419,10 @@
 
         <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">fraction</span> <span class="o">&lt;</span> <span class="mi">1</span>
 
-        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">):</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
 
         <span class="n">sampling</span> <span class="o">=</span> <span class="n">sample_with_replacement</span> <span class="k">if</span> <span class="n">with_replacement</span> <span class="k">else</span> <span class="n">sample_without_replacement</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">sampling</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">fraction</span><span class="p">))</span></div>
@@ -1409,7 +1444,10 @@
         <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[]</span>
 
-        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seed</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">):</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">with_replacement</span><span class="p">)</span> <span class="ow">and</span> <span class="n">num</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="p">:</span>
             <span class="n">samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
@@ -1472,21 +1510,21 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="Dataset.collect_as_pickles"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_pickles">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_pickles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Dataset.collect_as_pickles"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_pickles">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_pickles</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        Collect each partition as a pickle file into directory</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">glom</span><span class="p">()</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">)</span><span class="o">.</span><span class="n">collect_as_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s1">&#39;.p&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">compress</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">glom</span><span class="p">()</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">)</span><span class="o">.</span><span class="n">collect_as_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s1">&#39;.p&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">compression</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Dataset.collect_as_json"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_json">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Dataset.collect_as_json"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_json">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        Collect each partition as a line separated json file into directory.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">)</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">linesep</span><span class="p">)</span><span class="o">.</span><span class="n">collect_as_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s1">&#39;.json&#39;</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="n">compress</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">)</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">linesep</span><span class="p">)</span><span class="o">.</span><span class="n">collect_as_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s1">&#39;.json&#39;</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="n">compression</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Dataset.collect_as_files"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_files">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="Dataset.collect_as_files"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.collect_as_files">[docs]</a>    <span class="k">def</span> <span class="nf">collect_as_files</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        Collect each element in this data set into a file into directory.</span>
 
@@ -1499,19 +1537,26 @@
 <span class="sd">        &#39;&#39;&#39;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">directory</span><span class="p">:</span>
             <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+        <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;mode should be t(ext) or b(inary)&#39;</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="c1"># compress if necessary</span>
-        <span class="k">if</span> <span class="n">compress</span> <span class="o">==</span> <span class="s1">&#39;gzip&#39;</span><span class="p">:</span>
-            <span class="n">ext</span> <span class="o">+=</span> <span class="s1">&#39;.gz&#39;</span>
+        <span class="k">if</span> <span class="n">compression</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;t&#39;</span><span class="p">:</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">compression</span> <span class="o">==</span> <span class="s1">&#39;gzip&#39;</span><span class="p">:</span>
+                <span class="n">ext</span> <span class="o">+=</span> <span class="s1">&#39;.gz&#39;</span>
+                <span class="n">compress</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">compress</span>
+            <span class="k">elif</span> <span class="n">compression</span> <span class="o">==</span> <span class="s1">&#39;lz4&#39;</span><span class="p">:</span>
+                <span class="n">ext</span> <span class="o">+=</span> <span class="s1">&#39;.lz4&#39;</span>
+                <span class="n">compress</span> <span class="o">=</span> <span class="n">lz4</span><span class="o">.</span><span class="n">compress</span>
+            <span class="k">elif</span> <span class="n">compression</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Only gzip and lz4 compression is supported&#39;</span><span class="p">)</span>
             <span class="c1"># compress concatenation of partition, not just each element</span>
             <span class="n">mode</span> <span class="o">=</span> <span class="s1">&#39;b&#39;</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">b</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">gzip</span><span class="o">.</span><span class="n">compress</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">compress</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Only gzip compression is supported&#39;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">b</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span>
         <span class="c1"># add an index to the partitions (for in the filename)</span>
         <span class="n">with_idx</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_partitions_with_index</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idx</span><span class="p">,</span> <span class="n">part</span><span class="p">:</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">ensure_collection</span><span class="p">(</span><span class="n">part</span><span class="p">)))</span>
         <span class="c1"># save each partition to a file</span>
@@ -1537,17 +1582,14 @@
         <span class="n">result</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>  <span class="c1"># filter out empty parts</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">parts</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># chain the parts into a big iterable</span>
-        <span class="k">yield from</span> <span class="n">result</span></div>
+        <span class="k">return</span> <span class="n">result</span></div>
 
 
 <div class="viewcode-block" id="Dataset.first"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.first">[docs]</a>    <span class="k">def</span> <span class="nf">first</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">        Take the first element from this dataset.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        <span class="n">taker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">itake</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">first</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">taker</span><span class="p">)</span>
-        <span class="n">taker</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">first</span></div>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">itake</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="Dataset.take"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.Dataset.take">[docs]</a>    <span class="k">def</span> <span class="nf">take</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
@@ -1581,7 +1623,7 @@
         <span class="n">mask</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
         <span class="n">pcount</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
         <span class="k">while</span> <span class="n">mask</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">pcount</span><span class="p">:</span>
-            <span class="n">masked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_partitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">parts</span><span class="p">:</span> <span class="n">parts</span><span class="p">[</span><span class="n">mask</span><span class="p">])</span>
+            <span class="n">masked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask_partitions</span><span class="p">(</span><span class="k">lambda</span> <span class="n">part</span><span class="p">:</span> <span class="n">mask</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;=</span> <span class="n">part</span><span class="o">.</span><span class="n">idx</span> <span class="o">&lt;</span> <span class="n">mask</span><span class="o">.</span><span class="n">stop</span><span class="p">)</span>
             <span class="n">done</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">masked</span><span class="o">.</span><span class="n">_schedule</span><span class="p">())</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
@@ -1641,10 +1683,12 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
 
+        <span class="n">cached</span> <span class="o">=</span> <span class="kc">False</span>
+
         <span class="k">while</span> <span class="n">stack</span><span class="p">:</span>
             <span class="n">d</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+            <span class="n">cached</span> <span class="o">=</span> <span class="n">cached</span> <span class="ow">or</span> <span class="nb">bool</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">cached</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">_cache_locs</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">sync_required</span><span class="p">:</span>
-                <span class="n">cached</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">cached</span> <span class="ow">and</span> <span class="n">d</span><span class="o">.</span><span class="n">_cache_locs</span>
                 <span class="n">groups</span><span class="p">,</span> <span class="n">dependencies</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">_generate_tasks</span><span class="p">(</span><span class="n">tasks</span><span class="p">,</span> <span class="n">group</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">groups</span><span class="p">,</span> <span class="n">group</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
                 <span class="n">barrier</span> <span class="o">=</span> <span class="n">BarrierTask</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">dependencies</span><span class="p">)),</span> <span class="n">group</span><span class="o">=</span><span class="s1">&#39;hidden&#39;</span><span class="p">)</span>
                 <span class="n">tasks</span><span class="p">[</span><span class="n">barrier</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">barrier</span>
@@ -1747,7 +1791,7 @@
         <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_provider</span><span class="p">,</span> <span class="n">dset_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">):</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">clear</span><span class="p">(</span><span class="n">dset_id</span><span class="p">)</span>
 
-        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">worker</span><span class="o">.</span><span class="n">execute</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">workers</span><span class="p">]</span>
+        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">worker</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">workers</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">timeout</span><span class="p">:</span>
             <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task</span><span class="o">.</span><span class="n">with_timeout</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
         <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">task</span><span class="p">(</span><span class="n">clear</span><span class="p">)</span> <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">]</span>
@@ -1846,7 +1890,7 @@
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Using remote cache for </span><span class="si">%r</span><span class="s1"> on </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">cache_loc</span><span class="p">)</span>
                     <span class="n">peer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">peers</span><span class="p">[</span><span class="n">cache_loc</span><span class="p">]</span>
-                    <span class="k">return</span> <span class="n">peer</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">_cache_provider</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                    <span class="k">return</span> <span class="n">peer</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">_cache_provider</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">idx</span><span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                 <span class="k">pass</span>
             <span class="k">except</span> <span class="n">NotConnected</span><span class="p">:</span>
@@ -1946,7 +1990,7 @@
                 <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="n">forbidden</span><span class="p">:</span>
                     <span class="k">yield</span> <span class="n">worker</span><span class="p">,</span> <span class="n">FORBIDDEN</span>
                     <span class="k">try</span><span class="p">:</span>
-                        <span class="n">localities</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span>
+                        <span class="k">del</span> <span class="n">localities</span><span class="p">[</span><span class="n">worker</span><span class="p">]</span>
                     <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                         <span class="k">pass</span>
                 <span class="n">src_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">)</span>
@@ -2007,7 +2051,7 @@
 
 
     <span class="k">def</span> <span class="nf">parts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
+        <span class="k">return</span> <span class="nb">filter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
 
 
 
@@ -2050,6 +2094,11 @@
 
 
 <div class="viewcode-block" id="CartesianProductDataset"><a class="viewcode-back" href="../../../reference/compute/dataset.html#bndl.compute.dataset.CartesianProductDataset">[docs]</a><span class="k">class</span> <span class="nc">CartesianProductDataset</span><span class="p">(</span><span class="n">_MultiSourceDataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">product</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
+
+
     <span class="k">def</span> <span class="nf">product</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="o">*</span><span class="n">others</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">CartesianProductDataset</span><span class="p">((</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">+</span> <span class="n">others</span><span class="p">)</span>
 
@@ -2057,13 +2106,59 @@
     <span class="k">def</span> <span class="nf">parts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">part_pairs</span> <span class="o">=</span> <span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">parts</span><span class="p">()</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">))</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">CartesianProductPartition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">parts</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">parts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">part_pairs</span><span class="p">)]</span></div>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">parts</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">part_pairs</span><span class="p">)]</span>
+
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__getstate__</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">[</span><span class="s1">&#39;func&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">)</span></div>
 
 
 
 <span class="k">class</span> <span class="nc">CartesianProductPartition</span><span class="p">(</span><span class="n">Partition</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">_compute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">yield from</span> <span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="nb">list</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span> <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">))</span>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">dset</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="nb">tuple</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span> <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">))</span>
+
+
+
+<span class="k">class</span> <span class="nc">CoalescedDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">pcount</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">pcount</span> <span class="o">&gt;=</span> <span class="mi">1</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">src</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pcount</span> <span class="o">=</span> <span class="n">pcount</span>
+
+
+    <span class="k">def</span> <span class="nf">parts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">src_parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="o">.</span><span class="n">parts</span><span class="p">())</span>
+
+        <span class="n">step</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">src_parts</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">pcount</span>
+        <span class="k">assert</span> <span class="n">step</span> <span class="o">&gt;</span> <span class="mf">0.5</span>
+
+        <span class="n">batches</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pcount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">batches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">src_parts</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">offset</span><span class="p">):</span><span class="nb">int</span><span class="p">(</span><span class="n">offset</span> <span class="o">+</span> <span class="n">step</span><span class="p">)])</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">step</span>
+
+        <span class="n">remainder</span> <span class="o">=</span> <span class="n">src_parts</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">offset</span><span class="p">):]</span>
+        <span class="k">if</span> <span class="n">remainder</span><span class="p">:</span>
+            <span class="n">batches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">remainder</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">CoalescedPartition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">batches</span><span class="p">)]</span>
+
+
+
+<span class="k">class</span> <span class="nc">CoalescedPartition</span><span class="p">(</span><span class="n">Partition</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_compute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">src</span><span class="p">:</span>
+            <span class="k">yield from</span> <span class="n">src</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
 
 
 
@@ -2094,10 +2189,7 @@
 
 
     <span class="k">def</span> <span class="nf">_pickle_funcs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_funcs</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">funcs</span><span class="p">)</span>
-        <span class="k">except</span> <span class="p">(</span><span class="n">pickle</span><span class="o">.</span><span class="n">PicklingError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_funcs</span> <span class="o">=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">funcs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_funcs</span> <span class="o">=</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">funcs</span><span class="p">)</span>
 
 
     <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2264,7 +2356,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

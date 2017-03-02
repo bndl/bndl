@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>BNDL Documentation &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>BNDL Documentation &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
         <link rel="copyright" title="Copyright" href="copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="#"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="#"/>
         <link rel="next" title="Installation" href="install.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -157,7 +157,7 @@ implemented in python (with a bit of cython).</p>
 BNDL workers and <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code> to start workers seperately (e.g. throughout the
 cluster).</p>
 <p>Obtain a <em>compute context</em> in python scripts by importing <code class="docutils literal"><span class="pre">ctx</span></code> from <code class="docutils literal"><span class="pre">bndl.compute.run</span></code>:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bndl.compute</span> <span class="k">import</span> <span class="n">ctx</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span><span class="o">.</span><span class="n">stats</span><span class="p">())</span>
 </pre></div>
 </div>
@@ -262,7 +262,7 @@ is <a class="reference internal" href="usage/compute/index.html"><span class="do
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

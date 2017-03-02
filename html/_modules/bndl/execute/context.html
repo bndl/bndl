@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>bndl.execute.context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>bndl.execute.context &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../../genindex.html"/>
         <link rel="search" title="Search" href="../../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../../index.html"/>
         <link rel="up" title="Module code" href="../../index.html"/> 
 
   
@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -143,9 +143,22 @@
            <div itemprop="articleBody">
             
   <h1>Source code for bndl.execute.context</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span></span><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">queue</span> <span class="k">import</span> <span class="n">Queue</span>
 <span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Thread</span>
+<span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
@@ -156,8 +169,9 @@
 <span class="kn">from</span> <span class="nn">bndl.util</span> <span class="k">import</span> <span class="n">plugins</span>
 <span class="kn">from</span> <span class="nn">bndl.util.conf</span> <span class="k">import</span> <span class="n">Config</span>
 <span class="kn">from</span> <span class="nn">bndl.util.exceptions</span> <span class="k">import</span> <span class="n">catch</span>
-<span class="kn">from</span> <span class="nn">bndl.util.lifecycle</span> <span class="k">import</span> <span class="n">Lifecycle</span>
 <span class="kn">from</span> <span class="nn">bndl.util.funcs</span> <span class="k">import</span> <span class="n">as_method</span>
+<span class="kn">from</span> <span class="nn">bndl.util.lifecycle</span> <span class="k">import</span> <span class="n">Lifecycle</span>
+<span class="kn">from</span> <span class="nn">bndl.util.aio</span> <span class="k">import</span> <span class="n">run_coroutine_threadsafe</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
@@ -174,13 +188,13 @@
 <span class="sd">    &#39;&#39;&#39;</span>
     <span class="n">instances</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">()):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Make sure the BNDL plugins are loaded</span>
         <span class="n">plugins</span><span class="o">.</span><span class="n">load_plugins</span><span class="p">()</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_node</span> <span class="o">=</span> <span class="n">node</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conf</span> <span class="o">=</span> <span class="n">config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conf</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">config</span> <span class="k">else</span> <span class="n">Config</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">signal_start</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instances</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -338,7 +352,7 @@
 <span class="sd">              stable if at least twice the maximum interval between the</span>
 <span class="sd">              connects has passed or 1 second, whichever is longer.</span>
 <span class="sd">            &#39;&#39;&#39;</span>
-            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
             <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
             <span class="n">recent_connects</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">connected_on</span> <span class="k">for</span> <span class="n">worker</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span>
                                      <span class="k">if</span> <span class="n">worker</span><span class="o">.</span><span class="n">connected_on</span> <span class="o">&gt;</span> <span class="n">stable_max_lookback</span><span class="p">)</span>
@@ -354,21 +368,32 @@
 
         <span class="k">def</span> <span class="nf">worker_count_consistent</span><span class="p">():</span>
             <span class="sd">&#39;&#39;&#39;Check if the workers all see each other&#39;&#39;&#39;</span>
-            <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
-            <span class="n">tasks</span> <span class="o">=</span> <span class="p">[(</span><span class="n">w</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">_num_connected</span><span class="p">))</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">]</span>
-            <span class="n">actual</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">expected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="n">tasks</span> <span class="o">=</span> <span class="p">[(</span><span class="n">w</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">service</span><span class="p">(</span><span class="s1">&#39;tasks&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">_num_connected</span><span class="p">))</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">]</span>
+            <span class="n">deadline</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">connect_timeout</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="n">consistent</span> <span class="o">=</span> <span class="kc">True</span>
             <span class="k">for</span> <span class="n">worker</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">tasks</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">actual</span> <span class="o">+=</span> <span class="n">task</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                    <span class="n">timeout</span> <span class="o">=</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">timeout</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="kc">False</span>
+                    <span class="n">actual</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">result</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">actual</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
+                        <span class="n">consistent</span> <span class="o">=</span> <span class="kc">False</span>
+                        <span class="n">run_coroutine_threadsafe</span><span class="p">(</span>
+                            <span class="n">worker</span><span class="o">.</span><span class="n">notify_discovery</span><span class="p">([(</span><span class="n">w</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">addresses</span><span class="p">)</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">]),</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">loop</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
                 <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t get connected worker count from </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">expected</span> <span class="o">==</span> <span class="n">actual</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Couldn&#39;t get connected worker count&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="n">consistent</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">return</span> <span class="n">consistent</span>
 
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">worker_count</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">worker_count</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">worker_count</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">connected_deadline</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;no workers available&#39;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
@@ -376,23 +401,27 @@
 
                 <span class="k">if</span> <span class="n">stable</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="n">recent_connects</span><span class="p">:</span>
-                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+                        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
                     <span class="k">elif</span> <span class="n">recent_connects</span><span class="p">:</span>
                         <span class="k">if</span> <span class="n">worker_count_consistent</span><span class="p">():</span>
-                            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+                            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">stable_deadline</span><span class="p">:</span>
-                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Worker count not stable after </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">stable_timeout</span><span class="p">)</span>
-                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker_count</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Worker count not stable after </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">stable_timeout</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
 
-                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">step_sleep</span><span class="p">)</span>
-                <span class="n">step_sleep</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">step_sleep</span> <span class="o">*</span> <span class="mf">1.5</span><span class="p">)</span></div>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">step_sleep</span><span class="p">)</span>
+            <span class="n">step_sleep</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">connect_timeout</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span> <span class="n">step_sleep</span> <span class="o">*</span> <span class="mf">1.5</span><span class="p">)</span></div>
 
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">worker_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&#39;&#39;&#39;The number of workers connected with&#39;&#39;&#39;</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
+        <span class="n">wc</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">workers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">wc</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">wc</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
 
 
     <span class="nd">@property</span>
@@ -460,7 +489,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Compute Context &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>Compute Context &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../../genindex.html"/>
         <link rel="search" title="Search" href="../../search.html"/>
         <link rel="copyright" title="Copyright" href="../../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../../index.html"/>
         <link rel="up" title="Compute" href="index.html"/>
         <link rel="next" title="Datasets and partitions" href="dataset.html"/>
         <link rel="prev" title="Compute" href="index.html"/> 
@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -165,18 +165,11 @@
 <span id="compute-context"></span><h1>Compute Context<a class="headerlink" href="#module-bndl.compute.context" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="bndl.compute.context.ComputeContext">
-<em class="property">class </em><code class="descclassname">bndl.compute.context.</code><code class="descname">ComputeContext</code><span class="sig-paren">(</span><em>node</em>, <em>config=&lt;Conf {}&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">bndl.compute.context.</code><code class="descname">ComputeContext</code><span class="sig-paren">(</span><em>node</em>, <em>config=None</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/context.html#ComputeContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.context.ComputeContext" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="../execute.html#bndl.execute.context.ExecutionContext" title="bndl.execute.context.ExecutionContext"><code class="xref py py-class docutils literal"><span class="pre">bndl.execute.context.ExecutionContext</span></code></a></p>
 <p><a class="reference internal" href="#bndl.compute.context.ComputeContext" title="bndl.compute.context.ComputeContext"><code class="xref py py-class docutils literal"><span class="pre">ComputeContext</span></code></a> is the main &#8216;handle&#8217; into a cluster of BNDL workers from the &#8216;driver&#8217; node.</p>
 <p>It provides a means to create partitioned distributed data sets (which can be then transformed and
 combined), broadcast data, create accumulators to collect data into, etc.</p>
-<dl class="attribute">
-<dt id="bndl.compute.context.ComputeContext.dense">
-<code class="descname">dense</code><a class="headerlink" href="#bndl.compute.context.ComputeContext.dense" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create numpy based distributed, partitioned, dense arrays. See
-<a class="reference internal" href="#bndl.compute.dense.arrays" title="bndl.compute.dense.arrays"><code class="xref py py-class docutils literal"><span class="pre">dense.arrays</span></code></a>.</p>
-</dd></dl>
-
 <dl class="attribute">
 <dt id="bndl.compute.context.ComputeContext.default_pcount">
 <code class="descname">default_pcount</code><a class="headerlink" href="#bndl.compute.context.ComputeContext.default_pcount" title="Permalink to this definition">¶</a></dt>
@@ -257,7 +250,7 @@ set when psize is set.</p>
 </tbody>
 </table>
 <p>Example:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute</span> <span class="k">import</span> <span class="n">ctx</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">accum</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">accumulator</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">mapper</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
 <span class="gp">... </span>    <span class="k">global</span> <span class="n">accum</span>
@@ -362,83 +355,6 @@ requires root to be a str.</li>
 
 </dd></dl>
 
-<div class="admonition-todo admonition" id="index-0">
-<p class="first admonition-title">Todo</p>
-<p class="last">The members of dense.sources still don&#8217;t show signature but they are methods. Their signatures
-<em>are</em> rendered correctly in ipython with e.g. <cite>ctx.dense.array?`and also `help(ctx.dense.array)</cite>
-does an okay job ...</p>
-</div>
-<dl class="class">
-<dt id="bndl.compute.dense.arrays">
-<em class="property">class </em><code class="descclassname">bndl.compute.dense.</code><code class="descname">arrays</code><span class="sig-paren">(</span><em>extended</em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/bndl/compute/dense.html#arrays"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bndl.compute.dense.arrays" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">bndl.util.objects.ExtensionGroup</span></code></p>
-<p>Create numpy based distributed, partitioned, dense arrays.</p>
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.random">
-<code class="descname">random</code><a class="headerlink" href="#bndl.compute.dense.arrays.random" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.array">
-<code class="descname">array</code><a class="headerlink" href="#bndl.compute.dense.arrays.array" title="Permalink to this definition">¶</a></dt>
-<dd><p>Distribute a numpy array across pcount partitions or in psize partitions. Note that the array
-is partitioned along axis 0.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>arr</strong> (<em>np.ndarray</em>) &#8211; The array to partition and distribute.</li>
-<li><strong>pcount</strong> (<em>int or None</em>) &#8211; The number of partitions.</li>
-<li><strong>psize</strong> (<em>int or None</em>) &#8211; The maximum size of the partitions.</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.range">
-<code class="descname">range</code><a class="headerlink" href="#bndl.compute.dense.arrays.range" title="Permalink to this definition">¶</a></dt>
-<dd><p>A distributed and partitioned <cite>np.arange</cite> like data set.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>start</strong> (<em>int</em>) &#8211; The start or stop value (if no stop value is given).</li>
-<li><strong>stop</strong> (<em>int</em>) &#8211; The stop value or None if start is the stop value.</li>
-<li><strong>step</strong> (<em>int</em>) &#8211; The step between each value in the range.</li>
-<li><strong>dtype</strong> &#8211; The type of the elements in the array.</li>
-<li><strong>pcount</strong> (<em>int</em>) &#8211; The number of partitions to partition the range into.</li>
-</ul>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.empty">
-<code class="descname">empty</code><a class="headerlink" href="#bndl.compute.dense.arrays.empty" title="Permalink to this definition">¶</a></dt>
-<dd><p>A distributed and partitioned version of <cite>np.empty</cite>.</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.zeros">
-<code class="descname">zeros</code><a class="headerlink" href="#bndl.compute.dense.arrays.zeros" title="Permalink to this definition">¶</a></dt>
-<dd><p>A distributed and partitioned version of <cite>np.zeros</cite>.</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="bndl.compute.dense.arrays.ones">
-<code class="descname">ones</code><a class="headerlink" href="#bndl.compute.dense.arrays.ones" title="Permalink to this definition">¶</a></dt>
-<dd><p>A distributed and partitioned version of <cite>np.ones</cite>.</p>
-</dd></dl>
-
-</dd></dl>
-
 </div>
 
 
@@ -482,7 +398,7 @@ is partitioned along axis 0.</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

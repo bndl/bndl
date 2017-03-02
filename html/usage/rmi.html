@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Remote Method Invocation &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>Remote Method Invocation &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="../genindex.html"/>
         <link rel="search" title="Search" href="../search.html"/>
         <link rel="copyright" title="Copyright" href="../copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="../index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="../index.html"/>
         <link rel="up" title="Usage" href="index.html"/>
         <link rel="next" title="Networking" href="net.html"/>
         <link rel="prev" title="Execute" href="execute.html"/> 
@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -168,7 +168,7 @@ receiving the invocation. To execute arbitrary functions on the remote node run 
 in the cluster from the <code class="docutils literal"><span class="pre">bndl.compute</span></code> or <code class="docutils literal"><span class="pre">bndl.execute</span></code> modules; e.g. by running the
 <code class="docutils literal"><span class="pre">bndl-compute-shell</span></code> or <code class="docutils literal"><span class="pre">bndl-compute-workers</span></code> commands. Such nodes provide the
 <code class="docutils literal"><span class="pre">execute(...)`</span></code> method, e.g.:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute.run</span> <span class="k">import</span> <span class="n">ctx</span>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">bndl.compute</span> <span class="k">import</span> <span class="n">ctx</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">await_workers</span><span class="p">()</span>
 <span class="go">4</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">workers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="mi">42</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
@@ -244,7 +244,7 @@ concurrent.futures._base.TimeoutError
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

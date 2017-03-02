@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Change log &mdash; BNDL 0.3.5.dev1 documentation</title>
+  <title>Change log &mdash; BNDL 0.5.1.dev2 documentation</title>
   
 
   
@@ -34,7 +34,7 @@
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
         <link rel="copyright" title="Copyright" href="copyright.html"/>
-    <link rel="top" title="BNDL 0.3.5.dev1 documentation" href="index.html"/>
+    <link rel="top" title="BNDL 0.5.1.dev2 documentation" href="index.html"/>
         <link rel="next" title="Development" href="development/index.html"/>
         <link rel="prev" title="Copyright" href="copyright.html"/> 
 
@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.3
+                0.5
               </div>
             
           
@@ -146,7 +146,60 @@
   <div class="section" id="change-log">
 <h1>Change log<a class="headerlink" href="#change-log" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="id1">
-<h2>0.3.3<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<h2>0.5.0<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>Introduced a node (supervisor) global memory management</li>
+<li>Use new memory management system in shuffle spilling</li>
+<li>Improve (prevent) node-local transmission of files on disk</li>
+<li>Introduced (internal) concept of RMI services</li>
+<li>Use TCP_NODELAY</li>
+<li>Various bug fixes and tweaks</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="id2">
+<h2>0.4.0<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>Expose pcount on Dataset</li>
+<li>Added basic coalescing of Partitions</li>
+<li>mask_partitions signature changed</li>
+<li>Distributed arrays support moved out of core bndl.compute into bndl-array</li>
+<li>Various bug fixes and tweaks</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="id3">
+<h2>0.3.5<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>Moved hyperloglog and cycloudpickle out of BNDL</li>
+<li>Default OMP_NUM_THREADS to 2 to ensure a limited number of threads per worker are started</li>
+<li>Bug in shuffle (introduced in 0.3.3) caused dependency rescheduling to fail</li>
+<li>Improved shuffle stability and performance</li>
+<li>Change working directory name pattern / path to avoid issues with multiple users</li>
+<li>Removed numpy as dependency for setup.py to run</li>
+<li>Faster file reads when running workers locally without setting location=workers</li>
+<li>Improved tree_aggregate (and friends)</li>
+<li>Introduced global configuration object</li>
+<li>Support pinning workers on cores / NUMA zones</li>
+<li>Use jemalloc if available in workers</li>
+<li>Use uvloop on Python 3.5 and up</li>
+<li>Various bug fixes and tweaks</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="id4">
+<h2>0.3.4<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>Expose test modules in sdist</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="id5">
+<h2>0.3.3<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h2>
 <blockquote>
 <div><ul class="simple">
 <li>Optimizations task/partition IO for shuffles</li>
@@ -156,8 +209,8 @@
 </ul>
 </div></blockquote>
 </div>
-<div class="section" id="id2">
-<h2>0.3.2<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id6">
+<h2>0.3.2<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h2>
 <blockquote>
 <div><ul class="simple">
 <li>Initial documentation setup</li>
@@ -208,7 +261,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'0.3.5.dev1',
+            VERSION:'0.5.1.dev2',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true
