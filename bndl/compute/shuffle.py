@@ -227,7 +227,7 @@ class SortedBucket(ListBucket):
                 b.sort(key=self.key)
             return merge_sorted(*batches, key=self.key)
         else:
-            self.sort()
+            self.sort(key=self.key)
             return list.__iter__(self)
 
 
