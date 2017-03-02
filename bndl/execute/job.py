@@ -149,8 +149,10 @@ class Task(Lifecycle):
         if not self.done:
             future = self.future = Future()
             future.set_result(result)
+            if not self.stopped_on:
+                self.stopped_on = datetime.now()
             if not self.started_on:
-                self.started_on = datetime.now()
+                self.started_on = self.stopped_on
             self.signal_stop()
 
 
