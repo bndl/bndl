@@ -1526,9 +1526,11 @@ class Dataset(object):
             yield task.result()
 
 
-    def _generate_tasks(self, tasks, group, groups):
+    def _generate_tasks(self, tasks, group, groups, mark_done=False):
         dset_tasks = [ComputePartitionTask(part, group=group)
                       for part in self.parts()]
+
+        mark_done = mark_done or self._cache_available
 
         stack = deque()
         src = self.src
@@ -1538,13 +1540,13 @@ class Dataset(object):
             else:
                 stack.append(src)
 
-        cached = False
-
         while stack:
             d = stack.popleft()
-            cached = cached or bool(d.cached and d._cache_locs)
+            mark_done = mark_done or d._cache_available
             if d.sync_required:
-                groups, dependencies = d._generate_tasks(tasks, group + 1, max(groups, group + 1))
+                groups, dependencies = d._generate_tasks(tasks, group + 1,
+                                                         max(groups, group + 1),
+                                                         mark_done=mark_done)
                 barrier = BarrierTask(d.ctx, (d.id, len(dependencies)), group='hidden')
                 tasks[barrier.id] = barrier
                 barrier.dependents = dset_tasks
@@ -1553,7 +1555,7 @@ class Dataset(object):
                     task.dependencies.append(barrier)
                 for dependency in dependencies:
                     dependency.dependents.append(barrier)
-                    if cached:
+                    if mark_done:
                         dependency.mark_done()
             else:
                 d_src = d.src
@@ -1634,6 +1636,11 @@ class Dataset(object):
     @property
     def cached(self):
         return bool(self._cache_provider)
+
+
+    @property
+    def _cache_available(self):
+        return bool(self.cached and self._cache_locs)
 
 
     def uncache(self, block=False, timeout=None):
