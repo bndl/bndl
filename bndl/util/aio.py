@@ -195,7 +195,7 @@ def readexactly(self, n):
     pos = 0
 
     while n:
-        if not self._buffer:
+        if not self._eof and not self._buffer:
             yield from self._wait_for_data('readexactly')
 
         if self._eof or not self._buffer:
