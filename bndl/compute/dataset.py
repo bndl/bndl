@@ -371,6 +371,7 @@ class Dataset(object):
             >>> ctx.range(5).key_by(lambda i: string.ascii_lowercase[i]).collect()
             [('a', 0), ('b', 1), ('c', 2), ('d', 3), ('e', 4)]
         '''
+        key = key_or_getter(key)
         return self.map_partitions(lambda p: ((key(e), e) for e in p))
 
 
@@ -884,7 +885,6 @@ class Dataset(object):
             [(0, [0, 6, 8, 4, 2]), (1, [1, 3, 7, 9, 5])]
 
         '''
-        key = key_or_getter(key)
         return (self.key_by(key)
                     .group_by_key(partitioner=partitioner, pcount=pcount, **shuffle_opts)
                     .map_values(list))
