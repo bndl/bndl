@@ -246,10 +246,6 @@ class Node(IOTasks):
                         logger.debug('already connected with %s, closing new connection %s', peer.name, known_peer.conn)
                         yield from peer.disconnect(reason='already connected, old connection wins')
                         return False
-                    else:
-                        # new connection wins
-                        logger.debug('already connected with %s, closing old connection %s', peer.name, known_peer.conn)
-                        yield from known_peer.disconnect(reason='already connected, new connection wins')
 
                 if known_peer.name != peer.name:
                     with catch(KeyError):
