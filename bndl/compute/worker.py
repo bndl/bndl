@@ -117,6 +117,8 @@ def run_workers():
         worker_args += ['--listen-addresses'] + args.listen_addresses
     if args.seeds:
         worker_args += ['--seeds'] + args.seeds
+    elif args.listen_addresses:
+        worker_args += ['--seeds'] + args.listen_addresses
 
     superv = WorkerSupervisor.from_args(args, worker_args)
     superv.start()
