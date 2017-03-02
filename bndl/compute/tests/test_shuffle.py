@@ -78,6 +78,36 @@ class ShuffleTest(DatasetTest):
 
 
 
+class ShuffleCacheTest(DatasetTest):
+    worker_count = 3
+
+    def test_shuffle_cache(self):
+        def mapper(ctr, i):
+            ctr += i
+            return i
+        ctr1 = self.ctx.accumulator(0)
+        ctr2 = self.ctx.accumulator(0)
+
+        dset = (self.ctx
+            .range(10)
+            .map(mapper, ctr1)
+            .shuffle()
+            .cache()
+            .map(mapper, ctr2)
+            .shuffle()
+        )
+
+        self.assertEquals(dset.count(), 10)
+        self.assertEquals(ctr1.value, 45)
+        self.assertEquals(ctr2.value, 45)
+
+        self.assertEquals(dset.count(), 10)
+        self.assertEquals(ctr1.value, 45)
+        self.assertEquals(ctr2.value, 90)
+
+
+
+
 class ShuffleFailureTest(DatasetTest):
     worker_count = 20
 
