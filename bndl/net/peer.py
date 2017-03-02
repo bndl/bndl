@@ -13,7 +13,6 @@
 from asyncio.futures import CancelledError
 from datetime import datetime
 import asyncio
-import atexit
 import concurrent.futures
 import errno
 import logging
@@ -22,6 +21,7 @@ from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
 from bndl.util import aio
+from bndl.util.aio import IOTasks
 from bndl.util.exceptions import catch
 
 
@@ -66,8 +66,10 @@ class PeerTable(dict):
                 pass
 
 
-class PeerNode(object):
+class PeerNode(IOTasks):
     def __init__(self, loop, local, addresses=(), name=None, node_type=None, cluster=None):
+        super().__init__()
+
         self.loop = loop
         self.local = local
         self.addresses = addresses
@@ -79,11 +81,8 @@ class PeerNode(object):
         self.server = None
         self.connected_on = None
         self.disconnected_on = None
-        self._iotasks = set()
         self.last_rx = datetime.now()
         self.last_tx = datetime.now()
-
-        atexit.register(self._stop_tasks)
 
 
     def ip_addresses(self):
@@ -131,12 +130,14 @@ class PeerNode(object):
     def connect(self):
         if self.is_connected:
             return
-
-        connected = False
-        for address in self.addresses:
-            connected = (yield from self._connect(address))
-            if connected:
-                break
+        try:
+            connected = False
+            for address in self.addresses:
+                connected = (yield from self._connect_to(address))
+                if connected:
+                    break
+        except (asyncio.futures.CancelledError, GeneratorExit):
+            logger.info('Connect aborted')
 
 
     def disconnect_async(self, reason='', active=True):
@@ -149,24 +150,12 @@ class PeerNode(object):
             return fut
 
 
-    def _stop_tasks(self):
-        # cancel any pending io work
-        for task in list(self._iotasks):
-            with catch():
-                task.cancel()
-        self._iotasks.clear()
-
-        # close the servers
-        if self.server:
-            with catch():
-                self.server.cancel()
-
-
     @asyncio.coroutine
     def disconnect(self, reason='', active=True):
         logger.info('%s (local) disconnected from %s (remote) with reason: %s (%s disconnect)',
                     self.local.name, self.name, reason,
                     'active' if active and self.is_connected else 'passive')
+
         # possibly notify the other end
         if active and self.is_connected:
             with catch():
@@ -194,7 +183,7 @@ class PeerNode(object):
 
 
     @asyncio.coroutine
-    def _connect(self, arg):
+    def _connect_to(self, arg):
         with (yield from self.handshake_lock):
             if self.is_connected:
                 return
@@ -268,7 +257,7 @@ class PeerNode(object):
 
 
     @asyncio.coroutine
-    def _connected(self, connection):
+    def connected(self, connection):
         logger.info('%s connected', connection)
 
         self.conn = connection
@@ -280,7 +269,7 @@ class PeerNode(object):
                 logger.warning('receiving hello timed out from %s', self.conn.peername())
                 yield from self.disconnect(reason='hello timed out')
             except NotConnected:
-                logger.warning('connection closed before receiving hello from %s', self.conn.peername())
+                logger.info('connection closed before receiving hello from %s', self.conn.peername())
                 yield from self.disconnect(reason='connection closed')
             except Exception as exc:
                 logger.exception('unable to read hello from %s', self.conn.peername())
@@ -328,7 +317,10 @@ class PeerNode(object):
         if not self.is_connected:
             return
 
-        yield from self.local._peer_connected(self)
+        allowed = (yield from self.local._peer_connected(self))
+
+        if allowed and not self.is_connected:
+            print('shouldn\'t been disconnected')
 
         if self.is_connected:
             logger.info('serving connection for %s (local) with %s (remote) on %s',
@@ -358,9 +350,7 @@ class PeerNode(object):
                 yield from self.disconnect('unexpected error: ' + str(exc), active=False)
                 break
 
-            task = self.loop.create_task(self._dispatch(msg))
-            self._iotasks.add(task)
-            task.add_done_callback(self._iotasks.discard)
+            self._create_task(self._dispatch(msg))
 
         logger.info('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()

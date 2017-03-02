@@ -12,7 +12,6 @@
 
 from asyncio.futures import CancelledError
 import asyncio
-import atexit
 import concurrent.futures
 import errno
 import itertools
@@ -25,7 +24,7 @@ from bndl.net.connection import urlparse, Connection, filter_ip_addresses
 from bndl.net.peer import PeerNode, PeerTable
 from bndl.net.watchdog import Watchdog
 from bndl.util import aio
-from bndl.util.aio import get_loop
+from bndl.util.aio import get_loop, IOTasks
 from bndl.util.exceptions import catch
 from bndl.util.strings import camel_to_snake
 
@@ -36,12 +35,14 @@ logger = logging.getLogger(__name__)
 NOTIFY_KNOWN_PEERS_WAIT = 1
 
 
-class Node(object):
+class Node(IOTasks):
     PeerNode = PeerNode
 
     _nodeids = {}
 
     def __init__(self, name=None, addresses=None, seeds=None, cluster='default', loop=None):
+        super().__init__()
+
         self.loop = loop or get_loop()
         self.node_type = camel_to_snake(self.__class__.__name__)
 
@@ -68,9 +69,6 @@ class Node(object):
 
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None
-        self._iotasks = set()
-
-        atexit.register(self._stop_tasks)
 
 
     @property
@@ -130,11 +128,7 @@ class Node(object):
                 self._watchdog.stop()
                 self._watchdog = None
 
-        # cancel any pending io work
-        for task in list(self._iotasks):
-            with catch(RuntimeError, log_level=logging.WARNING):
-                task.cancel()
-        self._iotasks.clear()
+        super()._stop_tasks()
 
         # close the servers
         for server in self.servers.values():
@@ -194,7 +188,6 @@ class Node(object):
             self.servers[address] = server
 
 
-
     @asyncio.coroutine
     def _discovered(self, src, discovery):
         for name, addresses in discovery.peers:
@@ -209,13 +202,11 @@ class Node(object):
 
 
     @asyncio.coroutine
-    def serve(self, reader, writer, init=False):
+    def serve(self, reader, writer):
         try:
             conn = Connection(self.loop, reader, writer)
             peer = self.PeerNode(self.loop, self)
-            connect = peer._connect if init else \
-                      peer._connected
-            yield from connect(conn)
+            yield from peer.connected(conn)
         except GeneratorExit:
             conn.close()
         except Exception:
@@ -231,7 +222,7 @@ class Node(object):
                 # don't allow connection loops
                 logger.debug('self connect attempt of %s', peer.name)
                 yield from peer.disconnect(reason='self connect')
-                return
+                return False
 
             known_peer = self.peers.get(peer.name)
             if not known_peer:
@@ -254,7 +245,7 @@ class Node(object):
                         # existing connection wins
                         logger.debug('already connected with %s, closing new connection %s', peer.name, known_peer.conn)
                         yield from peer.disconnect(reason='already connected, old connection wins')
-                        return
+                        return False
                     else:
                         # new connection wins
                         logger.debug('already connected with %s, closing old connection %s', peer.name, known_peer.conn)
@@ -268,9 +259,7 @@ class Node(object):
 
         # notify others of the new peer
         if peer.cluster:
-            task = self.loop.create_task(self._notifiy_peers(peer))
-            self._iotasks.add(task)
-            task.add_done_callback(self._iotasks.discard)
+            self._create_task(self._notifiy_peers(peer))
 
         return True
 
