@@ -283,14 +283,14 @@ def _batch_files(filesizes, psize_bytes, psize_files, split):
                     try:
                         with mmap.mmap(fd, filesize, access=mmap.ACCESS_READ) as mm:
                             while offset < filesize:
-                                split = mm.rfind(sep, offset, offset + space) + 1
-                                if split == 0:
+                                split = mm.rfind(sep, offset, offset + space) + sep_len
+                                if split < sep_len:
                                     if batch:
                                         new_batch()
                                         continue
                                     else:
-                                        split = mm.find(sep, offset) + 1
-                                        if split == 0:
+                                        split = mm.find(sep, offset) + sep_len
+                                        if split < sep_len:
                                             split = filesize
                                 length = split - offset
                                 batch.append((filename, (offset, length)))
