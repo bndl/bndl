@@ -184,7 +184,7 @@ class Task(Lifecycle):
         '''The name of the worker this task executed on last (if any).'''
         try:
             return self.executed_on[-1]
-        except ValueError:
+        except IndexError:
             return None
 
 
