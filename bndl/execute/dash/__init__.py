@@ -52,7 +52,6 @@ def task_stats(tasks):
     all_stopped = stopped == total
     not_pending = stopped == started
 
-    all_instant = sum((task.duration for task in tasks), timedelta(0)).total_seconds() == 0
 
     pending = sum(1 for task in tasks if task.started_on and not task.stopped_on)
     cancelled = sum(1 for task in tasks if task.cancelled)
@@ -64,6 +63,8 @@ def task_stats(tasks):
 
     if started:
         if not_pending:
+            all_instant = sum(filter(None, (task.duration for task in tasks)), timedelta(0)) \
+                              .total_seconds() == 0
             if all_instant:
                 duration = timedelta(0)
             else:
