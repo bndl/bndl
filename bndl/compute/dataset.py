@@ -1393,6 +1393,7 @@ class Dataset(object):
         if not directory:
             directory = os.getcwd()
         directory = os.path.expanduser(directory)
+        os.makedirs(directory, exist_ok=True)
         if mode not in ('t', 'b'):
             raise ValueError('mode should be t(ext) or b(inary)')
         data = self
