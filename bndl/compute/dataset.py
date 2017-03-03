@@ -12,7 +12,7 @@
 
 from collections import Counter, defaultdict, deque, Iterable, Sized, OrderedDict
 from functools import partial, total_ordering, reduce
-from itertools import islice, product, chain, starmap, groupby
+from itertools import islice, product, chain, starmap, groupby, count
 from math import sqrt, log, ceil
 from operator import add
 import concurrent.futures
@@ -60,6 +60,28 @@ def new_dset_id():
     return strings.random(8)
 
 
+def traverse_dset_dag(*starts, depth_first=False, cond=None):
+    if cond:
+        def extend(q, d):
+            for s in d.sources:
+                if cond(d, s):
+                    q.append(s)
+    else:
+        def extend(q, d):
+            q.extend(d.sources)
+
+    q = deque()
+    q.extend(starts)
+
+    pop = q.pop if depth_first else q.popleft
+
+    while q:
+        d = pop()
+        yield d
+        extend(q, d)
+
+
+
 class Dataset(object):
     cleanup = None
     sync_required = False
@@ -72,6 +94,17 @@ class Dataset(object):
         self._cache_locs = {}
         self._workers_required = None
         self.callsite = get_callsite(type(self))
+
+
+    @property
+    def sources(self):
+        src = self.src
+        if isinstance(src, Iterable):
+            return tuple(src)
+        elif src is not None:
+            return (src,)
+        else:
+            return ()
 
 
     @property
@@ -1526,61 +1559,67 @@ class Dataset(object):
             yield task.result()
 
 
-    def _generate_tasks(self, tasks, group, groups, mark_done=False):
-        dset_tasks = [ComputePartitionTask(part, group=group)
-                      for part in self.parts()]
+    def _generate_tasks(self, required, tasks, groups):
+        group = next(groups)
+        dset_tasks = [
+            tasks.get(part.id) or ComputePartitionTask(part, group=group)
+            for part in self.parts()
+        ]
 
-        mark_done = mark_done or self._cache_available
-
-        stack = deque()
-        src = self.src
-        if src:
-            if isinstance(src, Iterable):
-                stack.extend(src)
-            else:
-                stack.append(src)
-
-        while stack:
-            d = stack.popleft()
-            mark_done = mark_done or d._cache_available
+        for d in traverse_dset_dag(*self.sources, cond=lambda f, t: not f.sync_required):
             if d.sync_required:
-                groups, dependencies = d._generate_tasks(tasks, group + 1,
-                                                         max(groups, group + 1),
-                                                         mark_done=mark_done)
-                barrier = BarrierTask(d.ctx, (d.id, len(dependencies)), group='hidden')
-                tasks[barrier.id] = barrier
-                barrier.dependents = dset_tasks
-                barrier.dependencies = dependencies
+                dependencies = d._generate_tasks(
+                    required,
+                    tasks,
+                    groups
+                )
+
+                barrier_id = d.id, len(dependencies)
+                barrier = tasks.get(barrier_id) or BarrierTask(d.ctx, barrier_id, group='hidden')
+                tasks[barrier_id] = barrier
+
+                barrier.dependents.update(dset_tasks)
+                barrier.dependencies.update(dependencies)
+
                 for task in dset_tasks:
-                    task.dependencies.append(barrier)
+                    task.dependencies.add(barrier)
+
+                mark_done = d not in required
                 for dependency in dependencies:
-                    dependency.dependents.append(barrier)
+                    dependency.dependents.add(barrier)
                     if mark_done:
                         dependency.mark_done()
-            else:
-                d_src = d.src
-                if d_src:
-                    if isinstance(d_src, Iterable):
-                        stack.extend(d_src)
-                    else:
-                        stack.append(d_src)
 
         for task in dset_tasks:
             tasks[task.id] = task
 
-        return groups, dset_tasks
+        return dset_tasks
+
+
+    def _tasks(self):
+        required = {self}
+        for dset in traverse_dset_dag(self, cond=lambda f, t: not t._cache_available):
+            required.add(dset)
+
+        tasks = OrderedDict()
+        self._generate_tasks(required, tasks, count())
+
+        groups = max(task.group
+                     for task in tasks.values()
+                     if task.group != 'hidden')
+
+        taskslist = []
+        for priority, task in enumerate(tasks.values()):
+            task.priority = priority
+            taskslist.append(task)
+            if task.group != 'hidden':
+                task.group = groups - task.group + 1
+
+        return taskslist
 
 
     def _schedule(self):
-        tasks = OrderedDict()
-        groups, _ = self._generate_tasks(tasks, 1, 1)
-        taskslist = []
-        for priority, task in enumerate(tasks.values()):
-            if task.group != 'hidden':
-                task.group = groups - task.group + 1
-            task.priority = priority
-            taskslist.append(task)
-        tasks = taskslist
+        tasks = self._tasks()
 
         name, desc = get_callsite(__file__)
         name = re.sub('[_.]', ' ', name or '')
@@ -1590,12 +1629,9 @@ class Dataset(object):
         stack = [self]
         while stack:
             dset = stack.pop()
+            stack.extend(dset.sources)
             if dset.cleanup:
                 cleanups.append(dset.cleanup)
-            if isinstance(dset.src, Iterable):
-                stack.extend(dset.src)
-            elif dset.src is not None:
-                stack.append(dset.src)
 
         if cleanups:
             def cleanup(job):
@@ -1621,10 +1657,12 @@ class Dataset(object):
                 serialization and compression and use this custom ``CacheProvider``.
         '''
         assert self.ctx.node.node_type == 'driver'
-        if location:
+        if location or provider:
             if location == 'disk' and not serialization:
                 serialization = 'pickle'
-            if self._cache_provider:
+            if provider:
+                self._cache_provider = provider
+            elif self._cache_provider:
                 self._cache_provider.modify(location, serialization, compression)
             else:
                 self._cache_provider = cache.CacheProvider(location, serialization, compression)
@@ -1737,6 +1775,21 @@ class Partition(object):
         self.dset = weakref.proxy(dset)
         self.idx = idx
         self.src = src
+
+
+    @property
+    def sources(self):
+        dset = self.dset
+        if isinstance(dset.src, Dataset) and dset.src.sync_required:
+            return tuple(dset.src.parts())
+        else:
+            src = self.src
+            if isinstance(src, Iterable):
+                return tuple(src)
+            elif src is not None:
+                return (src,)
+            else:
+                return ()
 
 
     def compute(self):
@@ -2100,11 +2153,13 @@ class BarrierTask(Task):
         by_worker = self.dependency_locations = {}
         for dep in self.dependencies:
             executed_on = dep.executed_on_last()
+            if not executed_on:
+                assert dep.done
             locs = by_worker.get(executed_on)
             if locs is None:
                 by_worker[executed_on] = locs = []
             part = dep.part
-            locs.append((part.dset.id, part.idx))
+            locs.append(part.id)
         # 'execute' the barrier
         self.set_executing(worker)
         future = self.future = concurrent.futures.Future()
@@ -2121,7 +2176,7 @@ class ComputePartitionTask(RmiTask):
 
     def __init__(self, part, **kwargs):
         name = re.sub('[_.]', ' ', part.dset.callsite[0] or '')
-        super().__init__(part.dset.ctx, (part.dset.id, part.idx), _compute_part, [part, None], {},
+        super().__init__(part.dset.ctx, part.id, _compute_part, [part, None], {},
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
@@ -2142,8 +2197,9 @@ class ComputePartitionTask(RmiTask):
         if self.dependencies:
             exc = root_exc(self.exception())
             if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):
-                logger.debug('Marking barrier %r before %r as failed', self.dependencies[0], self)
-                self.dependencies[0].mark_failed(FailedDependency())
+                for barrier in self.dependencies:
+                    logger.debug('Marking barrier %r before %r as failed', barrier, self)
+                    barrier.mark_failed(FailedDependency())
         super().signal_stop()
 
 

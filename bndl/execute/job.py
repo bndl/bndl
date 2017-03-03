@@ -64,8 +64,8 @@ class Task(Lifecycle):
         self.priority = task_id if priority is None else priority
         self.future = None
 
-        self.dependencies = []
-        self.dependents = []
+        self.dependencies = set()
+        self.dependents = set()
         self.executed_on = []
         self.attempts = 0
 

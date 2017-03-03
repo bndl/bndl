@@ -104,7 +104,7 @@ class Scheduler(object):
 
         # containers for states a task can be in
         self.executable = SortedSet(key=lambda task: task.priority)  # sorted executable tasks (sorted by task.id by default)
-        self.blocked = defaultdict(set)  # blocked tasks task -> dependencies executable or pending
+        self.blocked = defaultdict(set)  # blocked tasks task -> dependency ids executable or pending
 
         self.locality = {worker:{} for worker in self.workers.keys()}  # worker_name -> task -> locality > 0
         self.forbidden = defaultdict(set)  # task -> set[worker]
@@ -142,7 +142,7 @@ class Scheduler(object):
                         self.succeeded.add(task)
                         self.done(task)
                     elif task.dependencies:
-                        remaining = set(dep for dep in task.dependencies if not dep.succeeded)
+                        remaining = set(dep.id for dep in task.dependencies if not dep.succeeded)
                         if remaining:
                             self.blocked[task] = remaining
                         else:
@@ -177,9 +177,9 @@ class Scheduler(object):
                         # on this worker and the dependency failed
                         continue
                     elif not (self.executable or self.pending):
+                        assert not sum(1 for _ in filter(None, self.blocked.values()))
                         if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug('No more tasks to execute or pending (%r tasks blocked)',
-                                         sum(1 for _ in filter(None, self.blocked.values())))
+                            logger.debug('No more tasks to execute or pending')
                         break
                     else:
                         task = self.select_task(worker)
@@ -333,7 +333,7 @@ class Scheduler(object):
                     # check for unblocking of dependents
                     for dependent in task.dependents:
                         blocked_by = self.blocked[dependent]
-                        blocked_by.discard(task)
+                        blocked_by.discard(task.id)
                         if not blocked_by and dependent:
                             if dependent in self.succeeded:
                                 logger.debug('%r unblocked because %r was executed, but already succeeded', dependent, task)
@@ -367,7 +367,7 @@ class Scheduler(object):
             if logger.isEnabledFor(logging.INFO):
                 logger.info('%r failed on %s because %r failed, rescheduling',
                             task, task.executed_on_last(),
-                            ', '.join(worker + ': ' + ','.join(map(str, dependencies))
+                            ', '.join((worker or 'none') + ': ' + ','.join(map(str, dependencies))
                                       for worker, dependencies in exc.failures.items()))
 
             for worker, dependencies in exc.failures.items():
@@ -430,8 +430,8 @@ class Scheduler(object):
 
         # block its dependencies
         for dependent in task.dependents:
-            # logger.debug('%r is blocked by %r because it failed', dependent, task)
-            self.blocked[dependent].add(task)
+            logger.debug('%r is blocked by %r because it failed', dependent, task)
+            self.blocked[dependent].add(task.id)
             self.executable.discard(dependent)
 
         if len(self.workers_failed) == len(self.workers):
