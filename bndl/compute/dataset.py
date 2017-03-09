@@ -1398,35 +1398,7 @@ class Dataset(object):
         return s
 
 
-    def collect_as_pickles(self, directory=None, compression=None):
-        '''
-        Collect each partition as a pickle file into directory
-        '''
-        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', 'b', compression)
-
-
-    def collect_as_json(self, directory=None, compression=None):
-        '''
-        Collect each partition as a line separated json file into directory.
-        '''
-        self.map(json.dumps).concat(os.linesep).collect_as_files(directory, '.json', 't', compression)
-
-
-    def collect_as_files(self, directory=None, ext='', mode='b', compression=None):
-        '''
-        Collect each element in this data set into a file into directory.
-
-        :param directory: str
-            The directory to save this data set to.
-        :param ext:
-            The extenion of the files.
-        :param compress: None or 'gzip'
-            Whether to compress.
-        '''
-        if not directory:
-            directory = os.getcwd()
-        directory = os.path.expanduser(directory)
-        os.makedirs(directory, exist_ok=True)
+    def _convert_for_save(self, mode, compression, ext):
         if mode not in ('t', 'b'):
             raise ValueError('mode should be t(ext) or b(inary)')
         data = self
@@ -1446,11 +1418,76 @@ class Dataset(object):
             mode = 'b'
             data = data.concat(b'').map(compress)
         # add an index to the partitions (for in the filename)
-        with_idx = data.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
-        # save each partition to a file
-        for idx, part in with_idx.icollect(ordered=False, parts=True):
-            with open(os.path.join(directory, '%s%s' % (idx, ext)), 'w' + mode) as f:
-                f.writelines(part)
+        data = data.map_partitions_with_index(lambda idx, part: (idx, ensure_collection(part)))
+        # return updated mode, ext and converted data
+        return mode, ext, data
+
+
+    def _save_partition(self, directory, ext, mode, idx, part):
+        directory = os.path.expanduser(directory)
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, '%s%s' % (idx, ext)), 'w' + mode) as f:
+            f.writelines(part)
+
+
+    def collect_as_pickles(self, directory=None, compression=None):
+        '''
+        Save each partition as a pickle file into directory at the driver.
+        '''
+        self.glom().map(pickle.dumps).collect_as_files(directory, '.p', 'b', compression)
+
+
+    def save_as_pickles(self, directory=None, compression=None):
+        '''
+        Collect each partition as a pickle file into directory at the workers.
+        '''
+        self.glom().map(pickle.dumps).save_as_files(directory, '.p', 'b', compression)
+
+
+    def collect_as_json(self, directory=None, compression=None):
+        '''
+        Collect each partition as a line separated json file into directory at the driver.
+        '''
+        self.map(json.dumps).concat(os.linesep).collect_as_files(directory, '.json', 't', compression)
+
+
+    def save_as_json(self, directory=None, compression=None):
+        '''
+        Save each partition as a line separated json file into directory at the workers.
+        '''
+        self.map(json.dumps).concat(os.linesep).save_as_files(directory, '.json', 't', compression)
+
+
+    def collect_as_files(self, directory=None, ext='', mode='b', compression=None):
+        '''
+        Collect each partition in this data set into a file into directory at the driver.
+
+        :param directory: str
+            The directory to save this data set to.
+        :param ext:
+            The extenion of the files.
+        :param compress: None or 'gzip' or 'lz4'
+            Whether to compress.
+        '''
+        mode, ext, data = self._convert_for_save(mode, compression, ext)
+        for idx, part in data.icollect(ordered=False, parts=True):
+            self._save_partition(directory or os.getcwd(), ext, mode, idx, part)
+
+
+    def save_as_files(self, directory=None, ext='', mode='b', compression=None):
+        '''
+        Save each partition in this data set into a file into directory at the workers.
+
+        :param directory: str
+            The directory to save this data set to.
+        :param ext:
+            The extenion of the files.
+        :param compress: None or 'gzip' or 'lz4'
+            Whether to compress.
+        '''
+        mode, ext, data = self._convert_for_save(mode, compression, ext)
+        data.glom().starmap(self._save_partition, (directory or os.getcwd()), ext, mode).execute()
+
 
 
     def execute(self):

@@ -17,6 +17,7 @@ import gzip
 import json
 import pickle
 
+from bndl.compute.dataset import Dataset
 from bndl.compute.tests import DatasetTest
 from bndl.rmi import InvocationException
 from bndl.util.fs import listdirabs, read_file
@@ -35,40 +36,43 @@ class CollectAsTest(DatasetTest):
 
 
     def test_collect_as_pickles(self):
-        for dset in self.dsets:
-            with TemporaryDirectory() as d:
-                dset.collect_as_pickles(d)
-                fnames = sorted(listdirabs(d))
-                pickles = (pickle.load(open(fname, 'rb')) for fname in fnames)
-                elements = list(chain.from_iterable(pickles))
-            self.check_elements(dset, fnames, elements, '.p')
+        for save in (Dataset.collect_as_pickles, Dataset.save_as_pickles):
+            for dset in self.dsets:
+                with TemporaryDirectory() as d:
+                    save(dset, d)
+                    fnames = sorted(listdirabs(d))
+                    pickles = (pickle.load(open(fname, 'rb')) for fname in fnames)
+                    elements = list(chain.from_iterable(pickles))
+                self.check_elements(dset, fnames, elements, '.p')
 
 
     def test_collect_as_json(self):
-        for dset in self.dsets:
-            with TemporaryDirectory() as d:
-                dset.collect_as_json(d)
-                fnames = sorted(listdirabs(d))
-                data = b''.join(read_file(fname) for fname in fnames).decode()
-                elements = [json.loads(line) for line in StringIO(data)]
-            self.check_elements(dset, fnames, elements, '.json')
+        for save in (Dataset.collect_as_json, Dataset.save_as_json):
+            for dset in self.dsets:
+                with TemporaryDirectory() as d:
+                    save(dset, d)
+                    fnames = sorted(listdirabs(d))
+                    data = b''.join(read_file(fname) for fname in fnames).decode()
+                    elements = [json.loads(line) for line in StringIO(data)]
+                self.check_elements(dset, fnames, elements, '.json')
 
 
     def test_collect_compressed(self):
-        cases = (
-            ('gzip', '.gz', gzip.decompress),
-            ('lz4', '.lz4', lz4.decompress)
-        )
-        for compression, ext, decompress in cases:
-            with TemporaryDirectory() as d:
-                self.dset.collect_as_json(d, compression=compression)
-                fnames = sorted(listdirabs(d))
-                elements = [
-                    json.loads(line)
-                    for fname in fnames
-                    for line in decompress(open(fname, 'rb').read()).decode().splitlines()
-                ]
-                self.check_elements(self.dset, fnames, elements, '.json' + ext)
+        for save in (Dataset.collect_as_json, Dataset.save_as_json):
+            compressions = (
+                ('gzip', '.gz', gzip.decompress),
+                ('lz4', '.lz4', lz4.decompress)
+            )
+            for compression, ext, decompress in compressions:
+                with TemporaryDirectory() as d:
+                    save(self.dset, d, compression=compression)
+                    fnames = sorted(listdirabs(d))
+                    elements = [
+                        json.loads(line)
+                        for fname in fnames
+                        for line in decompress(open(fname, 'rb').read()).decode().splitlines()
+                    ]
+                    self.check_elements(self.dset, fnames, elements, '.json' + ext)
 
 
     def check_elements(self, dset, fnames, elements, extension):
