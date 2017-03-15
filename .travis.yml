@@ -7,7 +7,7 @@ cache:
 python:
 #  - 3.4
   - 3.5-dev
-  - 3.6
+  - 3.6-dev
 
 sudo: required
 
