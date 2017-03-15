@@ -48,7 +48,7 @@ if sys.version_info >= (3, 5):
 
 
 dev_requires = [
-    'cython<0.25',
+    'cython>=0.25.2',
     'pytest',
     'pytest-cov',
     'pylint',
