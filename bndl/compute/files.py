@@ -25,9 +25,12 @@ import os.path
 import struct
 import sys
 
-from cytoolz import compose, interleave, pluck
-import scandir
+try:
+    from os import scandir
+except ImportError:
+    from scandir import scandir
 
+from cytoolz import compose, interleave, pluck
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
 from bndl.execute.worker import current_worker
 from bndl.net.sendfile import file_attachment
@@ -247,7 +250,7 @@ def _scan_dir(directory, recursive, dfilter, ffilter):
     fnames = []
 
     try:
-        scan = scandir.scandir(directory)
+        scan = scandir(directory)
     except PermissionError:
         return (), ()
 

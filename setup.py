@@ -33,13 +33,15 @@ install_requires = [
     'pandas',
     'flask',
     'mmh3',
-    'scandir',
     'psutil>=4.4',
     'tblib',
     'marisa_trie',
     'yappi<=0.93',
     'lz4',
 ]
+
+if sys.version_info < (3, 5):
+    install_requires.append('scandir')
 
 if sys.version_info >= (3, 5):
     install_requires.append('uvloop')
