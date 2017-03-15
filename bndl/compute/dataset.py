@@ -45,11 +45,11 @@ from bndl.rmi import InvocationException, root_exc
 from bndl.util import strings
 from bndl.util.callsite import get_callsite, callsite, set_callsite
 from bndl.util.collection import is_stable_iterable, ensure_collection
+from bndl.util.compat import lz4_compress
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
 import cycloudpickle as cloudpickle
-import lz4
 import numpy as np
 
 
@@ -1411,7 +1411,7 @@ class Dataset(object):
                 compress = gzip.compress
             elif compression == 'lz4':
                 ext += '.lz4'
-                compress = lz4.compress
+                compress = lz4_compress
             elif compression is not None:
                 raise ValueError('Only gzip and lz4 compression is supported')
             # compress concatenation of partition, not just each element

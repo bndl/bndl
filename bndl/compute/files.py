@@ -25,20 +25,23 @@ import os.path
 import struct
 import sys
 
-try:
-    from os import scandir
-except ImportError:
-    from scandir import scandir
-
 from cytoolz import compose, interleave, pluck
+
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
 from bndl.execute.worker import current_worker
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
 from bndl.util import serialize
-import lz4
+from bndl.util.compat import lz4_decompress
 import marisa_trie
+
+
+try:
+    from os import scandir
+except ImportError:
+    from scandir import scandir
+
 
 
 logger = logging.getLogger(__name__)
@@ -396,7 +399,7 @@ class FilesDataset(DistributedFilesOps, Dataset):
         if compression == 'gzip':
             decompress = gzip.decompress
         elif compression == 'lz4':
-            decompress = compose(lz4.decompress, bytes)
+            decompress = compose(lz4_decompress, bytes)
         elif compression is not None:
             raise ValueError('Compression %r not supported' % compression)
         decompressed = self.map_values(decompress)

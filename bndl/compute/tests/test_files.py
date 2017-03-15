@@ -21,7 +21,7 @@ from cytoolz import interleave, pluck
 
 from bndl.compute.tests import DatasetTest
 from bndl.util import strings
-import lz4
+from bndl.util.compat import lz4_compress
 
 
 class FilesTest(DatasetTest):
@@ -148,7 +148,7 @@ class FilesTest(DatasetTest):
         dset = self.ctx.range(100)
         cases = (
             (gzip.compress, 'gzip'),
-            (lz4.compress, 'lz4'),
+            (lz4_compress, 'lz4'),
         )
         for compress, compression in cases:
             with TemporaryDirectory() as d:

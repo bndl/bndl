@@ -28,10 +28,10 @@ from cytoolz.functoolz import compose
 from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
+from bndl.util.compat import lz4_compress, lz4_decompress
 from bndl.util.conf import String
 from bndl.util.funcs import noop
 import bndl
-import lz4
 
 
 logger = logging.getLogger(__name__)
@@ -139,8 +139,8 @@ class StorageContainerFactory(object):
 
         if compression is not None:
             if compression == 'lz4':
-                compress = (lz4.compress,)
-                decompress = (lz4.decompress, bytes)
+                compress = (lz4_compress,)
+                decompress = (lz4_decompress, bytes)
             elif isinstance(compression, str):
                 mod = importlib.import_module(compression)
                 compress = (mod.compress,)

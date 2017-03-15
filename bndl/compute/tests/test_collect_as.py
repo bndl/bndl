@@ -21,7 +21,7 @@ from bndl.compute.dataset import Dataset
 from bndl.compute.tests import DatasetTest
 from bndl.rmi import InvocationException
 from bndl.util.fs import listdirabs, read_file
-import lz4
+from bndl.util.compat import lz4_decompress
 
 
 class CollectAsTest(DatasetTest):
@@ -61,7 +61,7 @@ class CollectAsTest(DatasetTest):
         for save in (Dataset.collect_as_json, Dataset.save_as_json):
             compressions = (
                 ('gzip', '.gz', gzip.decompress),
-                ('lz4', '.lz4', lz4.decompress)
+                ('lz4', '.lz4', lz4_decompress)
             )
             for compression, ext, decompress in compressions:
                 with TemporaryDirectory() as d:
