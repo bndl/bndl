@@ -28,7 +28,7 @@ import sys
 from cytoolz import compose, interleave, pluck
 
 from bndl.compute.dataset import Dataset, Partition, TransformingDataset, NODE_LOCAL
-from bndl.execute.worker import current_worker
+from bndl.compute.tasks import current_node
 from bndl.net.sendfile import file_attachment
 from bndl.net.serialize import attach, attachment
 from bndl.util import collection
@@ -150,7 +150,7 @@ def _ip_addresses(worker):
 def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_files, split):
     batch_requests = []
     seen = set()
-    ctx.await_workers()
+    ctx.await_executors()
     for worker in ctx.workers:
         ips = tuple(sorted(worker.ip_addresses()))
         if ips not in seen:
@@ -170,7 +170,7 @@ def _worker_files(ctx, root, recursive, dfilter, ffilter, psize_bytes, psize_fil
     # interleave batches to ease scheduling overhead
     batches = list(interleave(batches))
 
-    logger.debug('created files dataset of %s batches accross %s worker nodes',
+    logger.debug('created files dataset of %s batches accross %s nodes',
                  len(batches), len(batch_requests))
 
     return FilesDataset(ctx, batches, split)
@@ -457,12 +457,12 @@ class FilesPartition(Partition):
         self.location = location
 
 
-    def _locality(self, workers):
+    def _locality(self, executors):
         if self.location:
             local_ips = self.location
-            for worker in workers:
-                if worker.ip_addresses() & local_ips:
-                    yield worker, NODE_LOCAL
+            for executor in executors:
+                if executor.ip_addresses() & local_ips:
+                    yield executor, NODE_LOCAL
 
 
     def _local(self):
@@ -484,7 +484,7 @@ class FilesPartition(Partition):
 
 
     def _compute(self):
-        if self.location is None or self.location & current_worker().ip_addresses():
+        if self.location is None or self.location & current_node().ip_addresses():
             return self._local()
         else:
             return self._remote()

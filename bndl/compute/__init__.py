@@ -18,15 +18,21 @@ which transform and combine these data sets.
 
 import os
 
+from bndl.compute.exceptions import *
 from bndl.util import conf
 from bndl.util.objects import LazyObject
 
 
-pcount = conf.Int(desc='The default number of partitions. Then number of connected workers is '
+pcount = conf.Int(desc='The default number of partitions. Then number of connected executors is '
                        'used if not set.')
 
-worker_count = conf.Int(desc='The number of workers to start when no seeds are given when using '
-                        'bndl-compute-shell or bndl-compute-workers')
+executor_count = conf.Int(os.cpu_count(), desc='The number of executors to start when no seeds are '
+                               'given when using bndl-compute-shell or bndl-compute-worker')
+
+concurrency = conf.Int(1, desc='the number of tasks which can be scheduled at an executor process '
+                               'at the same time')
+
+attempts = conf.Int(1, desc='The number of times a task is attempted before the job is cancelled')
 
 
 if 'OMP_NUM_THREADS' not in os.environ:

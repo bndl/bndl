@@ -13,8 +13,9 @@
 from itertools import groupby
 from operator import itemgetter
 
-from bndl.compute.tests import DatasetTest
 from cytoolz.itertoolz import pluck
+
+from bndl.compute.tests import DatasetTest
 
 
 class ReduceByKeyTest(DatasetTest):

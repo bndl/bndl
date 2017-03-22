@@ -50,7 +50,7 @@ class MvStatsTest(DatasetTest):
                 for statistic in statistics:
                     stat_a = getattr(mvs_c, statistic)[i]
                     stat_b = getattr(ss_c, statistic)
-                    
+
                     if np.isnan(stat_a) and np.isnan(stat_b):
                         continue
                     self.assertTrue(np.isclose(stat_a, stat_b),
@@ -75,8 +75,8 @@ class MvStatsTest(DatasetTest):
             dmvs = self.ctx.collection(arr).mvstats()
             mvs = MultiVariateStats(width, arr)
             self.assert_mvs_close(dmvs, mvs)
-                
-    
+
+
     def test_other_types(self):
         arr = self.ctx.collection(np.random.uniform(0, 1, (10, width)))
         expected = arr.mvstats()

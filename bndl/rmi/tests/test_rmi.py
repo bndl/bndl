@@ -13,8 +13,8 @@
 from collections import defaultdict
 
 from bndl.net.tests import NetTest
-from bndl.rmi.node import RMINode
 from bndl.rmi import InvocationException
+from bndl.rmi.node import RMINode
 
 
 class Service(object):
@@ -31,7 +31,7 @@ class Service(object):
 
     def method_that_raises(self, src):
         raise ValueError('x')
-        
+
 
 class NestedRequestNode(RMINode):
     def __init__(self, *args, **kwargs):

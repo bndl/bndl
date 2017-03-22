@@ -16,8 +16,9 @@ https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a097020
 '''
 
 import asyncio
-import os
 import contextlib
+import os
+
 from bndl.util import aio
 
 

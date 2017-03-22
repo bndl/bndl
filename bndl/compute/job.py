@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class Job(Lifecycle):
     '''
-    A set of :class:`Tasks <Task>` which can be executed on a cluster of workers.
+    A set of :class:`Tasks <Task>` which can be executed on a cluster of workers / executors.
     '''
     _job_ids = count(1)
 
@@ -51,7 +51,7 @@ class Job(Lifecycle):
 
 class Task(Lifecycle):
     '''
-    Execution of a Task on a worker is the basic unit of scheduling in ``bndl.execute``.
+    Execution of a Task on a executor is the basic unit of scheduling in ``bndl.compute``.
     '''
 
     def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None):
@@ -70,9 +70,9 @@ class Task(Lifecycle):
         self.attempts = 0
 
 
-    def execute(self, scheduler, worker):
+    def execute(self, scheduler, executor):
         '''
-        Execute the task on a worker. The scheduler is provided as 'context' for the task.
+        Execute the task on a executor. The scheduler is provided as 'context' for the task.
         '''
 
 
@@ -84,15 +84,15 @@ class Task(Lifecycle):
             super().cancel()
 
 
-    def locality(self, workers):
+    def locality(self, executors):
         '''
-        Indicate locality for executing this task on workers.
+        Indicate locality for executing this task on executors.
 
         Args:
-            workers (sequence[worker]): The workers to determine the locality for.
+            executors (sequence[executor]): The executors to determine the locality for.
 
         Returns:
-            Sequence[(worker, locality), ...]: A sequence of worker - locality tuples. 0 is
+            Sequence[(executor, locality), ...]: A sequence of executor - locality tuples. 0 is
             indifferent and can be skipped, -1 is forbidden, 1+ increasing locality.
         '''
         return ()
@@ -131,12 +131,12 @@ class Task(Lifecycle):
             return False
 
 
-    def set_executing(self, worker):
-        '''Utility for sub-classes to register the task as executing on a worker.'''
+    def set_executing(self, executor):
+        '''Utility for sub-classes to register the task as executing on a executor.'''
         if self.cancelled:
             raise CancelledError()
         assert not self.pending, '%r pending' % self
-        self.executed_on.append(worker.name)
+        self.executed_on.append(executor.name)
         self.attempts += 1
         self.signal_start()
 
@@ -158,7 +158,7 @@ class Task(Lifecycle):
 
     def mark_failed(self, exc):
         '''
-        'Externally' mark the task as failed. E.g. because the worker which holds the tasks' result
+        'Externally' mark the task as failed. E.g. because the executor which holds the tasks' result
         has failed / can't be reached.
         '''
         future = self.future = Future()
@@ -181,7 +181,7 @@ class Task(Lifecycle):
 
 
     def executed_on_last(self):
-        '''The name of the worker this task executed on last (if any).'''
+        '''The name of the executor this task executed on last (if any).'''
         try:
             return self.executed_on[-1]
         except IndexError:
@@ -227,19 +227,16 @@ class RmiTask(Task):
         self.handle = None
 
 
-    def execute(self, scheduler, worker):
-        self.set_executing(worker)
+    def execute(self, scheduler, executor):
+        self.set_executing(executor)
         future = self.future = Future()
-        future2 = worker.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
-        # TODO remove future.worker, just for checking
-        future2.worker = worker
-        # TODO put time sleep here to test what happens if task
-        # is done before adding callback (callback runs in this thread)
+        future2 = executor.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
+        future2.executor = executor
         future2.add_done_callback(self._task_scheduled)
         return future
 
     @property
-    def _last_worker(self):
+    def _last_executor(self):
         if self.executed_on:
             return self.ctx.node.peers.get(self.executed_on[-1])
 
@@ -251,11 +248,7 @@ class RmiTask(Task):
             self.mark_failed(exc)
         else:
             try:
-                # TODO remove future.worker
-                # assert future.worker == self._last_worker, '%r != %r' % (future.worker, self._last_worker)
-                future = self._last_worker.service('tasks').get_task_result(self.handle)
-                # TODO put time sleep here to test what happens if task
-                # is done before adding callack (callback gets executed in this thread)
+                future = self._last_executor.service('tasks').get_task_result(self.handle)
                 future.add_done_callback(self._task_completed)
             except NotConnected as exc:
                 self.mark_failed(exc)
@@ -286,7 +279,7 @@ class RmiTask(Task):
 
         if self.handle:
             logger.debug('canceling %s', self)
-            self._last_worker.service('tasks').cancel_task(self.handle)
+            self._last_executor.service('tasks').cancel_task(self.handle)
             self.handle = None
 
         if self.future:

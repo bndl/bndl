@@ -10,9 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
 from itertools import chain
 from os.path import getsize
 import atexit
+import contextlib
 import importlib
 import json
 import logging
@@ -25,12 +27,12 @@ import tempfile
 
 from cytoolz.functoolz import compose
 
-from bndl.compute.blocks import Block
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
 from bndl.util.compat import lz4_compress, lz4_decompress
 from bndl.util.conf import String
 from bndl.util.funcs import noop
+from bndl.util.strings import decode
 import bndl
 
 
@@ -93,7 +95,7 @@ class StorageContainerFactory(object):
         else:
             if serialization == 'json':
                 self.serialize = compose(str.encode, json.dumps)
-                self.deserialize = compose(json.loads, lambda b: b.decode())
+                self.deserialize = compose(json.loads, decode)
             elif serialization == 'marshal':
                 self.serialize = marshal.dumps
                 self.deserialize = marshal.loads
@@ -230,6 +232,35 @@ class SerializedContainer(Container):
 
 
 
+class Data(object):
+    '''
+    Helper class for exchanging binary data between peers. It uses the attach and
+    attachment utilities from bndl.net.serialize to optimize sending the already
+    serialized data.
+    '''
+
+    def __init__(self, data_id, data):
+        self.id = data_id
+        self.data = data
+
+
+    def __getstate__(self):
+        data = self.data
+        @contextlib.contextmanager
+        def _attacher(loop, writer):
+            yield len(data), partial(writer.write, data)
+        attach(str(self.id).encode(), _attacher)
+        state = dict(self.__dict__)
+        state.pop('data', None)
+        return state
+
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.data = attachment(str(self.id).encode())
+
+
+
 class SerializedInMemory(SerializedContainer, InMemory):
     @property
     def size(self):
@@ -238,7 +269,7 @@ class SerializedInMemory(SerializedContainer, InMemory):
 
     def __getstate__(self):
         state = dict(self.__dict__)
-        state['data'] = [Block((self.id, idx), chunk)
+        state['data'] = [Data((self.id, idx), chunk)
                          for idx, chunk in enumerate(self.data)]
         return state
 

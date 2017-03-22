@@ -44,7 +44,7 @@ class DistributedCollection(Dataset):
             if not pcount:
                 self.pcount = pcount = self.ctx.default_pcount
                 if pcount <= 0:
-                    raise Exception("can't use default_pcount, no workers available")
+                    raise Exception("can't use default_pcount, no executors available")
 
             if isinstance(collection, collections.Mapping):
                 collection = list(collection.items())
@@ -59,7 +59,7 @@ class DistributedCollection(Dataset):
             ]
 
         self.blocks = [
-            (length, marshalled, ctx.node.service('blocks').serve_blocks((self.id, idx), [part]))
+            (length, marshalled, ctx.node.service('blocks').serve_data((self.id, idx), part))
             for idx, (length, marshalled, part) in enumerate(parts)
         ]
 
@@ -77,7 +77,7 @@ class DistributedCollection(Dataset):
 
     def __del__(self):
         for block in getattr(self, 'blocks', ()):
-            self.ctx.node.service('blocks').remove_blocks(block[-1].name)
+            self.ctx.node.service('blocks').remove_block(block[-1].id)
 
 
 
@@ -90,5 +90,5 @@ class BlocksPartition(Partition):
 
 
     def _compute(self):
-        block = self.dset.ctx.node.service('blocks').get(self.block_spec)[0]
+        block = self.dset.ctx.node.service('blocks').get(self.block_spec)
         return serialize.loads(self.marshalled, block)

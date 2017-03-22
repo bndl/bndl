@@ -23,13 +23,13 @@ from bndl.util import dash
 import numpy as np
 
 
-blueprint = Blueprint('execute', __name__,
+blueprint = Blueprint('compute', __name__,
                       template_folder='templates')
 
 
 class Status(dash.StatusPanel):
     def render(self):
-        return dash.status.OK, render_template('execute/status.html')
+        return dash.status.OK, render_template('compute/status.html')
 
 
 class Dash(dash.Dash):
@@ -149,7 +149,7 @@ def fmt_exc(exc):
 
 @blueprint.route('/')
 def jobs():
-    return render_template('execute/jobs.html')
+    return render_template('compute/jobs.html')
 
 
 def job_by_id(job_id):
@@ -163,7 +163,7 @@ def job_by_id(job_id):
 def job(job_id):
     job = job_by_id(job_id)
     if job:
-        return render_template('execute/job.html', job=job)
+        return render_template('compute/job.html', job=job)
     else:
         return NotFound()
 
@@ -174,5 +174,5 @@ def group(job_id, group_id):
     if job:
         tasks = job.group(int(group_id))
         if tasks:
-            return render_template('execute/group.html', job=job, tasks=tasks)
+            return render_template('compute/group.html', job=job, tasks=tasks)
     return NotFound()

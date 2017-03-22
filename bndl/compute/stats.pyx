@@ -12,11 +12,12 @@
 
 from collections import Sized, Sequence
 from functools import partial
+import array
 import math
 
 import numpy as np
 
-import array
+
 from cpython cimport array
 cimport cython
 

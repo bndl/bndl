@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class ShuffleTest(DatasetTest):
-    worker_count = 3
+    executor_count = 3
 
     config = {
         'bndl.compute.memory.limit': 1
@@ -38,8 +38,7 @@ class ShuffleTest(DatasetTest):
         part0_data = set(map(str, range(0, size, 2)))
         part1_data = set(map(str, range(1, size, 2)))
 
-        data = self.ctx.range(size, pcount=self.worker_count * 2).map(str)
-
+        data = self.ctx.range(size, pcount=self.executor_count * 2).map(str)
 
         shuffled = data.shuffle(sort=sort, serialization=serialization, compression=compression) \
                        .shuffle(sort=sort, serialization=serialization, compression=compression,
@@ -80,7 +79,7 @@ class ShuffleTest(DatasetTest):
 
 
 class ShuffleCacheTest(DatasetTest):
-    worker_count = 3
+    executor_count = 3
 
     def test_shuffle_cache(self):
         def mapper(ctr, i):
@@ -120,25 +119,25 @@ class ShuffleCacheTest(DatasetTest):
 
 
 class ShuffleFailureTest(DatasetTest):
-    worker_count = 20
+    executor_count = 20
 
     def _test_dependency_failure(self, dset_size, pcount, key_count, kill_after):
-        class WorkerKiller(object):
-            def __init__(self, worker, count):
+        class ExecutorKiller(object):
+            def __init__(self, executor, count):
                 self.count = count + 1
-                self.worker = worker
+                self.executor = executor
                 self.lock = threading.Lock()
 
             def countdown(self, i):
                 with self.lock:
                     self.count -= i
                     if self.count == 0:
-                        logger.info('Killing %r', self.worker.name)
-                        pid = self.worker.service('tasks').execute(lambda: os.getpid()).result()
+                        logger.info('Killing %r', self.executor.name)
+                        pid = self.executor.service('tasks').execute(lambda: os.getpid()).result()
                         os.kill(pid, signal.SIGKILL)
 
             def __str__(self):
-                return 'kill %s after %s elements' % (self.worker.name, self.count)
+                return 'kill %s after %s elements' % (self.executor.name, self.count)
 
         def identity_mapper(killers, key_count, i):
             for killer in killers:
@@ -150,11 +149,11 @@ class ShuffleFailureTest(DatasetTest):
             return (i % key_count, i)
 
         try:
-            self.ctx.conf['bndl.execute.attempts'] = 2
+            self.ctx.conf['bndl.compute.attempts'] = 2
 
             killers = [
-                self.ctx.accumulator(WorkerKiller(worker, count))
-                for worker, count in zip(self.ctx.workers, kill_after)
+                self.ctx.accumulator(ExecutorKiller(executor, count))
+                for executor, count in zip(self.ctx.executors, kill_after)
             ]
 
             dset = self.ctx \
@@ -171,7 +170,7 @@ class ShuffleFailureTest(DatasetTest):
 
             time.sleep(1)
         finally:
-            self.ctx.conf['bndl.execute.attempts'] = 1
+            self.ctx.conf['bndl.compute.attempts'] = 1
 
 
     @classmethod

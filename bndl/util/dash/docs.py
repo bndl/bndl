@@ -20,7 +20,7 @@ from bndl.util import dash
 
 
 for prefix in site.PREFIXES:
-    static_folder = os.path.join(prefix, 'docs','bndl', 'html')
+    static_folder = os.path.join(prefix, 'docs', 'bndl', 'html')
     if os.path.exists(static_folder):
         break
 else:

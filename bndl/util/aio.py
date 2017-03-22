@@ -16,6 +16,7 @@ import concurrent.futures
 import functools
 import logging
 import threading
+import time
 
 from bndl.util.exceptions import catch
 
@@ -31,52 +32,96 @@ def exception_handler(loop, context):
 
 
 _loop = None
+_loop_lock = threading.RLock()
+_loop_thread = None
 
 
-def get_loop(stop_on=(), use_uvloop=True):
+def get_loop(stop_on=(), use_uvloop=True, start=False):
     '''
     Get the current asyncio loop. If none exists (e.g. not on the main thread)
     a new loop is created.
     :param stop_on:
     '''
-    global _loop
+    global _loop, _loop_lock
 
-    if _loop is not None:
+    if _loop:
+        assert _loop.is_running()
         return _loop
 
-    if use_uvloop:
+    with _loop_lock:
+        if _loop:
+            assert _loop.is_running()
+            return _loop
+
+        if not start:
+            raise Exception('Asyncio loop not running')
+
+        if use_uvloop:
+            try:
+                import uvloop
+                asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            except Exception:
+                logger.debug('uvloop not available, using default event loop')
+
         try:
-            import uvloop
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        except Exception:
-            logger.debug('uvloop not available, using default event loop')
+            del asyncio.Task.__del__
+        except (AttributeError, TypeError):
+            pass
 
-    try:
-        del asyncio.Task.__del__
-    except (AttributeError, TypeError):
-        pass
+        try:
+            loop = asyncio.get_event_loop()
+        except (AssertionError, RuntimeError):
+            # unfortunately there is no way to tell if there is already an event loop
+            # active apart from trying to get it, and catching the assertion error
+            # raised if there is no active loop.
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-    try:
-        loop = asyncio.get_event_loop()
-    except (AssertionError, RuntimeError):
-        # unfortunately there is no way to tell if there is already an event loop
-        # active apart from trying to get it, and catching the assertion error
-        # raised if there is no active loop.
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop.set_exception_handler(exception_handler)
 
-    _loop = loop
+        if stop_on:
+            for sig in stop_on:
+                loop.add_signal_handler(sig, loop.stop)
 
-    loop.set_exception_handler(exception_handler)
+        started = threading.Event()
 
-    if stop_on:
-        for sig in stop_on:
-            loop.add_signal_handler(sig, loop.stop)
+        def run():
+            loop.call_soon_threadsafe(started.set)
+            loop.run_forever()
 
-    threading.Thread(target=loop.run_forever, name='asyncio-loop', daemon=True).start()
+        global _loop_thread
+        _loop_thread = threading.Thread(target=run, name='asyncio-loop', daemon=True)
+        _loop_thread.start()
+        started.wait()
 
+        _loop = loop
+
+    assert loop.is_running()
     return loop
 
+
+def stop_loop():
+    with _loop_lock:
+        try:
+            loop = get_loop()
+        except:
+            # loop not running
+            pass
+        else:
+            # stop and close loop
+            loop.stop()
+            for _ in range(10):
+                if not loop.is_running():
+                    break
+                    loop.close()
+                time.sleep(.1)
+
+        _loop = None
+        _loop_thread = None
+
+
+def get_loop_thread():
+    return _loop_thread
 
 
 class IOTasks(object):
@@ -139,6 +184,7 @@ def run_coroutine_threadsafe(coro, loop):
             task.add_done_callback(task_done)
         except Exception as exc:
             future.set_exception(exc)
+
     schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
 
     def propagate_cancel(future):
@@ -149,6 +195,7 @@ def run_coroutine_threadsafe(coro, loop):
                     loop.call_soon_threadsafe(task.cancel)
             except Exception:
                 logger.exception('canceling future failed')
+
     future.add_done_callback(propagate_cancel)
 
     return future

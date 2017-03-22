@@ -54,7 +54,7 @@ class NetTest(TestCase):
 
 
     def setUp(self):
-        self.loop = get_loop()
+        self.loop = get_loop(start=True)
         self.loop.set_debug(True)
 
         if not self.seeds:

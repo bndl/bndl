@@ -15,11 +15,12 @@ from concurrent.futures import CancelledError
 from threading import Condition, RLock
 import logging
 
-from bndl.execute import DependenciesFailed
+from sortedcontainers import SortedSet
+
+from bndl.compute import DependenciesFailed
 from bndl.net.connection import NotConnected
 from bndl.rmi import root_exc
 from bndl.util.funcs import noop
-from sortedcontainers import SortedSet
 
 
 logger = logging.getLogger(__name__)
@@ -30,20 +31,20 @@ class FailedDependency(Exception):
     Exception to be raised by task (i.e. returned from task.exception for tasks which have failed)
     to indicate that the task has been marked as failed post-hoc by the execution of another task.
 
-    The worker_failed argument indicates whether the worker which executed the task should be
+    The executor_failed argument indicates whether the executor which executed the task should be
     considered lost or not.
     '''
-    def __init__(self, worker_failed=None):
-        self.worker_failed = worker_failed
+    def __init__(self, executor_failed=None):
+        self.executor_failed = executor_failed
 
 
 class Scheduler(object):
     '''
-    This scheduler executes Tasks taking into account their dependencies and worker locality.
+    This scheduler executes Tasks taking into account their dependencies and executor locality.
 
-    Worker assignment takes into account:
-     * concurrency (how many tasks must a worker execute concurrently)
-     * and worker locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
+    executor assignment takes into account:
+     * concurrency (how many tasks must a executor execute concurrently)
+     * and executor locality (0 is indifferent, -1 is forbidden, 1+ increasing locality)
        as locality 0 is likely to be common, this is assumed throughout the scheduler
        to reduce the memory cost for scheduling
 
@@ -53,21 +54,21 @@ class Scheduler(object):
     as is done in bndl.compute (this reduced the number of dependencies to n+m instead of n*m).
     '''
 
-    def __init__(self, tasks, done, workers, concurrency=1, attempts=1):
+    def __init__(self, tasks, done, executors, concurrency=1, attempts=1):
         '''
         Execute tasks in the given context and invoke done(task) when a task completes.
 
         :param tasks: iterable[task]
         :param done: callable(task)
             Invoked when a task completes. Must be thread safe. May be called multiple times
-            if a task is reran (e.g. in case a worker fails). done(None) is called to signal
+            if a task is reran (e.g. in case a executor fails). done(None) is called to signal
             completion of the last task.
-        :param: workers: sequence[Peer]
-            Sequence of workers to execute on.
+        :param: executors: sequence[Peer]
+            Sequence of executors to execute on.
         :param: concurrency: int (defaults to 1)
-            @see: bndl.execute.concurrency
+            @see: bndl.compute.concurrency
         :param: attempts: int (defaults to 1)
-            @see: bndl.execute.attempts
+            @see: bndl.compute.attempts
         '''
         self.tasks = OrderedDict((task.id, task) for task
                                  in sorted(tasks, key=lambda t: t.priority))
@@ -80,24 +81,24 @@ class Scheduler(object):
             task.add_listener(noop, self.task_done)
 
         self.done = done
-        self.workers = {worker.name:worker for worker in workers}
+        self.executors = {executor.name:executor for executor in executors}
 
-        if not self.workers:
-            raise Exception('No workers available')
+        if not self.executors:
+            raise Exception('No executors available')
 
         self.concurrency = concurrency
         # failed tasks are retried on error, but they are executed at most attempts
         self.max_attempts = attempts
 
         # task completion is (may be) executed on another thread, this lock serializes access
-        # on the containers below and workers_idle
+        # on the containers below and executors_idle
         self.lock = RLock()
-        # a condition is used to signal that a worker is available or the scheduler is aborted
+        # a condition is used to signal that a executor is available or the scheduler is aborted
         self.condition = Condition(self.lock)
 
 
     def run(self):
-        logger.info('Executing job with %r tasks on %r workers', len(self.tasks), len(self.workers))
+        logger.info('Executing job with %r tasks on %r executors', len(self.tasks), len(self.executors))
 
         self._abort = False
         self._exc = None
@@ -106,21 +107,21 @@ class Scheduler(object):
         self.executable = SortedSet(key=lambda task: task.priority)  # sorted executable tasks (sorted by task.id by default)
         self.blocked = defaultdict(set)  # blocked tasks task -> dependency ids executable or pending
 
-        self.locality = {worker:{} for worker in self.workers.keys()}  # worker_name -> task -> locality > 0
-        self.forbidden = defaultdict(set)  # task -> set[worker]
-        # worker -> SortedList[task] in descending locality order
-        self.executable_on = {worker:SortedSet(key=lambda task, worker=worker:-self.locality[worker].get(task, 0))
-                              for worker in self.workers.keys()}
+        self.locality = {executor:{} for executor in self.executors.keys()}  # executor_name -> task -> locality > 0
+        self.forbidden = defaultdict(set)  # task -> set[executor]
+        # executor -> SortedList[task] in descending locality order
+        self.executable_on = {executor:SortedSet(key=lambda task, executor=executor:-self.locality[executor].get(task, 0))
+                              for executor in self.executors.keys()}
 
-        self.pending = set()  # mapping of task -> worker for tasks which are currently in progress
+        self.pending = set()  # mapping of task -> executor for tasks which are currently in progress
         self.succeeded = set()  # tasks which have been executed successfully
         self.failures = defaultdict(int)  # failure counts per task (task -> int)
 
-        # keep a FIFO queue of workers ready
-        # and a list of idle workers (ready, but no more tasks to execute)
-        self.workers_ready = deque(self.workers.keys())
-        self.workers_idle = set()
-        self.workers_failed = set()
+        # keep a FIFO queue of executors ready
+        # and a list of idle executors (ready, but no more tasks to execute)
+        self.executors_ready = deque(self.executors.keys())
+        self.executors_idle = set()
+        self.executors_failed = set()
 
         # perform scheduling under lock
         try:
@@ -129,13 +130,13 @@ class Scheduler(object):
 
                 # create list of executable tasks and set of blocked tasks
                 for task in self.tasks.values():
-                    for worker, locality in task.locality(self.workers.values()) or ():
-                        worker = worker.name
+                    for executor, locality in task.locality(self.executors.values()) or ():
+                        executor = executor.name
                         if locality < 0:
-                            self.forbidden[task].add(worker)
+                            self.forbidden[task].add(executor)
                         elif locality > 0:
-                            self.locality[worker][task] = locality
-                            self.executable_on[worker].add(task)
+                            self.locality[executor][task] = locality
+                            self.executable_on[executor].add(task)
 
                 for task in self.tasks.values():
                     if task.succeeded:
@@ -152,15 +153,15 @@ class Scheduler(object):
 
                 if not self.executable:
                     raise Exception('No tasks executable (all tasks have dependencies)')
-                if not self.workers_ready:
-                    raise Exception('No workers available (all workers are forbidden by all tasks)')
+                if not self.executors_ready:
+                    raise Exception('No executors available (all executors are forbidden by all tasks)')
 
-                logger.debug('Starting %r tasks (%r tasks blocked) on %r workers (%r tasks already done)',
-                             len(self.executable), len(self.blocked), len(self.workers_ready), len(self.succeeded))
+                logger.debug('Starting %r tasks (%r tasks blocked) on %r executors (%r tasks already done)',
+                             len(self.executable), len(self.blocked), len(self.executors_ready), len(self.succeeded))
 
                 while True:
-                    # wait for a worker to become available (signals task completion
-                    self.condition.wait_for(lambda: self.workers_ready or self._abort)
+                    # wait for a executor to become available (signals task completion
+                    self.condition.wait_for(lambda: self.executors_ready or self._abort)
 
                     if self._abort:
                         # the abort flag can be set to True to break the loop (in case of emergency)
@@ -169,12 +170,12 @@ class Scheduler(object):
                                 task.cancel()
                         break
 
-                    worker = self.workers_ready.popleft()
+                    executor = self.executors_ready.popleft()
 
-                    if worker in self.workers_failed:
-                        # the worker is 'ready' (a task was 'completed'), but with an error
-                        # or the worker was marked as failed because another task depended on an output
-                        # on this worker and the dependency failed
+                    if executor in self.executors_failed:
+                        # the executor is 'ready' (a task was 'completed'), but with an error
+                        # or the executor was marked as failed because another task depended on an output
+                        # on this executor and the dependency failed
                         continue
                     elif not (self.executable or self.pending):
                         assert not sum(1 for _ in filter(None, self.blocked.values()))
@@ -182,9 +183,9 @@ class Scheduler(object):
                             logger.debug('No more tasks to execute or pending')
                         break
                     else:
-                        task = self.select_task(worker)
+                        task = self.select_task(executor)
                         if task:
-                            # execute a task on the given worker and add the task_done callback
+                            # execute a task on the given executor and add the task_done callback
                             # the task is added to the pending set
                             try:
                                 # assert task in self.executable, '%r is not executable' % task
@@ -194,18 +195,18 @@ class Scheduler(object):
                                 # assert not task.done or task.failed, '%r done or failed' % task
                                 # assert not self.blocked[task], '%r blocked' % task
 
-                                # assert self.locality[worker].get(task, 0) >= 0, '%r forbidden on %r' % (task, worker)
+                                # assert self.locality[executor].get(task, 0) >= 0, '%r forbidden on %r' % (task, executor)
                                 # assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded' % task
                                 # assert all(dep.id not in self.tasks or self.blocked[dep] for dep in task.dependents), \
                                 #        'not all dependents of %r blocked' % task
 
                                 self.executable.remove(task)
-                                self.executable_on[worker].discard(task)
+                                self.executable_on[executor].discard(task)
                                 self.pending.add(task)
                                 if logger.isEnabledFor(logging.DEBUG):
                                     logger.debug('%r executing on %r with locality %r',
-                                                 task, worker, self.locality[worker].get(task, 0))
-                                task.execute(self, self.workers[worker])
+                                                 task, executor, self.locality[executor].get(task, 0))
+                                task.execute(self, self.executors[executor])
                             except CancelledError:
                                 pass
                             except AssertionError:
@@ -214,7 +215,7 @@ class Scheduler(object):
                                 task.mark_failed(exc)
                                 self.task_done(task)
                         else:
-                            self.workers_idle.add(worker)
+                            self.executors_idle.add(executor)
 
         except Exception as exc:
             self._exc = exc
@@ -241,16 +242,16 @@ class Scheduler(object):
             self.condition.notify_all()
 
 
-    def select_task(self, worker):
+    def select_task(self, executor):
         if not self.executable:
             return None
 
-        # select a task for the worker
-        worker_queue = self.executable_on[worker]
-        for task in list(worker_queue):
+        # select a task for the executor
+        executor_queue = self.executable_on[executor]
+        for task in list(executor_queue):
             if task in self.pending or task in self.succeeded:
-                # task executed by another worker
-                worker_queue.remove(task)
+                # task executed by another executor
+                executor_queue.remove(task)
             elif task in self.executable:
                 return task
             elif self.blocked[task]:
@@ -260,9 +261,9 @@ class Scheduler(object):
                 # assert False, '%r not executable, blocked, pending nor executed' % task
 
         # no task available with locality > 0
-        # find task which is allowed to execute on this worker
+        # find task which is allowed to execute on this executor
         for task in self.executable:
-            if worker not in self.forbidden[task]:
+            if executor not in self.forbidden[task]:
                 return task
 
 
@@ -278,26 +279,26 @@ class Scheduler(object):
         if task in self.executable or task in self.pending or task.succeeded:
             return
 
-        # calculate for each worker which tasks are forbidden or which have locality
-        for worker in self.workers.keys():
-            # don't bother with 'failed' workers
-            if worker not in self.workers_failed:
-                locality = self.locality[worker].get(task, 0)
+        # calculate for each executor which tasks are forbidden or which have locality
+        for executor in self.executors.keys():
+            # don't bother with 'failed' executors
+            if executor not in self.executors_failed:
+                locality = self.locality[executor].get(task, 0)
                 if locality >= 0:
-                    # make sure the worker isn't 'stuck' in the idle set
-                    if worker in self.workers_idle:
-                        self.workers_idle.remove(worker)
+                    # make sure the executor isn't 'stuck' in the idle set
+                    if executor in self.executors_idle:
+                        self.executors_idle.remove(executor)
                         for _ in range(self.concurrency):
-                            self.workers_ready.append(worker)
+                            self.executors_ready.append(executor)
                         self.condition.notify()
 
-                    # the task has a preference for this worker
+                    # the task has a preference for this executor
                     if locality > 0:
-                        self.executable_on[worker].add(task)
+                        self.executable_on[executor].add(task)
 
-        # check if there is a worker allowed to execute the task
-        if len(self.forbidden[task]) == len(self.workers):
-            raise Exception('%r cannot be executed on any available workers' % task)
+        # check if there is a executor allowed to execute the task
+        if len(self.forbidden[task]) == len(self.executors):
+            raise Exception('%r cannot be executed on any available executors' % task)
 
         # add the task to the executable queue
         self.executable.add(task)
@@ -341,7 +342,7 @@ class Scheduler(object):
                                 logger.debug('%r unblocked because %r was executed', dependent, task)
                                 self.set_executable(dependent)
 
-                self.workers_ready.append(task.executed_on_last())
+                self.executors_ready.append(task.executed_on_last())
                 self.condition.notify()
         except Exception as exc:
             logger.exception('Unable to handle task completion of %r on %r',
@@ -367,10 +368,10 @@ class Scheduler(object):
             if logger.isEnabledFor(logging.INFO):
                 logger.info('%r failed on %s because %r failed, rescheduling',
                             task, task.executed_on_last(),
-                            ', '.join((worker or 'none') + ': ' + ','.join(map(str, dependencies))
-                                      for worker, dependencies in exc.failures.items()))
+                            ', '.join((executor or 'none') + ': ' + ','.join(map(str, dependencies))
+                                      for executor, dependencies in exc.failures.items()))
 
-            for worker, dependencies in exc.failures.items():
+            for executor, dependencies in exc.failures.items():
                 for task_id in dependencies:
                     try:
                         dependency = self.tasks[task_id]
@@ -378,38 +379,38 @@ class Scheduler(object):
                         logger.error('Received DependenciesFailed for unknown task with id %r', task_id)
                         self.abort(e)
                     else:
-                        # mark the worker as failed
+                        # mark the executor as failed
                         executed_on_last = dependency.executed_on_last()
-                        if not worker or worker == executed_on_last:
-                            if worker == executed_on_last:
+                        if not executor or executor == executed_on_last:
+                            if executor == executed_on_last:
                                 logger.info('Marking %r as failed for dependency %s of %s',
-                                            worker, dependency, task)
-                                self.workers_failed.add(worker)
-                                self.workers_idle.discard(worker)
-                            dependency.mark_failed(FailedDependency(worker))
+                                            executor, dependency, task)
+                                self.executors_failed.add(executor)
+                                self.executors_idle.discard(executor)
+                            dependency.mark_failed(FailedDependency(executor))
                             self.task_failed(dependency)
                         else:
                             # this should only occur with really really short tasks where the failure of a
                             # task noticed by task b is already obsolete because of the dependency was already
                             # restarted (because another task also issued DependenciesFailed)
-                            logger.info('Received DependenciesFailed for task with id %r and worker %r '
+                            logger.info('Received DependenciesFailed for task with id %r and executor %r '
                                         'but the task is last executed on %r',
-                                         task_id, worker, executed_on_last)
+                                         task_id, executor, executed_on_last)
 
         elif isinstance(exc, FailedDependency):
             self.succeeded.discard(task)
-            worker = exc.worker_failed
-            if worker:
-                logger.info('%r marked as failed post-hoc, marking %r as failed', task, worker)
-                self.workers_failed.add(worker)
-                self.workers_idle.discard(worker)
+            executor = exc.executor_failed
+            if executor:
+                logger.info('%r marked as failed post-hoc, marking %r as failed', task, executor)
+                self.executors_failed.add(executor)
+                self.executors_idle.discard(executor)
 
         elif isinstance(exc, NotConnected):
-            # mark the worker as failed
+            # mark the executor as failed
             if logger.isEnabledFor(logging.INFO):
                 logger.info('%r failed with NotConnected, marking %r as failed',
                             task, task.executed_on_last())
-            self.workers_failed.add(task.executed_on_last())
+            self.executors_failed.add(task.executed_on_last())
 
         else:
             self.failures[task] = failures = self.failures[task] + 1
@@ -434,8 +435,8 @@ class Scheduler(object):
             self.blocked[dependent].add(task.id)
             self.executable.discard(dependent)
 
-        if len(self.workers_failed) == len(self.workers):
-            self.abort(Exception('Unable to complete job, all workers failed'))
+        if len(self.executors_failed) == len(self.executors):
+            self.abort(Exception('Unable to complete job, all executors failed'))
 
         if not self.blocked[task] and task not in self.executable and task not in self.pending:
             self.set_executable(task)

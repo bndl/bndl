@@ -10,11 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.case import TestCase
-from bndl.util.objects import LazyObject
-import pickle
 from collections import Counter
 from functools import partial
+from unittest.case import TestCase
+import pickle
+
+from bndl.util.objects import LazyObject
+
 
 class Expensive(object):
     def __init__(self, counters):

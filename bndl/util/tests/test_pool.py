@@ -12,10 +12,10 @@
 
 from collections import Counter
 from unittest.case import TestCase
-
-from bndl.util.pool import ObjectPool
 import pickle
 import time
+
+from bndl.util.pool import ObjectPool
 
 
 class ObjectPoolTest(TestCase):

@@ -31,10 +31,10 @@ COLMUMNS = (
 
 def _each(ctx, func):
     tasks = [
-        (worker, worker.service('tasks').execute(func))
-        for worker in ctx.workers
+        (node, node.service('tasks').execute(func))
+        for node in ctx.workers + ctx.executors
     ]
-    return [(worker, task.result()) for worker, task in tasks]
+    return [(node, task.result()) for node, task in tasks]
 
 
 def _strip_dirs(path):
@@ -49,7 +49,7 @@ def _strip_dirs(path):
 
 
 def print_yappi_stats(stats, max_rows=100, sort_by=None, sort_dir=None,
-                    columns=COLMUMNS, per_worker=False, strip_dirs=True,
+                    columns=COLMUMNS, per_process=False, strip_dirs=True,
                     include=(), exclude=(), file=sys.stdout):
     columns = dict(enumerate(columns))
 
@@ -114,9 +114,9 @@ class CpuProfiling(object):
         _each(self.ctx, yappi.stop)
 
 
-    def get_stats(self, per_worker=False):
+    def get_stats(self, per_process=False):
         individual_stats = _each(self.ctx, yappi.get_func_stats)
-        if per_worker:
+        if per_process:
             return individual_stats
         else:
             stat, *rest = pluck(1, individual_stats)
@@ -142,7 +142,7 @@ class CpuProfiling(object):
 
 
     def print_stats(self, max_rows=100, sort_by=None, sort_dir=None,
-                    columns=COLMUMNS, per_worker=False, strip_dirs=True,
+                    columns=COLMUMNS, per_process=False, strip_dirs=True,
                     include=(), exclude=(), file=sys.stdout):
         '''
         Print the top CPU consumers.
@@ -153,7 +153,7 @@ class CpuProfiling(object):
             sort_dir ('asc', 'desc' or None): Sort direction (ascending or descending).
             columns (sequence of (name:str, width:int) tuples): The names and widths (in
                 characters) of the columns to print.
-            per_worker (bool): Whether to print per worker individualy or to print the totals.
+            per_process (bool): Whether to print per process individualy or to print the totals.
                 Defaults to printing totals.
             strip_dirs (bool): Whether to strip directories (only show packages / modules and line
                 numbers). Defaults to True.
@@ -163,17 +163,17 @@ class CpuProfiling(object):
                 modules except thos under bndl, e.g. bndl.util. Requires that strip_dirs is True.
             file (fileobj): Where to print to. Defaults to sys.stdout.
         '''
-        stats = self.get_stats(per_worker)
+        stats = self.get_stats(per_process)
 
-        if per_worker:
-            for worker, stats in sorted(stats):
-                print('Worker:', worker.name, end='', file=file)
+        if per_process:
+            for process, stats in sorted(stats):
+                print('Process:', process.name, end='', file=file)
                 print_yappi_stats(stats, max_rows, sort_by, sort_dir, columns,
-                                  per_worker, strip_dirs, include, exclude, file)
+                                  per_process, strip_dirs, include, exclude, file)
                 print('', file=file)
         else:
             print_yappi_stats(stats, max_rows, sort_by, sort_dir, columns,
-                              per_worker, strip_dirs, include, exclude, file)
+                              per_process, strip_dirs, include, exclude, file)
 
 
 def print_tracemalloc_stats(top_stats, limit=30, file=sys.stdout, strip_dirs=True, include=(), exclude=()):
@@ -216,9 +216,9 @@ class MemoryProfiling(object):
         _each(self.ctx, tracemalloc.stop)
 
 
-    def take_snapshot(self, per_worker=False):
+    def take_snapshot(self, per_process=False):
         snapshots = _each(self.ctx, tracemalloc.take_snapshot)
-        if per_worker:
+        if per_process:
             return snapshots
         snapshot_merged, *snapshots = pluck(1, snapshots)
         traces_merged = snapshot_merged.traces._traces
@@ -227,7 +227,7 @@ class MemoryProfiling(object):
         return snapshot_merged
 
 
-    def print_top(self, group_by='lineno', limit=30, compare_to=None, per_worker=False,
+    def print_top(self, group_by='lineno', limit=30, compare_to=None, per_process=False,
                   strip_dirs=True, include=(), exclude=(), file=sys.stdout):
         '''
         Take a snapshot across the cluster and print the top memory allocations.
@@ -236,18 +236,18 @@ class MemoryProfiling(object):
             group_by (str): Defaults to 'lineno'.
             limit (int): The number of lines to print. Defaults to 30.
             compare_to (snapshot): A snapshot to compare the memory usage to.
-            per_worker (bool): Whether to print the top per worker or not. Defaults to False.
+            per_process (bool): Whether to print the top per process or not. Defaults to False.
             strip_dirs (bool): Whether to strip directories. Defaults to True.
             include (sequence[str]): The modules to include.
             exclude (sequence[str]): The modules to exclude.
             file (fileobj): The file to print to. Defaults to ``sys.stdout``.
         '''
-        assert not (compare_to and per_worker)
+        assert not (compare_to and per_process)
 
-        if per_worker:
+        if per_process:
             snapshots = self.take_snapshot(True)
-            for worker, snapshot in snapshots:
-                print('Worker:', worker.name, file=file)
+            for process, snapshot in snapshots:
+                print('Worker:', process.name, file=file)
                 print_tracemalloc_stats(snapshot, group_by, limit, file, include, exclude)
             return snapshots
 

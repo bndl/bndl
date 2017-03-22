@@ -10,14 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 from unittest.case import SkipTest
+import math
 
 from bndl.compute.tests import DatasetTest
 
 
 class StatsTest(DatasetTest):
-    worker_count = 3
+    executor_count = 3
 
     def setUp(self):
         self.dset = self.ctx.range(1000)

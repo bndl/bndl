@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numbers
 import re
 import string
 
@@ -30,3 +31,15 @@ def random(length=64, alphabet=string.ascii_lowercase + string.digits, rng=None,
     else:
         choice = rand.Random(seed).choice
     return ''.join(choice(alphabet) for _ in range(length))
+
+
+def decode(data, encoding='utf-8', errors='strict'):
+    try:
+        return data.decode(encoding, errors)
+    except AttributeError as e:
+        if isinstance(data, numbers.Number):
+            raise
+        try:
+            return bytes(data).decode(encoding, errors)
+        except:
+            raise e

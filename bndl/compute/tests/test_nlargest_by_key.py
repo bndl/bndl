@@ -10,10 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
 from heapq import nlargest, nsmallest
 from itertools import groupby, product
+
 from bndl.compute.dataset import Dataset
+from bndl.compute.tests import DatasetTest
 
 
 class LargestByKeyTest(DatasetTest):

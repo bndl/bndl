@@ -10,12 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import pickle
 import string
 
-from bndl.compute.tests import DatasetTest
 from bndl.compute import broadcast
+from bndl.compute.tests import DatasetTest
+import numpy as np
 
 
 class BroadcastTest(DatasetTest):
@@ -51,15 +51,15 @@ class BroadcastTest(DatasetTest):
         one = self.ctx.broadcast(1)
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
         # would normally use unpersist, but this will trip up the worker if it wasn't cached
-        self.ctx.node.service('blocks').cache.clear()
+        self.ctx.node.service('blocks').blocks.clear()
         self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
 
     def test_missing(self):
         one = self.ctx.broadcast(1)
         # would normally use unpersist, but this will trip up the worker
         # just to make sure workers don't invent broadcast values out of thin air or something ...
-        self.ctx.node.service('blocks').cache.clear()
-        broadcast.download_coordinator.clear(one.block_spec.name)
+        self.ctx.node.service('blocks').blocks.clear()
+        broadcast.download_coordinator.clear(one.block_spec.id)
         with self.assertRaises(Exception):
             self.ctx.range(1).map(lambda i: one.value).collect()
 
@@ -81,12 +81,12 @@ class BroadcastTest(DatasetTest):
     def test_multiblock(self):
         self.ctx.conf['bndl.compute.broadcast.block_size'] = .5  # 100kb
         # test if threads at a worker play nicely
-        self.ctx.conf['bndl.execute.concurrency'] = 8
+        self.ctx.conf['bndl.compute.concurrency'] = 8
         lst = list(range(1024 * 1024))  # 10+ blocks
         pickled = pickle.dumps(lst)
 
         bc_list = self.ctx.broadcast(pickled, None, pickle.loads)
-        pcount = self.ctx.worker_count * 16
+        pcount = self.ctx.executor_count * 16
         dset = self.ctx.range(pcount).map(lambda _: bc_list.value)
         for e in dset.icollect():
             self.assertEqual(e, lst)

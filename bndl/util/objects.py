@@ -30,12 +30,12 @@ class LazyObject(object):
     def __init__(self, factory, destructor=None):
         self._factory = factory
         self._destructor_key = destructor
-        
-        
+
+
     def _materialize(self):
         factory = object.__getattribute__(self, '_factory')
         destructor_key = object.__getattribute__(self, '_destructor_key')
-        
+
         obj = factory()
         if not obj:
             raise RuntimeError('Unable to create lazy object from %s' % factory)
@@ -49,13 +49,13 @@ class LazyObject(object):
 
         if destructor_key:
             setattr(self, destructor_key, _Destructor(self, factory, destructor, destructor_key))
-        
-        
+
+
     def __getitem__(self, name):
         object.__getattribute__(self, '_materialize')()
         return self[name]
-        
-        
+
+
     def __setitem__(self, name, value):
         object.__getattribute__(self, '_materialize')()
         self[name] = value

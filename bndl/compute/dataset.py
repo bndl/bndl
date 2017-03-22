@@ -33,13 +33,12 @@ from cyhll import HyperLogLog
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
-from bndl.compute import cache
+from bndl.compute import cache, TaskCancelled, DependenciesFailed
+from bndl.compute.job import RmiTask, Job, Task
+from bndl.compute.scheduler import FailedDependency
 from bndl.compute.stats import iterable_size, Stats, MultiVariateStats, \
                                sample_with_replacement, sample_without_replacement
-from bndl.execute import TaskCancelled, DependenciesFailed
-from bndl.execute.job import RmiTask, Job, Task
-from bndl.execute.scheduler import FailedDependency
-from bndl.execute.worker import task_context, current_worker
+from bndl.compute.tasks import task_context, current_node
 from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException, root_exc
 from bndl.util import strings
@@ -92,7 +91,7 @@ class Dataset(object):
         self.id = dset_id or new_dset_id()
         self._cache_provider = None
         self._cache_locs = {}
-        self._workers_required = None
+        self._executors_required = None
         self.callsite = get_callsite(type(self))
 
 
@@ -737,7 +736,7 @@ class Dataset(object):
     def tree_aggregate(self, local, comb=None, depth=2, scale=None, **shuffle_opts):
         '''
         Tree-wise aggregation by first applying local on each partition and
-        subsequently shuffling the data across workers in depth rounds and for
+        subsequently shuffling the data across executors in depth rounds and for
         each round aggregating the data by applying comb.
 
         :param local: func(iterable)
@@ -1439,7 +1438,7 @@ class Dataset(object):
 
     def save_as_pickles(self, directory=None, compression=None):
         '''
-        Collect each partition as a pickle file into directory at the workers.
+        Collect each partition as a pickle file into directory at the executors.
         '''
         self.glom().map(pickle.dumps).save_as_files(directory, '.p', 'b', compression)
 
@@ -1453,7 +1452,7 @@ class Dataset(object):
 
     def save_as_json(self, directory=None, compression=None):
         '''
-        Save each partition as a line separated json file into directory at the workers.
+        Save each partition as a line separated json file into directory at the executors.
         '''
         self.map(json.dumps).concat(os.linesep).save_as_files(directory, '.json', 't', compression)
 
@@ -1476,7 +1475,7 @@ class Dataset(object):
 
     def save_as_files(self, directory=None, ext='', mode='b', compression=None):
         '''
-        Save each partition in this data set into a file into directory at the workers.
+        Save each partition in this data set into a file into directory at the executors.
 
         :param directory: str
             The directory to save this data set to.
@@ -1558,32 +1557,32 @@ class Dataset(object):
                 done.close()
 
 
-    def require_workers(self, workers_required):
+    def require_executors(self, executors_required):
         '''
-        Create a clone of this dataset which is only computable on the workers
-        which are returned by the workers_required argument.
+        Create a clone of this dataset which is only computable on the executors
+        which are returned by the executors_required argument.
 
-        :param workers_required: function(iterable[PeerNode]): -> iterable[PeerNode]
-            A function which is given an iterable of workers (PeerNodes) which is to
+        :param executors_required: function(iterable[PeerNode]): -> iterable[PeerNode]
+            A function which is given an iterable of executors (PeerNodes) which is to
             return only those which are allowed to compute this dataset.
         '''
-        return self._with(_workers_required=workers_required)
+        return self._with(_executors_required=executors_required)
 
 
-    def require_local_workers(self):
+    def require_local_executors(self):
         '''
         Require that the dataset is computed on the same node as the driver.
         '''
-        return self.require_workers(lambda workers: [worker.islocal() for worker in workers])
+        return self.require_executors(lambda executors: [executor.islocal() for executor in executors])
 
 
-    def allow_all_workers(self):
+    def allow_all_executors(self):
         '''
-        Create a clone of this dataset which resets the worker filter set by
-        require_workers if any.
+        Create a clone of this dataset which resets the executor filter set by
+        require_executors if any.
         '''
-        if self._workers_required is not None:
-            return self._with(_workers_required=None)
+        if self._executors_required is not None:
+            return self._with(_executors_required=None)
         else:
             return self
 
@@ -1682,8 +1681,8 @@ class Dataset(object):
 
     def cache(self, location='memory', serialization=None, compression=None, provider=None):
         '''
-        Cache the dataset in the workers. Each partition is cached in the memory / on the disk of
-        the worker which computed it.
+        Cache the dataset in the executors. Each partition is cached in the memory / on the disk of
+        the executor which computed it.
 
         Args:
             location (str): 'memory' or 'disk'.
@@ -1728,7 +1727,7 @@ class Dataset(object):
         def clear(provider=self._cache_provider, dset_id=self.id):
             provider.clear(dset_id)
 
-        tasks = [worker.service('tasks').execute for worker in self.ctx.workers]
+        tasks = [executor.service('tasks').execute for executor in self.ctx.executors]
         if timeout:
             tasks = [task.with_timeout(timeout) for task in tasks]
         tasks = [task(clear) for task in tasks]
@@ -1882,48 +1881,48 @@ class Partition(object):
         raise Exception('%s does not implement _compute' % type(self))
 
 
-    def locality(self, workers):
+    def locality(self, executors):
         '''
-        Determine locality of computing this partition at the given workers.
+        Determine locality of computing this partition at the given executors.
 
-        :return: a generator of worker, locality pairs.
+        :return: a generator of executor, locality pairs.
         '''
-        if self.dset._workers_required is not None:
-            allowed = set(self.dset._workers_required(workers))
-            forbidden = set(workers) - allowed
-            workers = allowed
-            for worker in forbidden:
-                yield worker, FORBIDDEN
+        if self.dset._executors_required is not None:
+            allowed = set(self.dset._executors_required(executors))
+            forbidden = set(executors) - allowed
+            executors = allowed
+            for executor in forbidden:
+                yield executor, FORBIDDEN
 
         cache_loc = self.cache_loc()
         if cache_loc:
-            workers_filtered = set(workers)
-            for worker in workers:
-                if cache_loc == worker.name:
-                    yield worker, PROCESS_LOCAL
-                    workers_filtered.remove(worker)
-                elif worker.islocal:
-                    yield worker, NODE_LOCAL
-                    workers_filtered.remove(worker)
-            workers = workers_filtered
+            executors_filtered = set(executors)
+            for executor in executors:
+                if cache_loc == executor.name:
+                    yield executor, PROCESS_LOCAL
+                    executors_filtered.remove(executor)
+                elif executor.islocal:
+                    yield executor, NODE_LOCAL
+                    executors_filtered.remove(executor)
+            executors = executors_filtered
 
-        if workers:
-            yield from self._locality(workers)
+        if executors:
+            yield from self._locality(executors)
 
 
-    def _locality(self, workers):
+    def _locality(self, executors):
         '''
         Determine locality of computing this partition. Cache locality is dealt
-        with when this method is invoked by Partition.locality(workers).
+        with when this method is invoked by Partition.locality(executors).
 
         Typically source partition implementations which inherit from Partition
-        indicate here whether computing on a worker shows locality. This allows
+        indicate here whether computing on a executor shows locality. This allows
         dealing with caching and preference/requirements set at the data set
         separately from locality in the 'normal' case.
 
-        :param workers: An iterable of workers.
-        :returns: An iterable of (worker, locality:int) tuples indicating the
-        worker locality; locality 0 can be omitted as this is the default
+        :param executors: An iterable of executors.
+        :returns: An iterable of (executor, locality:int) tuples indicating the
+        executor locality; locality 0 can be omitted as this is the default
         locality.
         '''
         if self.src:
@@ -1934,27 +1933,27 @@ class Partition(object):
                     if src.dset.sync_required:
                         continue
 
-                    for worker, locality in src.locality(workers) or ():
+                    for executor, locality in src.locality(executors) or ():
                         if locality == FORBIDDEN:
-                            forbidden.append(worker)
+                            forbidden.append(executor)
                         else:
-                            localities[worker] += locality
-                for worker in forbidden:
-                    yield worker, FORBIDDEN
+                            localities[executor] += locality
+                for executor in forbidden:
+                    yield executor, FORBIDDEN
                     try:
-                        del localities[worker]
+                        del localities[executor]
                     except KeyError:
                         pass
                 src_count = len(self.src)
-                for worker, locality in localities.items():
-                    yield worker, locality / src_count
+                for executor, locality in localities.items():
+                    yield executor, locality / src_count
             else:
                 src = self.src
                 if not src.dset.sync_required:
-                    yield from src.locality(workers)
+                    yield from src.locality(executors)
 
 
-    def save_cache_location(self, worker):
+    def save_cache_location(self, executor):
         try:
             dset = self.dset
             dset.id
@@ -1963,17 +1962,17 @@ class Partition(object):
 
         # memorize the cache location for the partition
         if dset.cached and not dset._cache_locs.get(self.idx):
-            dset._cache_locs[self.idx] = worker
+            dset._cache_locs[self.idx] = executor
         # traverse backup up the task (not the entire DAG)
         if self.src:
             if isinstance(self.src, Iterable):
                 for src in self.src:
                     if not src.dset.sync_required:
-                        src.save_cache_location(worker)
+                        src.save_cache_location(executor)
             else:
                 src = self.src
                 if not src.dset.sync_required:
-                    src.save_cache_location(worker)
+                    src.save_cache_location(executor)
 
 
     @property
@@ -2169,7 +2168,7 @@ class BarrierTask(Task):
     '''
     An 'artificial' task which disconnects
     :class:`ComputePartitionTasks <bndl.compute.dataset.ComputePartitionTask>` in order to reduce
-    computational complexity in :mod:`bndl.execute.scheduler`. As this scheduler tracks individual
+    computational complexity in :mod:`bndl.compute.scheduler`. As this scheduler tracks individual
     dependencies the scheduling overhead goes through the roof when even a moderate amount of tasks
     which depend on another set of tasks (which is the case for a shuffle). E.g. consider
 
@@ -2185,20 +2184,20 @@ class BarrierTask(Task):
         super().__init__(*args, **kwargs)
         self.dependency_locations = None
 
-    def execute(self, scheduler, worker):
+    def execute(self, scheduler, executor):
         # administer where dependencies were executed
-        by_worker = self.dependency_locations = {}
+        by_executor = self.dependency_locations = {}
         for dep in self.dependencies:
             executed_on = dep.executed_on_last()
             if not executed_on:
                 assert dep.done
-            locs = by_worker.get(executed_on)
+            locs = by_executor.get(executed_on)
             if locs is None:
-                by_worker[executed_on] = locs = []
+                by_executor[executed_on] = locs = []
             part = dep.part
             locs.append(part.id)
         # 'execute' the barrier
-        self.set_executing(worker)
+        self.set_executing(executor)
         future = self.future = concurrent.futures.Future()
         future.set_result(None)
         self.signal_stop()
@@ -2219,15 +2218,15 @@ class ComputePartitionTask(RmiTask):
         self.locality = part.locality
 
 
-    def execute(self, scheduler, worker):
+    def execute(self, scheduler, executor):
         if self.dependencies:
-            # created mapping of worker -> list[part_id] for dependency locations
+            # created mapping of executor -> list[part_id] for dependency locations
             dependency_locations = {}
             for barrier in self.dependencies:
                 dependency_locations.update(barrier.dependency_locations)
             # set locations as second arguments to _compute_part
             self.args[1] = dependency_locations
-        return super().execute(scheduler, worker)
+        return super().execute(scheduler, executor)
 
 
     def signal_stop(self):
@@ -2251,17 +2250,17 @@ class ComputePartitionTask(RmiTask):
 def _compute_part(part, dependency_locations):
     '''
     Compute a partition; this method calls compute for a partition (which calls comppute on its
-    source partition(s), reads data from some external source, from cache, from other workers,
+    source partition(s), reads data from some external source, from cache, from other executors,
     etc.). This method is the method to execute by :class:`bndl.compute.dataset.ComputePartitionTask`
-    (which delegates the RMI part to :class:`bndl.execute.jobs.RmiTask`.
+    (which delegates the RMI part to :class:`bndl.compute.jobs.RmiTask`.
 
     Args:
         part: The partition to compute.
-        dependency_locations (mapping[str,object]): A mapping of worker name to a sequence of
-            partition ids executed by this worker.
+        dependency_locations (mapping[str,object]): A mapping of executor name to a sequence of
+            partition ids executed by this executor.
     '''
     try:
-        # communicate out of band on which workers dependencies of this task were executed
+        # communicate out of band on which executors dependencies of this task were executed
         task_context()['dependency_locations'] = dependency_locations
         # generate data
         data = part.compute()
@@ -2275,6 +2274,6 @@ def _compute_part(part, dependency_locations):
     except DependenciesFailed:
         raise
     except Exception:
-        logger.info('Error while computing part %s on worker %s',
-                    part, current_worker(), exc_info=True)
+        logger.info('Error while computing part %s on executor %s',
+                    part, current_node(), exc_info=True)
         raise

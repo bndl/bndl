@@ -10,19 +10,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from asyncio.futures import TimeoutError
-from collections import defaultdict
-from concurrent.futures import as_completed
-from operator import itemgetter
+from bisect import bisect_left
+from math import ceil
 import asyncio
-import contextlib
 import logging
-import math
+import mmap
+import os
 import random
+import socket
+import struct
+import tempfile
 import threading
+import weakref
 
-from bndl.net.serialize import attach, attachment
-from bndl.util.collection import split
+from bndl import rmi
+from bndl.compute.storage import Data, get_work_dir
+from bndl.util import serialize
+from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.exceptions import catch
 
 
@@ -31,74 +35,39 @@ logger = logging.getLogger(__name__)
 
 AVAILABILITY_TIMEOUT = 1
 
+MIN_DOWNLOAD_SIZE = 1024 * 1024
+MAX_DOWNLOAD_SIZE = 1024 * 1024 * 8
+
 
 class BlockSpec(object):
-    def __init__(self, seeder, name, num_blocks):
+    def __init__(self, block_id, seeder, size):
+        self.id = block_id
         self.seeder = seeder
-        self.name = name
-        self.num_blocks = num_blocks
+        self.size = size
+
+    def __repr__(self):
+        return '<BlockSpec %s from %s>' % (self.id, self.seeder)
+
 
 
 class Block(object):
-    '''
-    Helper class for exchanging blocks between peers. It uses the attach and
-    attachment utilities from bndl.net.serialize to optimize sending the already
-    serialized data.
-    '''
-
-    def __init__(self, block_id, data):
+    def __init__(self, block_id, size, fd=-1):
         self.id = block_id
-        self.data = data
+        self.size = size
 
+        if fd == -1:
+            self.fd, name = tempfile.mkstemp(prefix='block-', dir=get_work_dir())
+            os.unlink(name)
+            with open(self.fd, 'wb', closefd=False) as f:
+                f.write(b'0')
+            self.data = mmap.mmap(self.fd, 1)
+            self.data.resize(self.size)
 
-    def __getstate__(self):
-        data = self.data
-        @contextlib.contextmanager
-        def _attacher(loop, writer):
-            @asyncio.coroutine
-            def sender():
-                writer.write(data)
-            yield len(data), sender
-        attach(str(self.id).encode(), _attacher)
-        state = dict(self.__dict__)
-        state.pop('data', None)
-        return state
-
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.data = attachment(str(self.id).encode())
-
-
-def _batch_blocks(data, block_size):
-    length = len(data)
-    if isinstance(block_size, tuple):
-        block_count, min_block_size, max_block_size = block_size
-        assert block_count > 0
-        assert min_block_size >= 0
-        assert max_block_size > 0
-        block_size = math.ceil(length / block_count)
-        if block_size > max_block_size:
-            block_size = max_block_size
-        elif block_size < min_block_size:
-            block_size = min_block_size
-        return _batch_blocks(data, block_size)
-    else:
-        assert block_size > 0
-        if length > block_size:
-            # TODOdata = memoryview(data)
-            num_blocks = int((length - 1) / block_size) + 1  # will be 1 short
-            blocks = []
-            step = math.ceil(length / num_blocks)
-            offset = 0
-            for _ in range(num_blocks - 1):
-                blocks.append(data[offset:offset + step])
-                offset += step
-            # add remainder
-            blocks.append(data[offset:])
-            return blocks
         else:
-            return [data]
+            self.fd = fd
+            self.data = mmap.mmap(self.fd, size)
+
+        weakref.finalize(self, os.close, self.fd)
 
 
 
@@ -116,167 +85,374 @@ class BlockManager(object):
     usage of the BlockManager functionality.
     '''
 
-    def __init__(self, worker):
-        self.worker = worker
-        # cache of blocks by name
-        self.cache = {}  # name : lists
+    def __init__(self, node):
+        self.node = node
+        # blocks by name
+        self.blocks = {}  # name : lists
         # protects write access to _available_events
-        self._available_lock = threading.Lock()
+        self._available_lock = asyncio.Lock(loop=self.node.loop)
         # contains events indicating blocks are available (event is set)
         # or are being downloaded (contains name, but event not set)
         self._available_events = {}  # name : threading.Event
+        # ranges of bytes available for a block
+        self._available_data = {}  # name: [(start, stop), (start, stop), ...]
 
+        self.fd_server = None
+        self.fd_socket_path = None
 
-    def serve_data(self, name, data, block_size):
-        '''
-        Serve data from this node (it'll be the seeder). The method is a
-        convenience method to split data into blocks.
-
-        :param name: Name of the data / blocks.
-        :param data: The bytes to be split into blocks.
-        :param block_size: int or tuple
-            If int: maximum size of the blocks.
-            If tuple: ideal number of blocks, minimum and maximum size of the blocks.
-        '''
-        blocks = _batch_blocks(data, block_size)
-        return self.serve_blocks(name, blocks)
-
-
-    def serve_blocks(self, name, blocks):
-        '''
-        Serve blocks from this node (it'll be the seeder).
-        :param name: Name of the blocks.
-        :param blocks: list or tuple of blocks.
-        '''
-        block_spec = BlockSpec(self.worker.name, name, len(blocks))
-        self.cache[name] = blocks
-        available = threading.Event()
-        self._available_events[name] = available
-        available.set()
-        return block_spec
-
-
-    def remove_blocks(self, name, from_peers=False):
-        '''
-        Remove blocks being served.
-        :param name: Name of the blocks to be removed.
-        :param from_peers: If True, the blocks under name will be removed from
-        other peer nodes as well.
-        '''
-        with catch(KeyError):
-            del self.cache[name]
-        with catch(KeyError):
-            del self._available_events[name]
-        if from_peers:
-            for peer in self.worker.peers.filter():
-                peer._remove_blocks(name)
-                # responses aren't waited for
+    @asyncio.coroutine
+    def start(self):
+        dirpath = tempfile.mkdtemp(prefix='blocks-', dir=get_work_dir())
+        self.fd_socket_path = os.path.join(dirpath, 'blocks.socket')
+        self.fd_server = yield from asyncio.start_unix_server(self._serve_block_fd, self.fd_socket_path, loop=self.node.loop)
 
 
     @asyncio.coroutine
-    def _remove_blocks(self, peer, name):
-        with catch(KeyError):
-            del self.cache[name]
-        with catch(KeyError):
-            del self._available_events[name]
+    def stop(self):
+        self.fd_server.close()
+        if os.path.exists(self.fd_socket_path):
+            os.unlink(self.fd_socket_path)
 
 
-    def get(self, block_spec, peers=[]):
-        name = block_spec.name
-        with self._available_lock:
-            available = self._available_events.get(name)
+    def serve_data(self, block_id, data):
+        block = Block(block_id, len(data))
+        block.data[:] = data
+        return self.serve_block(block)
+
+
+    def serve_block(self, block):
+        self.blocks[block.id] = block
+        available = threading.Event()
+        available.set()
+        self._available_events[block.id] = available
+        self._available_data[block.id] = [(0, block.size)]
+        logger.debug('Serving block %s (%.2f mb)', block.id, block.size / 1024 / 1024)
+        return BlockSpec(block.id, self.node.name, block.size)
+
+
+    def get(self, block_spec, peers=()):
+        if block_spec.seeder == self.node.name:
+            return self.blocks[block_spec.id].data
+        else:
+            run_coroutine_threadsafe(
+                self._download_if_unavailable(None, block_spec, peers),
+                self.node.loop
+            ).result()
+            return self.blocks[block_spec.id].data
+
+
+    def remove_block(self, block_id, from_peers=False):
+        '''
+        Remove block being served.
+        :param block_id: ID of the block to be removed.
+        :param from_peers: If True, the block with block_id will be removed from other peer nodes
+        as well.
+        '''
+        self._remove_block(None, block_id)
+        if from_peers:
+            for peer in self.node.peers.filter():
+                peer._remove_block(block_id)
+                # responses aren't waited for
+
+
+    @rmi.direct
+    def _remove_block(self, peer, block_id):
+        with catch(KeyError):
+            del self.blocks[block_id]
+        with catch(KeyError):
+            del self._available_events[block_id]
+        with catch(KeyError):
+            del self._available_data[block_id]
+
+
+    @asyncio.coroutine
+    def _serve_block_fd(self, r, w):
+        header = yield from r.readexactly(5)
+        block_id_len = struct.unpack('I', header[:4])[0]
+        block_id_msg = yield from r.readexactly(block_id_len)
+        marshalled = header[4:] == b'M'
+        block_id = serialize.loads(marshalled, block_id_msg)
+
+#         print('serving fd for block_id', block_id)
+
+        try:
+            fd = self.blocks[block_id].fd
+        except KeyError:
+            w.close()
+        else:
+            sock = w.transport.get_extra_info('socket')
+
+            def send_fd():
+                msg = struct.pack('I', fd)
+                sock.setblocking(True)
+                try:
+#                     print('sending fd')
+                    sock.sendmsg([bytes([len(msg)])], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, msg)])
+                except:
+                    import traceback;traceback.print_exc()
+                    raise
+                finally:
+                    sock.setblocking(False)
+#                 print('fd sent')
+
+            yield from self.node.loop.run_in_executor(None, send_fd)
+
+            # wait for other end to close the connection
+            try:
+                yield from r.read()
+            except ConnectionResetError:
+                pass
+
+
+    @rmi.direct
+    def _get_socket_path(self, peer):
+        return self.fd_socket_path
+
+
+    def _receive_fd(self, path, block_id):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.connect(path)
+
+        marshalled, msg = serialize.dumps(block_id)
+        msg_len = struct.pack('I', len(msg))
+        msg = msg_len + (b'M' if marshalled else b'P') + msg
+        sock.sendall(msg)
+
+        msg = sock.recvmsg(0, socket.CMSG_LEN(4))
+        if not msg:
+            return None
+        else:
+            ancdata = msg[1]
+            cmsg_level, cmsg_type, cmsg_data = ancdata[0]
+            assert cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS
+            fd = struct.unpack('I', cmsg_data)[0]
+            return fd
+
+
+    @asyncio.coroutine
+    def _download_if_unavailable(self, peer, block_spec, peers=()):
+        assert block_spec.seeder != self.node.name
+        seeder = self.node.peers[block_spec.seeder]
+
+        with (yield from self._available_lock):
+            available = self._available_events.get(block_spec.id)
             if available:
                 in_progress = True
             else:
                 in_progress = False
-                available = threading.Event()
-                self._available_events[name] = available
+                available = asyncio.Event(loop=self.node.loop)
+                self._available_events[block_spec.id] = available
+
         if in_progress:
-            available.wait()
+            yield from available.wait()
+            if block_spec.id not in self.blocks:
+                raise Exception('Unable to download block %r' % block_spec)
         else:
-            self._download(block_spec, peers)
-            available.set()
-        return self.cache[name]
+            try:
+                download = self._download_from_local if seeder.islocal() else self._download_from_remote
+                self.blocks[block_spec.id] = yield from download(block_spec, seeder, peers)
+            except Exception as e:
+                self._available_events[block_spec.id] = None
+                raise Exception('Unable to download block %r' % block_spec) from e
+            finally:
+                available.set()
+
 
 
     @asyncio.coroutine
-    def _get(self, peer, name, idx):
-        logger.debug('sending block %s of %s to %s', idx, name, peer.name)
-        return Block(idx, self.cache[name][idx])
+    def _get_chunk(self, peer, block_id, start, end):
+        logger.trace('sending chunk %s[%s:%s] to %s', block_id, start, end, peer.name)
+        return Data((block_id, start, end), self.blocks[block_id].data[start:end])
 
 
     @asyncio.coroutine
-    def _get_available(self, peer, name):
-        try:
-            blocks = self.cache[name]
-        except KeyError:
-            return ()
-        else:
-            return [idx for idx, block in enumerate(blocks) if block is not None]
+    def _get_available(self, peer, block_id):
+        return self._available_data.get(block_id, ())
 
 
-    def _next_download(self, block_spec, peers):
-        # check block availability at peers
-        available_requests = []
-        for peer in peers:
-            available_request = peer.service('blocks')._get_available(block_spec.name)
-            available_request.peer = peer
-            available_requests.append(available_request)
+    @asyncio.coroutine
+    def _download_from_remote(self, block_spec, source, peers=()):
+        block_id = block_spec.id
+        size = block_spec.size
 
-        blocks = self.cache[block_spec.name]
+        workers = sorted(
+            (
+                peer for peer in (peers or self.node.peers.filter())
+                if peer.node_type == 'worker' and not peers or peer.name in peers
+            ),
+            key=lambda worker: '-'.join(map(str, sorted(worker.ip_addresses())))
+        )
 
-        # store peers which have block (keyed by block index)
-        availability = defaultdict(list)
-        try:
-            for available_request in as_completed(available_requests, timeout=AVAILABILITY_TIMEOUT):
+        local_workers = [worker for worker in workers if worker.islocal()]
+
+        def get_availability(peers):
+            futs = [peer.service('blocks')._get_available.request(block_id) for peer in peers]
+            return zip(peers, asyncio.as_completed(futs, loop=self.node.loop))
+
+        for peer, available in get_availability(local_workers):
+            available = yield from available
+            if available == size:
+                return (yield from self._download_local(block_spec, peer, peers))
+
+        if self.node.node_type == 'executor':
+            assert local_workers
+
+            for worker in local_workers:
+                exc = None
                 try:
-                    for idx in available_request.result():
-                        if blocks[idx] is None:
-                            availability[idx].append(available_request.peer)
-                except Exception:
-                    logger.warning('Unable to get block availability from %s', available_request.peer, exc_info=True)
-        except TimeoutError:
-            # raised from as_completed(...).__next__() if the next
-            pass
+                    yield from worker.service('blocks')._download_if_unavailable.request(block_spec)
+                    block = yield from self._download_from_local(block_spec, worker, peers)
+                except Exception as e:
+                    exc = e
+                if exc is not None:
+                    raise exc
 
-        # if any blocks available, select the one with the highest availability
-        if availability:
-            return sorted(availability.items(), key=itemgetter(1), reverse=True)[0]
         else:
-            remaining = [idx for idx, block in enumerate(blocks) if block is None]
-            block_idx = random.choice(remaining)
-            return block_idx, [self.worker.peers[block_spec.seeder]]
+            block = Block(block_id, size)
+            self.blocks[block_id] = block
+            data = block.data
 
+            chunk_size = size // (len(workers) or 1) // 2
+            chunk_size = int(ceil(chunk_size / 1024) * 1024)
+            chunk_size = min(chunk_size, MAX_DOWNLOAD_SIZE)
+            chunk_size = max(chunk_size, MIN_DOWNLOAD_SIZE)
 
-    def _download(self, block_spec, peers):
-        name = block_spec.name
-        assert block_spec.seeder != self.worker.name
+            done = self._available_data[block_id] = []
+            todo = [(start, start + chunk_size)
+                    for start in range(0, size, chunk_size)]
 
-        blocks = [None] * block_spec.num_blocks
-        self.cache[name] = blocks
+            def mark_done(chunk):
+                if not done:
+                    done.append(chunk)
+                    return
 
-        local_ips = self.worker.ip_addresses()
+                idx = bisect_left(done, chunk)
+                match_before = chunk[0] == done[idx - 1][1]
+                match_after = idx < len(done) and chunk[1] == done[idx][0]
 
-        for _ in blocks:
-            idx, candidates = self._next_download(block_spec, peers)
-            candidates = split(candidates, lambda c: bool(c.ip_addresses() & local_ips))
-            local, remote = candidates[True], candidates[False]
-
-            def download(source):
-                blocks[idx] = source.service('blocks')._get(name, idx).result().data
-
-            while local or remote:
-                # select a random candidate, preferring local ones
-                candidates = local or remote
-                source = random.choice(candidates)
-                candidates.remove(source)
-                try:
-                    download(source)
-                except Exception:
-                    pass  # availability info may have been stale, node may be gone, ...
+                if match_before and match_after:
+                    done[idx - 1] = done[idx - 1][0], done[idx][1]
+                    del done[idx]
+                elif match_before:
+                    done[idx - 1] = done[idx - 1][0], chunk[1]
+                elif match_after:
+                    done[idx] = chunk[0], done[idx][1]
                 else:
-                    break  # break after download
-            else:
-                # no non-seeder candidates, or all failed
-                # fall back to downloading from seeder
-                download(self.worker.peers[block_spec.seeder])
+                    done.insert(idx, chunk)
+
+            @asyncio.coroutine
+            def download_chunk(node, chunk):
+                start, end = chunk
+                downloaded = yield from node.service('blocks') \
+                                            ._get_chunk.request(block_id, start, end)
+
+                data[start:end] = downloaded.data
+                todo.remove(chunk)
+                mark_done(chunk)
+                logger.trace('Retrieved chunk %s:%s of block %s from %s',
+                             start, end, block_id, node.name)
+
+            # keep downloading chunks until all are finished
+            # prefer downloading from peers other than the sources
+            while todo:
+                # find out which peers have data available which isn't available locally
+                candidates = []
+                for worker, available in get_availability(workers):
+                    available = yield from available
+                    interesting = []
+                    for a_start, a_stop in available:
+                        for b_start, b_stop in todo:
+                            if a_start <= b_start and a_stop >= b_stop:
+                                interesting.append((b_start, b_stop))
+                    if interesting:
+                        candidates.append((worker, interesting))
+
+                # download all chunks available and locally missing from these candidates
+                downloaded = 0
+                while candidates:
+                    # select a random candidate
+                    candidate, interesting = candidates.pop(random.randint(0, len(candidates)) - 1)
+                    # select a random chunk
+                    chunk = interesting.pop(random.randint(0, len(interesting)) - 1)
+
+                    # download it if still to do (multiple peers may have had this chunk available)
+                    if chunk in todo:
+                        start, end = chunk
+                        try:
+                            yield from download_chunk(candidate, chunk)
+                            print(self.node.name, 'downloaded', start, ':', end,
+                                  'from peer', candidate.name, ':)',
+                                  len(todo), 'chunks remaining')
+                            downloaded += 1
+                            break
+                        except:
+                            logger.debug('Unable to retrieve chunk %s:%s of block %s from %s',
+                                         start, end, block_id, candidate.name, exc_info=True)
+
+                    # if the peer still has interesting chunks, put it back in the list
+                    if interesting:
+                        candidates.append((candidate, interesting))
+
+                # download a chunk from the source node
+                # if chunks still to do and if none or only one chunk was available at another peer
+                if todo and (downloaded <= 1):
+                    chunk = todo[random.randint(0, len(todo) - 1)]
+                    start, end = chunk
+                    yield from download_chunk(source, chunk)
+                    print(self.node.name, 'downloaded', start, ':', end,
+                          'from source', source.name, ':(',
+                          len(todo), 'chunks remaining')
+
+        return block
+
+
+#     @asyncio.coroutine
+#     def _download_from_local(self, block_spec, source, peers):
+#         logger.trace('Downloading %s from %s', block_spec, source.name)
+#
+#         # ask source for the path of the unix socket for fd access
+#         socket_path = yield from source.service('blocks')._get_socket_path.request()
+#
+#         # connect
+#         r, w = yield from asyncio.open_unix_connection(socket_path, loop=self.node.loop)
+#         transport = w.transport
+#         conn = Connection(self.node.loop, r, w)
+#
+#         # send the block id for which the fd should be accessed
+#         yield from conn.send(block_spec.id)
+#         available = yield from conn.recv()
+#         if not available:
+#             return
+#
+#         def receive_fd():
+#             sock = transport.get_extra_info('socket')
+#             sock.setblocking(True)
+#             try:
+#                 msg = sock.recvmsg(1, socket.CMSG_LEN(4))
+#             finally:
+#                 sock.setblocking(False)
+#             ancdata = msg[1]
+#             cmsg_level, cmsg_type, cmsg_data = ancdata[0]
+#             assert cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS
+#             fd = struct.unpack('I', cmsg_data)[0]
+#             return fd
+#
+#         # receive the fd (with sock.recvmsg in blocking mode)
+#         transport.pause_reading()
+#         fd = yield from self.node.loop.run_in_executor(None, receive_fd)
+#         transport.resume_reading()
+#         yield from conn.close()
+#
+#         return Block(block_spec.id, block_spec.size, fd)
+
+
+    @asyncio.coroutine
+    def _download_from_local(self, block_spec, source, peers):
+        logger.trace('Downloading %s from %s', block_spec, source.name)
+
+        # ask source for the path of the unix socket for fd access
+        path = yield from source.service('blocks')._get_socket_path.request()
+        # read the file descriptor
+        fd = yield from self.node.loop.run_in_executor(None, self._receive_fd, path, block_spec.id)
+        # mmap the 'file'
+        return Block(block_spec.id, block_spec.size, fd)

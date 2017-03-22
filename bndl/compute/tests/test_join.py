@@ -11,10 +11,10 @@
 # limitations under the License.
 
 from itertools import product, chain, groupby
+from operator import itemgetter
 
 from bndl.compute.tests import DatasetTest
 from bndl.util.funcs import iseven, isodd
-from operator import itemgetter
 
 
 def groups(partition):
