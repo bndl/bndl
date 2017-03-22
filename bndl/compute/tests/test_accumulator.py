@@ -10,9 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
 from math import factorial
 import sys
+
+from bndl.compute.tests import DatasetTest
 
 
 class AccumulatorTest(DatasetTest):

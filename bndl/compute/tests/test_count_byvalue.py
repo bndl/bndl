@@ -10,8 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
 from collections import Counter
+
+from bndl.compute.tests import DatasetTest
 
 
 class CountByValueTest(DatasetTest):

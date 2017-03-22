@@ -13,10 +13,11 @@
 import re
 import unittest
 
+import flask
+
 from bndl.compute.tests import DatasetTest
 from bndl.rmi import InvocationException
 from bndl.util.dash import app, _load_dashes, dashes
-import flask
 
 
 class DashTestCase(DatasetTest):

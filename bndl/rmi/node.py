@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
 import asyncio
 import itertools
 import logging
@@ -25,7 +26,6 @@ from bndl.util.threads import OnDemandThreadedExecutor
 
 
 from tblib import pickling_support ; pickling_support.install()
-from functools import partial
 
 
 logger = logging.getLogger(__name__)

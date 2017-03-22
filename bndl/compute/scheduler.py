@@ -15,11 +15,12 @@ from concurrent.futures import CancelledError
 from threading import Condition, RLock
 import logging
 
+from sortedcontainers import SortedSet
+
 from bndl.compute import DependenciesFailed
 from bndl.net.connection import NotConnected
 from bndl.rmi import root_exc
 from bndl.util.funcs import noop
-from sortedcontainers import SortedSet
 
 
 logger = logging.getLogger(__name__)

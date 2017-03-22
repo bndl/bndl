@@ -10,6 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from bisect import bisect_left
+from math import ceil
 import asyncio
 import logging
 import mmap
@@ -23,11 +25,9 @@ import weakref
 
 from bndl import rmi
 from bndl.compute.storage import Data, get_work_dir
+from bndl.util import serialize
 from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.exceptions import catch
-from math import ceil
-from bisect import bisect_left
-from bndl.util import serialize
 
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,10 @@
 # limitations under the License.
 
 from unittest.case import TestCase
+
 from bndl.util.collection import batch
+
+
 class BatchingTest(TestCase):
     def test_batch_with_step(self):
         res = []

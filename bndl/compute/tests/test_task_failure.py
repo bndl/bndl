@@ -11,15 +11,15 @@
 # limitations under the License.
 
 from functools import partial
-import time
-
-from bndl.compute.tests import DatasetTest
-from bndl.compute import TaskCancelled
-from bndl.compute.tasks import current_node
-from bndl.rmi import InvocationException
 import os
 import signal
+import time
+
+from bndl.compute import TaskCancelled
+from bndl.compute.tasks import current_node
+from bndl.compute.tests import DatasetTest
 from bndl.net.connection import NotConnected
+from bndl.rmi import InvocationException
 
 
 def kill_self():

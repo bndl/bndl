@@ -75,14 +75,14 @@ def main():
         loop=loop,
     )
     executor.start_async().result()
-    
+
     @atexit.register
     def stop(*args):
         try:
             run_coroutine_threadsafe(executor.stop(), loop).result(1)
         except TimeoutError:
             pass
-        
+
         stop_loop()
 
     def exit_handler(sig, frame):

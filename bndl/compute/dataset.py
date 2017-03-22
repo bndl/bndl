@@ -33,12 +33,11 @@ from cyhll import HyperLogLog
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
-from bndl.compute import cache
-from bndl.compute.stats import iterable_size, Stats, MultiVariateStats, \
-                               sample_with_replacement, sample_without_replacement
-from bndl.compute import TaskCancelled, DependenciesFailed
+from bndl.compute import cache, TaskCancelled, DependenciesFailed
 from bndl.compute.job import RmiTask, Job, Task
 from bndl.compute.scheduler import FailedDependency
+from bndl.compute.stats import iterable_size, Stats, MultiVariateStats, \
+                               sample_with_replacement, sample_without_replacement
 from bndl.compute.tasks import task_context, current_node
 from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException, root_exc

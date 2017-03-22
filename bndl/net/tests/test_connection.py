@@ -10,14 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 from unittest.case import TestCase
+import asyncio
+import contextlib
 
+from bndl.net import serialize
 from bndl.net.connection import Connection
 from bndl.net.messages import Hello
 from bndl.util.aio import get_loop, run_coroutine_threadsafe
-from bndl.net import serialize
-import contextlib
 
 
 class WithAttachment(object):

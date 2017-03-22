@@ -27,17 +27,17 @@ def create_ctx():
 
         from bndl.util import dash
         dash.run(driver, ctx)
-        
+
         def stop():
             dash.stop()
             driver.stop_async().result(5)
-        
+
         def maybe_stop(obj):
             if obj is ctx and ctx.stopped:
                 stop()
-        
+
         ctx.add_listener(maybe_stop)
-        
+
         return ctx
     except Exception:
         stop()

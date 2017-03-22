@@ -25,9 +25,9 @@ import os
 from cytoolz.itertoolz import merge_sorted, pluck
 
 from bndl import rmi
+from bndl.compute import DependenciesFailed, TaskCancelled
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.storage import StorageContainerFactory, InMemory
-from bndl.compute import DependenciesFailed, TaskCancelled
 from bndl.compute.tasks import task_context
 from bndl.net.connection import NotConnected
 from bndl.rmi import InvocationException

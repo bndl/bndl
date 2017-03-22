@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numbers
 import re
 import string
 
 import random as rand
-import numbers
 
 
 def camel_to_snake(name):

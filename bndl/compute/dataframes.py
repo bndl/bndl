@@ -14,11 +14,12 @@ from itertools import chain
 from operator import itemgetter
 import collections
 
-from bndl.compute.dataset import Dataset, Partition
-from bndl.util.collection import ensure_collection
 from cytoolz.itertoolz import partition
 from pandas.indexes.numeric import NumericIndex
 from pandas.indexes.range import RangeIndex
+
+from bndl.compute.dataset import Dataset, Partition
+from bndl.util.collection import ensure_collection
 import numpy as np
 import pandas as pd
 

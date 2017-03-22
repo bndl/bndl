@@ -18,8 +18,8 @@ import random
 import time
 
 from bndl.compute import cache
-from bndl.compute.tests import DatasetTest
 from bndl.compute.tasks import current_node
+from bndl.compute.tests import DatasetTest
 from bndl.util.funcs import identity
 
 

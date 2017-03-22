@@ -10,10 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
-from cyhll import HyperLogLog
 from random import random, randint
 import sys
+
+from cyhll import HyperLogLog
+
+from bndl.compute.tests import DatasetTest
 
 
 class CountDistinctTest(DatasetTest):

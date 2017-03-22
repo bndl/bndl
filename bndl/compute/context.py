@@ -20,11 +20,11 @@ import warnings
 
 from bndl.compute.accumulate import Accumulator
 from bndl.compute.broadcast import broadcast
-from bndl.compute.tasks import current_node
 from bndl.compute.files import files
 from bndl.compute.profile import MemoryProfiling, CpuProfiling
 from bndl.compute.ranges import RangeDataset
 from bndl.compute.scheduler import Scheduler
+from bndl.compute.tasks import current_node
 from bndl.util import plugins
 from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.conf import Config

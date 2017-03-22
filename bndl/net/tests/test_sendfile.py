@@ -10,13 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.case import TestCase
 import os
 import random
 import socket
 import string
 import tempfile
 import threading
-from unittest.case import TestCase
 
 from bndl.net.sendfile import sendfile
 from bndl.util.aio import get_loop, run_coroutine_threadsafe

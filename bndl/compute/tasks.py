@@ -76,7 +76,7 @@ class TaskExecutor(threading.Thread):
 
 class Tasks(object):
     def __init__(self, node):
-        self.node=node
+        self.node = node
         self.tasks = {}
 
 

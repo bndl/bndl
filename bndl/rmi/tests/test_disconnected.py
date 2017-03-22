@@ -11,11 +11,11 @@
 # limitations under the License.
 
 from collections import defaultdict
+import asyncio
 
+from bndl.net.connection import NotConnected
 from bndl.net.tests import NetTest
 from bndl.rmi.node import RMINode
-import asyncio
-from bndl.net.connection import NotConnected
 
 
 class Service(object):

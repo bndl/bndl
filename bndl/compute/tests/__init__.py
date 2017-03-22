@@ -10,15 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from concurrent.futures._base import TimeoutError
 import sys
 import unittest
 
 from bndl.compute.run import create_ctx
 from bndl.compute.worker import start_worker
+from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.conf import Config
 import bndl
-from bndl.util.aio import run_coroutine_threadsafe
-from concurrent.futures._base import TimeoutError
 
 
 class ComputeTest(unittest.TestCase):

@@ -92,7 +92,7 @@ class TestSupervise(TestCase):
     def _test_revive(self, sig):
         time.sleep(MIN_RUN_TIME * 2)
         self._terminate_all(sig)
-        
+
         time.sleep(MIN_RUN_TIME * 2)
         self._assert_none_terminated()
 

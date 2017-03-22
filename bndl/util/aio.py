@@ -16,9 +16,9 @@ import concurrent.futures
 import functools
 import logging
 import threading
+import time
 
 from bndl.util.exceptions import catch
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ def stop_loop():
             loop = get_loop()
         except:
             # loop not running
-            pass 
+            pass
         else:
             # stop and close loop
             loop.stop()
@@ -115,7 +115,7 @@ def stop_loop():
                     break
                     loop.close()
                 time.sleep(.1)
-            
+
         _loop = None
         _loop_thread = None
 

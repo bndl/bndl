@@ -10,9 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
 from itertools import chain
 from os.path import getsize
 import atexit
+import contextlib
 import importlib
 import json
 import logging
@@ -30,10 +32,8 @@ from bndl.net.serialize import attach, attachment
 from bndl.util.compat import lz4_compress, lz4_decompress
 from bndl.util.conf import String
 from bndl.util.funcs import noop
-import bndl
-import contextlib
-from functools import partial
 from bndl.util.strings import decode
+import bndl
 
 
 logger = logging.getLogger(__name__)

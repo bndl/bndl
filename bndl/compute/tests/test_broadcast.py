@@ -10,12 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import pickle
 import string
 
-from bndl.compute.tests import DatasetTest
 from bndl.compute import broadcast
+from bndl.compute.tests import DatasetTest
+import numpy as np
 
 
 class BroadcastTest(DatasetTest):
