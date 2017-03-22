@@ -17,7 +17,7 @@ from bndl.compute.tests import DatasetTest
 
 
 class StatsTest(DatasetTest):
-    worker_count = 3
+    executor_count = 3
 
     def setUp(self):
         self.dset = self.ctx.range(1000)

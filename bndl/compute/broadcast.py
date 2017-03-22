@@ -17,14 +17,11 @@ import logging
 import marshal
 import pickle
 
-from bndl.util import serialize, threads
-from bndl.util.conf import Float
-from bndl.util.funcs import identity
 from cytoolz.functoolz import compose
 
-
-min_block_size = Float(4, desc='The maximum size of a block in megabytes.')  # MB
-max_block_size = Float(16, desc='The minimum size of a block in megabytes.')  # MB
+from bndl.util import serialize, threads
+from bndl.util.funcs import identity
+from bndl.util.strings import decode
 
 
 logger = logging.getLogger(__name__)
@@ -36,19 +33,18 @@ MISSING = 'bndl.compute.broadcast.MISSING'
 
 
 class BroadcastManager(object):
-    def __init__(self, worker):
-        self.worker = worker
+    def __init__(self, node):
+        self.node = node
 
 
-    def unpersist_broadcast_values(self, src, name):
-        self.worker.service('blocks').remove_blocks(name)
-        del download_coordinator[name]
-
+    def unpersist_broadcast_values(self, src, block_id):
+        self.node.service('blocks').remove_block(block_id)
+        del download_coordinator[block_id]
 
 
 def broadcast(ctx, value, serialization='auto', deserialization=None):
     '''
-    Broadcast data to workers.
+    Broadcast data to nodes.
 
     Args:
 
@@ -57,12 +53,12 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
             pickle, marshal, json, binary or text.
         deserialization (None or function(bytes)):
 
-    Data can be 'shipped' along to workers in the closure of e.g. a mapper function, but in that
+    Data can be 'shipped' along to nodes in the closure of e.g. a mapper function, but in that
     case the data is sent once for every partition (task to be precise). For 'larger' values this
     may be wasteful. Use this for instance with lookup tables of e.g. a MB or more.
 
-    Note that the broadcast data is loaded on each worker (but only if the broadcast variable is
-    used). The machine running the workers should thus have enough memory to spare.
+    Note that the broadcast data is loaded on each node (but only if the broadcast variable is
+    used). The machine running the nodes should thus have enough memory to spare.
 
     If deserialization is set serialization must *not* be set and value must be of type `bytes`.
     Otherwise serialize is used to serialize value and its natural deserialization counterpart is
@@ -75,10 +71,16 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
         ['a', 'b', 'c', 'd']
 
     '''
-    if serialization is not None:
-        if deserialization is not None:
+    if deserialization is not None:
+        if serialization not in ('auto', None):
             raise ValueError("Can't specify both serialization and deserialization")
-        elif serialization == 'auto':
+        if not isinstance(value, (bytes, memoryview, bytearray)):
+            raise ValueError('Value must be bytes, memoryview or bytearray if deserialization is'
+                             ' set, not %r', type(value))
+        data = value
+
+    elif serialization is not None:
+        if serialization == 'auto':
             marshalled, data = serialize.dumps(value)
             deserialization = marshal.loads if marshalled else pickle.loads
         elif serialization == 'pickle':
@@ -89,27 +91,21 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
             deserialization = marshal.loads
         elif serialization == 'json':
             data = json.dumps(value).encode()
-            deserialization = compose(json.loads, bytes.decode)
+            deserialization = compose(json.loads, decode)
         elif serialization == 'binary':
             data = value
             deserialization = identity
         elif serialization == 'text':
             data = value.encode()
-            deserialization = bytes.decode
+            deserialization = decode
         else:
             raise ValueError('Unsupported serialization %s' % serialization)
-    elif not deserialization:
-        raise ValueError('Must specify either serialization or deserialization')
+
     else:
-        data = value
+        raise ValueError('Must specify either serialization or deserialization')
 
     key = str(uuid4())
-    min_block_size = int(ctx.conf.get('bndl.compute.broadcast.min_block_size') * 1024 * 1024)
-    max_block_size = int(ctx.conf.get('bndl.compute.broadcast.max_block_size') * 1024 * 1024)
-    block_size = max_block_size \
-                 if min_block_size == max_block_size else \
-                 (ctx.worker_count * 2, min_block_size, max_block_size)
-    block_spec = ctx.node.service('blocks').serve_data(key, data, block_size)
+    block_spec = ctx.node.service('blocks').serve_data(key, data)
     return BroadcastValue(ctx, ctx.node.name, block_spec, deserialization)
 
 
@@ -123,32 +119,27 @@ class BroadcastValue(object):
 
     @property
     def value(self):
-        return download_coordinator.coordinate(self._get, self.block_spec.name)
+        return download_coordinator.coordinate(self._get, self.block_spec.id)
 
 
     def _get(self):
         node = self.ctx.node
         blocks_svc = node.service('blocks')
-        blocks = blocks_svc.get(self.block_spec, node.peers.filter(node_type='worker'))
-
-        val = self.deserialize(b''.join(blocks))
-
-        if node.name != self.block_spec.seeder:
-            blocks_svc.remove_blocks(self.block_spec.name, from_peers=False)
-
+        block = blocks_svc.get(self.block_spec)
+        val = self.deserialize(block)
         return val
 
 
     def unpersist(self, block=False, timeout=None):
         node = self.ctx.node
-        name = self.block_spec.name
+        block_id = self.block_spec.id
         assert node.name == self.block_spec.seeder
-        node.service('broadcast').unpersist_broadcast_values(node, name)
+        node.service('broadcast').unpersist_broadcast_values(node, block_id)
         requests = [peer.service('broadcast').unpersist_broadcast_values
                    for peer in node.peers.filter()]
         if timeout:
             requests = [request.with_timeout(timeout) for request in requests]
-        requests = [request(name) for request in requests]
+        requests = [request(block_id) for request in requests]
         if block:
             for request in requests:
                 try:
@@ -156,7 +147,7 @@ class BroadcastValue(object):
                 except concurrent.futures.TimeoutError:
                     pass
                 except Exception:
-                    logger.warning('error while unpersisting %s', name, exc_info=True)
+                    logger.warning('error while unpersisting %s', block_id, exc_info=True)
 
 
     def __del__(self):

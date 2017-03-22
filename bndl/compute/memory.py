@@ -38,14 +38,14 @@ limit_system = Float(70, desc='The maximum amount of memory to be used by the sy
 limit = Float(60, desc='The maximum amount of memory to be used by BNDL in percent (0-100).')
 
 
-class MemorySupervisor(threading.Thread):
-    def __init__(self, supervisor_rmi, limit=None, limit_system=None):
+class MemoryCoordinator(threading.Thread):
+    def __init__(self, peers, limit=None, limit_system=None):
         super().__init__(name='memory-monitor', daemon=True)
 
         self.limit = limit or bndl.conf['bndl.compute.memory.limit']
         self.limit_system = limit_system or bndl.conf['bndl.compute.memory.limit_system']
 
-        supervisor_rmi.peers.listeners.add(self.children_changed)
+        peers.listeners.add(self.children_changed)
         self.procs = {}
         self.lock = threading.Lock()
 
@@ -237,7 +237,7 @@ class ReleaseReference(object):
 
 class LocalMemoryManager(threading.Thread):
     def __init__(self):
-        super().__init__(name='bndl-local-memory-manager', daemon=True)
+        super().__init__(name='local-memory-manager', daemon=True)
         self.candidates = defaultdict(SortedDict)
         self._keys = {}
         self._candidates_lock = threading.Lock()
@@ -275,18 +275,30 @@ class LocalMemoryManager(threading.Thread):
 
     def stop(self):
         self._running = False
+        self._requests.put(None)
+
+
+    def _get_request(self):
+        while self._running:
+            request = self._requests.get()
+
+            try:
+                request = self._requests.get_nowait()
+            except queue.Empty:
+                break
+
+        return request
 
 
     def run(self):
         self._running = True
 
         while self._running:
-            while True:
-                req_time, nbytes = self._requests.get()
-                try:
-                    req_time, nbytes = self._requests.get_nowait()
-                except queue.Empty:
-                    break
+            request = self._get_request()
+            if request is None:
+                break
+
+            req_time, nbytes = request
 
             if nbytes == 0 or req_time < self._last_release or not self.candidates:
                 continue

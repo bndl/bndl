@@ -41,7 +41,7 @@ class ConnectionTest(TestCase):
                 received.append(buffer)
         receiver = threading.Thread(target=receive)
         receiver.start()
-        loop = get_loop()
+        loop = get_loop(start=True)
         run_coroutine_threadsafe(sendfile(sendsock.fileno(), src.file.fileno(), 0, len(self.data), loop=loop), loop=loop).result()
         receiver.join()
         received = b''.join(received)
@@ -56,7 +56,7 @@ class ConnectionTest(TestCase):
 
         dst = tempfile.NamedTemporaryFile(prefix='bndl-sendfiletest-')
 
-        loop = get_loop()
+        loop = get_loop(start=True)
         run_coroutine_threadsafe(sendfile(dst.file.fileno(), src.file.fileno(), 0, size, loop=loop), loop=loop).result()
         self.assertEqual(size, os.stat(dst.fileno()).st_size)
 

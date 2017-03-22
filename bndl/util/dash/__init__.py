@@ -14,20 +14,22 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from functools import lru_cache
 from threading import Event
+import atexit
 import errno
 import logging
 import math
 import os
 import threading
 
-from bndl.util.dash import status
-from bndl.util.plugins import load_plugins
 from flask import Flask
 from flask.templating import render_template
 from werkzeug.serving import make_server
 from werkzeug.utils import import_string, ImportStringError
 import flask
 import werkzeug
+
+from bndl.util.dash import status
+from bndl.util.plugins import load_plugins
 
 
 logger = logging.getLogger(__name__)
@@ -148,6 +150,7 @@ def run(node=None, ctx=None):
     started.wait()
 
 
+@atexit.register
 def stop():
     global _srv
     if _srv:
@@ -155,6 +158,7 @@ def stop():
             _srv.shutdown()
         except Exception:
             pass
+
 
 def _run(started):
     for port in range(8080, 8100):

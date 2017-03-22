@@ -14,6 +14,7 @@ import re
 import string
 
 import random as rand
+import numbers
 
 
 def camel_to_snake(name):
@@ -30,3 +31,15 @@ def random(length=64, alphabet=string.ascii_lowercase + string.digits, rng=None,
     else:
         choice = rand.Random(seed).choice
     return ''.join(choice(alphabet) for _ in range(length))
+
+
+def decode(data, encoding='utf-8', errors='strict'):
+    try:
+        return data.decode(encoding, errors)
+    except AttributeError as e:
+        if isinstance(data, numbers.Number):
+            raise
+        try:
+            return bytes(data).decode(encoding, errors)
+        except:
+            raise e

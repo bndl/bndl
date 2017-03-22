@@ -27,6 +27,7 @@ from bndl.util import aio
 from bndl.util.aio import get_loop, IOTasks
 from bndl.util.exceptions import catch
 from bndl.util.strings import camel_to_snake
+import bndl
 
 
 logger = logging.getLogger(__name__)
@@ -40,11 +41,11 @@ class Node(IOTasks):
 
     _nodeids = {}
 
-    def __init__(self, name=None, addresses=None, seeds=None, cluster='default', loop=None):
+    def __init__(self, name=None, node_type=None, addresses=None, seeds=None, cluster='default', loop=None):
         super().__init__()
 
         self.loop = loop or get_loop()
-        self.node_type = camel_to_snake(self.__class__.__name__)
+        self.node_type = node_type or camel_to_snake(self.__class__.__name__)
 
         if name:
             self.name = name
@@ -55,8 +56,10 @@ class Node(IOTasks):
 
             node_ids = Node._nodeids.setdefault(self.node_type, itertools.count())
             node_id = next(node_ids)
-            if node_id:
-                self.name += '.' + str(node_id)
+            self.name += '.' + str(node_id + 1)
+
+        addresses = addresses or bndl.conf['bndl.net.listen_addresses']
+        seeds = seeds or bndl.conf['bndl.net.seeds']
 
         self.servers = {address: None
                         for address in

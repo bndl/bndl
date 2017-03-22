@@ -20,7 +20,7 @@ from bndl.net.node import Node
 from bndl.net.peer import PeerNode
 from bndl.rmi import InvocationException, is_direct
 from bndl.rmi.messages import Response, Request
-from bndl.util.aio import run_coroutine_threadsafe
+from bndl.util.aio import run_coroutine_threadsafe, async_call
 from bndl.util.threads import OnDemandThreadedExecutor
 
 
@@ -54,12 +54,12 @@ class Invocation(object):
 
 
     def __call__(self, *args, **kwargs):
-        request = self._request(*args, **kwargs)
+        request = self.request(*args, **kwargs)
         return run_coroutine_threadsafe(request, self.peer.loop)
 
 
     @asyncio.coroutine
-    def _request(self, *args, **kwargs):
+    def request(self, *args, **kwargs):
         request = Request(req_id=next(self.peer._request_ids),
                           service=self.service, method=self.name,
                           args=args, kwargs=kwargs)
@@ -240,4 +240,24 @@ class RMINode(Node):
 
 
     def service(self, name):
-        return self.services[name]
+        try:
+            return self.services[name]
+        except KeyError:
+            raise KeyError('Unknown service %r' % name)
+
+
+    @asyncio.coroutine
+    def start(self):
+        for svc in self.services.values():
+            if hasattr(svc, 'start'):
+                yield from async_call(self.loop, None, svc.start)
+        yield from super().start()
+
+
+    @asyncio.coroutine
+    def stop(self):
+        for svc in self.services.values():
+            if hasattr(svc, 'stop'):
+                yield from async_call(self.loop, None, svc.stop)
+        yield from super().stop()
+

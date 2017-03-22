@@ -17,11 +17,11 @@ class TestCtxImport(TestCase):
     def test_ctximport(self):
         from bndl.compute import ctx
 
-        worker_count = ctx.await_workers(connect_timeout=120, stable_timeout=120)
-        self.assertTrue(worker_count > 0)
+        executor_count = ctx.await_executors(connect_timeout=120, stable_timeout=120)
+        self.assertTrue(executor_count > 0)
         self.assertEqual(ctx.range(100).count(), 100)
         ctx.stop()
 
-        self.assertEqual(ctx.await_workers(connect_timeout=120, stable_timeout=120), worker_count)
+        self.assertEqual(ctx.await_executors(connect_timeout=120, stable_timeout=120), executor_count)
         self.assertEqual(ctx.range(100).count(), 100)
         ctx.stop()

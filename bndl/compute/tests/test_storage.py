@@ -29,7 +29,7 @@ class StorageTest(TestCase):
 
 
     def setUp(self):
-        self.loop = get_loop()
+        self.loop = get_loop(start=True)
 
 
     def test_send_on_disk(self):

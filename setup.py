@@ -130,7 +130,7 @@ if __name__ == '__main__':
         entry_points=dict(
             console_scripts=[
                 'bndl-compute-shell = bndl.compute.shell:main',
-                'bndl-compute-workers = bndl.compute.worker:run_workers',
+                'bndl-compute-worker = bndl.compute.worker:main',
             ],
         ),
 

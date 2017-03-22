@@ -46,7 +46,7 @@ class ConnectionTest(TestCase):
     def setUp(self):
         self.conns = [None] * 2
         self.server = None
-        self.loop = get_loop()
+        self.loop = get_loop(start=True)
 
         def serve(reader, writer):
             self.conns[1] = Connection(self.loop, reader, writer)

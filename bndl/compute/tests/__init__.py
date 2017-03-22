@@ -14,13 +14,15 @@ import sys
 import unittest
 
 from bndl.compute.run import create_ctx
-from bndl.compute.worker import run_workers, WorkerSupervisor
+from bndl.compute.worker import start_worker
 from bndl.util.conf import Config
 import bndl
+from bndl.util.aio import run_coroutine_threadsafe
+from concurrent.futures._base import TimeoutError
 
 
 class ComputeTest(unittest.TestCase):
-    worker_count = 3
+    executor_count = 3
     config = {}
 
     @classmethod
@@ -28,33 +30,40 @@ class ComputeTest(unittest.TestCase):
         # Increase switching interval to lure out race conditions a bit ...
         sys.setswitchinterval(1e-6)
 
-        config = bndl.conf
-        config['bndl.compute.worker_count'] = 0
-        config['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
-        config.update(cls.config)
-        cls.ctx = create_ctx(config)
+        bndl.conf['bndl.compute.executor_count'] = 0
+        bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
+        bndl.conf.update(cls.config)
 
-        cls.node_count = 0 if not cls.worker_count else cls.worker_count // 2 + 1
-        cls.supervisors = []
-        for i in range(cls.worker_count):
-            args = ('--listen-addresses', 'tcp://127.0.0.%s:0' % (i // 2 + 1),
-                    '--seeds', cls.ctx.node.addresses[0])
-            superv = WorkerSupervisor(args, process_count=1)
-            superv.start()
-            cls.supervisors.append(superv)
+        cls.ctx = create_ctx()
+
+        cls.workers = []
+        if cls.executor_count > 0:
+            bndl.conf['bndl.net.seeds'] = cls.ctx.node.addresses
+            n_workers = cls.executor_count // 2
+            for i in range(n_workers):
+                bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.%s:0' % (i + 1)
+                worker = start_worker()
+                cls.workers.append(worker)
+
+            for i in range(cls.executor_count):
+                worker = cls.workers[i % n_workers]
+                worker.start_executors(1)
 
         for _ in range(2):
-            cls.ctx.await_workers(cls.worker_count, 120, 120)
-        assert cls.ctx.worker_count == cls.worker_count, \
-            '%s != %s' % (cls.ctx.worker_count, cls.worker_count)
+            cls.ctx.await_executors(cls.executor_count, 120, 120)
+        assert cls.ctx.executor_count == cls.executor_count, \
+            '%s != %s' % (cls.ctx.executor_count, cls.executor_count)
 
     @classmethod
     def tearDownClass(cls):
+        cls.ctx.stop()
+        try:
+            for w in cls.workers:
+                w.stop_async().result(60)
+        except TimeoutError:
+            pass
         bndl.conf.clear()
         sys.setswitchinterval(5e-3)
-        cls.ctx.stop()
-        for superv in cls.supervisors:
-            superv.stop()
 
 
 class DatasetTest(ComputeTest):

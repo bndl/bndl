@@ -15,8 +15,7 @@ import ctypes
 import logging
 import threading
 
-from bndl.execute import TaskCancelled
-from bndl.rmi.node import RMINode
+from bndl.compute.exceptions import TaskCancelled
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ _TASK_CTX_ERR_MSG = '''\
 Working outside of task context.
 
 This typically means you attempted to use functionality that needs to interface
-with the local worker node.
+with the local node.
 '''
 
 
@@ -38,9 +37,9 @@ def task_context():
     return ctx.data
 
 
-def current_worker():
+def current_node():
     try:
-        return _TASK_CTX.worker
+        return _TASK_CTX.node
     except AttributeError:
         raise RuntimeError(_TASK_CTX_ERR_MSG)
 
@@ -49,11 +48,11 @@ class TaskExecutor(threading.Thread):
     def __init__(self, tasks, task, args, kwargs):
         super().__init__(name='task-executor')
         self.tasks = tasks
-        self.worker = tasks.worker
+        self.node = tasks.node
         self.task = task
         self.args = args
         self.kwargs = kwargs
-        self.result = asyncio.Future(loop=tasks.worker.loop)
+        self.result = asyncio.Future(loop=tasks.node.loop)
 
 
     def run(self):
@@ -67,35 +66,29 @@ class TaskExecutor(threading.Thread):
         if not self.result.cancelled():
             try:
                 if exc:
-                    self.worker.loop.call_soon_threadsafe(self.result.set_exception, exc)
+                    self.node.loop.call_soon_threadsafe(self.result.set_exception, exc)
                 else:
-                    self.worker.loop.call_soon_threadsafe(self.result.set_result, result)
+                    self.node.loop.call_soon_threadsafe(self.result.set_result, result)
             except RuntimeError:
                 logger.warning('Unable to send response for task %s', self.task)
 
 
 
-class Worker(RMINode):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.services['tasks'] = Tasks(self)
-
-
 class Tasks(object):
-    def __init__(self, worker):
-        self.worker = worker
+    def __init__(self, node):
+        self.node=node
         self.tasks = {}
 
 
     def _execute(self, task, *args, **kwargs):
-        # set worker context
-        _TASK_CTX.worker = self.worker
+        # set executor context
+        _TASK_CTX.node = self.node
         _TASK_CTX.data = {}
         try:
             return task(*args, **kwargs)
         finally:
-            # clean up worker context
-            del _TASK_CTX.worker
+            # clean up executor context
+            del _TASK_CTX.node
             del _TASK_CTX.data
 
 

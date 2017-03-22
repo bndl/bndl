@@ -15,7 +15,7 @@ import math
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.util import serialize
-from bndl.util.collection import batch, ensure_collection
+from bndl.util.collection import batch, ensure_collection, seqlen
 
 
 class DistributedCollection(Dataset):
@@ -37,29 +37,29 @@ class DistributedCollection(Dataset):
             self.psize = None
 
         if self.psize:
-            parts = [(len(part),) + serialize.dumps(part) for part in
+            parts = [(seqlen(part),) + serialize.dumps(part) for part in
                      map(ensure_collection, batch(collection, self.psize))]
             self.pcount = len(parts)
         else:
             if not pcount:
                 self.pcount = pcount = self.ctx.default_pcount
                 if pcount <= 0:
-                    raise Exception("can't use default_pcount, no workers available")
+                    raise Exception("can't use default_pcount, no executors available")
 
             if isinstance(collection, collections.Mapping):
                 collection = list(collection.items())
             elif not hasattr(collection, '__len__') or not hasattr(collection, '__getitem__'):
                 collection = list(collection)
 
-            step = max(1, math.ceil(len(collection) / pcount))
+            step = max(1, math.ceil(seqlen(collection) / pcount))
             parts = [
-                (len(part),) + serialize.dumps(part) for part in
+                (seqlen(part),) + serialize.dumps(part) for part in
                 (collection[idx * step: (idx + 1) * step] for idx in range(pcount))
-                if len(part)
+                if seqlen(part)
             ]
 
         self.blocks = [
-            (length, marshalled, ctx.node.service('blocks').serve_blocks((self.id, idx), [part]))
+            (length, marshalled, ctx.node.service('blocks').serve_data((self.id, idx), part))
             for idx, (length, marshalled, part) in enumerate(parts)
         ]
 
@@ -77,7 +77,7 @@ class DistributedCollection(Dataset):
 
     def __del__(self):
         for block in getattr(self, 'blocks', ()):
-            self.ctx.node.service('blocks').remove_blocks(block[-1].name)
+            self.ctx.node.service('blocks').remove_block(block[-1].id)
 
 
 
@@ -90,5 +90,5 @@ class BlocksPartition(Partition):
 
 
     def _compute(self):
-        block = self.dset.ctx.node.service('blocks').get(self.block_spec)[0]
+        block = self.dset.ctx.node.service('blocks').get(self.block_spec)
         return serialize.loads(self.marshalled, block)

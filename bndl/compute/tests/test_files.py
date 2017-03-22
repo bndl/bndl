@@ -111,7 +111,7 @@ class FilesTest(DatasetTest):
         dirname = os.path.dirname(self.filenames[0])
         for loc in ('driver', 'workers'):
             dset = self.ctx.files(dirname, True, None, filter_test_files, location=loc).cache()
-            duplication = 1 if loc == 'driver' else self.node_count
+            duplication = 1 if loc == 'driver' else len(self.workers)
             expected = self.file_count * duplication
             self.assertEqual(dset.count(), expected)
             self.assertEqual(

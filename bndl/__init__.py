@@ -15,14 +15,23 @@ import os.path
 
 from bndl.util.conf import Config
 from bndl.util.objects import LazyObject
+from bndl.util.log import install_trace_logging
 
+
+# Expose a global BNDL configuration
 
 conf = LazyObject(Config)
 
+
+# Configure Logging
+
+install_trace_logging()
 
 if os.path.exists('logging.conf'):
     logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
 
 
-__version_info__ = (0, 5, 2)
+# BNDL version info
+
+__version_info__ = (0, 6, 0, 'dev1')
 __version__ = '.'.join(map(str, __version_info__))

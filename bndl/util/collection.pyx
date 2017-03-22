@@ -14,12 +14,29 @@ from collections import defaultdict, Iterable, Sequence, Sized
 from itertools import islice, groupby, chain
 
 
+def seqlen(seq):
+    '''
+    Get length of a sequence (which is compatible with i.a. scipy.sparse matrices)
+    '''
+    try:
+        return len(seq)
+    except:
+        if hasattr(seq, 'shape'):
+            return seq.shape[0]
+        else:
+            raise
+
+
+def issequence(o):
+    return hasattr(o, '__len__') and hasattr(o, '__getitem__')
+
+
 def batch(iterable, size):
     """
     Yield iterables of at most size elements from the given iterable.
     """
-    if isinstance(iterable, Sequence):
-        for start in range(0, len(iterable), size):
+    if issequence(iterable):
+        for start in range(0, seqlen(iterable), size):
             yield iterable[start:start + size]
     else:
         while True:

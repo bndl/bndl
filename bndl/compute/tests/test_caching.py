@@ -19,17 +19,17 @@ import time
 
 from bndl.compute import cache
 from bndl.compute.tests import DatasetTest
-from bndl.execute.worker import current_worker
+from bndl.compute.tasks import current_node
 from bndl.util.funcs import identity
 
 
 class CachingTest(DatasetTest):
-    worker_count = 3
+    executor_count = 3
 
 
     def get_cachekeys(self):
-        fetches = [worker.service('tasks').execute(lambda: list(cache._caches.keys()))
-                   for worker in self.ctx.workers]
+        fetches = [e.service('tasks').execute(lambda: list(cache._caches.keys()))
+                   for e in self.ctx.executors]
         return list(chain.from_iterable(fetch.result() for fetch in fetches))
 
 
@@ -75,7 +75,7 @@ class CachingTest(DatasetTest):
         dset.cache(**params)
 
         self.assertEqual(dset.collect(), dset.collect())
-        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
+        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.executor_count)
 
         dset.uncache(True, 5)
         self.assertNotEqual(dset.collect(), dset.collect())
@@ -85,7 +85,7 @@ class CachingTest(DatasetTest):
         # check again, a) to check whether a dataset can be 'recached'
         # and b) with a transformation to test caching a dataset 'not at the end'
         self.assertEqual(dset.map(lambda i: i).collect(), dset.map(lambda i: i).collect())
-        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.worker_count)
+        self.assertEqual(self.get_cachekeys(), [dset.id] * self.ctx.executor_count)
 
         del dset
         self.gc_collect()
@@ -96,19 +96,19 @@ class CachingTest(DatasetTest):
         self.assertEqual(self.get_cachekeys(), [])
 
         executed_on = self.ctx.accumulator(Counter())
-        def register_worker(i):
+        def register_executor(i):
             nonlocal executed_on
-            executed_on += Counter({current_worker().name:1})
+            executed_on += Counter({current_node().name:1})
 
         dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str).cache()
-        w0, w1 = (w.name for w in self.ctx.workers[0:2])
+        e0, e1 = (e.name for e in self.ctx.executors[0:2])
 
-        first = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w0]).execute()
-        self.assertEqual(executed_on.value, Counter({w0:10}))
+        first = dset.map(register_executor).require_executors(lambda executors: [e for e in executors if e.name == e0]).execute()
+        self.assertEqual(executed_on.value, Counter({e0:10}))
         self.assertEqual(self.get_cachekeys(), [dset.id])
 
-        second = dset.map(register_worker).require_workers(lambda workers: [w for w in workers if w.name == w1]).execute()
-        self.assertEqual(executed_on.value, Counter({w0:10, w1:10}))
+        second = dset.map(register_executor).require_executors(lambda executors: [e for e in executors if e.name == e1]).execute()
+        self.assertEqual(executed_on.value, Counter({e0:10, e1:10}))
         self.assertEqual(self.get_cachekeys(), [dset.id])
 
         self.assertEqual(first, second)

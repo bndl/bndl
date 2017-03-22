@@ -114,7 +114,7 @@ class AccumulatorProxy(object):
 
 class Accumulator(object):
     '''
-    A value on which commutative and associative operations can be performed from remote workers.
+    A value on which commutative and associative operations can be performed from remote nodes.
     '''
 
     def __init__(self, ctx, host, initial, accumulator_id=None):

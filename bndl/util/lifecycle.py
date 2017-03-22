@@ -46,7 +46,7 @@ class Lifecycle(object):
     def signal_stop(self):
         if not self.stopped_on:
             self.stopped_on = datetime.now()
-        for listener in self.stopped_listeners:
+        for listener in list(self.stopped_listeners):
             listener(self)
 
     @property

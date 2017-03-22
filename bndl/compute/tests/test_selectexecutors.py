@@ -11,23 +11,23 @@
 # limitations under the License.
 
 from bndl.compute.tests import DatasetTest
-from bndl.execute.worker import current_worker
+from bndl.compute.tasks import current_node
 from collections import Counter
 
 
-class SelectWorkersTest(DatasetTest):
+class SelectExecutorsTest(DatasetTest):
     def test_require(self):
         executed_on = self.ctx.accumulator(Counter())
         def register_worker(i):
             nonlocal executed_on
-            executed_on += Counter({current_worker().name:1})
+            executed_on += Counter({current_node().name:1})
 
         dset = self.ctx.range(10).map(register_worker)
 
         targeted = Counter()
         for _ in range(2):
-            for worker in self.ctx.workers:
-                worker_name = worker.name
-                targeted[worker_name] += 10
-                dset.require_workers(lambda workers: [w for w in workers if w.name == worker_name]).execute()
+            for executor in self.ctx.executors:
+                executor_name = executor.name
+                targeted[executor_name] += 10
+                dset.require_executors(lambda executors: [e for e in executors if e.name == executor_name]).execute()
                 self.assertEqual(executed_on.value, targeted)

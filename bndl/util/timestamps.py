@@ -34,10 +34,15 @@ class UTC(tzinfo):
         return self.__class__.__name__
 
 
-def ms_timestamp(value):
+def timestamp_micros(value):
     if isinstance(value, datetime):
-        return int((value - datetime(1970, 1, 1)).total_seconds() * 1000)
+        return int((value - datetime(1970, 1, 1)).total_seconds() * 1000000)
     elif isinstance(value, date):
-        return int((value - date(1970, 1, 1)).total_seconds() * 1000)
+        return int((value - date(1970, 1, 1)).total_seconds() * 1000000)
     else:
         raise ValueError(type(value) + ' unsupported')
+
+def timestamp_millis(value):
+    return timestamp_micros(value) // 1000
+
+ms_timestamp = timestamp_millis
