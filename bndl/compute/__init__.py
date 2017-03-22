@@ -23,11 +23,15 @@ from bndl.util import conf
 from bndl.util.objects import LazyObject
 
 
-pcount = conf.Int(desc='The default number of partitions. Then number of connected executors is '
-                       'used if not set.')
+numactl = conf.Bool(default=True, desc='Pin processe (workers) to specific NUMA zones with numactl.')
+pincore = conf.Bool(default=False, desc='Pin processes (workers) to specific cores with taskset.')
+jemalloc = conf.Bool(default=True, desc='Use jemalloc if available.')
 
 executor_count = conf.Int(os.cpu_count(), desc='The number of executors to start when no seeds are '
                                'given when using bndl-compute-shell or bndl-compute-worker')
+
+pcount = conf.Int(desc='The default number of partitions. Then number of connected executors is '
+                       'used if not set.')
 
 concurrency = conf.Int(1, desc='the number of tasks which can be scheduled at an executor process '
                                'at the same time')
