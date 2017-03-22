@@ -15,7 +15,7 @@ import math
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.util import serialize
-from bndl.util.collection import batch, ensure_collection
+from bndl.util.collection import batch, ensure_collection, seqlen
 
 
 class DistributedCollection(Dataset):
@@ -37,7 +37,7 @@ class DistributedCollection(Dataset):
             self.psize = None
 
         if self.psize:
-            parts = [(len(part),) + serialize.dumps(part) for part in
+            parts = [(seqlen(part),) + serialize.dumps(part) for part in
                      map(ensure_collection, batch(collection, self.psize))]
             self.pcount = len(parts)
         else:
@@ -51,11 +51,11 @@ class DistributedCollection(Dataset):
             elif not hasattr(collection, '__len__') or not hasattr(collection, '__getitem__'):
                 collection = list(collection)
 
-            step = max(1, math.ceil(len(collection) / pcount))
+            step = max(1, math.ceil(seqlen(collection) / pcount))
             parts = [
-                (len(part),) + serialize.dumps(part) for part in
+                (seqlen(part),) + serialize.dumps(part) for part in
                 (collection[idx * step: (idx + 1) * step] for idx in range(pcount))
-                if len(part)
+                if seqlen(part)
             ]
 
         self.blocks = [
