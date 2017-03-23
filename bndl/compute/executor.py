@@ -78,10 +78,11 @@ def main():
 
     @atexit.register
     def stop(*args):
-        try:
-            run_coroutine_threadsafe(executor.stop(), loop).result(1)
-        except TimeoutError:
-            pass
+        if executor.running and loop.is_running():
+            try:
+                run_coroutine_threadsafe(executor.stop(), loop).result(1)
+            except TimeoutError:
+                pass
 
         stop_loop()
 
