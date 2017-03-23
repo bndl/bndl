@@ -1,6 +1,6 @@
-{% extends "execute/base.html" %}
+{% extends "compute/base.html" %}
 
-{% import 'execute/stats_row.html' as stats_row %}
+{% import 'compute/stats_row.html' as stats_row %}
 
 {% block page_title %}
 Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
