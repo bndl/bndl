@@ -32,6 +32,7 @@ def exception_handler(loop, context):
 
 
 _loop = None
+_loop_started = threading.Event()
 _loop_lock = threading.RLock()
 _loop_thread = None
 
@@ -42,14 +43,14 @@ def get_loop(stop_on=(), use_uvloop=True, start=False):
     a new loop is created.
     :param stop_on:
     '''
-    global _loop, _loop_lock
+    global _loop, _loop_started, _loop_lock
 
-    if _loop:
+    if _loop_started.is_set():
         assert _loop.is_running()
         return _loop
 
     with _loop_lock:
-        if _loop:
+        if _loop_started.is_set():
             assert _loop.is_running()
             return _loop
 
@@ -83,16 +84,16 @@ def get_loop(stop_on=(), use_uvloop=True, start=False):
             for sig in stop_on:
                 loop.add_signal_handler(sig, loop.stop)
 
-        started = threading.Event()
+        _loop_started = threading.Event()
 
         def run():
-            loop.call_soon_threadsafe(started.set)
+            loop.call_soon_threadsafe(_loop_started.set)
             loop.run_forever()
 
         global _loop_thread
         _loop_thread = threading.Thread(target=run, name='asyncio-loop', daemon=True)
         _loop_thread.start()
-        started.wait()
+        _loop_started.wait()
 
         _loop = loop
 
@@ -101,6 +102,8 @@ def get_loop(stop_on=(), use_uvloop=True, start=False):
 
 
 def stop_loop():
+    global _loop, _loop_started, _loop_thread
+
     with _loop_lock:
         try:
             loop = get_loop()
@@ -110,14 +113,12 @@ def stop_loop():
         else:
             # stop and close loop
             loop.stop()
-            for _ in range(10):
-                if not loop.is_running():
-                    break
-                    loop.close()
-                time.sleep(.1)
+            _loop_thread.join()
+            loop.close()
 
-        _loop = None
+        _loop_started.clear()
         _loop_thread = None
+        _loop = None
 
 
 def get_loop_thread():
