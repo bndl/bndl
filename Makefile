@@ -14,7 +14,7 @@ clean:
 test:
 	rm -fr .coverage .coverage.* htmlcov
 	COVERAGE_PROCESS_START=.coveragerc \
-	coverage run -m pytest --junitxml build/junit.xml bndl
+	coverage run -m pytest -s --junitxml build/junit.xml bndl
 	coverage combine
 	coverage html -d build/htmlcov
 	coverage xml -o build/coverage.xml
