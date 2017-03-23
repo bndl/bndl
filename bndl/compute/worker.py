@@ -281,7 +281,7 @@ def start_worker(Worker=Worker, n_executors=None, verbose=0):
 
     @atexit.register
     def stop(*args):
-        if worker.running:
+        if worker.running and loop.is_running():
             try:
                 run_coroutine_threadsafe(worker.stop(), loop).result(1)
             except TimeoutError:
