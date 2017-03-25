@@ -57,7 +57,7 @@ def attachment(key):
     try:
         return getattr(_ATTACHMENTS, 'v')[key]
     except AttributeError:
-        return AttachError("attachments thread local not available")
+        raise AttachError("attachments thread local not available")
 
 
 def dump(obj):
