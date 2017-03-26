@@ -255,19 +255,20 @@ class RmiTask(Task):
 
 
     def _task_completed(self, future):
+        self_future = self.future
         try:
             self.handle = None
             result = future.result()
         except Exception as exc:
-            if self.future:
-                self.future.set_exception(exc)
+            if self_future:
+                self_future.set_exception(exc)
             elif not isinstance(exc, NotConnected):
                 if logger.isEnabledFor(logging.INFO):
                     logger.info('execution of %s on %s failed, but not expecting result',
                                 self, self.executed_on_last(), exc_info=True)
         else:
-            if self.future and not self.future.cancelled():
-                self.future.set_result(result)
+            if self_future and not self_future.cancelled():
+                self_future.set_result(result)
             else:
                 logger.info('task %s (%s) completed, but not expecting result')
         finally:
