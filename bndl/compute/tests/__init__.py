@@ -39,9 +39,9 @@ class ComputeTest(unittest.TestCase):
         cls.workers = []
         if cls.executor_count > 0:
             bndl.conf['bndl.net.seeds'] = cls.ctx.node.addresses
-            n_workers = cls.executor_count // 2
+            n_workers = cls.executor_count // 2 + 1
             for i in range(n_workers):
-                bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.%s:0' % (i + 1)
+                bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.%s:0' % (i + 2)
                 worker = start_worker()
                 cls.workers.append(worker)
 
@@ -53,6 +53,8 @@ class ComputeTest(unittest.TestCase):
             cls.ctx.await_executors(cls.executor_count, 120, 120)
         assert cls.ctx.executor_count == cls.executor_count, \
             '%s != %s' % (cls.ctx.executor_count, cls.executor_count)
+        for ex in cls.ctx.executors:
+            assert not ex.ip_addresses() & cls.ctx.node.ip_addresses()
 
     @classmethod
     def tearDownClass(cls):
