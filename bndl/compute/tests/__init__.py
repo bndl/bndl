@@ -16,7 +16,7 @@ import unittest
 
 from bndl.compute.run import create_ctx
 from bndl.compute.worker import start_worker
-from bndl.util.aio import run_coroutine_threadsafe
+from bndl.net.aio import run_coroutine_threadsafe, get_loop
 from bndl.util.conf import Config
 import bndl
 
@@ -30,11 +30,14 @@ class ComputeTest(unittest.TestCase):
         # Increase switching interval to lure out race conditions a bit ...
         sys.setswitchinterval(1e-6)
 
+        bndl.conf['bndl.net.aio.uvloop'] = False
         bndl.conf['bndl.compute.executor_count'] = 0
         bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
         bndl.conf.update(cls.config)
 
         cls.ctx = create_ctx()
+
+        get_loop().set_debug(True)
 
         cls.workers = []
         if cls.executor_count > 0:

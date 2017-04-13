@@ -38,6 +38,7 @@ install_requires = [
     'marisa_trie',
     'yappi<=0.93',
     'lz4',
+    'cyheapq',
 ]
 
 if sys.version_info < (3, 5):

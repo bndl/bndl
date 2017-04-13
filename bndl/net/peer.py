@@ -16,12 +16,14 @@ import asyncio
 import concurrent.futures
 import errno
 import logging
+import os
+import uuid
 
+from bndl.net import aio
+from bndl.net.aio import IOTasks
 from bndl.net.connection import urlparse, Connection, NotConnected, \
     filter_ip_addresses
 from bndl.net.messages import Hello, Discovered, Disconnect, Ping, Pong, Message
-from bndl.util import aio
-from bndl.util.aio import IOTasks
 from bndl.util.exceptions import catch
 
 
@@ -31,6 +33,14 @@ logger = logging.getLogger(__name__)
 HELLO_TIMEOUT = 60
 
 TIMEOUT_ERRORS = TimeoutError, concurrent.futures.TimeoutError, asyncio.TimeoutError
+
+
+def _as_set(arg):
+    if arg is not None:
+        if hasattr(arg, '__iter__') and not isinstance(arg, str):
+            return set(arg)
+        else:
+            return {arg}
 
 
 class PeerTable(dict):
@@ -51,16 +61,25 @@ class PeerTable(dict):
             listener('removed', peer)
 
 
-    def filter(self, address=None, node_type=None, connected=True):
+    def filter(self, address=None, node_type=None, connected=True, ip_address=None, machine=None):
+        addresses = _as_set(address)
+        node_types = _as_set(node_type)
+        ip_addresses = _as_set(ip_address)
+        machines = _as_set(machine)
+
         while True:
             try:
                 peers = self.values()
-                if address is not None:
-                    peers = filter(lambda p: address in p.addresses, peers)
-                if node_type is not None:
-                    peers = filter(lambda p: p.node_type == node_type, peers)
+                if addresses is not None:
+                    peers = filter(lambda p: addresses & p.addresses, peers)
+                if node_types is not None:
+                    peers = filter(lambda p: p.node_type in node_types, peers)
                 if connected is not None:
                     peers = filter(lambda p: p.is_connected == connected, peers)
+                if ip_addresses is not None:
+                    peers = filter(lambda p: ip_addresses & p.ip_addresses(), peers)
+                if machines is not None:
+                    peers = filter(lambda p: p.machine in machines, peers)
                 return list(peers)
             except RuntimeError:
                 pass
@@ -74,6 +93,8 @@ class PeerNode(IOTasks):
         self.local = local
         self.addresses = addresses
         self.name = name
+        self.pid = None
+        self.machine = None
         self.node_type = node_type
         self.cluster = cluster
         self.handshake_lock = asyncio.Lock(loop=self.loop)
@@ -175,9 +196,11 @@ class PeerNode(IOTasks):
 
     def _update_info(self, hello):
         self.name = hello.name
+        self.pid = hello.pid
+        self.machine = hello.machine
         self.node_type = hello.node_type
         self.cluster = hello.cluster
-        self.addresses = hello.addresses
+        self.addresses = frozenset(hello.addresses)
 
         logger.info('handshake between %s and %s complete', self.local.name, self.name)
 
@@ -303,7 +326,9 @@ class PeerNode(IOTasks):
             raise NotConnected()
         yield from self.send(Hello(
             name=self.local.name,
+            pid=os.getpid(),
             node_type=self.local.node_type,
+            machine=uuid.getnode(),
             cluster=self.local.cluster,
             addresses=list(self.local.servers.keys()),
         ), drain=True)

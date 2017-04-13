@@ -15,11 +15,10 @@ import os
 import signal
 import time
 
-from bndl.compute import TaskCancelled
-from bndl.compute.tasks import current_node
+from bndl.compute.tasks import current_node, TaskCancelled
 from bndl.compute.tests import DatasetTest
 from bndl.net.connection import NotConnected
-from bndl.rmi import InvocationException
+from bndl.net.rmi import InvocationException
 
 
 def kill_self():

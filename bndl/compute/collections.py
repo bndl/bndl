@@ -16,6 +16,7 @@ import math
 from bndl.compute.dataset import Dataset, Partition
 from bndl.util import serialize
 from bndl.util.collection import batch, ensure_collection, seqlen
+from bndl.util.exceptions import catch
 
 
 class DistributedCollection(Dataset):
@@ -90,5 +91,11 @@ class BlocksPartition(Partition):
 
 
     def _compute(self):
-        block = self.dset.ctx.node.service('blocks').get(self.block_spec)
-        return serialize.loads(self.marshalled, block)
+        blocks = self.dset.ctx.node.service('blocks')
+        try:
+            block = blocks.get(self.block_spec)
+            with block.view() as v:
+                return serialize.loads(self.marshalled, v)
+        finally:
+            with catch():
+                blocks.remove_block(self.block_spec.id)

@@ -10,18 +10,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+'''
+The BNDL RMI module builds on :mod:`bndl.net` to allow for Remote Method Invocations.
+
+The implementation is rather straight forward: :class:`RMIPeerNode` provides is the means to send
+and receive Request and Response Methods. Requests are targeting a method of the remote node by
+name. It is simply looked up by ``getattr``.
+'''
+
 from functools import partial
 import asyncio
 import itertools
 import logging
 import sys
 
+from bndl.net.aio import run_coroutine_threadsafe, async_call
 from bndl.net.connection import NotConnected
+from bndl.net.messages import Message, Field
 from bndl.net.node import Node
 from bndl.net.peer import PeerNode
-from bndl.rmi import InvocationException, is_direct
-from bndl.rmi.messages import Response, Request
-from bndl.util.aio import run_coroutine_threadsafe, async_call
 from bndl.util.threads import OnDemandThreadedExecutor
 
 
@@ -29,6 +36,81 @@ from tblib import pickling_support ; pickling_support.install()
 
 
 logger = logging.getLogger(__name__)
+
+
+def direct(remote_method):
+    '''
+    Decorator to mark a method such that when remotely invoked, no thread is created for its
+    execution, but instead is executed within the IO loop. This may optimize performance when the
+    result is readily available. However (!) if not (e.g. the method blocks in order to get the
+    result) this will stall the IO loop, which _may_ cause issues (e.g. a node becoming
+    unresponsive, other nodes assuming the node is lost, etc.).
+    '''
+    remote_method.__rmi_direct__ = True
+    return remote_method
+
+
+def is_direct(method):
+    '''
+    Check if a method is marked with the @direct decorator
+    '''
+    return getattr(method, '__rmi_direct__', False)
+
+
+
+class InvocationException(Exception):
+    '''
+    Exception indicating a RMI failed. This exception is 'raised from' a 'reconstructed'
+    exception as raised in the remote method
+    '''
+
+
+def root_exc(exc):
+    '''
+    Returns the __cause__ of exc if exc is an InvocationException or just exc otherwise.
+
+    Can be used when both local and remote exceptions need to be handled and their
+    semantics are the same (whether the exception was raised locally or on a remote
+    worker doesn't matter).
+
+    :param exc: The exception which _might_ be an InvocationException
+    '''
+    if isinstance(exc, InvocationException):
+        return exc.__cause__
+    else:
+        return exc
+
+
+
+class Request(Message):
+    '''
+    A request for a peer RMI node. It contains a request id (to which the :class:`Response` must
+    refer), the name of the method to be invoked, and the positional and keyword arguments for
+    invocation.
+    '''
+    # int, id of the request
+    req_id = Field()
+    # str, name of the service to invoke a method from
+    service = Field()
+    # str, name of the method to invoke
+    method = Field()
+    # list or tuple, arguments for the method
+    args = Field()
+    # dict, keyword arguments for the method
+    kwargs = Field()
+
+
+class Response(Message):
+    '''
+    A response to a :class:`Request`. It refers to the id of the request and either contains a
+    value if the invoked method returned normally or an exception if it raised one.
+    '''
+    # int, id of the request responded to
+    req_id = Field()
+    # obj, return value of the method invoked (None if exception raised)
+    value = Field()
+    # Exception, exception raised by invoked method
+    exception = Field()
 
 
 class Invocation(object):

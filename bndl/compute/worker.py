@@ -12,11 +12,11 @@ import time
 from bndl.compute.blocks import BlockManager
 from bndl.compute.broadcast import BroadcastManager
 from bndl.compute.memory import  LocalMemoryManager, MemoryCoordinator
+from bndl.compute.shuffle import ShuffleManager
 from bndl.compute.tasks import Tasks
-from bndl.net.connection import getlocalhostname
+from bndl.net.aio import get_loop, get_loop_thread, run_coroutine_threadsafe, stop_loop
+from bndl.net.rmi import RMINode
 from bndl.net.run import argparser as net_argparser
-from bndl.rmi.node import RMINode
-from bndl.util.aio import get_loop, get_loop_thread, run_coroutine_threadsafe, stop_loop
 from bndl.util.threads import dump_threads
 import bndl
 
@@ -96,6 +96,7 @@ class ExecutorMonitor(object):
                 break
 
 
+
 class Worker(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -103,10 +104,15 @@ class Worker(RMINode):
 
         self.services['blocks'] = BlockManager(self)
         self.services['broadcast'] = BroadcastManager(self)
-#         self.services['shuffle'] = ShuffleManager(self)
+        self.services['shuffle'] = ShuffleManager(self)
         self.services['tasks'] = Tasks(self)
+
         self.memory_manager = LocalMemoryManager()
         self.memory_coordinator = MemoryCoordinator(self.peers)
+        self.memory_coordinator.add_memory_manager(
+            os.getpid(),
+            lambda nbytes: self.memory_manager.release(self, nbytes)
+        )
 
 
     @property
@@ -216,13 +222,13 @@ if JEMALLOC_AVAILABLE:
                                      'malloc, usually malloc from glibc).')
 
 
-argparser.set_defaults(numactl=bndl.conf['bndl.run.numactl']if NUMACTL_AVAILBLE else False)
-argparser.set_defaults(pincore=bndl.conf['bndl.run.pincore']if TASKSET_AVAILABLE else False)
+argparser.set_defaults(numactl=bndl.conf['bndl.run.numactl'] if NUMACTL_AVAILBLE else False)
+argparser.set_defaults(pincore=bndl.conf['bndl.run.pincore'] if TASKSET_AVAILABLE else False)
 argparser.set_defaults(jemalloc=bndl.conf['bndl.run.jemalloc'] if JEMALLOC_AVAILABLE else False)
 
 
-argparser.add_argument('executor_count', nargs='?', type=int, default=os.cpu_count(),
-                            help='The number of BNDL executors to start (defaults to 0 if seeds is set).')
+argparser.add_argument('--executor-count', dest='executor_count', nargs='?', type=int,
+                       help='The number of BNDL executors to start (defaults to 0 if seeds is set).')
 argparser.add_argument('--conf', nargs='*', default=(),
                        help='BNDL configuration in "key=value" format')
 
@@ -243,10 +249,11 @@ def update_config(args=None):
         bndl.conf['bndl.net.seeds'] = args.seeds
     elif args.listen_addresses:
         bndl.conf['bndl.net.seeds'] = args.listen_addresses
-    elif not bndl.conf.get('bndl.net.seeds'):
-        bndl.conf['bndl.net.seeds'] = ['tcp://%s:5000' % getlocalhostname()]
 
-    bndl.conf['bndl.compute.executor_count'] = args.executor_count
+    if args.executor_count:
+        bndl.conf['bndl.compute.executor_count'] = args.executor_count
+    elif not bndl.conf['bndl.net.seeds']:
+        bndl.conf['bndl.compute.executor_count'] = os.cpu_count()
 
 
 HEADER = r'''         ___ _  _ ___  _
@@ -262,21 +269,27 @@ def start_worker(Worker=Worker, n_executors=None, verbose=0):
         n_executors = bndl.conf['bndl.compute.executor_count']
 
     if verbose > 0:
-        print('Starting BNDL worker with', n_executors, 'executors ...', end='\r')
+        if n_executors:
+            print('Starting BNDL worker with', n_executors, 'executors ...', end='\r')
+        else:
+            print('Starting BNDL worker...', end='\r')
 
     loop = get_loop(start=True)
     worker = Worker(loop=loop)
     worker.start_async().result()
-    worker.start_executors(n_executors)
+
+    if n_executors:
+        worker.start_executors(n_executors)
 
     if verbose > 0:
         print(' ' * 80, end='\r')
         print(HEADER)
-        print('Started', n_executors, 'executors ...', end='\r')
+        if n_executors:
+            print('Started', n_executors, 'executors locally')
         print('Listening on', *worker.addresses)
-        seeds = [a for a in bndl.conf['bndl.net.seeds'] if a not in worker.addresses]
+        seeds = [a for a in (bndl.conf['bndl.net.seeds'] or ()) if a not in worker.addresses]
         if seeds:
-            print('Joining cluster through seed nodes', *seeds)
+            print('Joining cluster via', *seeds)
         print('-' * 80)
 
     @atexit.register
@@ -289,10 +302,15 @@ def start_worker(Worker=Worker, n_executors=None, verbose=0):
         stop_loop()
 
     def exit_handler(sig, frame):
+        print('exit handler called!')
         stop()
+        print('-' * 80)
+        dump_threads()
+        print('-' * 80)
+        sys.exit(sig)
 
+    # signal.signal(signal.SIGINT, exit_handler)
     signal.signal(signal.SIGTERM, exit_handler)
-    signal.signal(signal.SIGINT, exit_handler)
     signal.signal(signal.SIGUSR1, dump_threads)
 
     return worker
@@ -304,7 +322,7 @@ def main(args=None):
 
     update_config(args)
 
-    start_worker(verbose=1)
+    start_worker(verbose=1, n_executors=args.executor_count or os.cpu_count())
 
     try:
         get_loop_thread().join()

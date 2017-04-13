@@ -13,7 +13,7 @@
 import time
 
 from bndl.compute.tests import DatasetTest
-from bndl.rmi import InvocationException
+from bndl.net.rmi import InvocationException
 
 
 class PipeTest(DatasetTest):

@@ -19,9 +19,8 @@ import sys
 import types
 import urllib.parse
 
+from bndl.net import aio
 from bndl.net import serialize
-from bndl.util import aio
-from bndl.util.aio import readexactly
 from bndl.util.conf import Bool
 import bndl
 
@@ -105,7 +104,7 @@ def filter_ip_addresses(*addresses):
     Args:
         *addresses (iterable): URL strings (parsable by urlparse)
     '''
-    return set(
+    return frozenset(
         gethostbyname(a.hostname)
         for a in map(urlparse, addresses)
         if a.scheme == 'tcp'
@@ -129,7 +128,7 @@ class Connection(object):
     def __init__(self, loop, reader, writer):
         self.loop = loop
         self.reader = reader
-        self.readexactly = types.MethodType(readexactly, self.reader)
+        self.readexactly = types.MethodType(aio.readexactly, self.reader)
         self.writer = writer
         self.write_lock = asyncio.Lock(loop=self.loop)
         self.bytes_received = 0

@@ -27,9 +27,10 @@ class _Destructor(object):
 
 
 class LazyObject(object):
-    def __init__(self, factory, destructor=None):
+    def __init__(self, factory, destructor=None, attrs=None):
         self._factory = factory
         self._destructor_key = destructor
+        self._attrs = attrs or {}
 
 
     def _materialize(self):
@@ -62,6 +63,9 @@ class LazyObject(object):
 
 
     def __getattribute__(self, name):
+        attrs = object.__getattribute__(self, '_attrs')
+        if name in attrs:
+            return attrs[name]
         object.__getattribute__(self, '_materialize')()
         return object.__getattribute__(self, name)
 

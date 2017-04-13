@@ -13,8 +13,8 @@
 import argparse
 import logging
 
+from bndl.net.aio import run_coroutine_threadsafe
 from bndl.net.connection import urlcheck
-from bndl.util.aio import run_coroutine_threadsafe
 
 
 logger = logging.getLogger(__name__)

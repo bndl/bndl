@@ -16,9 +16,9 @@ import asyncio
 import random
 import string
 
-from bndl.compute.storage import StorageContainerFactory
+from bndl.compute.storage import ContainerFactory
+from bndl.net.aio import get_loop, run_coroutine_threadsafe
 from bndl.net.connection import Connection
-from bndl.util.aio import get_loop, run_coroutine_threadsafe
 from bndl.util.collection import batch
 
 
@@ -42,9 +42,9 @@ class StorageTest(TestCase):
         compressions = (None, 'gzip', 'lz4')
 
         for (read, write), serialization, compression in product(rw, serializations, compressions):
-            in_memory = StorageContainerFactory('memory', serialization, compression)('a')
-            on_disk = StorageContainerFactory('disk', serialization, compression)('b')
-            to_disk = StorageContainerFactory('memory', serialization, compression)('c')
+            in_memory = ContainerFactory('memory', serialization, compression)('a')
+            on_disk = ContainerFactory('disk', serialization, compression)('b')
+            to_disk = ContainerFactory('memory', serialization, compression)('c')
 
             getattr(in_memory, write)(data_a)
             getattr(on_disk, write)(data_b)

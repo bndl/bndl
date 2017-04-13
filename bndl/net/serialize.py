@@ -44,10 +44,11 @@ def attach(key, att):
         system calls for reading the file and writing to the socket and without
         a bunch of copies).
     '''
+    assert callable(att)
     try:
         attachments = getattr(_ATTACHMENTS, 'v')
         if key in attachments:
-            return AttachError("key conflict in attaching key " + str(key))
+            return AttachError("key conflict in attaching key " + repr(key))
         attachments[key] = att
     except AttributeError:
         _ATTACHMENTS.v = {key: att}
@@ -61,15 +62,19 @@ def attachment(key):
 
 
 def dump(obj):
-    marshalled, serialized = serialize.dumps(obj)
-    attachments = getattr(_ATTACHMENTS, 'v', None)
-    if attachments:
-        del _ATTACHMENTS.v
+    try:
+        marshalled, serialized = serialize.dumps(obj)
+    finally:
+        attachments = getattr(_ATTACHMENTS, 'v', None)
+        if attachments:
+            del _ATTACHMENTS.v
     return marshalled, serialized, attachments
 
 
 def load(marshalled, msg, attachments):
     setattr(_ATTACHMENTS, 'v', attachments)
-    value = serialize.loads(marshalled, msg)
-    del _ATTACHMENTS.v
+    try:
+        value = serialize.loads(marshalled, msg)
+    finally:
+        del _ATTACHMENTS.v
     return value

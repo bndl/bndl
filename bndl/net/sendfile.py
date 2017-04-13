@@ -19,7 +19,7 @@ import asyncio
 import contextlib
 import os
 
-from bndl.util import aio
+from bndl.net import aio
 
 
 CHUNK_SIZE = 8 * 1024
@@ -45,7 +45,6 @@ def file_attachment(filename, offset, size, maybe_local=True):
             @asyncio.coroutine
             def sender():
                 writer.write(_LOCAL)
-                yield from aio.drain(writer)
             yield 1, sender
         else:
             @asyncio.coroutine

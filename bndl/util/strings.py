@@ -33,6 +33,10 @@ def random(length=64, alphabet=string.ascii_lowercase + string.digits, rng=None,
     return ''.join(choice(alphabet) for _ in range(length))
 
 
+def random_id():
+    return random(8)
+
+
 def decode(data, encoding='utf-8', errors='strict'):
     try:
         return data.decode(encoding, errors)

@@ -17,7 +17,6 @@ from math import sqrt, log, ceil
 from operator import add
 import concurrent.futures
 import gzip
-import heapq
 import io
 import json
 import logging
@@ -33,14 +32,17 @@ from cyhll import HyperLogLog
 from cytoolz.functoolz import compose
 from cytoolz.itertoolz import pluck, take
 
-from bndl.compute import cache, TaskCancelled, DependenciesFailed
+from bndl.compute import cache
 from bndl.compute.job import RmiTask, Job, Task
+from bndl.compute.scheduler import DependenciesFailed
 from bndl.compute.scheduler import FailedDependency
-from bndl.compute.stats import iterable_size, Stats, MultiVariateStats, \
+from bndl.compute.stats import iterable_size, partial_mean, reduce_partial_means, \
+                               Stats, MultiVariateStats, \
                                sample_with_replacement, sample_without_replacement
+from bndl.compute.tasks import TaskCancelled
 from bndl.compute.tasks import task_context, current_node
 from bndl.net.connection import NotConnected
-from bndl.rmi import InvocationException, root_exc
+from bndl.net.rmi import InvocationException, root_exc
 from bndl.util import strings
 from bndl.util.callsite import get_callsite, callsite, set_callsite
 from bndl.util.collection import is_stable_iterable, ensure_collection
@@ -48,15 +50,13 @@ from bndl.util.compat import lz4_compress
 from bndl.util.exceptions import catch
 from bndl.util.funcs import identity, getter, key_or_getter, partial_func
 from bndl.util.hash import portable_hash
+from bndl.util.strings import random_id
 import cycloudpickle as cloudpickle
+import cyheapq as heapq
 import numpy as np
 
 
 logger = logging.getLogger(__name__)
-
-
-def new_dset_id():
-    return strings.random(8)
 
 
 def traverse_dset_dag(*starts, depth_first=False, cond=None):
@@ -88,7 +88,7 @@ class Dataset(object):
     def __init__(self, ctx, src=None, dset_id=None):
         self.ctx = ctx
         self.src = src
-        self.id = dset_id or new_dset_id()
+        self.id = dset_id or random_id()
         self._cache_provider = None
         self._cache_locs = {}
         self._executors_required = None
@@ -860,7 +860,9 @@ class Dataset(object):
         '''
         Calculate the mean of this dataset.
         '''
-        return self.stats().mean
+        means = self.map_partitions(partial_mean).icollect()
+        total, count = reduce_partial_means(means)
+        return total / count
 
 
     def stats(self):
@@ -2186,16 +2188,16 @@ class BarrierTask(Task):
 
     def execute(self, scheduler, executor):
         # administer where dependencies were executed
-        by_executor = self.dependency_locations = {}
+        by_location = self.dependency_locations = {}
         for dep in self.dependencies:
-            executed_on = dep.executed_on_last()
-            if not executed_on:
+            result_location = dep.result_location
+            if not result_location:
                 assert dep.done
-            locs = by_executor.get(executed_on)
+            locs = by_location.get(result_location)
             if locs is None:
-                by_executor[executed_on] = locs = []
-            part = dep.part
-            locs.append(part.id)
+                locs = by_location[result_location] = []
+            locs.append(dep.part.id)
+
         # 'execute' the barrier
         self.set_executing(executor)
         future = self.future = concurrent.futures.Future()
@@ -2216,6 +2218,7 @@ class ComputePartitionTask(RmiTask):
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
+        self.result_location = None
 
 
     def execute(self, scheduler, executor):
@@ -2230,6 +2233,9 @@ class ComputePartitionTask(RmiTask):
 
 
     def signal_stop(self):
+        if self.dependents and self.succeeded:
+            self.result_location = self.result()[0]
+            self.future.set_result(None)
         if self.dependencies:
             exc = root_exc(self.exception())
             if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):

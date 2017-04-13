@@ -11,9 +11,11 @@
 # limitations under the License.
 
 from collections import defaultdict, deque
+from concurrent.futures import Future
 import atexit
 import gc
 import logging
+import os
 import queue
 import threading
 import time
@@ -24,8 +26,11 @@ from cytoolz import pluck
 from psutil import virtual_memory, Process, NoSuchProcess
 from sortedcontainers.sorteddict import SortedDict
 
+from bndl.compute.storage import get_workdir
 from bndl.net.connection import NotConnected
+from bndl.net.rmi import Invocation
 from bndl.util.conf import Float
+from bndl.util.exceptions import catch
 from bndl.util.funcs import getter
 from bndl.util.psutil import process_memory_info
 import bndl
@@ -34,8 +39,8 @@ import bndl
 logger = logging.getLogger(__name__)
 
 
-limit_system = Float(70, desc='The maximum amount of memory to be used by the system in percent (0-100).')
-limit = Float(60, desc='The maximum amount of memory to be used by BNDL in percent (0-100).')
+limit_system = Float(80, desc='The maximum amount of memory to be used by the system in percent (0-100).')
+limit = Float(70, desc='The maximum amount of memory to be used by BNDL in percent (0-100).')
 
 
 class MemoryCoordinator(threading.Thread):
@@ -55,16 +60,30 @@ class MemoryCoordinator(threading.Thread):
         atexit.register(self.stop)
 
 
+    def add_memory_manager(self, pid, release):
+        if not isinstance(release, Invocation):
+            def _release(fut):
+                try:
+                    fut.set_result(release())
+                except Exception as exc:
+                    fut.set_exception(exc)
+            def _start_release():
+                fut = Future()
+                threading.Thread(target=_release, args=(fut,)).start()
+                return fut
+        try:
+            proc = Process(pid)
+        except NoSuchProcess:
+            pass
+        else:
+            self.procs[pid] = (proc, release)
+
+
     def children_changed(self, event, peer):
-        pid = int(peer.name.split('.')[-1])
+        pid = peer.pid
         with self.lock:
             if event == 'added':
-                try:
-                    proc = Process(pid)
-                except NoSuchProcess:
-                    pass
-                else:
-                    self.procs[pid] = (proc, peer.service('memory').release)
+                self.add_memory_manager(pid, peer.service('memory').release)
             elif event == 'removed':
                 del self.procs[pid]
 
@@ -121,13 +140,24 @@ class MemoryCoordinator(threading.Thread):
             remaining -= amount2 - amount
             try:
                 release(amount2)
-            except NotConnected:
+            except (NotConnected, RuntimeError):
                 pass
 
 
     def usage(self, proc):
         try:
             rss = proc.memory_info().rss
+            wd = get_workdir(False, proc.pid)
+            for dirpath, _, filenames in  os.walk(wd, wd):
+                dir_fd = os.open(dirpath, os.O_RDONLY)
+                try:
+                    for filename in filenames:
+                        rss += os.stat(filename, dir_fd=dir_fd).st_size
+                except FileNotFoundError:
+                    pass
+                finally:
+                    with catch():
+                        os.close(dir_fd)
         except NoSuchProcess:
             with self.lock:
                 del self.procs[proc.pid]
@@ -196,6 +226,7 @@ class AsyncReleaseHelper(object):
 
 
     def check(self):
+        did_release = False 
         while self._halt_flag or self._release_queue:
             with self._condition:
                 self._condition.wait_for(lambda: not self._halt_flag or self._release_queue)
@@ -203,11 +234,13 @@ class AsyncReleaseHelper(object):
                     try:
                         nbytes = self._release_queue.popleft()
                         released = self._release(nbytes)
+                        did_release = True
                         logger.debug('Released %.0f mb', nbytes / 1024 / 1024)
                         self._released_queue.put(released)
                     except Exception:
                         logger.exception('Unable to release memory')
                         self._released_queue.put(0)
+        return did_release
 
 
 

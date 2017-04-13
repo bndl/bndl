@@ -18,8 +18,8 @@ import string
 import tempfile
 import threading
 
+from bndl.net.aio import get_loop, run_coroutine_threadsafe
 from bndl.net.sendfile import sendfile
-from bndl.util.aio import get_loop, run_coroutine_threadsafe
 
 
 class ConnectionTest(TestCase):

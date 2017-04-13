@@ -15,9 +15,9 @@ import asyncio
 import contextlib
 
 from bndl.net import serialize
+from bndl.net.aio import get_loop, run_coroutine_threadsafe
 from bndl.net.connection import Connection
 from bndl.net.messages import Hello
-from bndl.util.aio import get_loop, run_coroutine_threadsafe
 
 
 class WithAttachment(object):

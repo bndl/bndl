@@ -16,7 +16,7 @@ import signal
 import time
 
 from bndl.compute.worker import start_worker
-from bndl.util.aio import run_coroutine_threadsafe
+from bndl.net.aio import run_coroutine_threadsafe
 import bndl.compute.worker
 
 

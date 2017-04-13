@@ -15,10 +15,17 @@ import ctypes
 import logging
 import threading
 
-from bndl.compute.exceptions import TaskCancelled
-
 
 logger = logging.getLogger(__name__)
+
+
+class TaskCancelled(Exception):
+    '''
+    Exception raised in an executor when a task is to be cancelled (preempted) by the driver.
+
+    This exception is raised through use of
+    `PyThreadState_SetAsyncExc <https://docs.python.org/3.5/c-api/init.html#c.PyThreadState_SetAsyncExc>`_.
+    '''
 
 
 _TASK_CTX = threading.local()

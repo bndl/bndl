@@ -61,6 +61,10 @@ class Hello(Message):
     '''
     # str, name of node
     name = Field()
+    # str, pid of node process
+    pid = Field()
+    # int, unique id of the machine the node is running on from uuid.getnode
+    machine = Field()
     # str, cluster of node
     cluster = Field()
     # str, type of node

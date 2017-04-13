@@ -16,13 +16,16 @@ import concurrent.futures
 import functools
 import logging
 import threading
-import time
 
+from bndl.util.conf import Bool
 from bndl.util.exceptions import catch
+import bndl
 
 
 logger = logging.getLogger(__name__)
 
+
+uvloop = Bool(True, desc='Whether to use uvloop (if available).')
 
 
 def exception_handler(loop, context):
@@ -37,7 +40,7 @@ _loop_lock = threading.RLock()
 _loop_thread = None
 
 
-def get_loop(stop_on=(), use_uvloop=True, start=False):
+def get_loop(stop_on=(), use_uvloop=None, start=False):
     '''
     Get the current asyncio loop. If none exists (e.g. not on the main thread)
     a new loop is created.
@@ -57,12 +60,16 @@ def get_loop(stop_on=(), use_uvloop=True, start=False):
         if not start:
             raise Exception('Asyncio loop not running')
 
+        if use_uvloop is None:
+            use_uvloop = bndl.conf.get('bndl.net.aio.uvloop', False)
+        
         if use_uvloop:
             try:
                 import uvloop
                 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
             except Exception:
                 logger.debug('uvloop not available, using default event loop')
+                use_uvloop = False
 
         try:
             del asyncio.Task.__del__
@@ -77,6 +84,10 @@ def get_loop(stop_on=(), use_uvloop=True, start=False):
             # raised if there is no active loop.
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            
+        if not use_uvloop:
+            child_watcher = asyncio.get_child_watcher()
+            child_watcher.attach_loop(loop)
 
         loop.set_exception_handler(exception_handler)
 
@@ -112,7 +123,7 @@ def stop_loop():
             pass
         else:
             # stop and close loop
-            loop.stop()
+            loop.call_soon_threadsafe(loop.stop)
             _loop_thread.join()
             loop.close()
 
@@ -161,45 +172,48 @@ def async_call(loop, executor, method, *args, **kwargs):
             method = functools.partial(method, **kwargs)
         return loop.run_in_executor(executor, method, *args)
 
-
-def run_coroutine_threadsafe(coro, loop):
-    '''
-    Run a asyncio coroutine in the given loop safely and return a
-    concurrent.futures.Future
-    :param coro: asyncio.couroutine
-    :param loop: asyncio loop
-    '''
-    future = concurrent.futures.Future()
-    task = None
-
-    def task_done(task):
-        try:
-            future.set_result(task.result())
-        except Exception as exc:
-            future.set_exception(exc)
-
-    def schedule_task():
-        global task
-        try:
-            task = loop.create_task(coro)
-            task.add_done_callback(task_done)
-        except Exception as exc:
-            future.set_exception(exc)
-
-    schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
-
-    def propagate_cancel(future):
-        if future.cancelled:
+try:
+    from asyncio import run_coroutine_threadsafe
+except ImportError:
+    def run_coroutine_threadsafe(coro, loop):
+        '''
+        Run a asyncio coroutine in the given loop safely and return a
+        concurrent.futures.Future
+        :param coro: asyncio.couroutine
+        :param loop: asyncio loop
+        '''
+        future = concurrent.futures.Future()
+        task = None
+    
+        def task_done(task):
             try:
-                schedule_task_handle.cancel()
-                if task:
-                    loop.call_soon_threadsafe(task.cancel)
-            except Exception:
-                logger.exception('canceling future failed')
+                future.set_result(task.result())
+            except Exception as exc:
+                future.set_exception(exc)
+    
+        def schedule_task():
+            global task
+            try:
+                task = loop.create_task(coro)
+                task.add_done_callback(task_done)
+            except Exception as exc:
+                future.set_exception(exc)
+    
+        schedule_task_handle = loop.call_soon_threadsafe(schedule_task)
+    
+        def propagate_cancel(future):
+            if future.cancelled:
+                try:
+                    schedule_task_handle.cancel()
+                    if task:
+                        loop.call_soon_threadsafe(task.cancel)
+                except Exception:
+                    logger.exception('canceling future failed')
+    
+        future.add_done_callback(propagate_cancel)
+    
+        return future
 
-    future.add_done_callback(propagate_cancel)
-
-    return future
 
 
 @asyncio.coroutine

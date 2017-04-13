@@ -10,16 +10,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from uuid import uuid4
 import concurrent.futures
 import json
 import logging
 import marshal
 import pickle
 
-from cytoolz.functoolz import compose
+from cytoolz import compose
 
-from bndl.util import serialize, threads
+from bndl.net import rmi
+from bndl.util import serialize, threads, strings
 from bndl.util.funcs import identity
 from bndl.util.strings import decode
 
@@ -35,11 +35,14 @@ MISSING = 'bndl.compute.broadcast.MISSING'
 class BroadcastManager(object):
     def __init__(self, node):
         self.node = node
+        self.cache = {}
 
 
-    def unpersist_broadcast_values(self, src, block_id):
-        self.node.service('blocks').remove_block(block_id)
-        del download_coordinator[block_id]
+    @rmi.direct
+    def drop(self, src, val_id):
+        self.cache.pop(val_id, None)
+        self.node.service('blocks')._remove_block(src, val_id)
+
 
 
 def broadcast(ctx, value, serialization='auto', deserialization=None):
@@ -104,9 +107,10 @@ def broadcast(ctx, value, serialization='auto', deserialization=None):
     else:
         raise ValueError('Must specify either serialization or deserialization')
 
-    key = str(uuid4())
+    key = ('broadcast', strings.random(8))
     block_spec = ctx.node.service('blocks').serve_data(key, data)
     return BroadcastValue(ctx, ctx.node.name, block_spec, deserialization)
+
 
 
 class BroadcastValue(object):
@@ -123,23 +127,33 @@ class BroadcastValue(object):
 
 
     def _get(self):
-        node = self.ctx.node
-        blocks_svc = node.service('blocks')
-        block = blocks_svc.get(self.block_spec)
-        val = self.deserialize(block)
-        return val
+        cache = self.ctx.node.service('broadcast').cache
+        if self.block_spec.id in cache:
+            return cache[self.block_spec.id]
+
+        block = self.ctx.node.service('blocks').get(self.block_spec)
+        with block.view() as v:
+            bc_val = self.deserialize(v)
+        del block
+
+        cache[self.block_spec.id] = bc_val
+        return bc_val
 
 
     def unpersist(self, block=False, timeout=None):
         node = self.ctx.node
         block_id = self.block_spec.id
         assert node.name == self.block_spec.seeder
-        node.service('broadcast').unpersist_broadcast_values(node, block_id)
-        requests = [peer.service('broadcast').unpersist_broadcast_values
-                   for peer in node.peers.filter()]
-        if timeout:
-            requests = [request.with_timeout(timeout) for request in requests]
-        requests = [request(block_id) for request in requests]
+
+        node.service('broadcast').drop(node, block_id)
+
+        requests = []
+        for peer in node.peers.filter():
+            request = peer.service('broadcast').drop
+            if timeout:
+                request = request.with_timeout(timeout)
+            requests.append(request(block_id))
+
         if block:
             for request in requests:
                 try:

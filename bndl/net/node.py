@@ -20,11 +20,11 @@ import os
 import random
 import socket
 
+from bndl.net import aio
+from bndl.net.aio import get_loop, IOTasks
 from bndl.net.connection import urlparse, Connection, filter_ip_addresses
 from bndl.net.peer import PeerNode, PeerTable
 from bndl.net.watchdog import Watchdog
-from bndl.util import aio
-from bndl.util.aio import get_loop, IOTasks
 from bndl.util.exceptions import catch
 from bndl.util.strings import camel_to_snake
 import bndl

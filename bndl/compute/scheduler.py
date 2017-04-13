@@ -17,13 +17,25 @@ import logging
 
 from sortedcontainers import SortedSet
 
-from bndl.compute import DependenciesFailed
 from bndl.net.connection import NotConnected
-from bndl.rmi import root_exc
+from bndl.net.rmi import root_exc
 from bndl.util.funcs import noop
 
 
 logger = logging.getLogger(__name__)
+
+
+class DependenciesFailed(Exception):
+    '''
+    Indicate that a task failed due to dependencies not being 'available'. This will cause the
+    dependencies to be re-executed and the task which raises DependenciesFailed will be scheduled
+    to execute once the dependencies complete.
+
+    The failures attribute is a mapping from executor names (strings) to a sequence of
+    task_ids which have failed.
+    '''
+    def __init__(self, failures):
+        self.failures = failures
 
 
 class FailedDependency(Exception):
@@ -167,6 +179,7 @@ class Scheduler(object):
                         # the abort flag can be set to True to break the loop (in case of emergency)
                         for task in self.tasks.values():
                             if task in self.pending:
+                                logger.debug('Job aborted, cancelling %r', task)
                                 task.cancel()
                         break
 

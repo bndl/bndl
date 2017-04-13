@@ -14,20 +14,15 @@ from bisect import bisect_left
 from math import ceil
 import asyncio
 import logging
-import mmap
-import os
 import random
-import socket
-import struct
-import tempfile
 import threading
-import weakref
 
-from bndl import rmi
-from bndl.compute.storage import Data, get_work_dir
-from bndl.util import serialize
-from bndl.util.aio import run_coroutine_threadsafe
+from bndl.compute.storage import SharedMemoryData, InMemoryData
+from bndl.net import rmi
+from bndl.net.aio import run_coroutine_threadsafe
+from bndl.util.conf import Float
 from bndl.util.exceptions import catch
+import bndl
 
 
 logger = logging.getLogger(__name__)
@@ -35,8 +30,10 @@ logger = logging.getLogger(__name__)
 
 AVAILABILITY_TIMEOUT = 1
 
-MIN_DOWNLOAD_SIZE = 1024 * 1024
-MAX_DOWNLOAD_SIZE = 1024 * 1024 * 8
+
+min_download_size_mb = Float(1, desc='Minimum chunk size downloaded in megabytes')
+max_download_size_mb = Float(8, desc='Maximum chunk size downloaded in megabytes')
+
 
 
 class BlockSpec(object):
@@ -50,24 +47,16 @@ class BlockSpec(object):
 
 
 
-class Block(object):
-    def __init__(self, block_id, size, fd=-1):
-        self.id = block_id
-        self.size = size
+class Block(SharedMemoryData):
+    def __init__(self, block_id, allocate=0):
+        if not isinstance(block_id, (tuple, list)):
+            block_id = (block_id,)
+        super().__init__(block_id, allocate)
 
-        if fd == -1:
-            self.fd, name = tempfile.mkstemp(prefix='block-', dir=get_work_dir())
-            os.unlink(name)
-            with open(self.fd, 'wb', closefd=False) as f:
-                f.write(b'0')
-            self.data = mmap.mmap(self.fd, 1)
-            self.data.resize(self.size)
 
-        else:
-            self.fd = fd
-            self.data = mmap.mmap(self.fd, size)
 
-        weakref.finalize(self, os.close, self.fd)
+class BlockNotFound(Exception):
+    pass
 
 
 
@@ -97,48 +86,39 @@ class BlockManager(object):
         # ranges of bytes available for a block
         self._available_data = {}  # name: [(start, stop), (start, stop), ...]
 
-        self.fd_server = None
-        self.fd_socket_path = None
-
-    @asyncio.coroutine
-    def start(self):
-        dirpath = tempfile.mkdtemp(prefix='blocks-', dir=get_work_dir())
-        self.fd_socket_path = os.path.join(dirpath, 'blocks.socket')
-        self.fd_server = yield from asyncio.start_unix_server(self._serve_block_fd, self.fd_socket_path, loop=self.node.loop)
-
-
-    @asyncio.coroutine
-    def stop(self):
-        self.fd_server.close()
-        if os.path.exists(self.fd_socket_path):
-            os.unlink(self.fd_socket_path)
-
 
     def serve_data(self, block_id, data):
         block = Block(block_id, len(data))
-        block.data[:] = data
+        with block.open('wb') as f:
+            f.write(data)
         return self.serve_block(block)
 
 
     def serve_block(self, block):
+        block_size = block.size
         self.blocks[block.id] = block
+
+        if isinstance(block, (InMemoryData, SharedMemoryData)):
+            self.node.memory_manager.add_releasable(block.to_disk, block.id, 1, block.size)
+
         available = threading.Event()
         available.set()
         self._available_events[block.id] = available
-        self._available_data[block.id] = [(0, block.size)]
-        logger.debug('Serving block %s (%.2f mb)', block.id, block.size / 1024 / 1024)
-        return BlockSpec(block.id, self.node.name, block.size)
+        self._available_data[block.id] = [(0, block_size)]
+
+        logger.debug('Serving block %s (%.2f mb)', block.id, block_size / 1024 / 1024)
+        return BlockSpec(block.id, self.node.name, block_size)
 
 
     def get(self, block_spec, peers=()):
         if block_spec.seeder == self.node.name:
-            return self.blocks[block_spec.id].data
+            return self.blocks[block_spec.id]
         else:
             run_coroutine_threadsafe(
                 self._download_if_unavailable(None, block_spec, peers),
                 self.node.loop
             ).result()
-            return self.blocks[block_spec.id].data
+            return self.blocks[block_spec.id]
 
 
     def remove_block(self, block_id, from_peers=False):
@@ -151,82 +131,18 @@ class BlockManager(object):
         self._remove_block(None, block_id)
         if from_peers:
             for peer in self.node.peers.filter():
-                peer._remove_block(block_id)
+                peer.service('blocks')._remove_block(block_id)
                 # responses aren't waited for
 
 
     @rmi.direct
     def _remove_block(self, peer, block_id):
         with catch(KeyError):
-            del self.blocks[block_id]
-        with catch(KeyError):
             del self._available_events[block_id]
         with catch(KeyError):
             del self._available_data[block_id]
-
-
-    @asyncio.coroutine
-    def _serve_block_fd(self, r, w):
-        header = yield from r.readexactly(5)
-        block_id_len = struct.unpack('I', header[:4])[0]
-        block_id_msg = yield from r.readexactly(block_id_len)
-        marshalled = header[4:] == b'M'
-        block_id = serialize.loads(marshalled, block_id_msg)
-
-#         print('serving fd for block_id', block_id)
-
-        try:
-            fd = self.blocks[block_id].fd
-        except KeyError:
-            w.close()
-        else:
-            sock = w.transport.get_extra_info('socket')
-
-            def send_fd():
-                msg = struct.pack('I', fd)
-                sock.setblocking(True)
-                try:
-#                     print('sending fd')
-                    sock.sendmsg([bytes([len(msg)])], [(socket.SOL_SOCKET, socket.SCM_RIGHTS, msg)])
-                except:
-                    import traceback;traceback.print_exc()
-                    raise
-                finally:
-                    sock.setblocking(False)
-#                 print('fd sent')
-
-            yield from self.node.loop.run_in_executor(None, send_fd)
-
-            # wait for other end to close the connection
-            try:
-                yield from r.read()
-            except ConnectionResetError:
-                pass
-
-
-    @rmi.direct
-    def _get_socket_path(self, peer):
-        return self.fd_socket_path
-
-
-    def _receive_fd(self, path, block_id):
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(path)
-
-        marshalled, msg = serialize.dumps(block_id)
-        msg_len = struct.pack('I', len(msg))
-        msg = msg_len + (b'M' if marshalled else b'P') + msg
-        sock.sendall(msg)
-
-        msg = sock.recvmsg(0, socket.CMSG_LEN(4))
-        if not msg:
-            return None
-        else:
-            ancdata = msg[1]
-            cmsg_level, cmsg_type, cmsg_data = ancdata[0]
-            assert cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS
-            fd = struct.unpack('I', cmsg_data)[0]
-            return fd
+        with catch(KeyError):
+            self.blocks.pop(block_id).remove()
 
 
     @asyncio.coroutine
@@ -253,7 +169,7 @@ class BlockManager(object):
                 self.blocks[block_spec.id] = yield from download(block_spec, seeder, peers)
             except Exception as e:
                 self._available_events[block_spec.id] = None
-                raise Exception('Unable to download block %r' % block_spec) from e
+                raise Exception('Unable to download block %r: %r' % (block_spec, e)) from e
             finally:
                 available.set()
 
@@ -262,7 +178,17 @@ class BlockManager(object):
     @asyncio.coroutine
     def _get_chunk(self, peer, block_id, start, end):
         logger.trace('sending chunk %s[%s:%s] to %s', block_id, start, end, peer.name)
-        return Data((block_id, start, end), self.blocks[block_id].data[start:end])
+        try:
+            block = self.blocks[block_id]
+        except KeyError:
+            raise BlockNotFound(block_id)
+        else:
+            assert end <= block.size
+            with block.view() as v:
+                data = v[start:end]
+
+            assert len(data) == end - start
+            return InMemoryData((block_id, start, end), data)
 
 
     @asyncio.coroutine
@@ -272,6 +198,8 @@ class BlockManager(object):
 
     @asyncio.coroutine
     def _download_from_remote(self, block_spec, source, peers=()):
+        logger.trace('Downloading', block_spec, 'from', source)
+
         block_id = block_spec.id
         size = block_spec.size
 
@@ -308,17 +236,17 @@ class BlockManager(object):
                     raise exc
 
         else:
-            block = Block(block_id, size)
+            block = Block((self.node.name,) + block_id, size)
             self.blocks[block_id] = block
-            data = block.data
 
             chunk_size = size // (len(workers) or 1) // 2
             chunk_size = int(ceil(chunk_size / 1024) * 1024)
-            chunk_size = min(chunk_size, MAX_DOWNLOAD_SIZE)
-            chunk_size = max(chunk_size, MIN_DOWNLOAD_SIZE)
+            chunk_size = min(chunk_size, bndl.conf['bndl.compute.blocks.min_download_size_mb'] * 1024 * 1024)
+            chunk_size = max(chunk_size, bndl.conf['bndl.compute.blocks.max_download_size_mb'] * 1024 * 1024)
+            chunk_size = int(chunk_size)
 
             done = self._available_data[block_id] = []
-            todo = [(start, start + chunk_size)
+            todo = [(start, min(size, start + chunk_size))
                     for start in range(0, size, chunk_size)]
 
             def mark_done(chunk):
@@ -345,8 +273,12 @@ class BlockManager(object):
                 start, end = chunk
                 downloaded = yield from node.service('blocks') \
                                             ._get_chunk.request(block_id, start, end)
-
-                data[start:end] = downloaded.data
+                assert downloaded.size == end - start
+                size_before = block.size
+                with block.open('r+b') as f:
+                    f.seek(start)
+                    f.write(downloaded.data)
+                assert size_before <= block.size, '%s !<= %s' % (size_before, block.size)
                 todo.remove(chunk)
                 mark_done(chunk)
                 logger.trace('Retrieved chunk %s:%s of block %s from %s',
@@ -380,9 +312,6 @@ class BlockManager(object):
                         start, end = chunk
                         try:
                             yield from download_chunk(candidate, chunk)
-                            print(self.node.name, 'downloaded', start, ':', end,
-                                  'from peer', candidate.name, ':)',
-                                  len(todo), 'chunks remaining')
                             downloaded += 1
                             break
                         except:
@@ -399,60 +328,16 @@ class BlockManager(object):
                     chunk = todo[random.randint(0, len(todo) - 1)]
                     start, end = chunk
                     yield from download_chunk(source, chunk)
-                    print(self.node.name, 'downloaded', start, ':', end,
-                          'from source', source.name, ':(',
-                          len(todo), 'chunks remaining')
 
         return block
 
-
-#     @asyncio.coroutine
-#     def _download_from_local(self, block_spec, source, peers):
-#         logger.trace('Downloading %s from %s', block_spec, source.name)
-#
-#         # ask source for the path of the unix socket for fd access
-#         socket_path = yield from source.service('blocks')._get_socket_path.request()
-#
-#         # connect
-#         r, w = yield from asyncio.open_unix_connection(socket_path, loop=self.node.loop)
-#         transport = w.transport
-#         conn = Connection(self.node.loop, r, w)
-#
-#         # send the block id for which the fd should be accessed
-#         yield from conn.send(block_spec.id)
-#         available = yield from conn.recv()
-#         if not available:
-#             return
-#
-#         def receive_fd():
-#             sock = transport.get_extra_info('socket')
-#             sock.setblocking(True)
-#             try:
-#                 msg = sock.recvmsg(1, socket.CMSG_LEN(4))
-#             finally:
-#                 sock.setblocking(False)
-#             ancdata = msg[1]
-#             cmsg_level, cmsg_type, cmsg_data = ancdata[0]
-#             assert cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS
-#             fd = struct.unpack('I', cmsg_data)[0]
-#             return fd
-#
-#         # receive the fd (with sock.recvmsg in blocking mode)
-#         transport.pause_reading()
-#         fd = yield from self.node.loop.run_in_executor(None, receive_fd)
-#         transport.resume_reading()
-#         yield from conn.close()
-#
-#         return Block(block_spec.id, block_spec.size, fd)
-
+    @rmi.direct
+    def _get_block(self, peer, block_id):
+        return self.blocks[block_id]
 
     @asyncio.coroutine
     def _download_from_local(self, block_spec, source, peers):
         logger.trace('Downloading %s from %s', block_spec, source.name)
-
-        # ask source for the path of the unix socket for fd access
-        path = yield from source.service('blocks')._get_socket_path.request()
-        # read the file descriptor
-        fd = yield from self.node.loop.run_in_executor(None, self._receive_fd, path, block_spec.id)
-        # mmap the 'file'
-        return Block(block_spec.id, block_spec.size, fd)
+        block = yield from source.service('blocks')._get_block.request(block_spec.id)
+        assert block.size == block_spec.size, '%s != %s' % (block.size, block_spec.size)
+        return block

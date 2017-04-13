@@ -25,8 +25,8 @@ from bndl.compute.profile import MemoryProfiling, CpuProfiling
 from bndl.compute.ranges import RangeDataset
 from bndl.compute.scheduler import Scheduler
 from bndl.compute.tasks import current_node
+from bndl.net.aio import run_coroutine_threadsafe
 from bndl.util import plugins
-from bndl.util.aio import run_coroutine_threadsafe
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.funcs import as_method
@@ -337,7 +337,7 @@ class ComputeContext(Lifecycle):
 
         Args:
             job (bndl.compute.job.Job): The job to execute.
-            executors (sequence): A sequence of :class:`RMIPeerNodes <bndl.rmi.node.RMIPeerNode>`
+            executors (sequence): A sequence of :class:`RMIPeerNodes <bndl.net.rmi.RMIPeerNode>`
                 peer nodes to execute the job on.
             order_results (bool): Whether the results of the task are to be yielded in order or not
                 (defaults to True).
@@ -345,7 +345,7 @@ class ComputeContext(Lifecycle):
                 Defaults to the ``bndl.compute.concurrency`` configuration parameter.
             attempts (int >= 1): The maximum number of attempts per task (not counting executor
                 failure as induced from a task failing with NotConnected or a task marked as failed
-                through :class:`bndl.compute.exceptions.DependenciesFailed`). Defaults to the
+                through :class:`bndl.compute.scheduler.DependenciesFailed`). Defaults to the
                 ``bndl.compute.attempts`` configuration parameter.
         '''
         assert self.running, 'context is not running'
@@ -379,11 +379,11 @@ class ComputeContext(Lifecycle):
             else:
                 yield from self._execute_unordered(job, done)
             scheduler_driver.join()
-        except KeyboardInterrupt:
-            scheduler.abort()
-            raise
         except GeneratorExit:
             scheduler.abort()
+        except:
+            scheduler.abort()
+            raise
         finally:
             scheduler_driver.join()
             for task in job.tasks:

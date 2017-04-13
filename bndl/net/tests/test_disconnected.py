@@ -14,8 +14,8 @@ from collections import defaultdict
 import asyncio
 
 from bndl.net.connection import NotConnected
+from bndl.net.rmi import RMINode
 from bndl.net.tests import NetTest
-from bndl.rmi.node import RMINode
 
 
 class Service(object):

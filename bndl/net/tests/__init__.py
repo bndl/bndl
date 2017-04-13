@@ -21,9 +21,9 @@ import sys
 import time
 import traceback
 
+from bndl.net.aio import get_loop, run_coroutine_threadsafe
 from bndl.net.node import Node
 from bndl.net.run import stop_nodes
-from bndl.util.aio import get_loop, run_coroutine_threadsafe
 from bndl.util.exceptions import catch
 
 

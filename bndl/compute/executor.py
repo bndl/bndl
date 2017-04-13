@@ -12,7 +12,6 @@
 
 from concurrent.futures import TimeoutError
 from urllib.parse import urlunparse
-import asyncio
 import atexit
 import logging
 import re
@@ -24,9 +23,10 @@ from bndl.compute.broadcast import BroadcastManager
 from bndl.compute.memory import LocalMemoryManager
 from bndl.compute.shuffle import ShuffleManager
 from bndl.compute.tasks import Tasks
+from bndl.net.aio import get_loop, get_loop_thread, stop_loop, run_coroutine_threadsafe
 from bndl.net.connection import urlparse
-from bndl.rmi.node import RMINode
-from bndl.util.aio import get_loop, get_loop_thread, stop_loop, run_coroutine_threadsafe
+from bndl.net.rmi import RMINode
+from bndl.util.funcs import noop
 from bndl.util.threads import dump_threads
 
 
@@ -36,22 +36,12 @@ logger = logging.getLogger(__name__)
 class Executor(RMINode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.memory_manager = LocalMemoryManager()
         self.services['blocks'] = BlockManager(self)
         self.services['broadcast'] = BroadcastManager(self)
         self.services['shuffle'] = ShuffleManager(self)
         self.services['tasks'] = Tasks(self)
-        self.memory_manager = LocalMemoryManager()
-
-
-    @asyncio.coroutine
-    def start(self):
-        yield from super().start()
-        self.memory_manager.start()
-
-    @asyncio.coroutine
-    def stop(self):
-        self.memory_manager.stop()
-        yield from super().stop()
+        self.services['memory'] = self.memory_manager
 
 
 def _executor_address(worker_address, executor_id):
@@ -89,7 +79,7 @@ def main():
     def exit_handler(sig, frame):
         stop()
 
-    signal.signal(signal.SIGINT, exit_handler)
+    signal.signal(signal.SIGINT, noop)
     signal.signal(signal.SIGTERM, exit_handler)
     signal.signal(signal.SIGUSR1, dump_threads)
 

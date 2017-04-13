@@ -22,19 +22,21 @@ import gc
 import logging
 import os
 
-from cytoolz.itertoolz import merge_sorted, pluck
+from cytoolz.itertoolz import pluck
 
-from bndl import rmi
-from bndl.compute import DependenciesFailed, TaskCancelled
 from bndl.compute.dataset import Dataset, Partition
-from bndl.compute.storage import StorageContainerFactory, InMemory
+from bndl.compute.scheduler import DependenciesFailed
+from bndl.compute.storage import ContainerFactory, InMemoryContainer, SharedMemoryContainer
+from bndl.compute.tasks import TaskCancelled
 from bndl.compute.tasks import task_context
+from bndl.net import rmi
 from bndl.net.connection import NotConnected
-from bndl.rmi import InvocationException
+from bndl.net.rmi import InvocationException
 from bndl.util.collection import batch as batch_data, ensure_collection, flatten
 from bndl.util.conf import Float
 from bndl.util.funcs import star_prefetch, identity
 from bndl.util.hash import portable_hash
+from cyheapq import merge
 
 
 PARTITIONED_SORT_SPLITS = 128
@@ -98,10 +100,8 @@ class Bucket:
         Estimate the size of a element from data.
         '''
         try:
-            # test_set = list(np.random.choice(data, max(10, len(data) // 1000)))
             test_set = data[:max(10, len(data) // 1000)]
-            # TODO, don't take compression into account here
-            c = self.memory_container(('tmp',))
+            c = self.memory_container(self.id + ('tmp',))
             c.write(test_set)
             return c.size // len(test_set)
         finally:
@@ -225,7 +225,7 @@ class SortedBucket(ListBucket):
             batches = list(batch_data(self, len(self) // PARTITIONED_SORT_SPLITS))
             for b in batches:
                 b.sort(key=self.key)
-            return merge_sorted(*batches, key=self.key)
+            return merge(*batches, key=self.key)
         else:
             self.sort(key=self.key)
             return list.__iter__(self)
@@ -285,10 +285,10 @@ class ShuffleWritingDataset(Dataset):
             The size of the blocks to produce in serializing the shuffle data. Defaults to
             bndl.compute.shuffle.block_size_mb.
         :param serialization: str or None
-            A string compatible to the serialization parameter of StorageContainerFactory. E.g.
+            A string compatible to the serialization parameter of ContainerFactory. E.g.
             'pickle', 'marshal', 'text', 'binary', 'json', etc. Defaults to 'pickle'.
         :param compression: str or None
-            A string compatible to the compression parameter of StorageContainerFactory. E.g. 'gzip'.
+            A string compatible to the compression parameter of ContainerFactory. E.g. 'gzip'.
         '''
         super().__init__(src.ctx, src)
         self.pcount = pcount or len(src.parts())
@@ -310,6 +310,9 @@ class ShuffleWritingDataset(Dataset):
     def _cleanup(self, job):
         for executor in job.ctx.executors:
             executor.service('shuffle').clear_bucket(self.id)
+        for worker in job.ctx.workers:
+            worker.service('shuffle').clear_bucket(self.id)
+        job.ctx.node.service('shuffle').clear_bucket(job.ctx.node, self.id)
 
 
     def parts(self):
@@ -322,13 +325,13 @@ class ShuffleWritingDataset(Dataset):
     @property
     @lru_cache()
     def disk_container(self):
-        return StorageContainerFactory('disk', self.serialization, self.compression)
+        return ContainerFactory('disk', self.serialization, self.compression)
 
 
     @property
     @lru_cache()
     def memory_container(self):
-        return StorageContainerFactory('memory', self.serialization, self.compression)
+        return ContainerFactory('memory', self.serialization, self.compression)
 
 
 
@@ -354,7 +357,10 @@ class ShuffleWritingPartition(Partition):
         logger.info('starting shuffle write of partition %r', self.id)
 
         executor = self.dset.ctx.node
-        memory_manager = executor.memory_manager
+        ip_addresses = executor.ip_addresses()
+        worker = (executor.peers.filter(ip_address=ip_addresses, node_type='worker') or \
+                  executor.peers.filter(ip_address=ip_addresses, node_type='driver'))[0]
+        assert worker is not None
 
         # create a bucket for each output partition
         buckets = [self.dset.bucket((self.dset.id, self.idx, out_idx), self.dset.key,
@@ -392,9 +398,11 @@ class ShuffleWritingPartition(Partition):
                 logger.debug('spilled %.2f mb', spilled / 1024 / 1024)
             return spilled
 
+        memory_manager = executor.memory_manager
         partitioner = self.partitioner()
-
         src = self.src.compute()
+
+        check_interval = 1024
 
         with memory_manager.async_release_helper(self.id, spill, priority=2) as memcheck:
             # add each element to the bucket assigned to by the partitioner
@@ -402,20 +410,27 @@ class ShuffleWritingPartition(Partition):
             for element in src:
                 bucket_add[partitioner(element) % bucket_count](element)
                 elements_partitioned += 1
-                memcheck()
+                if elements_partitioned % check_interval == 0:
+                    if memcheck():
+                        check_interval = 1
+                    elif check_interval < 16384:
+                        check_interval *= 2
 
             # serialize the buckets for shuffle read
             for bucket in buckets:
                 bytes_serialized += bucket.serialize(False)
                 for block in flatten(bucket.batches):
-                    if isinstance(block, InMemory):
+                    if isinstance(block, (InMemoryContainer, SharedMemoryContainer)):
                         memory_manager.add_releasable(block.to_disk, block.id, 1, block.size)
                 memcheck()
 
-        executor.service('shuffle').set_buckets(self, buckets)
+        batches = [bucket.batches for bucket in buckets]
+        worker.service('shuffle').set_buckets(self.id, batches).result()
 
         logger.info('partitioned %s.%s of %s elem\'s, serialized %.1f mb',
                     self.dset.id, self.idx, elements_partitioned, bytes_serialized / 1024 / 1024)
+
+        return [worker.name]
 
 
 
@@ -450,7 +465,6 @@ class ShuffleReadingPartition(Partition):
 
     def get_sources(self):
         executor = self.dset.ctx.node
-
         dependency_locations = task_context()['dependency_locations']
 
         # if a dependency wasn't executed yet (e.g. cache after shuffle)
@@ -690,7 +704,7 @@ class ShuffleReadingPartition(Partition):
                     block.clear()
 
             streams = list(map(_block_stream, bucket.batches))
-            s = merge_sorted(*streams, key=self.dset.src.key)
+            s = merge(*streams, key=self.dset.src.key)
 
             return s
 
@@ -730,13 +744,21 @@ class ShuffleManager(object):
         self.buckets = {}
 
 
-    def set_buckets(self, part, buckets):
+    @rmi.direct
+    def set_buckets(self, src, part_id, buckets):
         '''
         Set the buckets for the data set of the given partition (after shuffle write).
         :param part: The partition of the source (shuffle writing) data set.
         :param buckets: The buckets computed for the partition.
         '''
-        self.buckets.setdefault(part.dset.id, {})[part.idx] = [bucket.batches for bucket in buckets]
+        # expose the blocks (in the batches in the buckets) to memory management if they're
+        # in-memory blocks, (e.g. SerializedInMemory or SharedMemoryContainer)
+        memory_manager = self.node.memory_manager
+        for block in flatten(buckets):
+            if isinstance(block, (InMemoryContainer, SharedMemoryContainer)):
+                memory_manager.add_releasable(block.to_disk, block.id, 1, block.size)
+
+        self.buckets.setdefault(part_id[0], {})[part_id[1]] = buckets
 
 
     def _buckets_for_dset(self, src_dset_id):

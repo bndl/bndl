@@ -13,7 +13,7 @@
 import atexit
 import logging
 
-from bndl.compute.storage import StorageContainerFactory
+from bndl.compute.storage import ContainerFactory
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ class CacheProvider(object):
 
 
     def modify(self, location, serialization, compression):
-        self.storage_container_factory = StorageContainerFactory(location, serialization, compression)
+        self.storage_container_factory = ContainerFactory(location, serialization, compression)
 
 
     def read(self, cache_key, obj_key):

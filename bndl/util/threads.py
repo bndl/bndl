@@ -17,7 +17,6 @@ import textwrap
 import threading
 import traceback
 
-from bndl.util.exceptions import catch
 
 
 class OnDemandThreadedExecutor(concurrent.futures.Executor):
@@ -44,6 +43,7 @@ class OnDemandThreadedExecutor(concurrent.futures.Executor):
         return future
 
 
+
 class Coordinator(object):
     '''
     The Coordinator class coordinates threads which are interested in getting
@@ -51,73 +51,39 @@ class Coordinator(object):
     '''
     def __init__(self, lock=None):
         self._lock = lock or threading.RLock()
-        self.acquire = self._lock.acquire
-        self.release = self._lock.release
-        self._done = {}
-        self._results = {}
-
-
-    def __getitem__(self, key, value):
-        return self._results[key]
-
-    def __setitem__(self, key, value):
-        self._results[key] = value
-        with self._lock:
-            try:
-                done = self._done[key]
-            except KeyError:
-                done = threading.Event()
-                self._done[key] = done
-        done.set()
-
-
-    def __delitem__(self, key):
-        self.clear(key)
-
-
-    def clear(self, key):
-        '''
-        Clear any state (progress flags and results) for key.
-        '''
-        with self._lock:
-            with catch(KeyError):
-                del self._done[key]
-            with catch(KeyError):
-                del self._results[key]
+        self._waiters = {}
 
 
     def coordinate(self, work, key):
         '''
         Coordinate with other threads that work is called only once and it's
         result is available.
+
         :param work: function
-            A function to coordinate the invocation of across threads.
+            A function to be invoked once across threads.
         :param key: hashable obj
             Work with the same key will be coordinated.
         '''
         with self._lock:
-            try:
-                # short path for one result is available
-                return self._results[key]
-            except KeyError:
-                # setup for longer path to coordinate work
-                try:
-                    done = self._done[key]
-                    wait = True
-                except KeyError:
-                    done = threading.Event()
-                    self._done[key] = done
-                    wait = False
-        if wait:
-            # wait for another thread to do the work
-            done.wait()
-            return self._results[key]
-        else:
-            # do the work in the current thread
-            self._results[key] = result = work()
-            # and notify (future) other threads
-            done.set()
+            waiters = self._waiters.get(key)
+            if waiters is None:
+                waiters = self._waiters[key] = []
+            else:
+                future = concurrent.futures.Future()
+                waiters.append(future)
+                return future.result()
+
+        try:
+            result = work()
+            with self._lock:
+                for waiter in self._waiters.pop(key, ()):
+                    waiter.set_result(result)
             return result
+        except Exception as e:
+            with self._lock:
+                for waiter in self._waiters.pop(key, ()):
+                    waiter.set_exception(e)
+            raise
 
 
 def dump_threads(*args, **kwargs):

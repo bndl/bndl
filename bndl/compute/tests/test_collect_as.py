@@ -19,7 +19,7 @@ import pickle
 
 from bndl.compute.dataset import Dataset
 from bndl.compute.tests import DatasetTest
-from bndl.rmi import InvocationException
+from bndl.net.rmi import InvocationException
 from bndl.util.compat import lz4_decompress
 from bndl.util.fs import listdirabs, read_file
 

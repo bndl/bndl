@@ -31,6 +31,33 @@ cpdef iterable_size(i):
         return s
 
 
+cpdef partial_mean(p):
+    cdef double total
+    cdef long count
+    cdef object i = iter(p)
+    if isinstance(p, Sized):
+        return [(sum(i), len(p))]
+    else:
+        total = next(i)
+        count = 1
+        for e in i:
+            total += e
+            count += 1
+        return [(total, count)]
+
+
+cpdef reduce_partial_means(p):
+    cdef double total
+    cdef long count
+    cdef object a, b
+    cdef object i = iter(p)
+    total, count = next(i)
+    for a, b in i:
+        total += a
+        count += b
+    return (total, count)
+
+
 cpdef sample_with_replacement(rng, fraction, partition):
     if isinstance(partition, Sequence):
         return [

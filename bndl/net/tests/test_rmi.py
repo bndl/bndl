@@ -12,9 +12,9 @@
 
 from collections import defaultdict
 
+from bndl.net.rmi import InvocationException
+from bndl.net.rmi import RMINode
 from bndl.net.tests import NetTest
-from bndl.rmi import InvocationException
-from bndl.rmi.node import RMINode
 
 
 class Service(object):
