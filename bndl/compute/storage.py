@@ -28,6 +28,7 @@ import struct
 import tempfile
 
 from cytoolz import compose
+import psutil
 
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
@@ -52,11 +53,9 @@ def _is_writable_path(path):
 
 
 def _is_disk_path(path):
-    with open('/proc/mounts') as mounts:
-        for mount in mounts:
-            mount = mount.split()
-            if path.startswith(mount[1]) and mount[0] == 'tmpfs':
-                return False
+    for p in psutil.disk_partitions(True):
+        if path.startswith(p.mountpoint) and p.fstype == 'tmpfs':
+            return False
     return True
 
 
