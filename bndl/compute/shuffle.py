@@ -99,9 +99,9 @@ class Bucket:
         '''
         Estimate the size of a element from data.
         '''
+        test_set = data[:max(10, len(data) // 1000)]
+        c = self.memory_container(self.id + ('tmp',))
         try:
-            test_set = data[:max(10, len(data) // 1000)]
-            c = self.memory_container(self.id + ('tmp',))
             c.write(test_set)
             return c.size // len(test_set)
         finally:
