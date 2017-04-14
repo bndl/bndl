@@ -2233,7 +2233,7 @@ class ComputePartitionTask(RmiTask):
 
 
     def signal_stop(self):
-        if self.dependents and self.succeeded:
+        if self.dependents and self.succeeded and self.result():
             self.result_location = self.result()[0]
             self.future.set_result(None)
         if self.dependencies:
