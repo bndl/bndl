@@ -584,7 +584,7 @@ class OnDiskContainer(SerializedContainer):
 
 
 class SharedMemoryContainer(OnDiskContainer):
-    Data = InMemoryData
+    Data = SharedMemoryData
 
     def to_disk(self):
         self.file.to_disk()
