@@ -373,7 +373,7 @@ class LocalMemoryManager(object):
 
         def done():
             nonlocal done_flag
-            gc.collect()
+            gc.collect(1)
             done_flag = done_flag or (remaining() <= 0)
             return done_flag
 

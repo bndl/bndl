@@ -391,7 +391,7 @@ class ShuffleWritingPartition(Partition):
                 if spilled >= nbytes:
                     break
 
-            gc.collect()
+            gc.collect(1)
 
             bytes_serialized += spilled
             if spilled:
@@ -852,5 +852,5 @@ class ShuffleManager(object):
         :param src: requesting peer
         :param dset_id: Id of the dataset to clear buckets for.
         '''
-        self.buckets.pop(dset_id, None)
-        gc.collect()
+        if self.buckets.pop(dset_id, None):
+            gc.collect()
