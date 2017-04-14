@@ -420,7 +420,7 @@ class ShuffleWritingPartition(Partition):
             for bucket in buckets:
                 bytes_serialized += bucket.serialize(False)
                 for block in flatten(bucket.batches):
-                    if isinstance(block, (InMemoryContainer, SharedMemoryContainer)):
+                    if hasattr(block, 'to_disk'):
                         memory_manager.add_releasable(block.to_disk, block.id, 1, block.size)
                 memcheck()
 
@@ -755,7 +755,7 @@ class ShuffleManager(object):
         # in-memory blocks, (e.g. SerializedInMemory or SharedMemoryContainer)
         memory_manager = self.node.memory_manager
         for block in flatten(buckets):
-            if isinstance(block, (InMemoryContainer, SharedMemoryContainer)):
+            if hasattr(block, 'to_disk'):
                 memory_manager.add_releasable(block.to_disk, block.id, 1, block.size)
 
         self.buckets.setdefault(part_id[0], {})[part_id[1]] = buckets
