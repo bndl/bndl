@@ -28,7 +28,6 @@ import struct
 import tempfile
 
 from cytoolz import compose
-from werkzeug.utils import cached_property
 
 from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
@@ -264,7 +263,7 @@ class InMemoryData(object):
 
 
 class FileData(object):
-    @cached_property
+    @property
     def workdir(self):
         return bndl.conf['bndl.compute.storage.workdir_disk']
 
@@ -297,10 +296,12 @@ class FileData(object):
 
 
     def __getstate__(self):
-        attach(*file_attachment(self.filepath, 0, os.path.getsize(self.filepath)))
+        filepath = self.filepath
+        workdir = self.workdir
+        attach(*file_attachment(filepath, 0, os.path.getsize(filepath)))
         return {
             'id': self.id,
-            'filepath': (self.workdir, self.filepath.replace(self.workdir, '')),
+            'filepath': (workdir, filepath.replace(workdir, '')),
         }
 
 
@@ -339,7 +340,7 @@ class FileData(object):
 
 
 class SharedMemoryData(FileData):
-    @cached_property
+    @property
     def workdir(self):
         return bndl.conf['bndl.compute.storage.workdir_mem']
 
