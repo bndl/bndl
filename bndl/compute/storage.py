@@ -47,7 +47,6 @@ def _is_writable_path(path):
         with tempfile.NamedTemporaryFile(dir=path):
             pass
     except:
-        import traceback;traceback.print_exc()
         return False
     else:
         return True
@@ -298,14 +297,11 @@ class FileData(object):
 
 
     def __getstate__(self):
-        try:
-            attach(*file_attachment(self.filepath, 0, os.path.getsize(self.filepath)))
-            return {
-                'id': self.id,
-                'filepath': (self.workdir, self.filepath.replace(self.workdir, '')),
-            }
-        except:
-            import traceback;traceback.print_exc()
+        attach(*file_attachment(self.filepath, 0, os.path.getsize(self.filepath)))
+        return {
+            'id': self.id,
+            'filepath': (self.workdir, self.filepath.replace(self.workdir, '')),
+        }
 
 
     def __setstate__(self, state):
