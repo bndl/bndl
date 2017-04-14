@@ -110,6 +110,13 @@ class Config(object):
         self.values[key] = value
         return self
 
+    def setdefault(self, key, default):
+        sentinel = object()
+        val = self.get(key, default=sentinel)
+        if val == sentinel:
+            val = self.values[key] = default
+        return val
+
     __getitem__ = get
     __setitem__ = set
 
