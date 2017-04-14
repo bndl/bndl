@@ -40,14 +40,26 @@ def main():
         ns = dict(ctx=ctx)
         header = HEADER
 
-        if bndl.conf['bndl.net.seeds'] or bndl.conf['bndl.compute.executor_count']:
+        seeds = bndl.conf['bndl.net.seeds']
+        executor_count = bndl.conf['bndl.compute.executor_count']
+
+        if seeds or executor_count:
+            executor_count = 0
+            node_count = 0
             with catch():
-                print('Connecting with executors ...', end='\r')
+                if seeds:
+                    print('Connecting with executors through %s seed%s ...' %
+                          (len(seeds), 's' if len(seeds) > 1 else ''), end='\r')
+                else:
+                    print('Connecting with local executors ...', end='\r')
                 executor_count = ctx.await_executors()
-                print('                             ', end='\r')
+                print('                             ' * 120, end='\r')
             with catch():
                 node_count = sum(1 for _ in sortgroupby(ctx.executors, lambda e: e.machine))
-                header += '\nConnected with %r executors on %r nodes.' % (executor_count, node_count)
+                header += '\nConnected with %r executors' % executor_count
+                if node_count:
+                    header += ' on %r nodes' % node_count
+                header += '.'
 
         try:
             import IPython
