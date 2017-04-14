@@ -1703,7 +1703,7 @@ class Dataset(object):
             elif self._cache_provider:
                 self._cache_provider.modify(location, serialization, compression)
             else:
-                self._cache_provider = cache.CacheProvider(location, serialization, compression)
+                self._cache_provider = cache.CacheProvider(self.ctx, location, serialization, compression)
         else:
             self.uncache()
         return self

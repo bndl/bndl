@@ -32,7 +32,8 @@ def clear_all():
 
 
 class CacheProvider(object):
-    def __init__(self, location, serialization, compression):
+    def __init__(self, ctx, location, serialization, compression):
+        self.ctx = ctx
         self.modify(location, serialization, compression)
 
 
@@ -54,6 +55,9 @@ class CacheProvider(object):
         container = self.storage_container_factory(key)
         container.write(data)
         _caches.setdefault(cache_key, {})[obj_key] = container
+        if hasattr(container, 'to_disk'):
+            self.ctx.node.memory_manager.add_releasable(
+                container.to_disk, container.id, 1, container.size)
 
 
     def clear(self, cache_key, obj_key=None):
