@@ -92,8 +92,8 @@ class Task(Lifecycle):
             executors (sequence[executor]): The executors to determine the locality for.
 
         Returns:
-            Sequence[(executor, locality), ...]: A sequence of executor - locality tuples. 0 is
-            indifferent and can be skipped, -1 is forbidden, 1+ increasing locality.
+            A sequence of executor - locality tuples. 0 is indifferent and can be skipped, -1 is
+            forbidden, 1+ increasing locality.
         '''
         return ()
 
