@@ -236,25 +236,24 @@ argparser.add_argument('--conf', nargs='*', default=(),
 def update_config(args=None):
     args = args or argparser.parse_args()
 
-    bndl.conf.update(*args.conf)
+    conf = bndl.conf
+    conf.update(*args.conf)
 
-    bndl.conf['bndl.run.numactl'] = args.numactl
-    bndl.conf['bndl.run.pincore'] = args.pincore
-    bndl.conf['bndl.run.jemalloc'] = args.jemalloc
+    conf['bndl.run.numactl'] = args.numactl
+    conf['bndl.run.pincore'] = args.pincore
+    conf['bndl.run.jemalloc'] = args.jemalloc
 
     if args.listen_addresses:
-        bndl.conf['bndl.net.listen_addresses'] = args.listen_addresses
+        conf['bndl.net.listen_addresses'] = args.listen_addresses
 
     if args.seeds:
-        bndl.conf['bndl.net.seeds'] = args.seeds
-    elif args.listen_addresses:
-        bndl.conf['bndl.net.seeds'] = args.listen_addresses
+        conf['bndl.net.seeds'] = args.seeds
+        if not conf.is_set('bndl.compute.executor_count'):
+            conf.setdefault('bndl.compute.executor_count', 0)
 
     if args.executor_count:
-        bndl.conf['bndl.compute.executor_count'] = args.executor_count
-    elif not bndl.conf['bndl.net.seeds'] or \
-         bndl.conf['bndl.net.seeds'] == bndl.conf['bndl.net.listen_addresses']:
-        bndl.conf.setdefault('bndl.compute.executor_count', os.cpu_count())
+        conf['bndl.compute.executor_count'] = args.executor_count
+
 
 
 HEADER = r'''         ___ _  _ ___  _

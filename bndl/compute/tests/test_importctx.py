@@ -12,29 +12,28 @@
 
 from unittest.case import TestCase
 
+from bndl.compute import ctx
+import bndl
+
 
 class TestCtxImport(TestCase):
     def test_ctximport(self):
-        import bndl
+        bndl.conf['bndl.net.aio.uvloop'] = False
         bndl.conf['bndl.compute.executor_count'] = 3
 
-        from bndl.compute import ctx
-
-        executor_count = ctx.await_executors(connect_timeout=120, stable_timeout=120)
+        executor_count = ctx.await_executors(connect_timeout=10, stable_timeout=10)
         self.assertTrue(executor_count > 0)
         self.assertEqual(ctx.range(100).count(), 100)
         ctx.stop()
 
-        self.assertEqual(ctx.await_executors(connect_timeout=120, stable_timeout=120), executor_count)
+        self.assertEqual(ctx.await_executors(connect_timeout=10, stable_timeout=10), executor_count)
         self.assertEqual(ctx.range(100).count(), 100)
         ctx.stop()
 
 
     def test_ctximport_noworkers(self):
-        import bndl
+        bndl.conf['bndl.net.aio.uvloop'] = False
         bndl.conf['bndl.compute.executor_count'] = 0
-
-        from bndl.compute import ctx
 
         with self.assertRaises(RuntimeError):
             ctx.await_executors(connect_timeout=3, stable_timeout=3)
