@@ -110,7 +110,7 @@ class Dataset(object):
     def pcount(self):
         pcount = getattr(self, '_pcount', None)
         if pcount is None:
-            pcount = self._pcount = len(self.parts())
+            pcount = self._pcount = len(list(self.parts()))
         return pcount
 
 
