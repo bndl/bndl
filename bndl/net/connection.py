@@ -177,10 +177,14 @@ class Connection(object):
                 for key, attachment in attachments.items():
                     with attachment(self.loop, self.writer) as (size, sender):
                         self.writer.writelines((struct.pack('I', len(key)), key, struct.pack('Q', size)))
-                        if asyncio.iscoroutinefunction(sender):
-                            yield from sender()
-                        else:
-                            sender()
+                        try:
+                            if asyncio.iscoroutinefunction(sender):
+                                yield from sender()
+                            else:
+                                sender()
+                        except Exception as e:
+                            raise RuntimeError('Unable to send attachment %r : %r' %
+                                               (key, attachment)) from e
                         self.bytes_sent += size
                 self.writer.writelines((struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)
