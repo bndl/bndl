@@ -41,9 +41,10 @@ def main():
         header = HEADER
 
         seeds = bndl.conf['bndl.net.seeds']
+        listen_addresses = bndl.conf['bndl.net.listen_addresses']
         executor_count = bndl.conf['bndl.compute.executor_count']
 
-        if seeds or executor_count:
+        if seeds or seeds != listen_addresses or executor_count:
             executor_count = 0
             node_count = 0
             with catch():
@@ -53,7 +54,7 @@ def main():
                 else:
                     print('Connecting with local executors ...', end='\r')
                 executor_count = ctx.await_executors()
-                print('                             ' * 120, end='\r')
+                print(' ' * 120, end='\r')
             with catch():
                 node_count = sum(1 for _ in sortgroupby(ctx.executors, lambda e: e.machine))
                 header += '\nConnected with %r executors' % executor_count

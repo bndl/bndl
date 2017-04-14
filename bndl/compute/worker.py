@@ -252,8 +252,9 @@ def update_config(args=None):
 
     if args.executor_count:
         bndl.conf['bndl.compute.executor_count'] = args.executor_count
-    elif not bndl.conf['bndl.net.seeds']:
-        bndl.conf['bndl.compute.executor_count'] = os.cpu_count()
+    elif not bndl.conf['bndl.net.seeds'] or \
+         bndl.conf['bndl.net.seeds'] == bndl.conf['bndl.net.listen_addresses']:
+        bndl.conf.setdefault('bndl.compute.executor_count', os.cpu_count())
 
 
 HEADER = r'''         ___ _  _ ___  _
