@@ -6,7 +6,5 @@ API Reference
    :glob:
 
    compute/index
-   execute
-   rmi
    net
    *

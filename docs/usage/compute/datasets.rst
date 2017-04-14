@@ -68,7 +68,7 @@ like reduce_by_key are available on *any* dataset, regardless of applicability.
 When using such operators fails with exceptions like::
 
    >>> ctx.range(10).aggregate_by_key(sum).values().max()
-   2016-12-02 23:42:32,917 - bndl.execute.scheduler -  WARNING - <ComputePartitionTask n9h4eu0f.0 failed> failed on 'localdomain.localhost.worker.27110.0.3' after 1 attempts ... aborting
+   2016-12-02 23:42:32,917 - bndl.compute.scheduler -  WARNING - <ComputePartitionTask n9h4eu0f.0 failed> failed on 'localdomain.localhost.worker.27110.0.3' after 1 attempts ... aborting
    Traceback (most recent call last):
    ...
      File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/shuffle.py", line 389, in part_
@@ -84,7 +84,7 @@ When using such operators fails with exceptions like::
      File "/home/frens-jan/Workspaces/tgho/bndl/bndl/bndl/compute/dataset.py", line 767, in max
        return self.aggregate(partial(max, key=key) if key else max)
    ...
-   bndl.rmi.exceptions.InvocationException: An exception was raised on localdomain.localhost.worker.27110.0.3: TypeError
+   bndl.net.rmi.InvocationException: An exception was raised on localdomain.localhost.worker.27110.0.3: TypeError
 
 consider whether the the dataset actually contains key-value pairs.
 

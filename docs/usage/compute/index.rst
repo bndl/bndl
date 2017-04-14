@@ -18,4 +18,5 @@ Build computation jobs from data sets and transformations on them
    transformations
    oob
    run
+   execute
    examples

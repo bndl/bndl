@@ -33,13 +33,19 @@ An example log configuration that logs to ``stdout``::
    [logger_scheduler]
    level=DEBUG
    handlers=console
-   qualname=bndl.execute.scheduler
+   qualname=bndl.compute.scheduler
    propagate=0
 
    [logger_worker]
    level=DEBUG
    handlers=console
-   qualname=bndl.execute.worker
+   qualname=bndl.compute.worker
+   propagate=0
+
+   [logger_executor]
+   level=DEBUG
+   handlers=console
+   qualname=bndl.compute.executor
    propagate=0
 
    [logger_rmi]

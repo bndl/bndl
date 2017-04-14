@@ -49,7 +49,7 @@ Scrape some urls::
       
    urls = list(open('adis_urls.txt'))
    
-   ctx.conf['bndl.execute.concurrency'] = 4
+   ctx.conf['bndl.compute.concurrency'] = 4
    pcount = max(ctx.default_pcount, len(urls) // 100)
    ctx.collection(urls, pcount=pcount) \
       .map_partitions_with_index(scrape_urls)

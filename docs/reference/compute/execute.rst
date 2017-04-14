@@ -2,10 +2,12 @@ Execution
 =========
 
 Computing :class:`Datasets <bndl.compute.dataset.Dataset>` (when an action is invoked on it) is
-performed by :mod:`bndl.execute`. A directed acyclic graph of data sets (one or more source data
-sets and the lineage of transformations and combinations) and their partitions is transformed into a
-directed acyclic graph of tasks.
+orchestrated by :mod:`bndl.compute.scheduler`. A directed acyclic graph of data sets (one or more
+source data sets and the lineage of transformations and combinations) and their partitions is
+transformed into a directed acyclic graph of tasks.
 
+Dataset tasks
+-------------
 These tasks are instances of :class:`ComputePartitionTask <bndl.compute.dataset.ComputePartitionTask>`.
 Each partition in a graph of data sets is computed in one task. Partitions in data sets which are
 narrow transformations (e.g. map and filter) of their source data set are coalesced into a single
@@ -42,4 +44,29 @@ two reducer tasks which would read from these buckets and take the sum over the 
    
 .. autoclass:: bndl.compute.dataset.ComputePartitionTask
 .. autoclass:: bndl.compute.dataset.BarrierTask
-   
+
+
+
+Jobs and tasks
+--------------
+.. automodule:: bndl.compute.job
+
+
+Scheduler
+---------
+.. automodule:: bndl.compute.scheduler
+
+
+Worker
+------
+.. automodule:: bndl.compute.worker
+
+
+Executor
+--------
+.. automodule:: bndl.compute.executor
+
+
+Profiling
+---------
+.. automodule:: bndl.compute.profile

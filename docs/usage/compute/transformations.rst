@@ -82,7 +82,7 @@ time. Some examples::
    >>> ctx.range(90, 100).map(chr).map(str.isalpha).collect()
    [True, False, False, False, False, False, False, True, True, True]
 
-It may be convenient to call the map or the filter function with *args; :meth:`starmap`
+It may be convenient to call the map or the filter function with * args; :meth:`starmap`
 and :meth:`starfilter` are the variadic forms of map and filter::
 
 

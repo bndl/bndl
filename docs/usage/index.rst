@@ -13,8 +13,6 @@ but using more iron is 'easy' with BNDL :)
    :maxdepth: 1
 
    compute/index
-   execute
-   rmi
    net
    configuration
    logging

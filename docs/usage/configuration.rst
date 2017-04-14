@@ -3,8 +3,7 @@ Configuration
 
 Various BNDL components can be configured (which often also can be set programmatically as
 parameters). At runtime BNDL configuration data is kept in a :class:`bndl.util.conf.Config`
-instance. `bndl.compute` and `bndl.execute` have such an instance located in the
-`Compute/ExecuteContext`.
+instance of which an instance is available at `bndl.conf`.
 
 
 Configuration data
@@ -19,14 +18,13 @@ Configuration can be supplied
 Configuration object
 ~~~~~~~~~~~~~~~~~~~~
 :class:`bndl.util.conf.Config` is a dict like object (it supports the `__get/setitem__` protocol).
-`bndl.compute` and `bndl.execute` have such an instance located in the `Compute/ExecuteContext`.
 For example::
 
-   >>> from bndl.compute import ctx
-   >>> ctx.conf['bndl.compute.worker_count']
+   >>> from bndl import conf
+   >>> conf['bndl.compute.worker_count']
    2
-   >>> ctx.conf['foo'] = 'bar'
-   >>> ctx.conf
+   >>> conf['foo'] = 'bar'
+   >>> conf
    <Conf {'bndl.compute.worker_count': '2', 'foo': 'bar', 'bndl.net.listen_addresses': 'localhost:1234'}>
 
 
@@ -45,14 +43,16 @@ For example::
    
    $ bndl-compute-shell 
    ...
-   In [1]: ctx.conf
-   Out[1]: <Conf {'bndl.compute.worker_count': '2', 'bndl.net.listen_addresses': 'localhost:1234'}>
-
-   In [2]: ctx.worker_count
-   Out[2]: 2
+   In [1]: from bndl import conf
    
-   In [3]: ctx.node.addresses
-   Out[3]: ['localhost:1234'] 
+   In [2]: from bndl import conf
+   Out[2]: <Conf {'bndl.compute.worker_count': '2', 'bndl.net.listen_addresses': 'localhost:1234'}>
+
+   In [3]: ctx.worker_count
+   Out[3]: 2
+   
+   In [4]: ctx.node.addresses
+   Out[4]: ['localhost:1234']
 
 
 Environment variable
@@ -65,14 +65,15 @@ example::
    >>> from bndl.compute import ctx
    >>> ctx.await_workers()
    3
-   >>> ctx.conf['foo']
+   >>> from bndl import conf
+   >>> ctx['foo']
    'bar'
 
 
 
 Command line options
 ~~~~~~~~~~~~~~~~~~~~
-`bndl-compute-workers` and `bndl-compute-shell` set:
+`bndl-compute-worker` and `bndl-compute-shell` set:
 
 - :data:`bndl.net.listen_addresses`,
 - :data:`bndl.net.seeds` and
@@ -121,11 +122,11 @@ Execute
 BNDL executes tasks on workers (to compute a DAG of datasets and their partitions); if a task fails
 ``attempts`` times, the job fails.
 
-.. autodata:: bndl.execute.attempts
+.. autodata:: bndl.compute.attempts
 
 Workers execute ``concurrency`` tasks simultaneously for each job started.
 
-.. autodata:: bndl.execute.concurrency
+.. autodata:: bndl.compute.concurrency
 
 .. warning::
 
@@ -144,12 +145,10 @@ data is spilled in blocks (approximately) no larger than ``block_size_mb``.
 .. autodata:: bndl.compute.memory.limit
 .. autodata:: bndl.compute.memory.limit_system
 
+
 Broadcast
 ~~~~~~~~~
-Broadcast variables are exchanged in blocks somwhere between:
+Broadcast variables are exchanged in blocks somewhere between:
 
-.. autodata:: bndl.compute.broadcast.min_block_size
-.. autodata:: bndl.compute.broadcast.max_block_size
-
-When ``min_block_size`` < ``max_block_size`` the number of blocks is ``ctx.worker_count`` unless
-they would be to small or large.
+.. autodata:: bndl.compute.blocks.min_download_size_mb
+.. autodata:: bndl.compute.blocks.max_download_size_mb

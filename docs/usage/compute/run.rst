@@ -11,7 +11,7 @@ running workers are described in :doc:`./getting_started`.
 
 The easiest way to do start a driver and create a compute context is to create a Compute shell
 through the `bndl-compute-shell` command which is available after installation of BNDL. Workers can
-be started with the `bndl-compute-workers` command.
+be started with the `bndl-compute-worker` command.
 
 .. todo::
 

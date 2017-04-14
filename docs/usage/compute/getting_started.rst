@@ -1,6 +1,6 @@
 Getting started
 ===============
-The main commands to use BNDL are ``bndl-compute-shell`` and ``bndl-compute-workers``.
+The main commands to use BNDL are ``bndl-compute-shell`` and ``bndl-compute-worker``.
 
 
 ComputeContext
@@ -17,7 +17,7 @@ local workers and/or connects with worker seed nodes.
 
 .. program-output:: bndl-compute-shell --help
 
-By default the Compute shell starts workers as ``bndl-compute-workers`` unless ``--seeds`` is set.
+By default the Compute shell starts workers as ``bndl-compute-worker`` unless ``--seeds`` is set.
 
 The shell (with ipython) after start::
    
@@ -45,9 +45,9 @@ The shell (with ipython) after start::
 
 Starting Compute workers
 ------------------------
-Workers can be started with ``bndl-compute-workers``:
+Workers can be started with ``bndl-compute-worker``:
 
-.. program-output:: bndl-compute-workers --help
+.. program-output:: bndl-compute-worker --help
 
 
 Connecting workers and the driver node

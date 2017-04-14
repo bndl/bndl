@@ -48,6 +48,5 @@ these topics.
 
 Workers / cluster and Profiling
 -------------------------------
-:class:`ComputeContext <bndl.compute.context.ComputeContext>` inherits from
-:class:`ExecuteContext <bndl.execute.context.ExecuteContext>` and thus exposes functions and
-properties for e.g. waiting for workers and profiling see :doc:`../execute` for more.
+:class:`ComputeContext <bndl.compute.context.ComputeContext>` exposes functions and properties for
+e.g. waiting for workers / executors and profiling, see :doc:`execute` for more.
