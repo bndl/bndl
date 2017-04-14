@@ -117,8 +117,16 @@ class Config(object):
             val = self.values[key] = default
         return val
 
+    def contains(self, key):
+        sentinel = object()
+        return self.get(key, sentinel) != sentinel
+
+    def is_set(self, key):
+        return key in self.values
+
     __getitem__ = get
     __setitem__ = set
+    __contains__ = contains
 
     def update(self, *args, **kwargs):
         for arg in args:
