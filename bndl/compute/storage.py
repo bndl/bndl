@@ -72,10 +72,10 @@ def get_workdir(disk, pid=None):
         paths.append('/var/tmp')
         paths.append('/tmp')
     else:
-        paths.append('/run/user/' + str(os.getuid()))
-        paths.append('/run/shm')
-        paths.append('/dev/shm')
         paths.append('/tmp')
+        paths.append('/dev/shm')
+        paths.append('/run/shm')
+        paths.append('/run/user/' + str(os.getuid()))
 
     paths = [
         path for path in paths
