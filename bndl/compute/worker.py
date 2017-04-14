@@ -302,14 +302,9 @@ def start_worker(Worker=Worker, n_executors=None, verbose=0):
         stop_loop()
 
     def exit_handler(sig, frame):
-        print('exit handler called!')
         stop()
-        print('-' * 80)
-        dump_threads()
-        print('-' * 80)
         sys.exit(sig)
 
-    # signal.signal(signal.SIGINT, exit_handler)
     signal.signal(signal.SIGTERM, exit_handler)
     signal.signal(signal.SIGUSR1, dump_threads)
 
