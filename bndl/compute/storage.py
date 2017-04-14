@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import partial
+from functools import partial, lru_cache
 from itertools import chain
 from os.path import getsize
 import atexit
@@ -61,6 +61,7 @@ def _is_disk_path(path):
     return True
 
 
+@lru_cache()
 def _get_workdir(disk):
     paths = [
         os.environ.get('TMPDIR'),
