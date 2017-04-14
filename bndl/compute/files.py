@@ -265,7 +265,10 @@ def _scan_dir(directory, recursive, dfilter, ffilter):
             if entry.is_dir() and recursive and (not dfilter or dfilter(epath)):
                 subdirs.append(epath)
             elif entry.is_file() and (not ffilter or ffilter(epath)):
-                fnames.append((epath, stat(entry.name, dir_fd=dir_fd).st_size))
+                try:
+                    fnames.append((epath, stat(entry.name, dir_fd=dir_fd).st_size))
+                except PermissionError:
+                    pass
     finally:
         os.close(dir_fd)
 
