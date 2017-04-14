@@ -31,46 +31,51 @@ class StorageTest(TestCase):
     def setUp(self):
         self.loop = get_loop(start=True)
 
-
-    def test_send_on_disk(self):
+    def _test_send_on_disk(self, read, write, serialization, compression):
         data_a = list(batch(self.data[0::3], 100))
         data_b = list(batch(self.data[1::3], 100))
         data_c = list(batch(self.data[2::3], 100))
 
-        rw = (('read', 'write'), ('read_all', 'write_all'))
-        serializations = 'pickle', 'marshal', 'json', 'msgpack'
-        compressions = (None, 'gzip', 'lz4')
+        in_memory = ContainerFactory('memory', serialization, compression)('a')
+        on_disk = ContainerFactory('disk', serialization, compression)('b')
+        to_disk = ContainerFactory('memory', serialization, compression)('c')
 
-        for (read, write), serialization, compression in product(rw, serializations, compressions):
-            in_memory = ContainerFactory('memory', serialization, compression)('a')
-            on_disk = ContainerFactory('disk', serialization, compression)('b')
-            to_disk = ContainerFactory('memory', serialization, compression)('c')
+        getattr(in_memory, write)(data_a)
+        getattr(on_disk, write)(data_b)
+        getattr(to_disk, write)(data_c)
+        to_disk.to_disk()
 
-            getattr(in_memory, write)(data_a)
-            getattr(on_disk, write)(data_b)
-            getattr(to_disk, write)(data_c)
-            to_disk.to_disk()
+        def connected(reader, writer):
+            conn = Connection(self.loop, reader, writer)
+            yield from conn.send(in_memory)
+            yield from conn.send(on_disk)
+            yield from conn.send(to_disk)
 
-            def connected(reader, writer):
-                conn = Connection(self.loop, reader, writer)
-                yield from conn.send(in_memory)
-                yield from conn.send(on_disk)
-                yield from conn.send(to_disk)
+        @asyncio.coroutine
+        def run_pair():
+            server = yield from asyncio.start_server(connected, '0.0.0.0', 0, loop=self.loop)
+            socket = server.sockets[0]
+            host, port = socket.getsockname()[:2]
 
-            @asyncio.coroutine
-            def run_pair():
-                server = yield from asyncio.start_server(connected, '0.0.0.0', 0, loop=self.loop)
-                socket = server.sockets[0]
-                host, port = socket.getsockname()[:2]
+            reader, writer = yield from asyncio.open_connection(host, port, loop=self.loop)
+            conn = Connection(self.loop, reader, writer)
+            a = yield from conn.recv()
+            b = yield from conn.recv()
+            c = yield from conn.recv()
 
-                reader, writer = yield from asyncio.open_connection(host, port, loop=self.loop)
-                conn = Connection(self.loop, reader, writer)
-                a = yield from conn.recv()
-                b = yield from conn.recv()
-                c = yield from conn.recv()
+            self.assertEqual(list(getattr(in_memory, read)()), list(getattr(a, read)()))
+            self.assertEqual(list(getattr(on_disk, read)()), list(getattr(b, read)()))
+            self.assertEqual(list(getattr(to_disk, read)()), list(getattr(c, read)()))
 
-                self.assertEqual(list(getattr(in_memory, read)()), list(getattr(a, read)()))
-                self.assertEqual(list(getattr(on_disk, read)()), list(getattr(b, read)()))
-                self.assertEqual(list(getattr(to_disk, read)()), list(getattr(c, read)()))
+        run_coroutine_threadsafe(run_pair(), self.loop).result()
 
-            run_coroutine_threadsafe(run_pair(), self.loop).result()
+
+rw = (('read', 'write'), ('read_all', 'write_all'))
+serializations = 'pickle', 'marshal', 'json', 'msgpack'
+compressions = (None, 'gzip', 'lz4')
+
+for (read, write), serialization, compression in product(rw, serializations, compressions):
+    args = read, write, serialization, compression
+    name = 'test_send_on_disk_' + '_'.join(map(str, args))
+    test = lambda self, args = args: self._test_send_on_disk(*args)
+    setattr(StorageTest, name, test)
