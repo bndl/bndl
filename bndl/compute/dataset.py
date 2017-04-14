@@ -1843,7 +1843,9 @@ class Partition(object):
                 else:
                     logger.debug('Using remote cache for %r on %r', self, cache_loc)
                     peer = self.dset.ctx.node.peers[cache_loc]
-                    return peer.service('tasks').execute(lambda: self.dset._cache_provider.read(self.dset.id, self.idx)).result()
+                    cp = self.dset._cache_provider
+                    part_id = self.id
+                    return peer.service('tasks').execute(lambda: cp.read(*part_id)).result()
             except KeyError:
                 pass
             except NotConnected:
