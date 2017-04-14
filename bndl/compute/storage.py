@@ -170,7 +170,7 @@ class ByteArrayIO(io.RawIOBase):
         else:
             b = self.buffer[self.pos:self.pos + size]
             self.pos += size
-        return b  # bytes(b)
+        return b
 
     def write(self, b):
         self.buffer.extend(b)
@@ -248,7 +248,7 @@ class InMemoryData(object):
 
 
     def remove(self):
-        self.data = None
+        self.data = bytearray()
 
 
     def to_disk(self):
@@ -260,7 +260,7 @@ class InMemoryData(object):
         self.__dict__.update(file.__dict__)
         self.remove = remove_old
         self.__class__ = FileData
-        self.__dict__.pop('data')
+        self.__dict__.pop('data', None)
 
 
 
