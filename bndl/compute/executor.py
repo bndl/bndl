@@ -19,11 +19,6 @@ import re
 import signal
 import sys
 
-from bndl.compute.blocks import BlockManager
-from bndl.compute.broadcast import BroadcastManager
-from bndl.compute.memory import LocalMemoryManager
-from bndl.compute.shuffle import ShuffleManager
-from bndl.compute.tasks import Tasks
 from bndl.net.aio import get_loop, get_loop_thread, stop_loop, run_coroutine_threadsafe
 from bndl.net.connection import urlparse
 from bndl.net.rmi import RMINode
@@ -37,6 +32,12 @@ logger = logging.getLogger(__name__)
 
 class Executor(RMINode):
     def __init__(self, *args, **kwargs):
+        from bndl.compute.blocks import BlockManager
+        from bndl.compute.broadcast import BroadcastManager
+        from bndl.compute.memory import LocalMemoryManager
+        from bndl.compute.shuffle import ShuffleManager
+        from bndl.compute.tasks import Tasks
+
         super().__init__(*args, **kwargs)
         self.memory_manager = LocalMemoryManager()
         self.services['blocks'] = BlockManager(self)
