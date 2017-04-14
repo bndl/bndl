@@ -37,7 +37,7 @@ class CachingTest(DatasetTest):
         for _ in range(3):
             gc.collect()
             time.sleep(0)
-        time.sleep(1)
+        time.sleep(.1)
 
 
     @classmethod
