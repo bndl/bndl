@@ -43,6 +43,8 @@ logger = logging.getLogger(__name__)
 
 
 def _is_writable_path(path):
+
+
     try:
         with tempfile.NamedTemporaryFile(dir=path):
             pass
@@ -59,7 +61,7 @@ def _is_disk_path(path):
     return True
 
 
-def get_workdir(disk, pid=None):
+def _get_workdir(disk):
     paths = [
         os.environ.get('TMPDIR'),
         os.environ.get('TEMP'),
@@ -85,7 +87,13 @@ def get_workdir(disk, pid=None):
            _is_writable_path(path)
     ]
 
-    path = os.path.join(paths[0], 'bndl', str(pid or os.getpid()))
+    paths.sort(key=lambda path: psutil.disk_usage(path).free, reverse=True)
+    return paths[0]
+
+
+def get_workdir(disk, pid=os.getpid()):
+    path = _get_workdir(disk)
+    path = os.path.join(path, 'bndl', str(pid))
     os.makedirs(path, exist_ok=True)
 
     return path
