@@ -315,7 +315,7 @@ class FileData(object):
         self.__dict__.update(state)
 
         if is_remote(data):
-            self.data = list(map(bytes, binary_load_gen(memoryview(data)[1:])))
+            self.data = memoryview(data)[1:]
             self.__class__ = InMemoryData
         else:
             filepath_dst = self.workdir + filepath_src
