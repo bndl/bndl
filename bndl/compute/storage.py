@@ -69,8 +69,8 @@ def get_workdir(disk, pid=None):
     paths.append(tempfile.gettempdir())
 
     if disk:
-        paths.append('/var/tmp')
         paths.append('/tmp')
+        paths.append('/var/tmp')
     else:
         paths.append('/tmp')
         paths.append('/dev/shm')
