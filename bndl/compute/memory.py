@@ -34,6 +34,8 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import getter
 from bndl.util.psutil import process_memory_info
 import bndl
+from bndl.net.aio import get_loop
+import asyncio
 
 
 logger = logging.getLogger(__name__)
@@ -43,31 +45,31 @@ limit_system = Float(80, desc='The maximum amount of memory to be used by the sy
 limit = Float(70, desc='The maximum amount of memory to be used by BNDL in percent (0-100).')
 
 
-class MemoryCoordinator(threading.Thread):
+class MemoryCoordinator(object):
     def __init__(self, peers, limit=None, limit_system=None):
-        super().__init__(name='memory-monitor', daemon=True)
-
         self.limit = limit or bndl.conf['bndl.compute.memory.limit']
         self.limit_system = limit_system or bndl.conf['bndl.compute.memory.limit_system']
 
-        peers.listeners.add(self.children_changed)
+        self.memory_total = virtual_memory().total
         self.procs = {}
         self.lock = threading.Lock()
-
-        self._total = virtual_memory().total
-
         self.running = False
         atexit.register(self.stop)
+
+        peers.listeners.add(self.children_changed)
 
 
     def add_memory_manager(self, pid, release):
         if not isinstance(release, Invocation):
             def _release(fut):
+                print('really?')
                 try:
                     fut.set_result(release())
+                    print('woot')
                 except Exception as exc:
                     fut.set_exception(exc)
             def _start_release():
+                print('is it is it?')
                 fut = Future()
                 threading.Thread(target=_release, args=(fut,)).start()
                 return fut
@@ -76,51 +78,61 @@ class MemoryCoordinator(threading.Thread):
         except NoSuchProcess:
             pass
         else:
-            self.procs[pid] = (proc, release)
+            with self.lock:
+                self.procs[pid] = (proc, release)
 
 
     def children_changed(self, event, peer):
         pid = peer.pid
-        with self.lock:
-            if event == 'added':
-                self.add_memory_manager(pid, peer.service('memory').release)
-            elif event == 'removed':
+        if event == 'added':
+            self.add_memory_manager(pid, peer.service('memory').release)
+        elif event == 'removed':
+            with self.lock:
                 del self.procs[pid]
+
+
+    def get_procs(self):
+        with self.lock:
+            return list(self.procs.values())
 
 
     def stop(self):
         self.running = False
 
 
-    def run(self):
-        self.running = True
+    def start(self):
+        if self.running:
+            return
+        else:
+            self.running = True
+            self.loop = get_loop()
+            self.loop.create_task(self.run())
 
+
+    @asyncio.coroutine
+    def run(self):
         while self.running:
             usage_system = virtual_memory().percent
-            usage = self.usage_pct()
-
+            usage = yield from self.loop.run_in_executor(None, self.usage_pct)
             over = max(usage - self.limit, usage_system - self.limit_system)
             release = (over + 0.25 * self.limit) if over > 0 else 0
 
             if release > 0:
-                release = release / 100 * self._total
-
+                release = release / 100 * self.memory_total
                 logger.debug('Usage %.0f/%.0f (system usage %.0f/%.0f), requesting release of '
                              '%.0f mb', usage, self.limit, usage_system, self.limit_system,
                              release / 1024 / 1024)
+                yield from self.loop.run_in_executor(None, self.release, release)
 
-                self.release(release)
-
-            time.sleep(.5)
+            yield from asyncio.sleep(.5, loop=self.loop)
 
 
     def release(self, nbytes):
-        with self.lock:
-            candidates = list(self.procs.values())
-
-        candidates = ((self.usage(proc), release) for proc, release in candidates)
+        candidates = ((self.usage(proc), release) for proc, release in self.get_procs())
         candidates = sorted(candidates, key=getter(0), reverse=True)
         ncandidates = len(candidates)
+
+        # print('release', round(nbytes / 1024 / 1024, 2), 'mb from', ncandidates, 'procs')
 
         if ncandidates < 1:
             return
@@ -167,10 +179,8 @@ class MemoryCoordinator(threading.Thread):
 
 
     def usage_pct(self):
-        with self.lock:
-            procs = list(self.procs.values())
         usage = 0
-        for proc, _ in procs:
+        for proc, _ in self.get_procs():
             try:
                 usage += proc.memory_percent()
             except NoSuchProcess:
@@ -226,7 +236,7 @@ class AsyncReleaseHelper(object):
 
 
     def check(self):
-        did_release = False 
+        did_release = False
         while self._halt_flag or self._release_queue:
             with self._condition:
                 self._condition.wait_for(lambda: not self._halt_flag or self._release_queue)
@@ -268,13 +278,12 @@ class ReleaseReference(object):
 
 
 
-class LocalMemoryManager(threading.Thread):
+class LocalMemoryManager(object):
     def __init__(self):
-        super().__init__(name='local-memory-manager', daemon=True)
         self.candidates = defaultdict(SortedDict)
         self._keys = {}
         self._candidates_lock = threading.Lock()
-        self._requests = queue.Queue()
+        self._requests = asyncio.Queue()
         self._running = False
         self._last_release = time.time()
 
@@ -303,31 +312,41 @@ class LocalMemoryManager(threading.Thread):
 
 
     def release(self, src, nbytes):
-        self._requests.put((time.time(), nbytes))
+        self._loop.create_task(self._requests.put((time.time(), nbytes)))
+
+
+    def start(self):
+        if self._running:
+            return
+        else:
+            self._running = True
+            self._loop = get_loop()
+            self._loop.create_task(self.run())
 
 
     def stop(self):
-        self._running = False
-        self._requests.put(None)
+        if self._running:
+            self._running = False
+            self._loop.create_task(self._requests.put(None))
 
 
+    @asyncio.coroutine
     def _get_request(self):
         while self._running:
-            request = self._requests.get()
+            request = yield from self._requests.get()
 
             try:
                 request = self._requests.get_nowait()
-            except queue.Empty:
+            except asyncio.QueueEmpty:
                 break
 
         return request
 
 
+    @asyncio.coroutine
     def run(self):
-        self._running = True
-
         while self._running:
-            request = self._get_request()
+            request = yield from self._get_request()
             if request is None:
                 break
 
@@ -339,7 +358,7 @@ class LocalMemoryManager(threading.Thread):
             logger.debug('Executing release of %.0f mb', nbytes / 1024 / 1024)
 
             try:
-                self._release(nbytes)
+                yield from self._loop.run_in_executor(None, self._release, nbytes)
                 self._last_release = time.time()
             except Exception:
                 logger.exception('Unable to release memory')
