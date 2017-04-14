@@ -12,9 +12,10 @@
 
 from concurrent.futures._base import TimeoutError
 import sys
+import time
 import unittest
 
-from bndl.compute.run import create_ctx
+from bndl.compute.context import ComputeContext
 from bndl.compute.worker import start_worker
 from bndl.net.aio import run_coroutine_threadsafe, get_loop
 from bndl.util.conf import Config
@@ -35,7 +36,7 @@ class ComputeTest(unittest.TestCase):
         bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
         bndl.conf.update(cls.config)
 
-        cls.ctx = create_ctx()
+        cls.ctx = ComputeContext.create()
 
         get_loop().set_debug(True)
 
@@ -53,7 +54,9 @@ class ComputeTest(unittest.TestCase):
                 worker.start_executors(1)
 
         for _ in range(2):
-            cls.ctx.await_executors(cls.executor_count, 120, 120)
+            ec = cls.ctx.await_executors(cls.executor_count, 120, 120)
+            if ec != cls.executor_count:
+                time.sleep(.5)
         assert cls.ctx.executor_count == cls.executor_count, \
             '%s != %s' % (cls.ctx.executor_count, cls.executor_count)
         for ex in cls.ctx.executors:

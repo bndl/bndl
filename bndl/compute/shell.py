@@ -12,7 +12,7 @@
 
 import argparse
 
-from bndl.compute.run import create_ctx
+from bndl.compute.context import ComputeContext
 from bndl.compute.worker import argparser as worker_argparser, update_config
 from bndl.util.collection import sortgroupby
 from bndl.util.exceptions import catch
@@ -36,7 +36,7 @@ def main():
     update_config(argparser.parse_args())
 
     try:
-        ctx = create_ctx()
+        ctx = ComputeContext.get_or_create()
         ns = dict(ctx=ctx)
         header = HEADER
 

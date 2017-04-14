@@ -18,7 +18,6 @@ which transform and combine these data sets.
 import os
 
 from bndl.compute.context import ComputeContext
-from bndl.compute.run import create_ctx
 from bndl.util import conf
 from bndl.util.objects import LazyObject
 
@@ -41,7 +40,7 @@ attempts = conf.Int(1, desc='The number of times a task is attempted before the 
 
 
 ctx = LazyObject(
-    factory=_get_or_create_ctx,
+    factory=ComputeContext.get_or_create,
     destructor='stop',
     attrs={
         '__doc__': ComputeContext.__doc__,

@@ -13,6 +13,7 @@
 from datetime import timedelta, datetime
 from queue import Queue
 from threading import Thread
+import concurrent.futures
 import copy
 import logging
 import time
@@ -20,20 +21,25 @@ import warnings
 
 from bndl.compute.accumulate import Accumulator
 from bndl.compute.broadcast import broadcast
+from bndl.compute.driver import Driver
 from bndl.compute.files import files
 from bndl.compute.profile import MemoryProfiling, CpuProfiling
 from bndl.compute.ranges import RangeDataset
 from bndl.compute.scheduler import Scheduler
 from bndl.compute.tasks import current_node
+from bndl.compute.worker import start_worker
 from bndl.net.aio import run_coroutine_threadsafe
 from bndl.util import plugins
 from bndl.util.conf import Config
 from bndl.util.exceptions import catch
 from bndl.util.funcs import as_method
+from bndl.util.funcs import noop
 from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
+
+
 
 def _num_executors_connected():
     executor = current_node()
@@ -51,6 +57,45 @@ class ComputeContext(Lifecycle):
     '''
 
     instances = set()
+
+
+    @classmethod
+    def get_or_create(cls):
+        if len(cls.instances) > 0:
+            return next(iter(cls.instances))
+        else:
+            return cls.create()
+
+
+    @classmethod
+    def create(cls):
+        driver = start_worker(Worker=Driver)
+
+        stop = noop
+
+        try:
+            ctx = cls(driver)
+
+            from bndl.util import dash
+            dash.run(driver, ctx)
+
+            def stop():
+                dash.stop()
+                driver.stop_async().result(5)
+
+            def maybe_stop(obj):
+                if obj is ctx and ctx.stopped:
+                    stop()
+
+            ctx.add_listener(maybe_stop)
+
+            return ctx
+        except Exception:
+            stop()
+            with catch():
+                ctx.stop()
+            raise
+
 
     def __init__(self, node, config=None):
         # Make sure the BNDL plugins are loaded
@@ -163,6 +208,8 @@ class ComputeContext(Lifecycle):
                             executor.notify_discovery([(w.name, w.addresses) for w in self.executors]),
                             self.node.loop
                         ).result()
+                except concurrent.futures.TimeoutError:
+                    consistent = False
                 except Exception:
                     logger.warning("Couldn't get connected executor count", exc_info=True)
                     consistent = False
