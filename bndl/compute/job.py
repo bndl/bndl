@@ -107,18 +107,21 @@ class Task(Lifecycle):
     @property
     def done(self):
         '''Whether the task has completed execution'''
-        return self.future and self.future.done()
+        fut = self.future
+        return fut and fut.done()
 
 
     @property
     def pending(self):
-        return self.future and not self.future.done()
+        fut = self.future
+        return fut and not fut.done()
 
 
     @property
     def succeeded(self):
         try:
-            return bool(self.future and not self.future.exception(0))
+            fut = self.future
+            return bool(fut and not fut.exception(0))
         except (CancelledError, TimeoutError):
             return False
 
@@ -126,7 +129,8 @@ class Task(Lifecycle):
     @property
     def failed(self):
         try:
-            return bool(self.future and self.future.exception(0))
+            fut = self.future
+            return bool(fut and fut.exception(0))
         except (CancelledError, TimeoutError):
             return False
 
@@ -255,20 +259,20 @@ class RmiTask(Task):
 
 
     def _task_completed(self, future):
-        self_future = self.future
+        fut = self.future
         try:
             self.handle = None
             result = future.result()
         except Exception as exc:
-            if self_future:
-                self_future.set_exception(exc)
+            if fut:
+                fut.set_exception(exc)
             elif not isinstance(exc, NotConnected):
                 if logger.isEnabledFor(logging.INFO):
                     logger.info('execution of %s on %s failed, but not expecting result',
                                 self, self.executed_on_last(), exc_info=True)
         else:
-            if self_future and not self_future.cancelled():
-                self_future.set_result(result)
+            if fut and not fut.cancelled():
+                fut.set_result(result)
             else:
                 logger.info('task %s (%s) completed, but not expecting result')
         finally:
