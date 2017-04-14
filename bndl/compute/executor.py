@@ -14,6 +14,7 @@ from concurrent.futures import TimeoutError
 from urllib.parse import urlunparse
 import atexit
 import logging
+import os
 import re
 import signal
 import sys
@@ -28,6 +29,7 @@ from bndl.net.connection import urlparse
 from bndl.net.rmi import RMINode
 from bndl.util.funcs import noop
 from bndl.util.threads import dump_threads
+import resource
 
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,17 @@ def _executor_address(worker_address, executor_id):
 
 
 def main():
+    # Make sure numpy, scipy etc don't ask OMP to create as much threads as there are cores as BNDL is
+    # already parallelizing work.
+    if 'OMP_NUM_THREADS' not in os.environ:
+        os.environ['OMP_NUM_THREADS'] = '2'
+
+    # Set the soft limit for the maximum number of open files to the hard limit.
+    for r in (resource.RLIMIT_NOFILE,):
+        low, high = resource.getrlimit(r)
+        if low < high or high == resource.RLIM_INFINITY:
+            resource.setrlimit(r, (high, high))
+
     worker_address, executor_id = sys.argv[1:]
     executor_address = _executor_address(worker_address, executor_id)
 

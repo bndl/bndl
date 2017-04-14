@@ -21,7 +21,6 @@ from bndl.compute.context import ComputeContext
 from bndl.compute.run import create_ctx
 from bndl.util import conf
 from bndl.util.objects import LazyObject
-import resource
 
 
 numactl = conf.Bool(default=True, desc='Pin processe (workers) to specific NUMA zones with numactl.')
@@ -39,24 +38,6 @@ concurrency = conf.Int(1, desc='the number of tasks which can be scheduled at an
 
 attempts = conf.Int(1, desc='The number of times a task is attempted before the job is cancelled')
 
-
-# Make sure numpy, scipy etc don't ask OMP to create as much threads as there are cores as BNDL is
-# already parallelizing work.
-if 'OMP_NUM_THREADS' not in os.environ:
-    os.environ['OMP_NUM_THREADS'] = '2'
-
-# Set the soft limit for the maximum number of open files to the hard limit.
-for r in (resource.RLIMIT_NOFILE,):
-    low, high = resource.getrlimit(r)
-    if low < high or high == resource.RLIM_INFINITY:
-        resource.setrlimit(r, (high, high))
-
-
-def _get_or_create_ctx():
-    if len(ComputeContext.instances) > 0:
-        return next(iter(ComputeContext.instances))
-    else:
-        return create_ctx()
 
 
 ctx = LazyObject(
