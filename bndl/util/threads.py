@@ -86,11 +86,27 @@ class Coordinator(object):
             raise
 
 
+def match_thread(stack, end):
+    for frame, (file, func) in zip(stack[-len(end):], end):
+        if not frame[0].endswith(file) or frame[2] != func:
+            return False
+    return True
+
+
+TPE_WORKER_TAIL = (
+    ('threading.py', 'run'),
+    ('concurrent/futures/thread.py', '_worker'),
+    ('queue.py', 'get'),
+    ('threading.py', 'wait'),
+)
+
+
 def dump_threads(*args, **kwargs):
     threads = list(threading.enumerate())
     frames = sys._current_frames()
+
     print('Threads (%s) of process %s' % (len(threads), os.getpid()))
-    for idx, thread in enumerate(threads):
+    for idx, thread in enumerate(threads, 1):
         print(' %s id=%s name=%s (%s%s)' % (idx, thread.ident, thread.name, type(thread).__name__,
                                             (', daemon' if thread.daemon else '')))
         try:
@@ -98,5 +114,10 @@ def dump_threads(*args, **kwargs):
         except KeyError:
             print('   -- terminated --')
         else:
-            stack = ''.join(traceback.format_stack(stack))
-            print(textwrap.indent(stack, ' '))
+            stack = traceback.extract_stack(stack)
+            if len(stack) >= 4 and match_thread(stack, TPE_WORKER_TAIL):
+                print('   -- ThreadPoolExecutor.worker idle --')
+                print()
+            else:
+                stack = ''.join(traceback.format_list(stack))
+                print(textwrap.indent(stack, ' '))
