@@ -2238,7 +2238,7 @@ class ComputePartitionTask(RmiTask):
         if self.dependents and self.succeeded and self.result():
             self.result_location = self.result()[0]
             self.future.set_result(None)
-        if self.dependencies:
+        if self.dependencies and self.done:
             exc = root_exc(self.exception())
             if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):
                 for barrier in self.dependencies:
