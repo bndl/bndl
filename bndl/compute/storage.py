@@ -347,6 +347,11 @@ class FileData(object):
         self.remove()
 
 
+    def to_disk(self):
+        pass
+
+
+
 class SharedMemoryData(FileData):
     @property
     def workdir(self):
@@ -586,6 +591,9 @@ class OnDiskContainer(SerializedContainer):
             logger.exception('Unable to clear file %s for id %s' %
                              (self.filepath, self.id))
 
+
+    def to_disk(self):
+        pass
 
 
 class SharedMemoryContainer(OnDiskContainer):
