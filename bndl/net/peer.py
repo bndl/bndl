@@ -17,7 +17,6 @@ import concurrent.futures
 import errno
 import logging
 import os
-import uuid
 
 from bndl.net import aio
 from bndl.net.aio import IOTasks
