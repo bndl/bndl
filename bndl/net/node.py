@@ -195,13 +195,22 @@ class Node(IOTasks):
     def _discovered(self, src, discovery):
         for name, addresses in discovery.peers:
             with(yield from self._peer_table_lock):
-                if name not in self.peers:
+                peer = self.peers.get(name)
+                if not peer:
                     try:
                         logger.debug('%s: %s discovered %s', self.name, src.name, name)
                         peer = self.PeerNode(self.loop, self, addresses=addresses, name=name)
                         yield from peer.connect()
                     except Exception:
                         logger.warning('unexpected error while connecting to discovered peer %s', name, exc_info=True)
+                elif not peer.is_connected:
+                    print(self.name, 'reconnecting with peer',
+                          peer.name,
+                          peer.conn,
+                          peer.conn.reader.at_eof() if peer.conn else None,
+                          peer.conn.writer.transport._closing if peer.conn else None
+                    )
+                    yield from peer.connect()
 
 
     @asyncio.coroutine
@@ -283,15 +292,21 @@ class Node(IOTasks):
         except Exception:
             logger.exception('discovery notification failed')
 
+        sleep_step = NOTIFY_KNOWN_PEERS_WAIT
+        sleep_step_stop = NOTIFY_KNOWN_PEERS_WAIT / 1000
+
         for peer in peers:
             if peer.name != new_peer.name:
                 try:
-                    yield from asyncio.sleep(NOTIFY_KNOWN_PEERS_WAIT, loop=self.loop)
+                    if sleep_step > sleep_step_stop:
+                        yield from asyncio.sleep(sleep_step, loop=self.loop)
                     yield from peer.notify_discovery([(new_peer.name, new_peer.addresses)])
                 except CancelledError:
                     return
                 except Exception:
                     logger.debug('discovery notification failed', exc_info=True)
+
+                sleep_step /= 2
 
 
     def __str__(self):
