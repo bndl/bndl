@@ -63,7 +63,7 @@ def main():
         os.environ['OMP_NUM_THREADS'] = '2'
 
     # Set the soft limit for the maximum number of open files to the hard limit.
-    for r in (resource.RLIMIT_NOFILE,):
+    for r in (resource.RLIMIT_NOFILE, resource.RLIMIT_NPROC):
         low, high = resource.getrlimit(r)
         if low < high or high == resource.RLIM_INFINITY:
             resource.setrlimit(r, (high, high))
