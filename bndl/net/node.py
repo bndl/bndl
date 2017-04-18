@@ -201,18 +201,13 @@ class Node(IOTasks):
                 peer = self.peers.get(name)
                 if not peer:
                     try:
-                        logger.debug('%s: %s discovered %s', self.name, src.name, name)
+                        logger.debug('%s: %s discovered %s, connecting', self.name, src.name, name)
                         peer = self.PeerNode(self.loop, self, addresses=addresses, name=name)
                         yield from peer.connect()
                     except Exception:
                         logger.warning('unexpected error while connecting to discovered peer %s', name, exc_info=True)
                 elif not peer.is_connected:
-                    print(self.name, 'reconnecting with peer',
-                          peer.name,
-                          peer.conn,
-                          peer.conn.reader.at_eof() if peer.conn else None,
-                          peer.conn.writer.transport._closing if peer.conn else None
-                    )
+                    logger.debug('%s: %s discovered %s, reconnecting', self.name, src.name, name)
                     yield from peer.connect()
 
 
