@@ -151,7 +151,7 @@ class ComputeContext(Lifecycle):
 
         # executors are awaited in a loop, idling step_sleep each time
         # step_sleep increases until at most 1 second
-        step_sleep = .1
+        step_sleep = .5
 
         # remember when we started the wait
         wait_started = datetime.now()
@@ -232,7 +232,7 @@ class ComputeContext(Lifecycle):
             # connects as passed
             else:
                 max_connect_gap = max(b - a for a, b in zip(recent_connects, recent_connects[1:]))
-                stable_time = now - 2 * max_connect_gap
+                stable_time = now - 10 * max_connect_gap
                 if recent_connects[-1] > stable_time:
                     logger.trace('Wait at least %s', stable_time)
                     return False
