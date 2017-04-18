@@ -125,7 +125,7 @@ class PeerNode(IOTasks):
         '''
         if not self.conn:
             raise NotConnected()
-        logger.debug('sending %s to %r', msg.__class__.__name__, self.name or 'unknown peer')
+        logger.trace('sending %s to %r', msg.__class__.__name__, self.name or 'unknown peer')
         yield from self.conn.send(msg.__msgdict__(), drain)
         self.last_tx = datetime.now()
 
@@ -158,7 +158,7 @@ class PeerNode(IOTasks):
                 if connected:
                     break
         except (asyncio.futures.CancelledError, GeneratorExit):
-            logger.info('Connect aborted')
+            logger.debug('Connect aborted')
 
 
     def disconnect_async(self, reason='', active=True):
@@ -202,7 +202,7 @@ class PeerNode(IOTasks):
         self.cluster = hello.cluster
         self.addresses = frozenset(hello.addresses)
 
-        logger.info('handshake between %s and %s complete', self.local.name, self.name)
+        logger.debug('handshake between %s and %s complete', self.local.name, self.name)
 
 
     @asyncio.coroutine
@@ -211,7 +211,7 @@ class PeerNode(IOTasks):
             if self.is_connected:
                 return
 
-            logger.info('connecting with %s', arg)
+            logger.debug('connecting with %s', arg)
 
             try:
                 if isinstance(arg, str):
@@ -232,7 +232,7 @@ class PeerNode(IOTasks):
                 yield from self._send_hello()
 
                 # wait for hello back
-                logger.debug('waiting for hello from %s', self.conn)
+                logger.trace('waiting for hello from %s', self.conn)
                 hello = yield from self.recv(HELLO_TIMEOUT)
 
                 # check the hello
@@ -257,10 +257,10 @@ class PeerNode(IOTasks):
                 logger.info('connection with %s cancelled', self.conn)
                 yield from self.disconnect(reason='connection cancelled')
             except (FileNotFoundError, ConnectionResetError, ConnectionRefusedError, NotConnected) as exc:
-                logger.info('%s %s', type(exc).__name__, self.conn)
+                logger.info('unable to connect with %s, %s %s', self.name, type(exc).__name__, self.conn)
                 yield from self.disconnect(reason='unable to connect: ' + str(type(exc)), active=False)
             except TIMEOUT_ERRORS:
-                logger.warning('hello not received in time from %s on %s', self.conn, self.conn)
+                logger.warning('hello not received in time from %s on %s', self.name, self.conn)
                 yield from self.disconnect(reason='hello timed out')
             except OSError as exc:
                 logger.info('unable to connect with %s on %s', self.conn, self.conn,
@@ -281,7 +281,7 @@ class PeerNode(IOTasks):
 
     @asyncio.coroutine
     def connected(self, connection):
-        logger.info('%s connected', connection)
+        logger.debug('%s connected', connection)
 
         self.conn = connection
 
@@ -305,7 +305,7 @@ class PeerNode(IOTasks):
                 logger.info('self connect attempt of %s', hello.name)
                 yield from self.disconnect(reason='self connect')
 
-            logger.info('hello received from %s at %s', hello.name, hello.addresses)
+            logger.debug('hello received from %s at %s', hello.name, hello.addresses)
 
             try:
                 yield from self._send_hello()
@@ -348,7 +348,7 @@ class PeerNode(IOTasks):
             print('shouldn\'t been disconnected')
 
         if self.is_connected:
-            logger.info('serving connection for %s (local) with %s (remote) on %s',
+            logger.debug('serving connection for %s (local) with %s (remote) on %s',
                         self.local.name, self.name, self.conn)
 
         while self.is_connected:
@@ -377,7 +377,7 @@ class PeerNode(IOTasks):
 
             self._create_task(self._dispatch(msg))
 
-        logger.info('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
+        logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
         self.disconnected_on = datetime.now()
 
 
@@ -386,7 +386,7 @@ class PeerNode(IOTasks):
         if not peers:
             return
         try:
-            logger.info('notifying %s of discovery of %s', self.name, peers)
+            logger.trace('notifying %s of discovery of %s', self.name, peers)
             yield from self.send(Discovered(peers=peers))
         except NotConnected:
             pass
@@ -395,7 +395,7 @@ class PeerNode(IOTasks):
     @asyncio.coroutine
     def _dispatch(self, msg):
         try:
-            logger.debug('dispatching %s', msg)
+            logger.trace('dispatching %s', msg)
             if isinstance(msg, Disconnect):
                 yield from self.disconnect(reason='received disconnect', active=False)
             elif isinstance(msg, Discovered):
