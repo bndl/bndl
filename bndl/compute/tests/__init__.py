@@ -38,8 +38,6 @@ class ComputeTest(unittest.TestCase):
 
         cls.ctx = ComputeContext.create()
 
-        get_loop().set_debug(True)
-
         cls.workers = []
         if cls.executor_count > 0:
             bndl.conf['bndl.net.seeds'] = cls.ctx.node.addresses
@@ -54,9 +52,7 @@ class ComputeTest(unittest.TestCase):
                 worker.start_executors(1)
 
         for _ in range(2):
-            ec = cls.ctx.await_executors(cls.executor_count, 120, 120)
-            if ec != cls.executor_count:
-                time.sleep(.5)
+            cls.ctx.await_executors(cls.executor_count, 20, 120)
         assert cls.ctx.executor_count == cls.executor_count, \
             '%s != %s' % (cls.ctx.executor_count, cls.executor_count)
         for ex in cls.ctx.executors:
