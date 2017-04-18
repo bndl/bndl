@@ -105,7 +105,7 @@ class MemoryCoordinator(object):
         else:
             self.running = True
             self.loop = get_loop()
-            self.loop.create_task(self.run())
+            self.loop.call_soon_threadsafe(self.loop.create_task, self.run())
 
 
     @asyncio.coroutine
@@ -308,6 +308,7 @@ class LocalMemoryManager(object):
         return helper
 
 
+    @asyncio.coroutine
     def release(self, src, nbytes):
         self._loop.create_task(self._requests.put((time.time(), nbytes)))
 
@@ -318,13 +319,13 @@ class LocalMemoryManager(object):
         else:
             self._running = True
             self._loop = get_loop()
-            self._loop.create_task(self.run())
+            self._loop.call_soon_threadsafe(self._loop.create_task, self.run())
 
 
     def stop(self):
         if self._running:
             self._running = False
-            self._loop.create_task(self._requests.put(None))
+            self._loop.call_soon_threadsafe(self._loop.create_task, self._requests.put(None))
 
 
     @asyncio.coroutine
