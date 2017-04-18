@@ -144,6 +144,8 @@ class IOTasks(object):
 
     def _create_task(self, coro):
         task = self.loop.create_task(coro)
+        if task._source_traceback:
+            del task._source_traceback[-1]
         self._iotasks.add(task)
         task.add_done_callback(self._iotasks.discard)
 
