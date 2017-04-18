@@ -61,17 +61,16 @@ class MemoryCoordinator(object):
 
     def add_memory_manager(self, pid, release):
         if not isinstance(release, Invocation):
-            def _release(fut):
-                print('really?')
+            # ensure local functions are performed asyncrhonously
+            _release = release
+            def _do_release(fut, nbytes):
                 try:
-                    fut.set_result(release())
-                    print('woot')
+                    fut.set_result(_release(nbytes))
                 except Exception as exc:
                     fut.set_exception(exc)
-            def _start_release():
-                print('is it is it?')
+            def release(nbytes):
                 fut = Future()
-                threading.Thread(target=_release, args=(fut,)).start()
+                threading.Thread(target=_do_release, args=(fut, nbytes)).start()
                 return fut
         try:
             proc = Process(pid)
@@ -132,8 +131,6 @@ class MemoryCoordinator(object):
         candidates = sorted(candidates, key=getter(0), reverse=True)
         ncandidates = len(candidates)
 
-        # print('release', round(nbytes / 1024 / 1024, 2), 'mb from', ncandidates, 'procs')
-
         if ncandidates < 1:
             return
 
@@ -161,8 +158,8 @@ class MemoryCoordinator(object):
             rss = proc.memory_info().rss
             wd = get_workdir(False, proc.pid)
             for dirpath, _, filenames in  os.walk(wd, wd):
-                dir_fd = os.open(dirpath, os.O_RDONLY)
                 try:
+                    dir_fd = os.open(dirpath, os.O_RDONLY)
                     for filename in filenames:
                         rss += os.stat(filename, dir_fd=dir_fd).st_size
                 except FileNotFoundError:
