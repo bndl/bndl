@@ -34,10 +34,13 @@ from bndl.net.sendfile import file_attachment, is_remote
 from bndl.net.serialize import attach, attachment
 from bndl.util.compat import lz4_compress, lz4_decompress
 from bndl.util.conf import String
+from bndl.util.exceptions import catch
+from bndl.util.fs import listdirabs
 from bndl.util.funcs import noop
 from bndl.util.retry import do_with_retry
 from bndl.util.strings import decode, random_id
 import bndl
+import fcntl
 
 
 logger = logging.getLogger(__name__)
@@ -96,8 +99,19 @@ def _get_workdir(disk):
 def get_workdir(disk, pid=os.getpid()):
     path = _get_workdir(disk)
     path = os.path.join(path, 'bndl', str(pid))
-    os.makedirs(path, exist_ok=True)
+    return path
 
+
+_dir_lock_fds = {}
+
+def open_workdir(disk):
+    path = bndl.conf['bndl.compute.storage.workdir_disk'] if disk else \
+           bndl.conf['bndl.compute.storage.workdir_mem']
+    if path not in _dir_lock_fds:
+        os.makedirs(path, 0o700, exist_ok=True)
+        lock_fd = os.open(os.path.join(path, 'lock'), os.O_CREAT | os.O_EXCL, 0o700)
+        _dir_lock_fds[path] = lock_fd
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     return path
 
 
@@ -107,13 +121,23 @@ def _clean_workdirs():
         bndl.conf['bndl.compute.storage.workdir_mem'],
         bndl.conf['bndl.compute.storage.workdir_disk'],
     )
-
     for path in paths:
         try:
             shutil.rmtree(path)
         except (FileNotFoundError, OSError):
             pass
 
+        for path in listdirabs(os.path.dirname(path)):
+            lock_path = os.path.join(path, 'lock')
+            with catch(FileNotFoundError, NotADirectoryError, OSError):
+                with open(lock_path) as f:
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except OSError:
+                        pass
+                    else:
+                        shutil.rmtree(path)
+                        fcntl.flock(f, fcntl.LOCK_UN)
 
 
 workdir_mem = String(get_workdir(False), desc='The ram backed directory for bndl.compute (used for caching, '
@@ -274,7 +298,7 @@ class InMemoryData(object):
 class FileData(object):
     @property
     def workdir(self):
-        return bndl.conf['bndl.compute.storage.workdir_disk']
+        return open_workdir(True)
 
     def __init__(self, file_id, allocate=0):
         self.id = file_id
@@ -282,9 +306,13 @@ class FileData(object):
         dirpath = os.path.join(self.workdir, *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
         self.filepath = os.path.join(dirpath, str(filename))
-        if allocate:
-            with open(self.filepath, 'wb') as f:
-                os.posix_fallocate(f.fileno(), 0, allocate)
+        fd = os.open(self.filepath, os.O_CREAT | os.O_WRONLY, mode=0o700)
+        try:
+            if allocate:
+                with open(fd, 'wb') as f:
+                    os.posix_fallocate(f.fileno(), 0, allocate)
+        finally:
+            os.close(fd)
 
 
     @property
@@ -357,11 +385,11 @@ class FileData(object):
 class SharedMemoryData(FileData):
     @property
     def workdir(self):
-        return bndl.conf['bndl.compute.storage.workdir_mem']
+        return open_workdir(False)
 
     def to_disk(self):
-        workdir_mem = bndl.conf['bndl.compute.storage.workdir_mem']
-        workdir_disk = bndl.conf['bndl.compute.storage.workdir_disk']
+        workdir_mem = open_workdir(False)
+        workdir_disk = open_workdir(True)
         filepath_src = self.filepath
         if filepath_src.startswith(workdir_mem):
             filepath_dst = filepath_src.replace(workdir_mem, workdir_disk)
