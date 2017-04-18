@@ -35,6 +35,7 @@ from bndl.net.serialize import attach, attachment
 from bndl.util.compat import lz4_compress, lz4_decompress
 from bndl.util.conf import String
 from bndl.util.funcs import noop
+from bndl.util.retry import do_with_retry
 from bndl.util.strings import decode, random_id
 import bndl
 
@@ -323,13 +324,14 @@ class FileData(object):
             self.data = memoryview(data)[1:]
             self.__class__ = InMemoryData
         else:
-            filepath_dst = self.workdir + filepath_src
+            filepath_dst_base = self.workdir + filepath_src
             filepath_src = workdir_src + filepath_src
-            if filepath_src == filepath_dst:
-                filepath_dst = filepath_dst + '.' + random_id()
-            os.makedirs(os.path.dirname(filepath_dst), exist_ok=True)
-            os.link(filepath_src, filepath_dst)
-            self.filepath = filepath_dst
+            os.makedirs(os.path.dirname(filepath_dst_base), exist_ok=True)
+            def link():
+                filepath_dst = filepath_dst_base + '.' + random_id()
+                os.link(filepath_src, filepath_dst)
+                self.filepath = filepath_dst
+            do_with_retry(link, 3, transients=(FileExistsError,))
 
 
     def remove(self):
