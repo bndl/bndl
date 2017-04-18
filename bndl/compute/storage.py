@@ -309,8 +309,7 @@ class FileData(object):
         fd = os.open(self.filepath, os.O_CREAT | os.O_WRONLY, mode=0o700)
         try:
             if allocate:
-                with open(fd, 'wb') as f:
-                    os.posix_fallocate(f.fileno(), 0, allocate)
+                os.posix_fallocate(fd, 0, allocate)
         finally:
             os.close(fd)
 
