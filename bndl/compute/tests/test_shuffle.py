@@ -35,15 +35,19 @@ class ShuffleTest(DatasetTest):
     }
 
     def _test_shuffle(self, size, sort, serialization, compression):
-        part0_data = set(map(str, range(0, size, 2)))
-        part1_data = set(map(str, range(1, size, 2)))
+        def mapper(i):
+            return str(i) * 10
 
-        data = self.ctx.range(size, pcount=self.executor_count * 2).map(str)
+        part0_data = set(map(mapper, range(0, size, 2)))
+        part1_data = set(map(mapper, range(1, size, 2)))
+
+        data = self.ctx.range(size, pcount=self.executor_count * 2).map(mapper)
 
         shuffled = data.shuffle(sort=sort, serialization=serialization, compression=compression) \
                        .shuffle(sort=sort, serialization=serialization, compression=compression,
                                 pcount=3, partitioner=lambda i: int(i) % 2) \
                        .collect(parts=True)
+
         parts = list(filter(None, map(set, shuffled)))
 
         self.assertEqual(len(parts), 2)
@@ -57,7 +61,7 @@ class ShuffleTest(DatasetTest):
 
     @classmethod
     def _setup_tests(cls):
-        sizes = [1000, 1000 * 1000]
+        sizes = [10, 100 * 1000]
         sorts = [True, False]
         serializations = ['marshal', 'pickle', 'json']
         compressions = [None, 'gzip', 'lz4']
@@ -117,37 +121,38 @@ class ShuffleCacheTest(DatasetTest):
 
 
 
+class ExecutorKiller(object):
+    def __init__(self, executor, count):
+        self.count = count + 1
+        self.executor = executor
+        self.lock = threading.Lock()
+
+    def countdown(self, i):
+        with self.lock:
+            self.count -= i
+            if self.count == 0:
+                logger.info('Killing %r', self.executor.name)
+                os.kill(self.executor.pid, signal.SIGKILL)
+
+    def __str__(self):
+        return 'kill %s after %s elements' % (self.executor.name, self.count)
+
+
+def identity_mapper(killers, key_count, i):
+    for killer in killers:
+        killer.update('countdown', 1)
+    return i
+
+
+def keyby_mapper(killers, key_count, i):
+    identity_mapper(killers, key_count, i)
+    return (i % key_count, i)
+
 
 class ShuffleFailureTest(DatasetTest):
-    executor_count = 20
+    executor_count = 10
 
     def _test_dependency_failure(self, dset_size, pcount, key_count, kill_after):
-        class ExecutorKiller(object):
-            def __init__(self, executor, count):
-                self.count = count + 1
-                self.executor = executor
-                self.lock = threading.Lock()
-
-            def countdown(self, i):
-                with self.lock:
-                    self.count -= i
-                    if self.count == 0:
-                        logger.info('Killing %r', self.executor.name)
-                        pid = self.executor.service('tasks').execute(lambda: os.getpid()).result()
-                        os.kill(pid, signal.SIGKILL)
-
-            def __str__(self):
-                return 'kill %s after %s elements' % (self.executor.name, self.count)
-
-        def identity_mapper(killers, key_count, i):
-            for killer in killers:
-                killer.update('countdown', 1)
-            return i
-
-        def keyby_mapper(killers, key_count, i):
-            identity_mapper(killers, key_count, i)
-            return (i % key_count, i)
-
         try:
             self.ctx.conf['bndl.compute.attempts'] = 2
 
@@ -177,9 +182,7 @@ class ShuffleFailureTest(DatasetTest):
     def _setup_tests(cls):
         # dset_size, pcount, key_count, killers
         test_cases = [
-            [100, 30, 30, [125, 125, 125]],
             [100, 30, 30, [75, 100, 125]],
-            [100, 30, 30, [100, 100, 100]],
             [100, 30, 30, [0, 50, 100]],
             [ 10, 3, 3, [10]],
             [ 10, 3, 3, [0]],
@@ -188,7 +191,7 @@ class ShuffleFailureTest(DatasetTest):
         for dset_size, pcount, key_count, kill_after in test_cases:
             args = (dset_size, pcount, key_count, kill_after)
             name = 'test_dependency_failure_' + '_'.join(map(str, flatten(args)))
-            test = lambda self, args = args:self._test_dependency_failure(*args)
+            test = lambda self, args = args: self._test_dependency_failure(*args)
             setattr(cls, name, test)
 
 ShuffleTest._setup_tests()
