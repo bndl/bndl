@@ -107,6 +107,7 @@ class ComputeContext(Lifecycle):
         self.jobs = []
         self.signal_start()
         self.instances.add(self)
+        self.stable_since = None
 
 
     @property
@@ -159,7 +160,7 @@ class ComputeContext(Lifecycle):
         connected_deadline = wait_started + connect_timeout
         stable_deadline = wait_started + stable_timeout
         # for stability we don't look back further than the stable timeout
-        stable_max_lookback = wait_started - stable_timeout
+        stable_max_lookback = self.stable_since or wait_started - stable_timeout
 
         def executor_count_consistent():
             '''Check if the executors all see each other'''
@@ -242,6 +243,7 @@ class ComputeContext(Lifecycle):
 
         while True:
             if executor_count == len(self.executors):
+                self.stable_since = datetime.now()
                 return executor_count
 
             if len(self.executors) == 0:
@@ -251,6 +253,7 @@ class ComputeContext(Lifecycle):
                 stable = is_stable()
 
                 if stable:
+                    self.stable_since = datetime.now()
                     return len(self.executors)
                 elif datetime.now() > stable_deadline:
                     warnings.warn('executor count not stable after %s' % stable_timeout)
