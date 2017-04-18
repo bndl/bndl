@@ -161,6 +161,39 @@ class ComputeContext(Lifecycle):
         # for stability we don't look back further than the stable timeout
         stable_max_lookback = wait_started - stable_timeout
 
+        def executor_count_consistent():
+            '''Check if the executors all see each other'''
+            logger.trace('Checking executor count across the cluster')
+            expected = len(self.executors) - 1
+            tasks = [(w, w.service('tasks').execute(_num_executors_connected)) for w in self.executors]
+            deadline = time.time() + connect_timeout.total_seconds()
+            consistent = True
+            for executor, task in tasks:
+                try:
+                    timeout = deadline - time.time()
+                    if timeout < 0:
+                        return False
+                    actual = task.result(timeout=timeout)
+                    if actual != expected:
+                        logger.debug('%r sees %s executors, not %s', executor.name, actual, expected)
+                        consistent = False
+                        run_coroutine_threadsafe(
+                            executor.notify_discovery([(w.name, w.addresses) for w in self.executors]),
+                            self.node.loop
+                        ).result()
+                        break
+                except concurrent.futures.TimeoutError:
+                    logger.debug("Couldn't get connected executor count from executor %r",
+                                 executor.name, exc_info=True)
+                    consistent = False
+                    break
+                except Exception:
+                    logger.warning("Couldn't get connected executor count from executor %r",
+                                   executor.name, exc_info=True)
+                    consistent = False
+                    break
+            return consistent
+
         def is_stable():
             '''
             Check whether the cluster of executors is 'stable'.
@@ -175,45 +208,37 @@ class ComputeContext(Lifecycle):
             - If there are more recent connects, the cluster is considered
               stable if at least twice the maximum interval between the
               connects has passed or 1 second, whichever is longer.
+
+            Returns (bool, bool) indicating whether connections were established recently
+            and - if so - whether they have stabilized.
             '''
             assert len(self.executors) > 0
             now = datetime.now()
             recent_connects = sorted(executor.connected_on for executor in self.executors
                                      if executor.connected_on > stable_max_lookback)
+
+            # Stable if there weren't any (re-)connects in the last 60 seconds
             if not recent_connects:
-                return False, True
-            elif len(recent_connects) == 1:
-                return True, recent_connects[0] < now - connect_timeout
+                logger.trace('No recent connections made')
+                return True
+
+            # Unstable if there is only one connection and was made in the last 5 seconds
+            elif len(self.executors) == 1 and len(recent_connects) == 1:
+                if recent_connects[0] > now - connect_timeout:
+                    logger.trace('One connection in the %s, wait', connect_timeout)
+                    return False
+
+            # Stable if there are multiple connections but at least twice the maximum gap between
+            # connects as passed
             else:
                 max_connect_gap = max(b - a for a, b in zip(recent_connects, recent_connects[1:]))
-                stable_time = 2 * max_connect_gap
-                time_since_last_connect = now - recent_connects[-1]
-                return True, time_since_last_connect > stable_time
+                stable_time = now - 2 * max_connect_gap
+                if recent_connects[-1] > stable_time:
+                    logger.trace('Wait at least %s', stable_time)
+                    return False
 
-        def executor_count_consistent():
-            '''Check if the executors all see each other'''
-            expected = len(self.executors) - 1
-            tasks = [(w, w.service('tasks').execute(_num_executors_connected)) for w in self.executors]
-            deadline = time.time() + connect_timeout.total_seconds()
-            consistent = True
-            for executor, task in tasks:
-                try:
-                    timeout = deadline - time.time()
-                    if timeout < 0:
-                        return False
-                    actual = task.result(timeout=timeout)
-                    if actual != expected:
-                        consistent = False
-                        run_coroutine_threadsafe(
-                            executor.notify_discovery([(w.name, w.addresses) for w in self.executors]),
-                            self.node.loop
-                        ).result()
-                except concurrent.futures.TimeoutError:
-                    consistent = False
-                except Exception:
-                    logger.warning("Couldn't get connected executor count", exc_info=True)
-                    consistent = False
-            return consistent
+            # Stable if each node sees the same amount of executors
+            return executor_count_consistent()
 
         while True:
             if executor_count == len(self.executors):
@@ -223,16 +248,11 @@ class ComputeContext(Lifecycle):
                 if datetime.now() > connected_deadline:
                     raise RuntimeError('no executors available')
             else:
-                recent_connects, stable = is_stable()
+                stable = is_stable()
 
                 if stable:
-                    if not recent_connects:
-                        return len(self.executors)
-                    elif recent_connects:
-                        if executor_count_consistent():
-                            return len(self.executors)
-
-                if datetime.now() > stable_deadline:
+                    return len(self.executors)
+                elif datetime.now() > stable_deadline:
                     warnings.warn('executor count not stable after %s' % stable_timeout)
                     return len(self.executors)
 
