@@ -76,12 +76,9 @@ def _load_dashes():
         except (ImportError, ImportStringError):
             pass
         else:
-            try:
-                dash = dash.Dash
-                key = plugin.__name__.replace('bndl_', '')
-                register_dash(key, dash)
-            except AttributeError:
-                print('!')
+            dash = dash.Dash
+            key = plugin.__name__.replace('bndl_', '')
+            register_dash(key, dash)
 
 
 @lru_cache()
