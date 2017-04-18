@@ -280,7 +280,8 @@ class LocalMemoryManager(object):
         self.candidates = defaultdict(SortedDict)
         self._keys = {}
         self._candidates_lock = threading.Lock()
-        self._requests = asyncio.Queue()
+        self._loop = None
+        self._requests = None
         self._running = False
         self._last_release = time.time()
 
@@ -319,6 +320,7 @@ class LocalMemoryManager(object):
         else:
             self._running = True
             self._loop = get_loop()
+            self._requests = asyncio.Queue(loop=self._loop)
             self._loop.call_soon_threadsafe(self._loop.create_task, self.run())
 
 
