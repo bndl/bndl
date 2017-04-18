@@ -358,6 +358,7 @@ class ShuffleWritingPartition(Partition):
 
         workers = executor.peers.filter(machine=executor.machine, node_type=('worker', 'driver'))
         assert workers
+        workers.sort(key=lambda w: w.name, reverse=True)
         worker = workers[0]
 
         # create a bucket for each output partition
