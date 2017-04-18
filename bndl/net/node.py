@@ -12,6 +12,7 @@
 
 from asyncio.futures import CancelledError
 import asyncio
+import collections
 import concurrent.futures
 import errno
 import itertools
@@ -36,10 +37,17 @@ logger = logging.getLogger(__name__)
 NOTIFY_KNOWN_PEERS_WAIT = 1
 
 
+def make_name(node_type, *node_id):
+    name = list(reversed(socket.getfqdn().split('.')))
+    name.append(node_type)
+    name.extend(map(str, node_id))
+    return '.'.join(name)
+
+
 class Node(IOTasks):
     PeerNode = PeerNode
 
-    _nodeids = {}
+    _nodeids = collections.defaultdict(itertools.count)
 
     def __init__(self, name=None, node_type=None, addresses=None, seeds=None, cluster='default', loop=None):
         super().__init__()
@@ -50,13 +58,8 @@ class Node(IOTasks):
         if name:
             self.name = name
         else:
-            self.name = '.'.join(reversed(socket.getfqdn().split('.'))) + \
-                        '.' + self.node_type + \
-                        '.' + str(os.getpid())
-
-            node_ids = Node._nodeids.setdefault(self.node_type, itertools.count())
-            node_id = next(node_ids)
-            self.name += '.' + str(node_id + 1)
+            node_id = next(Node._nodeids[node_type]) + 1
+            self.name = make_name(self.node_type, os.getpid(), node_id)
 
         addresses = addresses or bndl.conf['bndl.net.listen_addresses']
         seeds = seeds or bndl.conf['bndl.net.seeds']
