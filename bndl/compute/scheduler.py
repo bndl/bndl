@@ -423,16 +423,15 @@ class Scheduler(object):
 
         elif isinstance(exc, NotConnected):
             # mark the executor as failed
-            if logger.isEnabledFor(logging.INFO):
-                logger.info('%r failed with NotConnected, marking %r as failed',
-                            task, task.last_executed_on())
+            logger.warning('%r failed with NotConnected, marking %r as failed',
+                           task, task.last_executed_on())
             self.executors_failed.add(task.last_executed_on())
 
         else:
             self.failures[task] = failures = self.failures[task] + 1
             if failures >= self.max_attempts:
-                logger.warning('%r failed on %r after %r attempts ... aborting',
-                               task, task.last_executed_on(), len(task.executed_on))
+                logger.warning('%r failed on %r after %r attempts with %r ... aborting', task,
+                               task.last_executed_on(), len(task.executed_on), task.exception())
                 # signal done (failed) to allow bubbling up the error and abort
                 self.done(task)
                 self.abort(task.exception())
@@ -452,7 +451,8 @@ class Scheduler(object):
             self.executable.discard(dependent)
 
         if len(self.executors_failed) == len(self.executors):
-            self.abort(Exception('Unable to complete job, all executors failed'))
+            self.abort(Exception('Unable to complete job, all executors (%s) failed'
+                                 % len(self.executors)))
 
         if not self.blocked[task] and task not in self.executable and task not in self.pending:
             self.set_executable(task)
