@@ -70,12 +70,17 @@ class StorageTest(TestCase):
         run_coroutine_threadsafe(run_pair(), self.loop).result()
 
 
-rw = (('read', 'write'), ('read_all', 'write_all'))
-serializations = 'pickle', 'marshal', 'json', 'msgpack'
-compressions = (None, 'gzip', 'lz4')
 
-for (read, write), serialization, compression in product(rw, serializations, compressions):
-    args = read, write, serialization, compression
-    name = 'test_send_on_disk_' + '_'.join(map(str, args))
-    test = lambda self, args = args: self._test_send_on_disk(*args)
-    setattr(StorageTest, name, test)
+    @classmethod
+    def _setup_tests(cls):
+        rw = (('read', 'write'), ('read_all', 'write_all'))
+        serializations = 'pickle', 'marshal', 'json', 'msgpack'
+        compressions = (None, 'gzip', 'lz4')
+
+        for (read, write), serialization, compression in product(rw, serializations, compressions):
+            args = read, write, serialization, compression
+            name = 'test_send_on_disk_' + '_'.join(map(str, args))
+            test = lambda self, args = args: self._test_send_on_disk(*args)
+            setattr(StorageTest, name, test)
+
+StorageTest._setup_tests()
