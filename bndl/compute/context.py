@@ -223,8 +223,8 @@ class ComputeContext(Lifecycle):
                 return True
 
             # Unstable if there is only one connection and was made in the last 5 seconds
-            elif len(self.executors) == 1 and len(recent_connects) == 1:
-                if recent_connects[0] > now - connect_timeout:
+            elif len(recent_connects) == 1:
+                if len(self.executors) == 1 and recent_connects[0] > now - connect_timeout:
                     logger.trace('One connection in the %s, wait', connect_timeout)
                     return False
 
