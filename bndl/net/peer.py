@@ -328,7 +328,7 @@ class PeerNode(IOTasks):
             name=self.local.name,
             pid=os.getpid(),
             node_type=self.local.node_type,
-            machine=uuid.getnode(),
+            machine=self.local.machine,
             cluster=self.local.cluster,
             addresses=list(self.local.servers.keys()),
         ), drain=True)
@@ -344,10 +344,9 @@ class PeerNode(IOTasks):
 
         allowed = (yield from self.local._peer_connected(self))
 
-        if allowed and not self.is_connected:
-            print('shouldn\'t been disconnected')
-
-        if self.is_connected:
+        if not allowed:
+            return
+        elif self.is_connected:
             logger.debug('serving connection for %s (local) with %s (remote) on %s',
                         self.local.name, self.name, self.conn)
 
