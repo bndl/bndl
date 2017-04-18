@@ -183,8 +183,8 @@ class Connection(object):
                             else:
                                 sender()
                         except Exception as e:
-                            raise RuntimeError('Unable to send attachment %r : %r' %
-                                               (key, attachment)) from e
+                            raise RuntimeError('Unable to send attachment %r (%r): %r' %
+                                               (key, attachment, e)) from e
                         self.bytes_sent += size
                 self.writer.writelines((struct.pack('Q', len(serialized)), serialized))
                 self.bytes_sent += len(serialized)
