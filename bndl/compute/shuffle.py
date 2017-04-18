@@ -11,8 +11,6 @@
 # limitations under the License.
 
 from bisect import bisect_left
-from collections import defaultdict
-from concurrent.futures import Future
 from functools import lru_cache
 from itertools import chain
 from math import ceil
@@ -26,7 +24,7 @@ from cytoolz.itertoolz import pluck
 
 from bndl.compute.dataset import Dataset, Partition
 from bndl.compute.scheduler import DependenciesFailed
-from bndl.compute.storage import ContainerFactory, InMemoryContainer, SharedMemoryContainer
+from bndl.compute.storage import ContainerFactory
 from bndl.compute.tasks import TaskCancelled
 from bndl.compute.tasks import task_context
 from bndl.net import rmi
@@ -357,10 +355,10 @@ class ShuffleWritingPartition(Partition):
         logger.info('starting shuffle write of partition %r', self.id)
 
         executor = self.dset.ctx.node
-        ip_addresses = executor.ip_addresses()
-        worker = (executor.peers.filter(ip_address=ip_addresses, node_type='worker') or \
-                  executor.peers.filter(ip_address=ip_addresses, node_type='driver'))[0]
-        assert worker is not None
+
+        workers = executor.peers.filter(machine=executor.machine, node_type=('worker', 'driver'))
+        assert workers
+        worker = workers[0]
 
         # create a bucket for each output partition
         buckets = [self.dset.bucket((self.dset.id, self.idx, out_idx), self.dset.key,
@@ -475,10 +473,7 @@ class ShuffleReadingPartition(Partition):
             raise DependenciesFailed({None: dependency_locations[None]})
 
         source_names = set(dependency_locations.keys())
-
-        local_source = executor.name in source_names
-        if local_source:
-            source_names.remove(executor.name)
+        assert executor.name not in source_names
 
         # sort the source executor names relative to the name of the local executor
         # if every node does this, load will be spread more evenly in reading blocks
@@ -486,77 +481,52 @@ class ShuffleReadingPartition(Partition):
         split = bisect_left(source_names, executor.name)
         source_names = source_names[split:] + source_names[:split]
 
-        peers = executor.peers
         sources = []
         dependencies_missing = {}
-
         # map the source names to actual peer objects
         # mark dependencies as failed for unknown or unconnected peers
-        for peer_name in source_names:
-            peer = peers.get(peer_name)
-            if not peer or not peer.is_connected:
-                dependencies_missing[peer_name] = dependency_locations[peer_name]
+        for source_name in source_names:
+            source = executor.peers.get(source_name)
+            if not source or not source.is_connected:
+                dependencies_missing[source_name] = dependency_locations[source_name]
             else:
-                sources.append(peer)
+                sources.append(source)
 
         # abort and request re-computation of missing dependencies if any
         if dependencies_missing:
             raise DependenciesFailed(dependencies_missing)
 
-        return local_source, sources
-
-
-    def get_local_sizes(self):
-        node = self.dset.ctx.node
-        shuffle_svc = node.service('shuffle')
-
-        # make it seem like fetching locally is remote
-        # so it fits in the stream_batch loop
-        def get_local_block(*args):
-            fut = Future()
-            try:
-                fut.set_result(shuffle_svc.get_bucket_blocks(node, *args))
-            except Exception as e:
-                fut.set_exception(e)
-            return fut
-
-        local_sizes = shuffle_svc.get_bucket_sizes(node, self.dset.src.id, self.idx)
-        return (node, get_local_block, local_sizes)
+        return sources
 
 
     def get_sizes(self):
         dependency_locations = task_context()['dependency_locations']
-        dependencies_missing = defaultdict(set)
+        dependencies_missing = {}
 
-        local_source, sources = self.get_sources()
-        sizes = []
-
-        # add the local fetch operations if the local node is a source
-        if local_source:
-            sizes.append(self.get_local_sizes())
-
+        sources = self.get_sources()
         # issue requests for the bucket bucket prep and get back sizes
-        size_requests = [executor.service('shuffle').get_bucket_sizes(self.dset.src.id, self.idx)
-                         for executor in sources]
+        size_requests = [source.service('shuffle').get_bucket_sizes(self.dset.src.id, self.idx)
+                         for source in sources]
 
+        sizes = []
         # wait for responses and zip with a function to get a block
-        # if a executor is not connected, add it to the missing dependencies
-        for executor, future in zip(sources, size_requests):
+        # if a node is not connected, add it to the missing dependencies
+        for source, future in zip(sources, size_requests):
             try:
                 size = future.result()
             except NotConnected:
-                # mark all dependencies of executor as missing
-                dependencies_missing[executor.name] = set(dependency_locations[executor.name])
+                # mark all dependencies of node as missing
+                dependencies_missing[source.name] = dependency_locations[source.name]
             except InvocationException:
                 logger.exception('Unable to compute bucket size %s.%s on %s' %
-                                 (self.dset.src.id, self.idx, executor.name))
+                                 (self.dset.src.id, self.idx, source.name))
                 raise
             except Exception:
                 logger.exception('Unable to compute bucket size %s.%s on %s' %
-                                 (self.dset.src.id, self.idx, executor.name))
+                                 (self.dset.src.id, self.idx, source.name))
                 raise
             else:
-                sizes.append((executor, executor.service('shuffle').get_bucket_blocks, size))
+                sizes.append((source, source.service('shuffle').get_bucket_blocks, size))
 
         # if size info is missing for any source partitions, fail computing this partition
         # and indicate which tasks/parts aren't available. This assumes that the task ids
@@ -565,30 +535,36 @@ class ShuffleReadingPartition(Partition):
         # keep track of where a source partition is available
         source_locations = {}
 
-        for executor_idx, (executor, get_blocks, size) in enumerate(sizes):
+        for source_idx, (source, get_blocks, size) in enumerate(sizes):
             selected = []
             for src_part_idx, block_sizes in size:
                 if src_part_idx in size_info_missing:
                     size_info_missing.remove(src_part_idx)
-                    source_locations[src_part_idx] = (executor, block_sizes)
+                    source_locations[src_part_idx] = (source, block_sizes)
                     selected.append((src_part_idx, block_sizes))
                 else:
                     other_executor, other_sizes = source_locations[src_part_idx]
                     logger.warning('Source partition %r.%r available more than once, '
                                    'at least at %s with block sizes %r and %s with block_sizes %r',
-                                   self.dset.src.id, src_part_idx, executor, block_sizes, other_executor, other_sizes)
-            sizes[executor_idx] = executor, get_blocks, selected
+                                   self.dset.src.id, src_part_idx, source, block_sizes, other_executor, other_sizes)
+            sizes[source_idx] = source, get_blocks, selected
 
         # translate size info missing into missing dependencies
         if size_info_missing:
             for src_idx in list(size_info_missing):
-                for executor, dependencies in dependency_locations.items():
-                    for dep_dset_id, dep_part_idx in dependencies:
-                        assert dep_dset_id == self.dset.src.id
-                        if dep_part_idx == src_idx:
-                            dependencies_missing[executor].add((dep_dset_id, src_idx))
-                            size_info_missing.remove(src_idx)
-                            break
+                for source, dependencies in dependency_locations.items():
+                    for executor, dependencies in dependencies.items():
+                        for dep_dset_id, dep_part_idx in dependencies:
+                            assert dep_dset_id == self.dset.src.id
+                            if dep_part_idx == src_idx:
+                                from pprint import pprint
+                                pprint(dependencies_missing)
+                                dependencies_missing \
+                                    .setdefault(source, {}) \
+                                    .setdefault(executor, set()) \
+                                    .add((dep_dset_id, src_idx))
+                                size_info_missing.remove(src_idx)
+                                break
         if size_info_missing:
             raise Exception('Bucket size information from %r could not be retrieved, '
                             'but can\'t raise DependenciesFailed as one or more source '

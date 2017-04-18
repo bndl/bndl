@@ -67,6 +67,7 @@ class Task(Lifecycle):
         self.dependencies = set()
         self.dependents = set()
         self.executed_on = []
+        self.result_on = []
         self.attempts = 0
 
 
@@ -141,13 +142,14 @@ class Task(Lifecycle):
             raise CancelledError()
         assert not self.pending, '%r pending' % self
         self.executed_on.append(executor.name)
+        self.result_on.append(executor.name)
         self.attempts += 1
         self.signal_start()
 
 
     def mark_done(self, result=None):
         ''''
-        Externally' mark the task as done. E.g. because its 'side effect' (result) is already
+        Externally mark the task as done. E.g. because its 'side effect' (result) is already
         available).
         '''
         if not self.done:
@@ -184,10 +186,18 @@ class Task(Lifecycle):
         return self.future.exception()
 
 
-    def executed_on_last(self):
+    def last_executed_on(self):
         '''The name of the executor this task executed on last (if any).'''
         try:
             return self.executed_on[-1]
+        except IndexError:
+            return None
+
+
+    def last_result_on(self):
+        '''The name of the node which has the last result (if any).'''
+        try:
+            return self.result_on[-1]
         except IndexError:
             return None
 
@@ -200,6 +210,8 @@ class Task(Lifecycle):
         self.dependents = []
         if self.executed_on:
             self.executed_on = [self.executed_on[-1]]
+        if self.result_on:
+            self.result_on = [self.result_on[-1]]
         self.started_listeners.clear()
         self.stopped_listeners.clear()
 
@@ -239,7 +251,7 @@ class RmiTask(Task):
         future2.add_done_callback(self._task_scheduled)
         return future
 
-    @property
+
     def _last_executor(self):
         if self.executed_on:
             return self.ctx.node.peers.get(self.executed_on[-1])
@@ -252,7 +264,7 @@ class RmiTask(Task):
             self.mark_failed(exc)
         else:
             try:
-                future = self._last_executor.service('tasks').get_task_result(self.handle)
+                future = self._last_executor().service('tasks').get_task_result(self.handle)
                 future.add_done_callback(self._task_completed)
             except NotConnected as exc:
                 self.mark_failed(exc)
@@ -269,7 +281,7 @@ class RmiTask(Task):
             elif not isinstance(exc, NotConnected):
                 if logger.isEnabledFor(logging.INFO):
                     logger.info('execution of %s on %s failed, but not expecting result',
-                                self, self.executed_on_last(), exc_info=True)
+                                self, self.last_executed_on(), exc_info=True)
         else:
             if fut and not fut.cancelled():
                 fut.set_result(result)
@@ -284,7 +296,7 @@ class RmiTask(Task):
 
         if self.handle:
             logger.debug('canceling %s', self)
-            self._last_executor.service('tasks').cancel_task(self.handle)
+            self._last_executor().service('tasks').cancel_task(self.handle)
             self.handle = None
 
         if self.future:

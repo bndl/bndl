@@ -2188,16 +2188,21 @@ class BarrierTask(Task):
         super().__init__(*args, **kwargs)
         self.dependency_locations = None
 
+
     def execute(self, scheduler, executor):
         # administer where dependencies were executed
         by_location = self.dependency_locations = {}
         for dep in self.dependencies:
-            result_location = dep.result_location
-            if not result_location:
+            exc_on = dep.last_executed_on()
+            if not exc_on:
                 assert dep.done
-            locs = by_location.get(result_location)
+            result_on = dep.last_result_on()
+            locs = by_location.get(result_on)
             if locs is None:
-                locs = by_location[result_location] = []
+                locs = by_location[result_on] = {}
+            locs = locs.get(exc_on)
+            if locs is None:
+                locs = by_location[result_on][exc_on] = []
             locs.append(dep.part.id)
 
         # 'execute' the barrier
@@ -2220,7 +2225,6 @@ class ComputePartitionTask(RmiTask):
                          name=name, desc=part.dset.callsite, **kwargs)
         self.part = part
         self.locality = part.locality
-        self.result_location = None
 
 
     def execute(self, scheduler, executor):
@@ -2236,9 +2240,9 @@ class ComputePartitionTask(RmiTask):
 
     def signal_stop(self):
         if self.dependents and self.succeeded and self.result():
-            self.result_location = self.result()[0]
+            self.result_on[-1] = self.result()[0]
             self.future.set_result(None)
-        if self.dependencies and self.done:
+        if self.dependencies and self.failed:
             exc = root_exc(self.exception())
             if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):
                 for barrier in self.dependencies:
@@ -2249,7 +2253,7 @@ class ComputePartitionTask(RmiTask):
 
     def release(self):
         if self.succeeded:
-            self.part.save_cache_location(self.executed_on_last())
+            self.part.save_cache_location(self.last_executed_on())
         self.part = None
         super().release()
 
