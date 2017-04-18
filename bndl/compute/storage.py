@@ -127,9 +127,9 @@ def _clean_workdirs():
         except (FileNotFoundError, OSError):
             pass
 
-        for path in listdirabs(os.path.dirname(path)):
-            lock_path = os.path.join(path, 'lock')
-            with catch(FileNotFoundError, NotADirectoryError, OSError):
+        with catch(FileNotFoundError, NotADirectoryError, OSError):
+            for path in listdirabs(os.path.dirname(path)):
+                lock_path = os.path.join(path, 'lock')
                 with open(lock_path) as f:
                     try:
                         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
