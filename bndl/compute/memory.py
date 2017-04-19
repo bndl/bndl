@@ -162,7 +162,7 @@ class MemoryCoordinator(object):
                     dir_fd = os.open(dirpath, os.O_RDONLY)
                     for filename in filenames:
                         rss += os.stat(filename, dir_fd=dir_fd).st_size
-                except FileNotFoundError:
+                except (FileNotFoundError, OSError, PermissionError):
                     pass
                 finally:
                     with catch():
