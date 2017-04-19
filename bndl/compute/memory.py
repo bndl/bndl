@@ -180,7 +180,7 @@ class MemoryCoordinator(object):
         for proc, _ in self.get_procs():
             try:
                 usage += proc.memory_percent()
-            except NoSuchProcess:
+            except (NoSuchProcess, OSError):
                 pass
         return usage
 
@@ -333,10 +333,14 @@ class LocalMemoryManager(object):
     @asyncio.coroutine
     def _get_request(self):
         while self._running:
-            request = yield from self._requests.get()
-
             try:
+                request = yield from self._requests.get()
                 request = self._requests.get_nowait()
+            except RuntimeError:
+                if not self._loop.is_closed():
+                    raise
+                else:
+                    return None
             except asyncio.QueueEmpty:
                 break
 
