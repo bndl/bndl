@@ -132,9 +132,10 @@ class Node(IOTasks):
 
     def _stop_tasks(self):
         # stop watching
-        if self._watchdog:
+        watchdog = getattr(self, '_watchdog')
+        if watchdog:
             with catch(RuntimeError, log_level=logging.WARNING):
-                self._watchdog.stop()
+                watchdog.stop()
                 self._watchdog = None
 
         super()._stop_tasks()
