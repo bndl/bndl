@@ -60,25 +60,28 @@ class PeerTable(dict):
             listener('removed', peer)
 
 
-    def filter(self, address=None, node_type=None, connected=True, ip_address=None, machine=None):
+    def filter(self, address=None, node_type=None, connected=True, ip_address=None, machine=None, pid=None):
         addresses = _as_set(address)
         node_types = _as_set(node_type)
         ip_addresses = _as_set(ip_address)
         machines = _as_set(machine)
+        pids = _as_set(pid)
 
         while True:
             try:
                 peers = self.values()
-                if addresses is not None:
-                    peers = filter(lambda p: addresses & p.addresses, peers)
-                if node_types is not None:
-                    peers = filter(lambda p: p.node_type in node_types, peers)
                 if connected is not None:
                     peers = filter(lambda p: p.is_connected == connected, peers)
+                if addresses is not None:
+                    peers = filter(lambda p: addresses & p.addresses, peers)
                 if ip_addresses is not None:
                     peers = filter(lambda p: ip_addresses & p.ip_addresses(), peers)
+                if node_types is not None:
+                    peers = filter(lambda p: p.node_type in node_types, peers)
                 if machines is not None:
                     peers = filter(lambda p: p.machine in machines, peers)
+                if pids is not None:
+                    peers = filter(lambda p: p.pid in pids, peers)
                 return list(peers)
             except RuntimeError:
                 pass

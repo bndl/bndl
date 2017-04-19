@@ -133,6 +133,26 @@ class Worker(RMINode):
 
 
     @asyncio.coroutine
+    def await_executors(self, max_wait=1, min_count=None):
+        if min_count == 0:
+            return
+        pids = [m.proc.pid for m in self._monitors]
+        min_count = min_count or len(pids)
+        remaining = max_wait
+        wait = remaining / 1000
+        deadline = time.monotonic() + max_wait
+        while True:
+            if len(self.peers.filter(pid=pids)) >= min_count:
+                break
+            yield from asyncio.sleep(min(wait, remaining), loop=self.loop)
+            remaining = deadline - time.monotonic()
+            wait *= 2
+            if remaining < 0:
+                break
+        return len(self.peers.filter(pid=pids))
+
+
+    @asyncio.coroutine
     def _start_executors(self, n_executors=None):
         if n_executors is None:
             n_executors = bndl.conf['bndl.compute.executor_count']
@@ -149,7 +169,7 @@ class Worker(RMINode):
             n_cores = os.cpu_count()
             pincore = n_cores > 1
 
-        for i in range(n_executors):
+        for i in range(1, n_executors+1):
             if numactl:
                 node = str(sum(self.id) % n_zones)
                 executable = ['numactl', '-N', node, '--preferred', node]
@@ -167,8 +187,12 @@ class Worker(RMINode):
 
             emon = ExecutorMonitor(i, self, executable)
             yield from emon.start()
+#             yield from self.await_executors(MIN_RUN_TIME // (n_executors - i+1), max(0, i // 2))
+            yield from self.await_executors(1, max(0, i // 2))
 
             self._monitors.append(emon)
+
+        yield from self.await_executors(MIN_RUN_TIME)
 
 
     @asyncio.coroutine

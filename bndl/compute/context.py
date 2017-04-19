@@ -35,6 +35,7 @@ from bndl.util.exceptions import catch
 from bndl.util.funcs import as_method
 from bndl.util.funcs import noop
 from bndl.util.lifecycle import Lifecycle
+from bndl.util.threads import OnDemandThreadedExecutor
 
 
 logger = logging.getLogger(__name__)
@@ -69,15 +70,17 @@ class ComputeContext(Lifecycle):
 
     @classmethod
     def create(cls):
-        driver = start_worker(Worker=Driver)
+        executor = OnDemandThreadedExecutor()
+        load_plugins = executor.submit(plugins.load_plugins)
 
+        driver = start_worker(Worker=Driver)
         stop = noop
 
         try:
             ctx = cls(driver)
-
             from bndl.util import dash
             dash.run(driver, ctx)
+            load_plugins.result()
 
             def stop():
                 dash.stop()
@@ -98,9 +101,6 @@ class ComputeContext(Lifecycle):
 
 
     def __init__(self, node, config=None):
-        # Make sure the BNDL plugins are loaded
-        plugins.load_plugins()
-
         super().__init__()
         self._node = node
         self.conf = copy.copy(config) if config else Config()
@@ -233,7 +233,7 @@ class ComputeContext(Lifecycle):
             # connects as passed
             else:
                 max_connect_gap = max(b - a for a, b in zip(recent_connects, recent_connects[1:]))
-                stable_time = now - 10 * max_connect_gap
+                stable_time = now - min(connect_timeout, 10 * max_connect_gap)
                 if recent_connects[-1] > stable_time:
                     logger.trace('Wait at least %s', stable_time)
                     return False
@@ -298,7 +298,6 @@ class ComputeContext(Lifecycle):
 
     cpu_profiling = property(as_method(CpuProfiling))
     memory_profiling = property(as_method(MemoryProfiling))
-
 
 
     def collection(self, collection, pcount=None, psize=None):
