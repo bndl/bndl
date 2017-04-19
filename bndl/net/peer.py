@@ -402,7 +402,8 @@ class PeerNode(IOTasks):
             elif isinstance(msg, Discovered):
                 yield from self.local._discovered(self, msg)
             elif isinstance(msg, Ping):
-                yield from self.send(Pong())
+                with catch(NotConnected):
+                    yield from self.send(Pong())
             elif isinstance(msg, Pong):
                 pass
             else:
