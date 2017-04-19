@@ -13,10 +13,10 @@
 from collections import Counter
 
 from bndl.compute.tasks import current_node
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class SelectExecutorsTest(DatasetTest):
+class SelectExecutorsTest(ComputeTest):
     def test_require(self):
         executed_on = self.ctx.accumulator(Counter())
         def register_worker(i):

@@ -19,14 +19,11 @@ import time
 
 from bndl.compute import cache
 from bndl.compute.tasks import current_node
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import identity
 
 
-class CachingTest(DatasetTest):
-    executor_count = 3
-
-
+class CachingTest(ComputeTest):
     def get_cachekeys(self):
         fetches = [e.service('tasks').execute(lambda: list(cache._caches.keys()))
                    for e in self.ctx.executors]

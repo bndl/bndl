@@ -11,13 +11,18 @@
 # limitations under the License.
 
 from concurrent.futures._base import TimeoutError
+from unittest.loader import TestLoader
+import os
 import sys
 import time
 import unittest
 
 from bndl.compute.context import ComputeContext
+from bndl.compute.tests.helper import stop_global_test_ctx, global_test_ctx, start_test_ctx, \
+    stop_test_ctx
 from bndl.compute.worker import start_worker
 from bndl.net.aio import run_coroutine_threadsafe, get_loop
+from bndl.util.collection import flatten
 from bndl.util.conf import Config
 import bndl
 
@@ -30,45 +35,30 @@ class ComputeTest(unittest.TestCase):
     def setUpClass(cls):
         # Increase switching interval to lure out race conditions a bit ...
         sys.setswitchinterval(1e-6)
-
-        bndl.conf['bndl.net.aio.uvloop'] = False
-        bndl.conf['bndl.compute.executor_count'] = 0
-        bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.1:0'
-        bndl.conf.update(cls.config)
-
-        cls.ctx = ComputeContext.create()
-
-        cls.workers = []
-        if cls.executor_count > 0:
-            bndl.conf['bndl.net.seeds'] = cls.ctx.node.addresses
-            n_workers = cls.executor_count // 2 + 1
-            for i in range(n_workers):
-                bndl.conf['bndl.net.listen_addresses'] = 'tcp://127.0.0.%s:0' % (i + 2)
-                worker = start_worker()
-                cls.workers.append(worker)
-
-            for i in range(cls.executor_count):
-                worker = cls.workers[i % n_workers]
-                worker.start_executors(1)
-
-        for _ in range(2):
-            cls.ctx.await_executors(cls.executor_count, 20, 120)
-        assert cls.ctx.executor_count == cls.executor_count, \
-            '%s != %s' % (cls.ctx.executor_count, cls.executor_count)
-        for ex in cls.ctx.executors:
-            assert not ex.ip_addresses() & cls.ctx.node.ip_addresses()
+        if cls.executor_count != 3 or cls.config:
+            bndl.conf.update(cls.config)
+            cls.ctx, cls.workers = start_test_ctx(cls.executor_count)
+        else:
+            cls.ctx, cls.workers = global_test_ctx(3)
 
     @classmethod
     def tearDownClass(cls):
-        cls.ctx.stop()
-        try:
-            for w in cls.workers:
-                w.stop_async().result(60)
-        except TimeoutError:
-            pass
+        if cls.executor_count != 3 or cls.config:
+            stop_test_ctx(cls.ctx, cls.workers)
         bndl.conf.clear()
         sys.setswitchinterval(5e-3)
 
 
-class DatasetTest(ComputeTest):
-    pass
+class ComputeTestSuite(unittest.TestSuite):
+    def run(self, result, debug=False):
+        global_test_ctx(3)
+        result = unittest.TestSuite.run(self, result, debug=debug)
+        stop_global_test_ctx()
+        return result
+
+
+def load_tests(loader, standard_tests, pattern):
+    suite = ComputeTestSuite()
+    suite.addTests(loader.discover(start_dir=os.path.dirname(__file__),
+                                   pattern=pattern or 'test*.py'))
+    return suite

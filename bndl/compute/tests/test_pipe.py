@@ -12,11 +12,11 @@
 
 import time
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.net.rmi import InvocationException
 
 
-class PipeTest(DatasetTest):
+class PipeTest(ComputeTest):
     def test_sort(self):
         lines = [
             'abc\n',

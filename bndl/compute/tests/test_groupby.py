@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import iseven
 
 
-class GroupbyTest(DatasetTest):
+class GroupbyTest(ComputeTest):
     def test_group_by(self):
         self.assertEqual(self.ctx.range(10).group_by(iseven).map_values(sorted).collect(),
                          [(False, [1, 3, 5, 7, 9]), (True, [0, 2, 4, 6, 8])])

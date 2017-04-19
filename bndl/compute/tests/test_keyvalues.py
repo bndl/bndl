@@ -13,11 +13,11 @@
 from itertools import chain
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import iseven, neg, identity, isodd
 
 
-class KeyValuesTest(DatasetTest):
+class KeyValuesTest(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.range(10, pcount=3)
 

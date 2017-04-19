@@ -13,10 +13,10 @@
 from collections import Counter
 from operator import add
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class TreeAggregateTest(DatasetTest):
+class TreeAggregateTest(ComputeTest):
     def setUp(self):
         super().setUp()
         self.dset = self.ctx.range(1000, pcount=100)

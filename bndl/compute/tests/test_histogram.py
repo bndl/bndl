@@ -12,11 +12,11 @@
 
 from random import random
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 import numpy as np
 
 
-class HistogramTest(DatasetTest):
+class HistogramTest(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.collection([int(random() * 100) for _ in range(1000)])
 

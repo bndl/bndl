@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class KeyByIdTest(DatasetTest):
+class KeyByIdTest(ComputeTest):
     def test_key_by_id(self):
         with_id = self.ctx.range(10000).key_by_id()
         self.assertEqual(with_id.count(), with_id.keys().count_distinct())

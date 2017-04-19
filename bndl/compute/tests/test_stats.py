@@ -13,12 +13,10 @@
 from unittest.case import SkipTest
 import math
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class StatsTest(DatasetTest):
-    executor_count = 3
-
+class StatsTest(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.range(1000)
 

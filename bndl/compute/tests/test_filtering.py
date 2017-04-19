@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class FilterTest(DatasetTest):
+class FilterTest(ComputeTest):
     def test_filter_lamba(self):
         self.assertEqual(self.ctx.range(1, 100).filter(lambda i: i % 2).count(), 50)
 

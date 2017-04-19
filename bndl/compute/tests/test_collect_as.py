@@ -18,13 +18,13 @@ import json
 import pickle
 
 from bndl.compute.dataset import Dataset
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.net.rmi import InvocationException
 from bndl.util.compat import lz4_decompress
 from bndl.util.fs import listdirabs, read_file
 
 
-class CollectAsTest(DatasetTest):
+class CollectAsTest(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.collection(list(range(100)), pcount=3)
         self.dsets = (

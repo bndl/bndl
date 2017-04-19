@@ -20,16 +20,14 @@ import time
 
 from cytoolz.itertoolz import pluck
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.collection import flatten
 
 
 logger = logging.getLogger(__name__)
 
 
-class ShuffleTest(DatasetTest):
-    executor_count = 3
-
+class ShuffleTest(ComputeTest):
     config = {
         'bndl.compute.memory.limit': 1
     }
@@ -82,9 +80,7 @@ class ShuffleTest(DatasetTest):
 
 
 
-class ShuffleCacheTest(DatasetTest):
-    executor_count = 3
-
+class ShuffleCacheTest(ComputeTest):
     def test_shuffle_cache(self):
         def mapper(ctr, i):
             ctr += i
@@ -149,7 +145,7 @@ def keyby_mapper(killers, key_count, i):
     return (i % key_count, i)
 
 
-class ShuffleFailureTest(DatasetTest):
+class ShuffleFailureTest(ComputeTest):
     executor_count = 10
 
     def _test_dependency_failure(self, dset_size, pcount, key_count, kill_after):

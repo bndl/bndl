@@ -14,10 +14,10 @@ from functools import reduce
 from itertools import product
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class CartesianProductTest(DatasetTest):
+class CartesianProductTest(ComputeTest):
     def test_product(self):
         a = string.ascii_letters
         b = string.ascii_lowercase

@@ -13,12 +13,12 @@
 import pickle
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 import bndl
 import numpy as np
 
 
-class BroadcastTest(DatasetTest):
+class BroadcastTest(ComputeTest):
     serializations = ['auto', 'pickle', 'marshal', 'json', 'text', 'binary']
 
 

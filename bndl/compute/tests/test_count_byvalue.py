@@ -12,10 +12,10 @@
 
 from collections import Counter
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class CountByValueTest(DatasetTest):
+class CountByValueTest(ComputeTest):
     def test_count(self):
         dset = self.ctx.range(0, 1000).map(lambda i: i % 10)
         self.assertEqual(dset.count_by_value(), Counter(dset.collect()))

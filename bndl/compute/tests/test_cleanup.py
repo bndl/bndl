@@ -13,8 +13,8 @@
 # TODO test Dataset.clean
 # also with DAGs
 #
-# from bndl.compute.tests import DatasetTest
+# from bndl.compute.tests import ComputeTest
 #
 #
-# class CleanupTest(DatasetTest):
+# class CleanupTest(ComputeTest):
 #     ...

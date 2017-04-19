@@ -12,11 +12,11 @@
 
 import random
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import getter, identity
 
 
-class SortTest(DatasetTest):
+class SortTest(ComputeTest):
     def test_sort(self):
         for length in (10, 1000):
             for maxint in (3, 10, 100, 1000):

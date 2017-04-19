@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class RangeTest(DatasetTest):
+class RangeTest(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.range(1000)
 

@@ -12,10 +12,10 @@
 
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class SlicingTest(DatasetTest):
+class SlicingTest(ComputeTest):
     def test_limit(self):
         dset = self.ctx.collection(string.ascii_lowercase)
         self.assertEqual(dset.first(), string.ascii_lowercase[0])

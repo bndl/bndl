@@ -16,7 +16,7 @@ import signal
 import time
 
 from bndl.compute.tasks import current_node, TaskCancelled
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.net.connection import NotConnected
 from bndl.net.rmi import InvocationException
 
@@ -32,7 +32,7 @@ def kill_executor(executor):
         pass
 
 
-class TaskFailureTest(DatasetTest):
+class TaskFailureTest(ComputeTest):
     executor_count = 5
 
     def test_assert_raises(self):

@@ -11,7 +11,7 @@
 # limitations under the License.
 
 from bndl.compute.stats import MultiVariateStats, Stats
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 import numpy as np
 
 
@@ -33,7 +33,7 @@ arrs = [
 
 
 
-class MvStatsTest(DatasetTest):
+class MvStatsTest(ComputeTest):
     def test_local(self):
         for arr_a, arr_b in arrs:
             mvs_a = MultiVariateStats(width, arr_a)

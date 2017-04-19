@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class ManyNodesTest(DatasetTest):
+class ManyNodesTest(ComputeTest):
     executor_count = 8
 
     def test_many_nodes(self):

@@ -12,10 +12,10 @@
 
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class CollectionTest(DatasetTest):
+class CollectionTest(ComputeTest):
 
     def test_slices(self):
         dset = self.ctx.collection(string.ascii_lowercase)

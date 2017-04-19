@@ -12,10 +12,10 @@
 
 from statistics import mean
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class SampleTest(DatasetTest):
+class SampleTest(ComputeTest):
     def test_sample(self):
         count = 1000000
         dset = self.ctx.range(count, pcount=self.executor_count * 2)

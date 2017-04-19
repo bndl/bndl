@@ -15,10 +15,10 @@ import sys
 
 from cyhll import HyperLogLog
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class CountDistinctTest(DatasetTest):
+class CountDistinctTest(ComputeTest):
     def test_approx(self):
         tvalues = [
             [random() * 2 ** 128 for _ in range(10000)],

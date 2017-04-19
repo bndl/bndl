@@ -12,10 +12,10 @@
 
 import string
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class TakeOrderedTest(DatasetTest):
+class TakeOrderedTest(ComputeTest):
 
     def test_nokey(self):
         dset = self.ctx.collection(string.ascii_lowercase).shuffle()

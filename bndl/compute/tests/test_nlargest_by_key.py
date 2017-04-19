@@ -14,10 +14,10 @@ from heapq import nlargest, nsmallest
 from itertools import groupby, product
 
 from bndl.compute.dataset import Dataset
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class LargestByKeyTest(DatasetTest):
+class LargestByKeyTest(ComputeTest):
     def test_nlargest_by_key(self):
         ks = [3, 7]
         ops = [(nlargest, Dataset.nlargest_by_key),

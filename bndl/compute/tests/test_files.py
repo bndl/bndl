@@ -19,12 +19,12 @@ import os.path
 
 from cytoolz import interleave, pluck
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util import strings
 from bndl.util.compat import lz4_compress
 
 
-class FilesTest(DatasetTest):
+class FilesTest(ComputeTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

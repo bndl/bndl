@@ -13,11 +13,11 @@
 from itertools import chain
 import operator
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import identity
 
 
-class MappingTest(DatasetTest):
+class MappingTest(ComputeTest):
     def setUp(self):
         super().setUp()
         self.dset = self.ctx.range(10, pcount=3)

@@ -10,11 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import iseven, isodd
 
 
-class TestDistinct(DatasetTest):
+class TestDistinct(ComputeTest):
     def setUp(self):
         self.dset = self.ctx.range(1000, pcount=3)
 

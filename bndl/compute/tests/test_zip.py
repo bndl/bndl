@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class ZipTest(DatasetTest):
+class ZipTest(ComputeTest):
 
     def test_zip(self):
         left = self.ctx.range(1000)

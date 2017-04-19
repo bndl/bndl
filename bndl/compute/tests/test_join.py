@@ -13,7 +13,7 @@
 from itertools import product, chain, groupby
 from operator import itemgetter
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util.funcs import iseven, isodd
 
 
@@ -22,7 +22,7 @@ def groups(partition):
         yield key, list(group)
 
 
-class JoinTest(DatasetTest):
+class JoinTest(ComputeTest):
     def test_join(self):
         a = range(0, 50)
         b = range(50, 100)

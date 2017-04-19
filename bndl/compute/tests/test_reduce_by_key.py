@@ -13,11 +13,11 @@
 from collections import Counter
 from operator import add
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.util import strings
 
 
-class ReduceByKeyTest(DatasetTest):
+class ReduceByKeyTest(ComputeTest):
     def test_wordcount(self):
         words = [strings.random(2) for _ in range(100)] * 5
         counts = Counter(words)

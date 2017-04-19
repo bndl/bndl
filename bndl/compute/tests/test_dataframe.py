@@ -13,12 +13,12 @@
 import csv
 import tempfile
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 import numpy as np
 import pandas as pd
 
 
-class DataFrameTest(DatasetTest):
+class DataFrameTest(ComputeTest):
     df_size = 100
 
     @classmethod

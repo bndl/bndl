@@ -10,10 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class CoalescePartsTest(DatasetTest):
+class CoalescePartsTest(ComputeTest):
     def test_range(self):
         data = list(range(100))
         dset = self.ctx.collection(data, pcount=10)

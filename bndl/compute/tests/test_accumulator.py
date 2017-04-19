@@ -13,10 +13,10 @@
 from math import factorial
 import sys
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class AccumulatorTest(DatasetTest):
+class AccumulatorTest(ComputeTest):
     def test_ops(self):
         inc_accum = self.ctx.accumulator(0)
         dec_accum = self.ctx.accumulator(0)

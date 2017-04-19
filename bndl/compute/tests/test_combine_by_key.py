@@ -15,10 +15,10 @@ from operator import itemgetter
 
 from cytoolz.itertoolz import pluck
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 
 
-class ReduceByKeyTest(DatasetTest):
+class ReduceByKeyTest(ComputeTest):
     def test_average(self):
         values = range(100)
         keys = list(map(lambda i: i // 20, values))
