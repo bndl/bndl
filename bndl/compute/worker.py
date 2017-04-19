@@ -193,9 +193,7 @@ class Worker(RMINode):
 
             emon = ExecutorMonitor(i, self, executable)
             yield from emon.start()
-#             yield from self.await_executors(MIN_RUN_TIME // (n_executors - i+1), max(0, i // 2))
-            yield from self.await_executors(1, max(0, i // 2))
-
+            yield from self.await_executors(MIN_RUN_TIME // 100, max(0, i // 2))
             self._monitors.append(emon)
 
         yield from self.await_executors(MIN_RUN_TIME)
