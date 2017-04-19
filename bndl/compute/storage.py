@@ -92,7 +92,6 @@ def _get_workdir(disk):
            _is_writable_path(path)
     ]
 
-    paths.sort(key=lambda path: psutil.disk_usage(path).free, reverse=True)
     return paths[0]
 
 
@@ -333,30 +332,26 @@ class FileData(object):
 
     def __getstate__(self):
         filepath = self.filepath
-        workdir = self.workdir
         attach(*file_attachment(filepath, 0, os.path.getsize(filepath)))
         return {
             'id': self.id,
-            'filepath': (workdir, filepath.replace(workdir, '')),
+            'filepath': filepath,
         }
 
 
     def __setstate__(self, state):
-        workdir_src, filepath_src = state.pop('filepath')
-        data = attachment((workdir_src + filepath_src).encode('utf-8'))
-
         self.__dict__.update(state)
+
+        data = attachment(self.filepath.encode('utf-8'))
 
         if is_remote(data):
             self.data = memoryview(data)[1:]
             self.__class__ = InMemoryData
         else:
-            filepath_dst_base = self.workdir + filepath_src
-            filepath_src = workdir_src + filepath_src
-            os.makedirs(os.path.dirname(filepath_dst_base), exist_ok=True)
+            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
             def link():
-                filepath_dst = filepath_dst_base + '.' + random_id()
-                os.link(filepath_src, filepath_dst)
+                filepath_dst = self.filepath + '.' + random_id()
+                os.link(self.filepath, filepath_dst)
                 self.filepath = filepath_dst
             do_with_retry(link, 3, transients=(FileExistsError,))
 
