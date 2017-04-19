@@ -57,11 +57,6 @@ def _executor_address(worker_address, executor_id):
 
 
 def main():
-    # Make sure numpy, scipy etc don't ask OMP to create as much threads as there are cores as BNDL is
-    # already parallelizing work.
-    if 'OMP_NUM_THREADS' not in os.environ:
-        os.environ['OMP_NUM_THREADS'] = '2'
-
     # Set the soft limit for the maximum number of open files to the hard limit.
     for r in (resource.RLIMIT_NOFILE, resource.RLIMIT_NPROC):
         low, high = resource.getrlimit(r)

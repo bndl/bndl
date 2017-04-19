@@ -67,13 +67,19 @@ class ExecutorMonitor(object):
 
     @asyncio.coroutine
     def _create_process(self):
-        env = dict(
-            os.environ,
-            PYTHONHASHSEED='0'
-        )
+        env = dict(os.environ)
+
+        # Make sure hashes aren't salted so that an object gets the same hash across processes
+        env['PYTHONHASHSEED'] = '0'
+
+        # Make sure numpy, scipy etc don't ask OMP to create as much threads as there are cores as
+        # BNDL is already parallelizing work.
+        env['OMP_NUM_THREADS'] = '2'
+
         self.proc = yield from asyncio.create_subprocess_exec(
             *self.executable, loop=self.loop, stdin=None, stdout=None, stderr=None, env=env
         )
+
         self.started_on = time.time()
 
 
@@ -169,7 +175,7 @@ class Worker(RMINode):
             n_cores = os.cpu_count()
             pincore = n_cores > 1
 
-        for i in range(1, n_executors+1):
+        for i in range(1, n_executors + 1):
             if numactl:
                 node = str(sum(self.id) % n_zones)
                 executable = ['numactl', '-N', node, '--preferred', node]
