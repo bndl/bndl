@@ -120,13 +120,11 @@ class Tasks(object):
     def get_task_result(self, src, task_id):
         logger.debug('Collecting result of task %r for %r', task_id, src.name)
         try:
-            task = self.tasks[task_id]
+            task = self.tasks.pop(task_id)
             return (yield from task.result)
         except KeyError:
             logger.error('No task with id %r', task_id)
             raise
-        finally:
-            self.tasks.pop(task_id, None)
 
 
     @asyncio.coroutine
