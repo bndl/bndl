@@ -191,7 +191,7 @@ class Scheduler(object):
                         # on this executor and the dependency failed
                         continue
                     elif not (self.executable or self.pending):
-                        assert not sum(1 for _ in filter(None, self.blocked.values()))
+                        assert not any(1 for _ in filter(None, self.blocked.values()))
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug('No more tasks to execute or pending')
                         break
@@ -226,7 +226,6 @@ class Scheduler(object):
                                 raise
                             except Exception as exc:
                                 task.mark_failed(exc)
-                                self.task_done(task)
                         else:
                             self.executors_idle.add(executor)
 
@@ -326,11 +325,13 @@ class Scheduler(object):
         if not task.done:
             return
 
-        try:
-            # nothing to do, scheduling was aborted
-            if self._abort:
-                return
+        # nothing to do, scheduling was aborted
+        if self._abort:
+            return
 
+        executor = task.last_executed_on()
+
+        try:
             with self.lock:
                 self.pending.discard(task)
 
@@ -340,7 +341,7 @@ class Scheduler(object):
                     # assert task.succeeded, '%r not failed and not succeeded' % task
                     # assert task not in self.succeeded, '%r completed while already in succeeded list' % task
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug('%r was executed on %r', task, task.last_executed_on())
+                        logger.debug('%r was executed on %r', task, executor)
                     # add to executed and signal done
                     self.succeeded.add(task)
                     self.done(task)
@@ -350,16 +351,20 @@ class Scheduler(object):
                         blocked_by.discard(task.id)
                         if not blocked_by and dependent:
                             if dependent in self.succeeded:
-                                logger.debug('%r unblocked because %r was executed, but already succeeded', dependent, task)
+                                logger.trace('%r unblocked because %r was executed, '
+                                             'but already succeeded', dependent, task)
                             else:
-                                logger.debug('%r unblocked because %r was executed', dependent, task)
+                                logger.debug('%r unblocked because %r was executed',
+                                             dependent, task)
                                 self.set_executable(dependent)
 
-                self.executors_ready.append(task.last_executed_on())
-                self.condition.notify()
+                if executor and executor not in self.executors_failed and \
+                   not isinstance(task.exception(0), FailedDependency):
+                    self.executors_ready.append(executor)
+                    self.condition.notify()
         except Exception as exc:
             logger.exception('Unable to handle task completion of %r on %r',
-                             task, task.last_executed_on())
+                             task, executor)
             self.abort(exc)
 
 
@@ -398,13 +403,13 @@ class Scheduler(object):
                         # mark the executor as failed
                         last_executed_on = dependency.last_executed_on()
                         if not executor or executor == last_executed_on:
-                            if executor == last_executed_on:
+                            if executor and executor == last_executed_on:
                                 logger.info('Marking %r as failed for dependency %s of %s',
                                             executor, dependency, task)
                                 self.executors_failed.add(executor)
                                 self.executors_idle.discard(executor)
-                            dependency.mark_failed(FailedDependency(executor))
-                            self.task_failed(dependency)
+                            if not dependency.failed:
+                                dependency.mark_failed(FailedDependency(executor))
                         else:
                             # this should only occur with really really short tasks where the failure of a
                             # task noticed by task b is already obsolete because of the dependency was already
@@ -446,7 +451,7 @@ class Scheduler(object):
 
         # block its dependencies
         for dependent in task.dependents:
-            logger.debug('%r is blocked by %r because it failed', dependent, task)
+            logger.debug('%r is blocked by failure of %r', dependent, task)
             self.blocked[dependent].add(task.id)
             self.executable.discard(dependent)
 
