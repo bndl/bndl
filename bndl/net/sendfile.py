@@ -98,8 +98,9 @@ class FileAttacher(object):
             yield from sendfile(socket.fileno(), self.fd,
                                 self.offset, self.size,
                                 self.loop)
-        except:
+        except Exception:
             logger.exception('Unable to send file %r', self.key)
+            raise
 
 
 
