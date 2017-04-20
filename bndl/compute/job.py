@@ -122,8 +122,8 @@ class Task(Lifecycle):
     def succeeded(self):
         try:
             fut = self.future
-            return bool(fut and not fut.exception(0))
-        except (CancelledError, TimeoutError):
+            return bool(fut and fut.result(0))
+        except Exception:
             return False
 
 
@@ -154,6 +154,7 @@ class Task(Lifecycle):
         '''
         if not self.done:
             future = self.future = Future()
+            future.set_exception(None)
             future.set_result(result)
             if not self.stopped_on:
                 self.stopped_on = datetime.now()
@@ -180,10 +181,17 @@ class Task(Lifecycle):
         return self.future.result()
 
 
-    def exception(self):
+    def exception(self, timeout=-1):
         '''Get the exception of the task (blocks).'''
-        assert self.future, 'task %r not yet started' % self
-        return self.future.exception()
+        fut = self.future
+        assert fut, 'task %r not yet started' % self
+        if timeout == -1:
+            return fut.exception()
+        else:
+            try:
+                return fut.exception(timeout)
+            except (CancelledError, TimeoutError):
+                return False
 
 
     def last_executed_on(self):
@@ -285,6 +293,7 @@ class RmiTask(Task):
                                 self, self.last_executed_on(), exc_info=True)
         else:
             if fut and not fut.cancelled():
+                fut.set_exception(None)
                 fut.set_result(result)
             else:
                 logger.info('task %s (%s) completed, but not expecting result')
