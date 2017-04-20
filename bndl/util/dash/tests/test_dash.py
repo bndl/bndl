@@ -15,12 +15,12 @@ import unittest
 
 import flask
 
-from bndl.compute.tests import DatasetTest
+from bndl.compute.tests import ComputeTest
 from bndl.net.rmi import InvocationException
 from bndl.util.dash import app, _load_dashes, dashes
 
 
-class DashTestCase(DatasetTest):
+class DashTestCase(ComputeTest):
     def setUp(self):
         _load_dashes()
         @app.before_request
