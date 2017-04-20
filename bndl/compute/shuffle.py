@@ -115,16 +115,17 @@ class Bucket:
         # calculate the size of an element for splitting the batch into several blocks
         if self.element_size is None:
             self.element_size = self._estimate_element_size(data)
+        mb_per_el = 1024 * 1024 / max(1, self.element_size)
 
         # split into several blocks and chunks if necessary
-        block_size_recs = ceil(self.block_size_mb * 1024 * 1024 / self.element_size)
+        block_size_recs = ceil(self.block_size_mb * mb_per_el)
 
         if block_size_recs > len(data):
             blocks = [data]
         else:
             blocks = list(batch_data(data, block_size_recs))
         if self.chunk_size_mb != self.block_size_mb:
-            chunk_size_recs = ceil(self.chunk_size_mb * 1024 * 1024 / self.element_size)
+            chunk_size_recs = ceil(self.chunk_size_mb * mb_per_el)
             for i in range(len(blocks)):
                 blocks[i] = list(batch_data(blocks[i], chunk_size_recs))
             return blocks
