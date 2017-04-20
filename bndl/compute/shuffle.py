@@ -469,8 +469,9 @@ class ShuffleReadingPartition(Partition):
         # if a dependency wasn't executed yet (e.g. cache after shuffle)
         # raise dependencies failed for restart
         if None in dependency_locations:
-            logger.warning('Unable to compute %r because dependency locations are unknown for %r',
-                           self, dependency_locations[None])
+            unknown = sorted(pluck(1, chain.from_iterable(dependency_locations[None].values())))
+            logger.warning('Unable to compute %s because locations are unknown for %r',
+                           '.'.join(map(str, self.id)), unknown)
             raise DependenciesFailed({None: dependency_locations[None]})
 
         source_names = set(dependency_locations.keys())
