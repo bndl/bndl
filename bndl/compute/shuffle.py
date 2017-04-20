@@ -425,7 +425,12 @@ class ShuffleWritingPartition(Partition):
                 memcheck()
 
         batches = [bucket.batches for bucket in buckets]
-        worker.service('shuffle').set_buckets(self.id, batches).result()
+        try:
+            worker.service('shuffle').set_buckets(self.id, batches).result()
+        except Exception:
+            logger.exception('Unable to send buckets to worker/driver for part %s.%s',
+                             self.dset.id, self.idx)
+            raise
 
         logger.info('partitioned %s.%s of %s elem\'s, serialized %.1f mb',
                     self.dset.id, self.idx, elements_partitioned, bytes_serialized / 1024 / 1024)
