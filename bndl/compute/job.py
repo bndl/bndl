@@ -244,12 +244,13 @@ class RmiTask(Task):
 
 
     def execute(self, scheduler, executor):
+        assert not self.handle and not self.succeeded
         self.set_executing(executor)
-        future = self.future = Future()
-        future2 = executor.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
-        future2.executor = executor
-        future2.add_done_callback(self._task_scheduled)
-        return future
+        result_future = self.future = Future()
+        schedule_future = executor.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
+        schedule_future.executor = executor
+        schedule_future.add_done_callback(self._task_scheduled)
+        return result_future
 
 
     def _last_executor(self):
@@ -257,15 +258,15 @@ class RmiTask(Task):
             return self.ctx.node.peers.get(self.executed_on[-1])
 
 
-    def _task_scheduled(self, future):
+    def _task_scheduled(self, schedule_future):
         try:
-            self.handle = future.result()
+            self.handle = schedule_future.result()
         except Exception as exc:
             self.mark_failed(exc)
         else:
             try:
-                future = self._last_executor().service('tasks').get_task_result(self.handle)
-                future.add_done_callback(self._task_completed)
+                result_future = schedule_future.executor.service('tasks').get_task_result(self.handle)
+                result_future.add_done_callback(self._task_completed)
             except NotConnected as exc:
                 self.mark_failed(exc)
 
