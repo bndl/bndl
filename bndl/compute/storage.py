@@ -357,14 +357,15 @@ class FileData(object):
 
 
     def remove(self):
-        if hasattr(self, 'filepath'):
+        filepath = getattr(self, 'filepath')
+        if filepath:
             try:
-                os.unlink(self.filepath)
+                os.unlink(filepath)
             except (AttributeError, FileNotFoundError):
                 pass
             except Exception:
                 logger.exception('Unable to clear file %s for id %s' %
-                                 (self.filepath, self.id))
+                                 (filepath, self.id))
 
 
     def __del__(self):
