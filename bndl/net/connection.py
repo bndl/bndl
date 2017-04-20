@@ -128,7 +128,10 @@ class Connection(object):
     def __init__(self, loop, reader, writer):
         self.loop = loop
         self.reader = reader
-        self.readexactly = types.MethodType(aio.readexactly, self.reader)
+        if sys.version_info < (3,5):
+            self.readexactly = types.MethodType(aio.readexactly, self.reader)
+        else:
+            self.readexactly = self.reader.readexactly
         self.writer = writer
         self.write_lock = asyncio.Lock(loop=self.loop)
         self.bytes_received = 0
