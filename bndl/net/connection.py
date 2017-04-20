@@ -248,10 +248,7 @@ class Connection(object):
         except BrokenPipeError as exc:
             raise NotConnected() from exc
         except asyncio.streams.IncompleteReadError as exc:
-            if not exc.partial:
-                raise NotConnected() from exc
-            else:
-                raise
+            raise NotConnected() from exc
 
 
     def __lt__(self, other):
