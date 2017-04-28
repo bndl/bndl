@@ -46,7 +46,6 @@ def stop_test_ctx(ctx, workers):
 test_ctx = None
 test_workers = None
 
-
 def global_test_ctx(executor_count):
     global test_ctx, test_workers
     if test_ctx is None:
@@ -54,6 +53,10 @@ def global_test_ctx(executor_count):
         test_ctx, test_workers = start_test_ctx(executor_count)
     return test_ctx, test_workers
 
+
+def get_global_test_ctx():
+    return test_ctx, test_workers
+    
 
 def stop_global_test_ctx(executor_count):
     global test_ctx, test_workers

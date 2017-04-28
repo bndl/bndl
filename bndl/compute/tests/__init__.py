@@ -19,7 +19,7 @@ import unittest
 
 from bndl.compute.context import ComputeContext
 from bndl.compute.tests.helper import stop_global_test_ctx, global_test_ctx, start_test_ctx, \
-    stop_test_ctx
+    stop_test_ctx, get_global_test_ctx
 from bndl.compute.worker import start_worker
 from bndl.net.aio import run_coroutine_threadsafe, get_loop
 from bndl.util.collection import flatten
@@ -30,6 +30,7 @@ import bndl
 class ComputeTest(unittest.TestCase):
     executor_count = 3
     config = {}
+    _tear_down_ctx = False
 
     @classmethod
     def setUpClass(cls):
@@ -39,11 +40,15 @@ class ComputeTest(unittest.TestCase):
             bndl.conf.update(cls.config)
             cls.ctx, cls.workers = start_test_ctx(cls.executor_count)
         else:
-            cls.ctx, cls.workers = global_test_ctx(3)
+            cls.ctx, cls.workers = get_global_test_ctx()
+            if cls.ctx is None:
+                assert cls.workers is None
+                cls.ctx, cls.workers = start_test_ctx(cls.executor_count)
+                cls._tear_down_ctx = True
 
     @classmethod
     def tearDownClass(cls):
-        if cls.executor_count != 3 or cls.config:
+        if cls._tear_down_ctx:
             stop_test_ctx(cls.ctx, cls.workers)
         bndl.conf.clear()
         sys.setswitchinterval(5e-3)
