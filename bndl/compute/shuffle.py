@@ -30,9 +30,9 @@ from bndl.compute.tasks import task_context
 from bndl.net import rmi
 from bndl.net.connection import NotConnected
 from bndl.net.rmi import InvocationException
-from bndl.util.collection import batch as batch_data, ensure_collection, flatten
+from bndl.util.collection import batch as batch_data, ensure_collection, flatten, sortgroupby
 from bndl.util.conf import Float
-from bndl.util.funcs import star_prefetch, identity
+from bndl.util.funcs import star_prefetch, identity, getter
 from bndl.util.hash import portable_hash
 from cyheapq import merge
 
@@ -475,13 +475,18 @@ class ShuffleReadingPartition(Partition):
         # if a dependency wasn't executed yet (e.g. cache after shuffle)
         # raise dependencies failed for restart
         if None in dependency_locations:
-            unknown = sorted(pluck(1, chain.from_iterable(dependency_locations[None].values())))
-            logger.warning('Unable to compute %s because locations are unknown for %r',
-                           '.'.join(map(str, self.id)), unknown)
+            unknown = chain.from_iterable(dependency_locations[None].values())
+            unknown = sortgroupby(unknown, getter(0))
+            unknown = ['%s:[%s]' % (dset_id, ','.join(map(str, sorted(pluck(1, deps)))))
+                       for dset_id, deps in unknown]
+            logger.warning('Unable to compute %s because locations are unknown for %s',
+                           '.'.join(map(str, self.id)), ', '.join(unknown))
             raise DependenciesFailed({None: dependency_locations[None]})
 
         source_names = set(dependency_locations.keys())
-        assert executor.name not in source_names
+        assert executor.name not in source_names, "Executors don't host shuffle results, and" \
+                                                  " should thus not appear as source: %r" \
+                                                  % source_names
 
         # sort the source executor names relative to the name of the local executor
         # if every node does this, load will be spread more evenly in reading blocks
