@@ -151,6 +151,19 @@ def star_prefetch(function, sequence):
     return prefetch(lambda args: function(*args), sequence)
 
 
+def allequal(x):
+    '''
+    Check if all elements in x are equal.
+    '''
+    cdef object a, b
+    x = iter(x)
+    a = next(x)
+    for b in x:
+        if a != b:
+            return False
+    return True
+
+
 def neg(x):
     return -x
 
