@@ -56,11 +56,13 @@ class ExecutorMonitor(object):
         self.loop.create_task(self.watch())
 
 
+    @asyncio.coroutine
     def stop(self):
         if self.running:
             self.running = False
             try:
                 self.proc.terminate()
+                yield from self.proc.wait()
             except ProcessLookupError:
                 pass
 
@@ -204,8 +206,9 @@ class Worker(RMINode):
         self.memory_manager.stop()
         self.memory_coordinator.stop()
 
-        for emon in self._monitors:
-            emon.stop()
+        yield from asyncio.gather(
+            *(emon.stop() for emon in self._monitors), loop=self.loop
+        )
 
         yield from super().stop()
 
