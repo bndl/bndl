@@ -2246,7 +2246,7 @@ class ComputePartitionTask(RmiTask):
             self.future.set_result(None)
         if self.dependencies and self.failed:
             exc = root_exc(self.exception())
-            if isinstance(exc, DependenciesFailed) or isinstance(exc, FailedDependency):
+            if isinstance(exc, (DependenciesFailed, FailedDependency)):
                 for barrier in self.dependencies:
                     logger.debug('Marking barrier %r before %r as failed', barrier, self)
                     barrier.mark_failed(FailedDependency())
