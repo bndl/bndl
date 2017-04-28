@@ -10,27 +10,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import OrderedDict
 from datetime import datetime
+
+
+NOTSET = object()
 
 
 class Lifecycle(object):
     def __init__(self, name=None, desc=None):
-        self.started_listeners = set()
-        self.stopped_listeners = set()
+        self.started_listeners = OrderedDict()
+        self.stopped_listeners = OrderedDict()
         self.started_on = None
         self.stopped_on = None
         self.cancelled = False
         self.name = name
         self.desc = desc
 
-    def add_listener(self, started, stopped=None):
-        self.started_listeners.add(started)
-        self.stopped_listeners.add(stopped or started)
+    def add_listener(self, started=None, stopped=NOTSET):
+        if started is not None:
+            self.started_listeners[started] = started
+        if stopped is NOTSET:
+            stopped = started
+        if stopped:
+            self.stopped_listeners[stopped] = stopped
 
     def remove_listener(self, *listeners):
         for listener in listeners:
-            self.started_listeners.discard(listener)
-            self.stopped_listeners.discard(listener)
+            self.started_listeners.pop(listener, None)
+            self.stopped_listeners.pop(listener, None)
 
     def cancel(self):
         if self.started_on and not self.stopped_on:
