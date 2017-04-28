@@ -1964,8 +1964,11 @@ class Partition(object):
             return
 
         # memorize the cache location for the partition
-        if dset.cached and not dset._cache_locs.get(self.idx):
-            dset._cache_locs[self.idx] = executor
+        if dset.cached:
+            loc = dset._cache_locs.get(self.idx)
+            peer = dset.ctx.node.peers.get(loc)
+            if not loc or (peer or not peer.is_connected):
+                dset._cache_locs[self.idx] = executor
         # traverse backup up the task (not the entire DAG)
         if self.src:
             if isinstance(self.src, Iterable):
