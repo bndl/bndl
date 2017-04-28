@@ -304,7 +304,7 @@ class FileData(object):
         * dirpath, filename = self.id
         dirpath = os.path.join(self.workdir, *map(str, dirpath))
         os.makedirs(dirpath, exist_ok=True)
-        self.filepath = os.path.join(dirpath, str(filename))
+        self.filepath = os.path.join(dirpath, str(filename)) + '.' + random_id()
         fd = os.open(self.filepath, os.O_CREAT | os.O_WRONLY | os.O_EXCL, mode=0o700)
         try:
             if allocate:
