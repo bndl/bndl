@@ -25,18 +25,26 @@ def camel_to_snake(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
-def fold_strings(strings):
-    strings = list(strings)
+def fold_strings(strings, split=None):
+    if split is not None:
+        strings = [s.split(split) for s in strings]
+    else:
+        strings = list(strings)
+
     if len(strings) == 0:
-        return '-'
+        return ''
     elif len(strings) == 1:
         return strings[0]
     else:
         strings.sort()
         r = [i[0] for i in takewhile(allequal, zip(*strings))]
         if r:
-            prefix = ''.join(r)
-            postfix = ', '.join(s.replace(prefix, '', 1) for s in strings)
+            if split is not None:
+                prefix = split.join(r) + split
+            else:
+                prefix = ''.join(r)
+            postfix = ', '.join((s if split is None else split.join(s)).replace(prefix, '', 1)
+                                for s in strings)
             if postfix:
                 return '%s[%s]' % (prefix, postfix)
             else:
