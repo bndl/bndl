@@ -105,19 +105,25 @@ def dump_threads(*args, **kwargs):
     threads = list(threading.enumerate())
     frames = sys._current_frames()
 
+    tpe_workers = 0
+
     print('Threads (%s) of process %s' % (len(threads), os.getpid()))
     for idx, thread in enumerate(threads, 1):
-        print(' %s id=%s name=%s (%s%s)' % (idx, thread.ident, thread.name, type(thread).__name__,
-                                            (', daemon' if thread.daemon else '')))
         try:
             stack = frames[thread.ident]
         except KeyError:
-            print('   -- terminated --')
+            pass
         else:
             stack = traceback.extract_stack(stack)
             if len(stack) >= 4 and match_thread(stack, TPE_WORKER_TAIL):
-                print('   -- ThreadPoolExecutor.worker idle --')
-                print()
+                tpe_workers += 1
             else:
+                print(' %s id=%s name=%s (%s%s)' %
+                      (idx, thread.ident, thread.name, type(thread).__name__,
+                       (', daemon' if thread.daemon else '')))
                 stack = ''.join(traceback.format_list(stack))
                 print(textwrap.indent(stack, ' '))
+
+    if tpe_workers:
+        print(' Idle ThreadPoolExecutor workers: %s' % tpe_workers)
+        print()
