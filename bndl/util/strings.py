@@ -26,31 +26,34 @@ def camel_to_snake(name):
 
 
 def fold_strings(strings, split=None):
-    if split is not None:
-        strings = [s.split(split) for s in strings]
-    else:
-        strings = list(strings)
+    strings = list(strings)
 
     if len(strings) == 0:
         return ''
     elif len(strings) == 1:
         return strings[0]
-    else:
-        strings.sort()
-        r = [i[0] for i in takewhile(allequal, zip(*strings))]
-        if r:
-            if split is not None:
-                prefix = split.join(r) + split
-            else:
-                prefix = ''.join(r)
-            postfix = ', '.join((s if split is None else split.join(s)).replace(prefix, '', 1)
-                                for s in strings)
-            if postfix:
-                return '%s[%s]' % (prefix, postfix)
-            else:
-                return prefix
+
+    if split is not None:
+        strings = [s.split(split) for s in strings]
+
+    strings.sort()
+    r = [i[0] for i in takewhile(allequal, zip(*strings))]
+
+    if r:
+        if split is not None:
+            prefix = split.join(r) + split
         else:
-            return ', '.join(strings)
+            prefix = ''.join(r)
+        postfix = ', '.join((s if split is None else split.join(s)).replace(prefix, '', 1)
+                            for s in strings)
+        if postfix:
+            return '%s[%s]' % (prefix, postfix)
+        else:
+            return prefix
+    else:
+        if split is not None:
+            strings = (split.join(s) for s in strings)
+        return ', '.join(strings)
 
 
 def random(length=64, alphabet=string.ascii_lowercase + string.digits, rng=None, seed=None):
