@@ -137,27 +137,27 @@ class Worker(RMINode):
 
 
     def start_executors(self, n_executors=None):
-        run_coroutine_threadsafe(self._start_executors(n_executors), self.loop).result()
+        return run_coroutine_threadsafe(self._start_executors(n_executors), self.loop)
 
 
     @asyncio.coroutine
     def await_executors(self, max_wait=1, min_count=None):
         if min_count == 0:
             return
-        pids = [m.proc.pid for m in self._monitors]
-        min_count = min_count or len(pids)
+        pids = lambda: [m.proc.pid for m in self._monitors if m.proc]
+        min_count = min_count or len(pids())
         remaining = max_wait
         wait = remaining / 1000
         deadline = time.monotonic() + max_wait
         while True:
-            if len(self.peers.filter(pid=pids)) >= min_count:
+            if len(self.peers.filter(pid=pids())) >= min_count:
                 break
             yield from asyncio.sleep(min(wait, remaining), loop=self.loop)
             remaining = deadline - time.monotonic()
             wait *= 2
             if remaining < 0:
                 break
-        return len(self.peers.filter(pid=pids))
+        return len(self.peers.filter(pid=pids()))
 
 
     @asyncio.coroutine
@@ -191,12 +191,13 @@ class Worker(RMINode):
                 executable = ['jemalloc.sh'] + executable
 
             executable += [sys.executable, '-m', 'bndl.compute.executor',
-                           self.addresses[0], str(i)]
+                           self.addresses[0], str(len(self._monitors) + 1)]
 
             emon = ExecutorMonitor(i, self, executable)
+            self._monitors.append(emon)
+
             yield from emon.start()
             yield from self.await_executors(MIN_RUN_TIME // 100, max(0, i // 2))
-            self._monitors.append(emon)
 
         yield from self.await_executors(MIN_RUN_TIME)
 
@@ -310,7 +311,7 @@ def start_worker(Worker=Worker, n_executors=None, verbose=0):
     worker.start_async().result()
 
     if n_executors:
-        worker.start_executors(n_executors)
+        worker.start_executors(n_executors).result()
 
     if verbose > 0:
         print(' ' * 80, end='\r')
