@@ -70,14 +70,13 @@ class TaskExecutor(threading.Thread):
             exc = e
             logger.info('Unable to execute %s', self.task, exc_info=True)
 
-        if not self.result.cancelled():
-            try:
-                if exc:
-                    self.node.loop.call_soon_threadsafe(self.result.set_exception, exc)
-                else:
-                    self.node.loop.call_soon_threadsafe(self.result.set_result, result)
-            except RuntimeError:
-                logger.warning('Unable to send response for task %s', self.task)
+        try:
+            if exc:
+                self.node.loop.call_soon_threadsafe(self.result.set_exception, exc)
+            else:
+                self.node.loop.call_soon_threadsafe(self.result.set_result, result)
+        except RuntimeError:
+            logger.warning('Unable to send response for task %s', self.task)
 
 
 
@@ -120,11 +119,14 @@ class Tasks(object):
     def get_task_result(self, src, task_id):
         logger.debug('Collecting result of task %r for %r', task_id, src.name)
         try:
-            task = self.tasks.pop(task_id)
+            task = self.tasks[task_id]
             return (yield from task.result)
         except KeyError:
             logger.error('No task with id %r', task_id)
             raise
+        finally:
+            # pop after result is available - keep it in self.tasks so that it can be cancelled
+            self.tasks.pop(task_id, None)
 
 
     @asyncio.coroutine
@@ -135,7 +137,6 @@ class Tasks(object):
         except KeyError:
             return False
         else:
-            task.result.cancel()
             thread_id = ctypes.c_size_t(task.ident)
             exc = ctypes.py_object(TaskCancelled)
             modified = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, exc)

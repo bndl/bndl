@@ -93,7 +93,7 @@ class Scheduler():
 
         # [tasks which are done (succeeded or failed) for processing by _task_done]
         self.done = deque()
-        
+
         # {executor name -> {task -> locality}}
         self.locality = defaultdict(dict)
 
@@ -188,7 +188,7 @@ class Scheduler():
 
                 if not self.running:
                     break
-                
+
                 while self.done:
                     self._task_done(self.done.popleft())
 
@@ -292,10 +292,13 @@ class Scheduler():
         with self.lock:
             for task in tasks:
                 task.remove_listener(self._task_done_handoff)
-                
+
                 try:
-                    if not task.stopped:
+                    if task.running:
+                        logger.debug('Cancelling %r', task)
                         task.cancel()
+
+                    task.release()
                 except Exception as e:
                     exc.append((task, e))
                 finally:
@@ -309,10 +312,10 @@ class Scheduler():
 
                         for e in self.locality.values():
                             e.pop(task, None)
-                            
+
                         for e in self.forbidden_on.values():
                             e.discard(task)
-                            
+
                         for e in self.executable_on.values():
                             e.discard(task)
 
@@ -340,7 +343,6 @@ class Scheduler():
             if not task.stopped:
                 continue
             elif task.failed:
-                logger.info('%r failed', task, exc_info=task.exception)
                 raise task.exception
 
             try:
@@ -388,17 +390,26 @@ class Scheduler():
         if self.lock.acquire(False):
             self.condition.notify_all()
             self.lock.release()
-        
-        
+
+
     def _task_done(self, task):
         if task.id not in self.tasks:
             logger.info('Unknown task %r signaled done', task)
             return
-        
+
         executor_name = task.last_executed_on()
         executing_on = self.executing_on[executor_name]
 
         with self.lock:
+            try:
+                if task.succeeded:
+                    self._task_succeeded(task)
+                elif task.failed:
+                    self._task_failed(task)
+            except Exception as exc:
+                logger.exception('Unable to handle task completion of %r', task)
+                task.mark_failed(exc)
+
             try:
                 executing_on.remove(task)
             except KeyError:
@@ -412,15 +423,6 @@ class Scheduler():
                 else:
                     logger.info('execution of %r stopped on %r, executor is %r',
                                 task, executor_name, 'unknown' if not executor else 'not connected')
-
-            try:
-                if task.succeeded:
-                    return self._task_succeeded(task)
-                elif task.failed:
-                    return self._task_failed(task)
-            except Exception as exc:
-                logger.exception('Unable to handle task completion of %r', task)
-                task.mark_failed(exc)
 
 
 
@@ -454,7 +456,7 @@ class Scheduler():
                         self._task_done(dependent)
                     else:
                         self._mark_executable(dependent)
-        
+
         self._emit(task)
 
 
@@ -496,7 +498,7 @@ class Scheduler():
                         return
 
                     dependency = dependency[0]
-                    
+
                     if not dependency.failed and \
                        (not result_loc or result_loc == dependency.last_result_on()) and \
                        (not exc_loc or exc_loc == dependency.last_executed_on()):
@@ -507,7 +509,6 @@ class Scheduler():
 
 
     def _transient_failure(self, task):
-        # task.reset()
         if not task.blocked:
             self._mark_executable(task)
 
@@ -539,7 +540,7 @@ class Scheduler():
 
         if not task.succeeded:
             self.executable.add(task)
-    
+
             localities = list(task.locality(self.executors.values()) or ())
             for executor, locality in localities:
                 executor_name = executor.name
@@ -548,7 +549,7 @@ class Scheduler():
                     self.executable_on[executor_name].add(task)
                 elif locality < 0:
                     self.forbidden_on[executor_name].add(task)
-    
+
             if logger.isEnabledFor(logging.TRACE):
                 for locality, group in sortgroupby(localities, getter(1)):
                     logger.trace('%r has locality %s on %s',

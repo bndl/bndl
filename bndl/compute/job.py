@@ -86,14 +86,6 @@ class Task(Lifecycle):
         raise NotImplemented()
 
 
-    def cancel(self):
-        '''
-        Cancel execution (if not already done) of this task.
-        '''
-        if self.running:
-            super().cancel()
-
-
     def locality(self, executors):
         '''
         Indicate locality for executing this task on executors.
@@ -130,6 +122,7 @@ class Task(Lifecycle):
         assert not self.running, '%r running' % self
         self.result = None
         self.exception = None
+        self.cancelled = False
         self.executed_on.append(executor.name)
         self.result_on.append(executor.name)
         self.signal_start()
@@ -140,9 +133,9 @@ class Task(Lifecycle):
         Externally mark the task as done. E.g. because its 'side effect' (result) is already
         available).
         '''
+        self.exception = None
+        self.result = result
         if not self.stopped:
-            self.exception = None
-            self.result = result
             if not self.stopped_on:
                 self.stopped_on = datetime.now()
             if not self.started_on:
@@ -155,6 +148,8 @@ class Task(Lifecycle):
         'Externally' mark the task as failed. E.g. because the executor which holds the tasks' result
         has failed / can't be reached.
         '''
+        if not self.stopped_on:
+            self.stopped_on = datetime.now()
         self.result = None
         self.exception = exc
         self.signal_stop()
@@ -227,8 +222,6 @@ class RmiTask(Task):
 
 
     def execute(self, scheduler, executor):
-#         if self.args is None and self.kwargs is None:
-#             self.mark_failed(RuntimeError('Attempted to start %r after release'))
         assert self.args is not None and self.kwargs is not None
         assert not self.succeeded, '%r already running?' % (self)
         self.set_executing(executor)
@@ -244,16 +237,20 @@ class RmiTask(Task):
 
     def _task_scheduled(self, schedule_future):
         try:
-            self.handle = schedule_future.result()
+            handle = schedule_future.result()
         except Exception as exc:
             self.mark_failed(exc)
         else:
-            try:
-                schedule_future.executor.service('tasks') \
-                    .get_task_result(self.handle) \
-                    .add_done_callback(self._task_completed)
-            except NotConnected as exc:
-                self.mark_failed(exc)
+            if self.cancelled:
+                self._cancel(handle)
+            else:
+                self.handle = handle
+                try:
+                    schedule_future.executor.service('tasks') \
+                        .get_task_result(self.handle) \
+                        .add_done_callback(self._task_completed)
+                except NotConnected as exc:
+                    self.mark_failed(exc)
 
 
     def _task_completed(self, future):
@@ -268,11 +265,14 @@ class RmiTask(Task):
 
     def cancel(self):
         super().cancel()
-
         if self.handle:
-            logger.debug('canceling %s', self)
-            self._last_executor().service('tasks').cancel_task(self.handle)
+            logger.debug('Canceling %s', self)
+            self._cancel(self.handle)
             self.handle = None
+
+
+    def _cancel(self, handle):
+        return self._last_executor().service('tasks').cancel_task(handle)
 
 
     def mark_failed(self, exc):
