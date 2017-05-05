@@ -182,6 +182,7 @@ class BlockManager(object):
         try:
             block = self.blocks[block_id]
         except KeyError:
+            logger.info('%r is attempting to download unknown block %r', peer.name, block_id)
             raise BlockNotFound(block_id)
         else:
             assert end <= block.size
