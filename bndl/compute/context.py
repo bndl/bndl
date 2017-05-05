@@ -453,8 +453,6 @@ class ComputeContext(Lifecycle):
         try:
             yield from self.scheduler.execute(job.tasks, order_results)
         finally:
-            for task in job.tasks:
-                task.release()
             job.signal_stop()
 
 
