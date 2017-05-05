@@ -1799,6 +1799,7 @@ class Dataset(object):
     def __getstate__(self):
         state = dict(self.__dict__)
         state.pop('callsite', None)
+        state.pop('_executors_required', None)
         return state
 
 
