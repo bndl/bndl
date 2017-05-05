@@ -128,6 +128,10 @@ class Scheduler():
         for executor, executing_on in self.executing_on.items():
             if executing_on:
                 print(executor, '->', fold_strings((t.id_str for t in executing_on), split='.'))
+        print('forbidden on    :')
+        for executor, forbidden_on in self.forbidden_on.items():
+            if forbidden_on:
+                print(executor, '->', fold_strings((t.id_str for t in forbidden_on), split='.'))
         print('lock            :', self.lock)
         print('tasks           :')
         for task in sorted((task for task, _ in self.tasks.values()), key=lambda t: t.priority):
