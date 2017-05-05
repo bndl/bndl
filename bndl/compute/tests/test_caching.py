@@ -56,7 +56,8 @@ class CachingTest(ComputeTest):
 
 
     def _test_caching(self, location, serialization, compression):
-        dset = self.ctx.range(10, pcount=3).map(lambda i: random.randint(1, 1000)).map(str)
+        dset = self.ctx.range(10, pcount=self.ctx.executor_count + 1) \
+                       .map(lambda i: random.randint(1, 1000)).map(str)
 
         self.assertEqual(self.get_cachekeys(), [])
 
