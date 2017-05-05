@@ -11,8 +11,6 @@
 # limitations under the License.
 
 from datetime import timedelta, datetime
-from queue import Queue
-from threading import Thread
 import concurrent.futures
 import copy
 import logging
@@ -108,6 +106,19 @@ class ComputeContext(Lifecycle):
         self.signal_start()
         self.instances.add(self)
         self.stable_since = None
+
+        self.scheduler = Scheduler()
+        self.scheduler.start()
+
+        def peer_listener(event, peer):
+            if peer.node_type == 'executor':
+                if event == 'added' :
+                    self.scheduler.add_executor(peer)
+                elif event == 'removed':
+                    self.scheduler.remove_executor(peer)
+        self._node.peers.listeners.add(peer_listener)
+        for peer in self._node.peers.filter(node_type='executor'):
+            self.scheduler.add_executor(peer)
 
 
     @property
@@ -216,7 +227,8 @@ class ComputeContext(Lifecycle):
             assert len(self.executors) > 0
             now = datetime.now()
             recent_connects = sorted(executor.connected_on for executor in self.executors
-                                     if executor.connected_on > stable_max_lookback)
+                                     if not executor.connected_on or
+                                        executor.connected_on > stable_max_lookback)
 
             # Stable if there weren't any (re-)connects in the last 60 seconds
             if not recent_connects:
@@ -392,6 +404,8 @@ class ComputeContext(Lifecycle):
 
 
     def stop(self):
+        self.scheduler.stop()
+        # TODO self.scheduler.join()
         self.signal_stop()
         try:
             self.instances.remove(self)
@@ -418,85 +432,30 @@ class ComputeContext(Lifecycle):
                 ``bndl.compute.attempts`` configuration parameter.
         '''
         assert self.running, 'context is not running'
-        assert concurrency is None or concurrency >= 1
-        assert attempts is None or attempts >= 1
-
-        if executors is None:
-            self.await_executors()
-            executors = self.executors
+#         assert concurrency is None or concurrency >= 1
+#         assert attempts is None or attempts >= 1
+        assert concurrency is None or concurrency == 1
+        assert attempts is None or attempts == 1
 
         if not job.tasks:
             return
 
+
+        if executors is None:
+            executors = self.executors
+        if executors is None:
+            self.await_executors()
+            executors = self.executors
+
         self.jobs.append(job)
-
-        done = Queue()
-
-        concurrency = concurrency or self.conf['bndl.compute.concurrency']
-        attempts = attempts or self.conf['bndl.compute.attempts']
-
-        scheduler = Scheduler(job.tasks, done.put, executors, concurrency, attempts)
-        scheduler_driver = Thread(target=scheduler.run,
-                                  name='bndl-scheduler-%s' % (job.id),
-                                  daemon=True)
         job.signal_start()
-        scheduler_driver.start()
 
         try:
-            if order_results:
-                yield from self._execute_ordered(job, done)
-            else:
-                yield from self._execute_unordered(job, done)
-            scheduler_driver.join()
-        except GeneratorExit:
-            scheduler.abort()
-        except:
-            scheduler.abort()
-            raise
+            yield from self.scheduler.execute(job.tasks, order_results)
         finally:
-            scheduler_driver.join()
             for task in job.tasks:
                 task.release()
             job.signal_stop()
-
-
-    def _execute_ordered(self, job, done):
-        # keep a dict with results which are 'early' and the task id
-        task_ids = iter(task.id for task in job.tasks)
-        next_taskid = next(task_ids)
-        early = {}
-
-        for task in self._execute_unordered(job, done):
-            if task.id != next_taskid:
-                early[task.id] = task
-            else:
-                early.pop(task.id, None)
-                yield task
-                try:
-                    # possibly yield tasks which are next
-                    next_taskid = next(task_ids)
-                    while early:
-                        if next_taskid in early:
-                            yield early.pop(next_taskid)
-                            next_taskid = next(task_ids)
-                        else:
-                            break
-                except StopIteration:
-                    break
-
-        assert not early, 'results for tasks %r not yet yielded' % early
-
-
-    def _execute_unordered(self, job, done):
-        seen = set()
-        for task in iter(done.get, None):
-            if isinstance(task, Exception):
-                raise task
-            elif task.failed:
-                raise task.exception()
-            elif task not in seen:
-                seen.add(task)
-                yield task
 
 
     def __getstate__(self):
@@ -507,6 +466,7 @@ class ComputeContext(Lifecycle):
         state.pop('name', None)
         state.pop('started_on', None)
         state.pop('stopped_on', None)
+        state.pop('scheduler', None)
         return state
 
 

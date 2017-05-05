@@ -1561,7 +1561,7 @@ class Dataset(object):
             done = self.ctx.execute(masked._schedule())
             try:
                 for task in done:
-                    yield task.result()
+                    yield task.result[1]
                 mask = slice(mask.stop, mask.stop * 2 + 1)
             finally:
                 done.close()
@@ -1602,7 +1602,13 @@ class Dataset(object):
         job = self._schedule()
         done = self.ctx.execute(job, order_results=ordered)
         for task in done:
-            yield task.result()
+            assert task in job.tasks
+            if not task.dependents:
+                try:
+                    yield task.result[1]
+                except Exception as e:
+                    raise Exception('something wrong with %r, %r' %
+                                    (task, (task.part, task.result, task.handle))) from e
 
 
     def _generate_tasks(self, required, tasks, groups):
@@ -2171,7 +2177,15 @@ class TransformingDataset(Dataset):
         funcs = getattr(self, 'funcs', None)
         if funcs is not None:
             return funcs
-        self.funcs = pickle.loads(self._funcs)
+        try:
+            self.funcs = pickle.loads(self._funcs)
+        except ImportError:
+            import pickletools
+            import io
+            out = io.StringIO()
+            pickletools.dis(self._funcs, out)
+            print(out.getvalue())
+            raise
         return self.funcs
 
 
@@ -2213,8 +2227,10 @@ class BarrierTask(Task):
         by_location = self.dependency_locations = {}
         for dep in self.dependencies:
             exc_on = dep.last_executed_on()
+            # TODO return failed future with DependencyFailed
+            # this is a race ...
             if not exc_on:
-                assert dep.done
+                assert dep.stopped
             result_on = dep.last_result_on()
             locs = by_location.get(result_on)
             if locs is None:
@@ -2226,10 +2242,7 @@ class BarrierTask(Task):
 
         # 'execute' the barrier
         self.set_executing(executor)
-        future = self.future = concurrent.futures.Future()
-        future.set_result(None)
         self.signal_stop()
-        return future
 
 
 class ComputePartitionTask(RmiTask):
@@ -2258,11 +2271,10 @@ class ComputePartitionTask(RmiTask):
 
 
     def signal_stop(self):
-        if self.dependents and self.succeeded and self.result():
-            self.result_on[-1] = self.result()[0]
-            self.future.set_result(None)
+        if self.result and self.result[0]:
+            self.result_on[-1] = self.result[0]
         if self.dependencies and self.failed:
-            exc = root_exc(self.exception())
+            exc = root_exc(self.exception)
             if isinstance(exc, (DependenciesFailed, FailedDependency)):
                 for barrier in self.dependencies:
                     logger.debug('Marking barrier %r before %r as failed', barrier, self)
@@ -2290,16 +2302,18 @@ def _compute_part(part, dependency_locations):
         dependency_locations (mapping[str,object]): A mapping of executor name to a sequence of
             partition ids executed by this executor.
     '''
+    task_ctx = task_context()
+    task_ctx['dependency_locations'] = dependency_locations
+
     try:
         # communicate out of band on which executors dependencies of this task were executed
-        task_context()['dependency_locations'] = dependency_locations
         # generate data
         data = part.compute()
         # 'materialize' iterators and such for pickling
         if data is not None and not is_stable_iterable(data):
-            return list(data)
-        else:
-            return data
+            data = list(data)
+        # return the result location (maybe None) and data
+        return task_ctx.get('result_location'), data
     except TaskCancelled:
         return None
     except DependenciesFailed:

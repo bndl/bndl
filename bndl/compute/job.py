@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from concurrent.futures import CancelledError, Future, TimeoutError
+from concurrent.futures import CancelledError
 from datetime import datetime
 from functools import lru_cache
 from itertools import count
@@ -21,6 +21,10 @@ from bndl.util.lifecycle import Lifecycle
 
 
 logger = logging.getLogger(__name__)
+
+
+
+# TODO consider computing status like failed, started, etc.
 
 
 
@@ -54,34 +58,39 @@ class Task(Lifecycle):
     Execution of a Task on a executor is the basic unit of scheduling in ``bndl.compute``.
     '''
 
-    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None):
+    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None, max_attempts=1):
         super().__init__(name or 'task ' + str(task_id),
                          desc or 'unknown task ' + str(task_id))
         self.ctx = ctx
         self.id = task_id
         self.group = group
+        self.max_attempts = max_attempts
 
         self.priority = task_id if priority is None else priority
-        self.future = None
 
         self.dependencies = set()
         self.dependents = set()
+        self.blocked = set()
         self.executed_on = []
         self.result_on = []
-        self.attempts = 0
+
+        self.result = None
+        self.exception = None
 
 
     def execute(self, scheduler, executor):
         '''
         Execute the task on a executor. The scheduler is provided as 'context' for the task.
+        Returns a Future for the task's result.
         '''
+        raise NotImplemented()
 
 
     def cancel(self):
         '''
         Cancel execution (if not already done) of this task.
         '''
-        if not self.done:
+        if self.running:
             super().cancel()
 
 
@@ -100,50 +109,29 @@ class Task(Lifecycle):
 
 
     @property
-    def started(self):
-        '''Whether the task has started'''
-        return bool(self.future)
-
-
-    @property
-    def done(self):
-        '''Whether the task has completed execution'''
-        fut = self.future
-        return fut and fut.done()
-
-
-    @property
-    def pending(self):
-        fut = self.future
-        return fut and not fut.done()
-
-
-    @property
     def succeeded(self):
-        try:
-            fut = self.future
-            return bool(fut and fut.result(0))
-        except Exception:
-            return False
+        return self.stopped and not self.exception
 
 
     @property
     def failed(self):
-        try:
-            fut = self.future
-            return bool(fut and fut.exception(0))
-        except (CancelledError, TimeoutError):
-            return False
+        return self.stopped and self.exception is not None
+
+
+    @property
+    def attempts(self):
+        return len(self.executed_on)
 
 
     def set_executing(self, executor):
         '''Utility for sub-classes to register the task as executing on a executor.'''
         if self.cancelled:
             raise CancelledError()
-        assert not self.pending, '%r pending' % self
+        assert not self.running, '%r running' % self
+        self.result = None
+        self.exception = None
         self.executed_on.append(executor.name)
         self.result_on.append(executor.name)
-        self.attempts += 1
         self.signal_start()
 
 
@@ -152,10 +140,9 @@ class Task(Lifecycle):
         Externally mark the task as done. E.g. because its 'side effect' (result) is already
         available).
         '''
-        if not self.done:
-            future = self.future = Future()
-            future.set_exception(None)
-            future.set_result(result)
+        if not self.stopped:
+            self.exception = None
+            self.result = result
             if not self.stopped_on:
                 self.stopped_on = datetime.now()
             if not self.started_on:
@@ -168,30 +155,9 @@ class Task(Lifecycle):
         'Externally' mark the task as failed. E.g. because the executor which holds the tasks' result
         has failed / can't be reached.
         '''
-        future = self.future = Future()
-        future.set_exception(exc)
+        self.result = None
+        self.exception = exc
         self.signal_stop()
-
-
-    def result(self):
-        '''
-        Get the result of the task (blocks). Raises an exception if the task failed with one.
-        '''
-        assert self.future, 'task %r not yet scheduled' % self
-        return self.future.result()
-
-
-    def exception(self, timeout=-1):
-        '''Get the exception of the task (blocks).'''
-        fut = self.future
-        assert fut, 'task %r not yet started' % self
-        if timeout == -1:
-            return fut.exception()
-        else:
-            try:
-                return fut.exception(timeout)
-            except (CancelledError, TimeoutError):
-                return False
 
 
     def last_executed_on(self):
@@ -210,12 +176,17 @@ class Task(Lifecycle):
             return None
 
 
+    def reset(self):
+        self.result = None
+        self.exception = None
+
+
     def release(self):
         '''Release most resources of the task. Invoked after a job's execution is complete.'''
-        if self.succeeded:
-            self.future = None
-        self.dependencies = []
-        self.dependents = []
+        self.result = None
+        self.dependencies = set()
+        self.dependents = set()
+        self.blocked = set()
         if self.executed_on:
             self.executed_on = [self.executed_on[-1]]
         if self.result_on:
@@ -225,16 +196,20 @@ class Task(Lifecycle):
 
 
     def __repr__(self):
-        task_id = '.'.join(map(str, self.id)) if isinstance(self.id, tuple) else self.id
         if self.failed:
             state = ' failed'
-        elif self.done:
-            state = ' done'
-        elif self.pending:
-            state = ' pending'
+        elif self.succeeded:
+            state = ' succeeded'
+        elif self.running:
+            state = ' running'
         else:
             state = ''
-        return '<%s %s%s>' % (self.__class__.__name__, task_id, state)
+        return '<%s %s%s>' % (self.__class__.__name__, self.id_str, state)
+
+
+    @property
+    def id_str(self):
+        return '.'.join(map(str, self.id)) if isinstance(self.id, tuple) else self.id
 
 
 
@@ -252,13 +227,14 @@ class RmiTask(Task):
 
 
     def execute(self, scheduler, executor):
-        assert not self.handle and not self.succeeded
+#         if self.args is None and self.kwargs is None:
+#             self.mark_failed(RuntimeError('Attempted to start %r after release'))
+        assert self.args is not None and self.kwargs is not None
+        assert not self.succeeded, '%r already running?' % (self)
         self.set_executing(executor)
-        result_future = self.future = Future()
         schedule_future = executor.service('tasks').execute_async(self.method, *self.args, **self.kwargs)
         schedule_future.executor = executor
         schedule_future.add_done_callback(self._task_scheduled)
-        return result_future
 
 
     def _last_executor(self):
@@ -273,30 +249,19 @@ class RmiTask(Task):
             self.mark_failed(exc)
         else:
             try:
-                result_future = schedule_future.executor.service('tasks').get_task_result(self.handle)
-                result_future.add_done_callback(self._task_completed)
+                schedule_future.executor.service('tasks') \
+                    .get_task_result(self.handle) \
+                    .add_done_callback(self._task_completed)
             except NotConnected as exc:
                 self.mark_failed(exc)
 
 
     def _task_completed(self, future):
-        fut = self.future
         try:
             self.handle = None
-            result = future.result()
+            self.result = future.result()
         except Exception as exc:
-            if fut:
-                fut.set_exception(exc)
-            elif not isinstance(exc, NotConnected):
-                if logger.isEnabledFor(logging.INFO):
-                    logger.info('execution of %s on %s failed, but not expecting result',
-                                self, self.last_executed_on(), exc_info=True)
-        else:
-            if fut and not fut.cancelled():
-                fut.set_exception(None)
-                fut.set_result(result)
-            else:
-                logger.info('task %s (%s) completed, but not expecting result')
+            self.exception = exc
         finally:
             self.signal_stop()
 
@@ -309,8 +274,10 @@ class RmiTask(Task):
             self._last_executor().service('tasks').cancel_task(self.handle)
             self.handle = None
 
-        if self.future:
-            self.future = None
+
+    def mark_failed(self, exc):
+        self.handle = None
+        super().mark_failed(exc)
 
 
     def release(self):

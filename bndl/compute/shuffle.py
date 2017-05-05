@@ -435,7 +435,8 @@ class ShuffleWritingPartition(Partition):
         logger.info('partitioned %s.%s of %s elem\'s, serialized %.1f mb',
                     self.dset.id, self.idx, elements_partitioned, bytes_serialized / 1024 / 1024)
 
-        return [worker.name]
+        # set the result location for _compute_part
+        task_context()['result_location'] = worker.name
 
 
 
