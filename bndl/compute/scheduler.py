@@ -25,8 +25,6 @@ from bndl.net.rmi import root_exc
 from bndl.util.collection import sortgroupby, ensure_collection
 from bndl.util.funcs import getter
 from bndl.util.strings import fold_strings
-from itertools import chain
-from bndl.util.threads import dump_threads
 
 
 logger = logging.getLogger(__name__)
@@ -140,13 +138,6 @@ class Scheduler():
                 self.condition.notify_all()
 
 
-#     def on_peer_event(self, event, peer):
-#         if peer.node_type == 'executor':
-#             if event == 'removed':
-#             elif event == 'added':
-        # e.name for e in executors.filter(node_type='executor')
-
-
     def add_executor(self, executor):
         if executor.name in self.executors:
             return
@@ -168,9 +159,6 @@ class Scheduler():
             pass
         self.executors.pop(executor.name, None)
         self.executable_on.pop(executor.name, None)
-
-
-    # TODO listen for (re)connect of executors somewhere
 
 
     def start(self, name='bndl-scheduler-thread', daemon=True):
@@ -391,7 +379,6 @@ class Scheduler():
                         next_task_idx += 1
 
 
-# TODO async, 
     def _task_done_handoff(self, task):
         self.done.append(task)
         if self.lock.acquire(False):
@@ -441,9 +428,6 @@ class Scheduler():
             pass
 
     def _task_succeeded(self, task):
-        # determine which tasks are unblocked
-        # remove locality etc. for task
-
         assert task.succeeded, '%r not failed and not succeeded' % task
 
         executor = task.last_executed_on()
@@ -547,9 +531,6 @@ class Scheduler():
         assert all(dep.succeeded for dep in task.dependencies), 'not all dependencies of %r succeeded: %r' \
             % (task, [dep for dep in task.dependencies if not dep.succeeded])
 
-#         logger.debug('%r is executable, %s executors available %r',
-#                      task, len(self.executors_ready),
-#                      fold_strings((e for e in self.executors_ready), split='.'))
         logger.debug('%r is executable, %s executors available', task, len(self.executors_ready))
 
         if not task.succeeded:
@@ -598,8 +579,3 @@ class Scheduler():
             return 0
         else:
             return locality.get(task, 0)
-
-
-
-
-
