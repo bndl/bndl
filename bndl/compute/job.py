@@ -58,13 +58,13 @@ class Task(Lifecycle):
     Execution of a Task on a executor is the basic unit of scheduling in ``bndl.compute``.
     '''
 
-    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None, max_attempts=1):
+    def __init__(self, ctx, task_id, *, priority=None, name=None, desc=None, group=None, max_attempts=None):
         super().__init__(name or 'task ' + str(task_id),
                          desc or 'unknown task ' + str(task_id))
         self.ctx = ctx
         self.id = task_id
         self.group = group
-        self.max_attempts = max_attempts
+        self.max_attempts = max_attempts or ctx.conf['bndl.compute.attempts']
 
         self.priority = task_id if priority is None else priority
 
