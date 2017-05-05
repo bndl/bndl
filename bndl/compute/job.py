@@ -182,10 +182,6 @@ class Task(Lifecycle):
         self.dependencies = set()
         self.dependents = set()
         self.blocked = set()
-        if self.executed_on:
-            self.executed_on = [self.executed_on[-1]]
-        if self.result_on:
-            self.result_on = [self.result_on[-1]]
         self.started_listeners.clear()
         self.stopped_listeners.clear()
 
