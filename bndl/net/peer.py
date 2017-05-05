@@ -113,7 +113,7 @@ class PeerNode(IOTasks):
 
 
     def islocal(self):
-        return bool(self.ip_addresses() & self.local.ip_addresses())
+        return self.machine == self.local.machine
 
 
     @asyncio.coroutine
