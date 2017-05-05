@@ -238,15 +238,11 @@ class PeerNode(IOTasks):
                 hello = yield from self.recv(HELLO_TIMEOUT)
 
                 # check the hello
-                if isinstance(hello, Disconnect):
-                    logger.info("received Disconnect from %s, disconnecting", self.conn)
-                    yield from self.disconnect(reason="received disconnect", active=False)
-                elif not isinstance(hello, Hello):
-                    logger.error("didn't receive Hello back from %s, disconnecting", self.conn)
-                    yield from self.disconnect(reason="didn't receive hello")
-                elif hello.name == self.local.name:
-                    logger.info('self connect attempt of %s', hello.name)
-                    yield from self.disconnect(reason='self connect')
+
+                ok, msg = self._check_hello(hello)
+                if not ok:
+                    yield from self.disconnect(reason=msg)
+
                 elif self.name is not None and self.name != hello.name:
                     logger.info('node %s at %s changed name to %s', self.name, self.addresses, hello.name)
                     try:
@@ -300,12 +296,12 @@ class PeerNode(IOTasks):
                 logger.exception('unable to read hello from %s', self.conn.peername())
                 yield from self.disconnect(reason=str(type(exc)))
 
+            ok, msg = self._check_hello(hello)
+            if not ok:
+                yield from self.disconnect(reason=msg)
+
             if not self.is_connected:
                 return
-
-            if hello.name == self.local.name:
-                logger.info('self connect attempt of %s', hello.name)
-                yield from self.disconnect(reason='self connect')
 
             logger.debug('hello received from %s at %s', hello.name, hello.addresses)
 
@@ -320,6 +316,26 @@ class PeerNode(IOTasks):
             self._update_info(hello)
 
             self.server = self.loop.create_task(self._serve())
+
+
+    def _check_hello(self, hello):
+        if isinstance(hello, Disconnect):
+            logger.info("received Disconnect from %s, disconnecting", self.conn)
+            return False, "received disconnect"
+
+        if not isinstance(hello, Hello):
+            logger.error("didn't receive Hello back from %s, disconnecting", self.conn)
+            return False, "didn't receive hello"
+
+        if hello.name == self.local.name:
+            logger.info('self connect attempt of %s', hello.name)
+            return False, 'self connect'
+
+        if hello.cluster != self.local.cluster:
+            logger.warning('%s is in cluster %r, not %r', hello.name, hello.cluster, self.local.cluster)
+            return False, 'cluster %r does not match'
+
+        return True, None
 
 
     @asyncio.coroutine
