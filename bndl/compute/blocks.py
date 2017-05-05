@@ -160,6 +160,7 @@ class BlockManager(object):
                 self._available_events[block_spec.id] = available
 
         if in_progress:
+            logger.debug('Download of %r is in progress, waiting for completion', block_spec)
             yield from available.wait()
             if block_spec.id not in self.blocks:
                 raise Exception('Unable to download block %r' % block_spec)
@@ -198,7 +199,11 @@ class BlockManager(object):
 
     @asyncio.coroutine
     def _download_from_remote(self, block_spec, source, peers=()):
-        logger.trace('Downloading', block_spec, 'from', source)
+        if logger.isEnabledFor(logging.TRACE):
+            if block_spec.seeder == source.name:
+                logger.trace('Downloading %r from remote seeder', block_spec)
+            else:
+                logger.trace('Downloading %r from remote peer %r', block_spec, source.name )
 
         block_id = block_spec.id
         size = block_spec.size
@@ -337,7 +342,7 @@ class BlockManager(object):
 
     @asyncio.coroutine
     def _download_from_local(self, block_spec, source, peers):
-        logger.trace('Downloading %s from %s', block_spec, source.name)
+        logger.trace('Downloading block %s from local source %s', block_spec.id, source.name)
         block = yield from source.service('blocks')._get_block.request(block_spec.id)
         assert block.size == block_spec.size, '%s != %s' % (block.size, block_spec.size)
         return block
