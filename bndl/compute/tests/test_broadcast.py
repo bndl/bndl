@@ -53,11 +53,13 @@ class BroadcastTest(ComputeTest):
 
 
     def test_cached(self):
+        ex1 = self.ctx.node.peers.filter(node_type='executor')[0]
         one = self.ctx.broadcast(1)
-        self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
+        dset = self.ctx.range(1).require_executors(lambda ex: [e for e in ex if e.name == ex1.name])
+        self.assertEqual(dset.map(lambda i: one.value).collect(), [1])
         # would normally use unpersist, but this will trip up the worker if it wasn't cached
         self.ctx.node.service('blocks').blocks.clear()
-        self.assertEqual(self.ctx.range(1).map(lambda i: one.value).collect(), [1])
+        self.assertEqual(dset.map(lambda i: one.value).collect(), [1])
 
 
     def test_missing(self):
