@@ -942,8 +942,8 @@ class Dataset(object):
             The number of partitions to group into.
         '''
         def strip_key(key, value):
-            return key, pluck(1, value)
-        return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key).map_values(list)
+            return key, list(pluck(1, value))
+        return self._group_by_key(partitioner, pcount, **shuffle_opts).starmap(strip_key)
 
 
     def _group_by_key(self, partitioner=None, pcount=None, **shuffle_opts):
