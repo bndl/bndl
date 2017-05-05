@@ -27,6 +27,7 @@ conf = LazyObject(Config)
 logging_conf = String('logging.conf')
 
 install_trace_logging()
+logging.captureWarnings(True)
 
 if os.path.exists(conf['bndl.logging_conf']):
     logging.config.fileConfig(conf['bndl.logging_conf'], disable_existing_loggers=False)
