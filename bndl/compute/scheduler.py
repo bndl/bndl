@@ -425,13 +425,13 @@ class Scheduler():
                                 task, executor_name, 'unknown' if not executor else 'not connected')
 
 
-
     def _emit(self, task):
         '''push out task to execute() thread'''
         try:
             return self.tasks[task.id][1](task)
         except KeyError:
             pass
+
 
     def _task_succeeded(self, task):
         assert task.succeeded, '%r not failed and not succeeded' % task
@@ -489,7 +489,6 @@ class Scheduler():
     def _dependencies_failed(self, task, exc):
         for result_loc, dependencies in exc.failures.items():
             for exc_loc, dependencies in dependencies.items():
-
                 for dependency_id in dependencies:
                     dependency = self.tasks.get(dependency_id)
                     if dependency is None:
@@ -505,7 +504,6 @@ class Scheduler():
                             dependency.mark_failed(FailedDependency(None))
 
         self._transient_failure(task)
-        return False
 
 
     def _transient_failure(self, task):
@@ -541,7 +539,8 @@ class Scheduler():
         if not task.succeeded:
             self.executable.add(task)
 
-            localities = list(task.locality(self.executors.values()) or ())
+            executors = self.executors.values()
+            localities = list(task.locality(executors) or ())
             for executor, locality in localities:
                 executor_name = executor.name
                 self.locality[executor_name][task] = locality
