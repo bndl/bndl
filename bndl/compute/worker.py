@@ -191,6 +191,7 @@ class Worker(RMINode):
                 executable = ['jemalloc.sh'] + executable
 
             executable += [sys.executable, '-m', 'bndl.compute.executor',
+                           self.cluster, self.machine,
                            self.addresses[0], str(len(self._monitors) + 1)]
 
             emon = ExecutorMonitor(i, self, executable)

@@ -63,7 +63,7 @@ def main():
         if low < high or high == resource.RLIM_INFINITY:
             resource.setrlimit(r, (high, high))
 
-    worker_address, executor_id = sys.argv[1:]
+    cluster, machine, worker_address, executor_id = sys.argv[1:]
     executor_address = _executor_address(worker_address, executor_id)
 
     loop = get_loop(start=True)
@@ -71,6 +71,8 @@ def main():
         node_type='executor',
         addresses=[executor_address],
         seeds=[worker_address],
+        cluster=cluster,
+        machine=machine,
         loop=loop,
     )
     executor.start_async().result()
