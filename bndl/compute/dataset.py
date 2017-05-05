@@ -80,6 +80,14 @@ def traverse_dset_dag(*starts, depth_first=False, cond=None):
         extend(q, d)
 
 
+def _map_partitions(func, p, iterator):
+    return func(iterator)
+
+
+def _map_partitions_with_index(func, p, iterator):
+    return func(p.idx, iterator)
+
+
 
 class Dataset(object):
     cleanup = None
@@ -207,7 +215,7 @@ class Dataset(object):
         Any extra \*args or \**kwargs are passed to func (args before element).
         '''
         func = partial_func(func, *args, **kwargs)
-        return self.map_partitions_with_part(lambda p, iterator: func(iterator))
+        return self.map_partitions_with_part(partial(_map_partitions, func))
 
 
     def map_partitions_with_index(self, func, *args, **kwargs):
@@ -221,7 +229,7 @@ class Dataset(object):
         Any extra \*args or \**kwargs are passed to func (args before index and iterator).
         '''
         func = partial_func(func, *args, **kwargs)
-        return self.map_partitions_with_part(lambda p, iterator: func(p.idx, iterator))
+        return self.map_partitions_with_part(partial(_map_partitions_with_index, func))
 
 
     def map_partitions_with_part(self, func, *args, **kwargs):
