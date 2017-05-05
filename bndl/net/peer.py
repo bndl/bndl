@@ -354,48 +354,51 @@ class PeerNode(IOTasks):
 
     @asyncio.coroutine
     def _serve(self):
-        self.connected_on = datetime.now()
-        self.disconnected_on = None
-
         if not self.is_connected:
             return
 
+        self.connected_on = datetime.now()
+        self.disconnected_on = None
+
         allowed = (yield from self.local._peer_connected(self))
 
-        if not allowed:
-            return
-        elif self.is_connected:
-            logger.debug('serving connection for %s (local) with %s (remote) on %s',
-                        self.local.name, self.name, self.conn)
+        try:
+            if not allowed:
+                return
+            elif self.is_connected:
+                logger.debug('serving connection for %s (local) with %s (remote) on %s',
+                            self.local.name, self.name, self.conn)
 
-        while self.is_connected:
-            try:
-                msg = yield from self.recv()
-            except NotConnected:
-                logger.info('read EOF on connection with %s', self.name)
-                yield from self.disconnect('received EOF', active=False)
-                break
-            except asyncio.futures.CancelledError:
-                logger.info('connection with %s cancelled', self.name)
-                yield from self.disconnect('connection cancelled', active=False)
-                break
-            except (ConnectionResetError, ConnectionRefusedError):
-                logger.info('connection with %s closed unexpectedly', self.name)
-                yield from self.disconnect('connection reset', active=False)
-                break
-            except asyncio.streams.IncompleteReadError:
-                logger.exception('connection with %s closed unexpectedly', self.name)
-                yield from self.disconnect('connection reset', active=False)
-                break
-            except Exception as exc:
-                logger.exception('An unknown exception occurred in connection %s', self.name)
-                yield from self.disconnect('unexpected error: ' + str(exc), active=False)
-                break
+            while self.is_connected:
+                try:
+                    msg = yield from self.recv()
+                except NotConnected:
+                    logger.info('read EOF on connection with %s', self.name)
+                    yield from self.disconnect('received EOF', active=False)
+                    break
+                except asyncio.futures.CancelledError:
+                    logger.info('connection with %s cancelled', self.name)
+                    yield from self.disconnect('connection cancelled', active=False)
+                    break
+                except (ConnectionResetError, ConnectionRefusedError):
+                    logger.info('connection with %s closed unexpectedly', self.name)
+                    yield from self.disconnect('connection reset', active=False)
+                    break
+                except asyncio.streams.IncompleteReadError:
+                    logger.exception('connection with %s closed unexpectedly', self.name)
+                    yield from self.disconnect('connection reset', active=False)
+                    break
+                except Exception as exc:
+                    logger.exception('An unknown exception occurred in connection %s', self.name)
+                    yield from self.disconnect('unexpected error: ' + str(exc), active=False)
+                    break
 
-            self._create_task(self._dispatch(msg))
+                self._create_task(self._dispatch(msg))
 
-        logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
-        self.disconnected_on = datetime.now()
+            logger.debug('connection between %s (local) and %s (remote) closed', self.local.name, self.name)
+        finally:
+            self.disconnected_on = datetime.now()
+            self.server = None
 
 
     @asyncio.coroutine
