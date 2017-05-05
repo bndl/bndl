@@ -56,6 +56,8 @@ class FilesTest(ComputeTest):
 
     @classmethod
     def tearDownClass(cls):
+        for f in cls.files:
+            f.close()
         super().tearDownClass()
         cls.tmpdir.cleanup()
 
@@ -71,6 +73,12 @@ class FilesTest(ComputeTest):
             self.assertTrue(all(data.map(len).map_partitions(lambda p: (sum(p) <= psize_bytes,)).collect()))
         if psize_files:
             self.assertTrue(all(data.map_partitions(lambda p: (sum(1 for _ in p) <= psize_files,)).collect()))
+
+
+    def _check_contents(self, dset, duplication=1):
+        files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
+        expected = b''.join(interleave([self.contents] * duplication))
+        self.assertEqual(b''.join(pluck(1, files)), expected)
 
 
     def test_psize(self):
@@ -89,12 +97,6 @@ class FilesTest(ComputeTest):
 
     def test_size(self):
         self.assertEqual(self.dset.size, self.total_size)
-
-
-    def _check_contents(self, dset, duplication=1):
-        files = sorted(dset.icollect(), key=lambda file: int(basename(file[0]).replace('test_file_', '').replace('.tmp', '')))
-        expected = b''.join(interleave([self.contents] * duplication))
-        self.assertEqual(b''.join(pluck(1, files)), expected)
 
 
     def test_listings(self):
