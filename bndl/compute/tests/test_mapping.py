@@ -14,6 +14,7 @@ from itertools import chain
 import operator
 
 from bndl.compute.tests import ComputeTest
+from bndl.net.rmi import InvocationException
 from bndl.util.funcs import identity
 
 
@@ -50,3 +51,10 @@ class MappingTest(ComputeTest):
         self.assertEqual(self.dset.map_partitions(lambda x, p: [x], 5).sum(), 3 * 5)
         self.assertEqual(self.dset.map_partitions_with_index(lambda x, idx, p: [x + idx], 5).sum(), 3 * 5 + 0 + 1 + 2)
         self.assertEqual(self.dset.map_partitions_with_part(lambda x, part, p: [x + part.idx], 5).sum(), 3 * 5 + 0 + 1 + 2)
+
+    def test_bad_pickle(self):
+        dset = self.dset.map(lambda x: x + 1)
+        self.assertEqual(dset.collect(), list(range(1, 11)))
+        dset._funcs = b'x'
+        with self.assertRaises(InvocationException):
+            dset.collect()
