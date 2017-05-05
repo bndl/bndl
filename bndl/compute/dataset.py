@@ -2131,7 +2131,6 @@ class TransformingDataset(Dataset):
     def __init__(self, src, *funcs):
         super().__init__(src.ctx, src)
         self.funcs = funcs
-        self._pickle_funcs()
 
 
     def parts(self):
@@ -2149,15 +2148,16 @@ class TransformingDataset(Dataset):
             # TODO name = self.callsite[0] + ' -> ' + name
             funcs = self.funcs + (func,)
             dset = self._with(funcs=funcs, callsite=callsite)
-            dset._pickle_funcs()
+            dset._funcs = None
             return dset
 
 
-    def _pickle_funcs(self):
-        self._funcs = cloudpickle.dumps(self.funcs)
-
-
     def __getstate__(self):
+        if getattr(self, '_funcs', None) is None:
+            try:
+                self._funcs = pickle.dumps(self.funcs, protocol=4)
+            except Exception:
+                self._funcs = cloudpickle.dumps(self.funcs, protocol=4)
         state = super().__getstate__()
         del state['funcs']
         return state
@@ -2165,14 +2165,23 @@ class TransformingDataset(Dataset):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+
+
+    def _get_funcs(self):
+        funcs = getattr(self, 'funcs', None)
+        if funcs is not None:
+            return funcs
         self.funcs = pickle.loads(self._funcs)
+        return self.funcs
 
 
 
 class TransformingPartition(Partition):
     def _compute(self):
+        funcs = self.dset._get_funcs()
+
         data = self.src.compute()
-        for func in self.dset.funcs:
+        for func in funcs:
             data = func(self.src, data if data is not None else ())
         return data
 
