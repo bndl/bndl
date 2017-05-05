@@ -28,15 +28,21 @@ import bndl
 
 
 class ComputeTest(unittest.TestCase):
-    executor_count = 3
+    executor_count = 5
     config = {}
     _tear_down_ctx = False
 
     @classmethod
     def setUpClass(cls):
+        name = cls.__name__
+        if name.endswith('Test'):
+            name = name[:-4]
+        print(os.linesep + name + ' ', end='')
+        # print()
         # Increase switching interval to lure out race conditions a bit ...
-        sys.setswitchinterval(1e-6)
-        if cls.executor_count != 3 or cls.config:
+        sys.setswitchinterval(1e-9)
+        cls._tear_down_ctx = False
+        if cls.executor_count != ComputeTest.executor_count or cls.config:
             bndl.conf.update(cls.config)
             cls.ctx, cls.workers = start_test_ctx(cls.executor_count)
         else:
@@ -56,7 +62,7 @@ class ComputeTest(unittest.TestCase):
 
 class ComputeTestSuite(unittest.TestSuite):
     def run(self, result, debug=False):
-        global_test_ctx(3)
+        global_test_ctx(ComputeTest.executor_count)
         result = unittest.TestSuite.run(self, result, debug=debug)
         stop_global_test_ctx()
         return result
@@ -64,6 +70,9 @@ class ComputeTestSuite(unittest.TestSuite):
 
 def load_tests(loader, standard_tests, pattern):
     suite = ComputeTestSuite()
-    suite.addTests(loader.discover(start_dir=os.path.dirname(__file__),
-                                   pattern=pattern or 'test*.py'))
+    start_dir = os.path.dirname(__file__)
+    top_level_dir = os.path.dirname(os.path.dirname(bndl.__file__))
+    suite.addTests(loader.discover(start_dir=start_dir,
+                                   pattern=pattern or 'test_*.py',
+                                   top_level_dir=top_level_dir))
     return suite
