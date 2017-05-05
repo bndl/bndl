@@ -868,7 +868,7 @@ class Dataset(object):
         '''
         Calculate the mean of this dataset.
         '''
-        means = self.map_partitions(partial_mean).icollect()
+        means = self.map_partitions(partial_mean).icollect(ordered=False)
         total, count = reduce_partial_means(means)
         return total / count
 
