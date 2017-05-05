@@ -1975,7 +1975,7 @@ class Partition(object):
         if dset.cached:
             loc = dset._cache_locs.get(self.idx)
             peer = dset.ctx.node.peers.get(loc)
-            if not loc or (peer or not peer.is_connected):
+            if not loc or not peer or not peer.is_connected:
                 dset._cache_locs[self.idx] = executor
         # traverse backup up the task (not the entire DAG)
         if self.src:
