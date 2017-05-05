@@ -14,9 +14,7 @@ Adapted from and generalized into a utility outside the web context:
 https://github.com/KeepSafe/aiohttp/blob/72e615b508dc2def975419da1bddc2e3a0970203/aiohttp/web_urldispatcher.py#L439
 '''
 
-from functools import partial
 import asyncio
-import contextlib
 import logging
 import os
 
@@ -50,7 +48,7 @@ class FileAttacher(object):
         self.offset = offset
         self.size = size
         self.maybe_local = maybe_local
-        self.fd = os.open(filename, os.O_RDONLY)
+        self.file = open(filename, 'rb')
 
 
     def __call__(self, loop, writer):
@@ -74,7 +72,7 @@ class FileAttacher(object):
 
     def close(self):
         with catch():
-            os.close(self.fd)
+            self.file.close()
 
 
     def __del__(self):
@@ -95,11 +93,11 @@ class FileAttacher(object):
             yield from aio.drain(self.writer)
             socket = socket.dup()
             socket.setblocking(False)
-            yield from sendfile(socket.fileno(), self.fd,
+            yield from sendfile(socket.fileno(), self.file,
                                 self.offset, self.size,
                                 self.loop)
         except Exception:
-            logger.exception('Unable to send file %r', self.key)
+            logger.exception('Unable to send file %r from f %s', self.key.decode(), self.file)
             raise
 
 
@@ -131,12 +129,12 @@ def _getfd(file):
         return file
 
 
-@asyncio.coroutine
-def sendfile(outf, inf, offset, nbytes, loop=None):
-    assert hasattr(os, "sendfile")
-    out_fd = _getfd(outf)
-    in_fd = _getfd(inf)
-    loop = loop or asyncio.get_event_loop()
-    fut = asyncio.Future(loop=loop)
-    _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
-    yield from fut
+if hasattr(os, "sendfile"):
+    @asyncio.coroutine
+    def sendfile(outf, inf, offset, nbytes, loop=None):
+        out_fd = _getfd(outf)
+        in_fd = _getfd(inf)
+        loop = loop or asyncio.get_event_loop()
+        fut = asyncio.Future(loop=loop)
+        _sendfile_cb_system(loop, fut, out_fd, in_fd, offset, nbytes, False)
+        yield from fut
