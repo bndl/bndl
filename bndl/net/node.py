@@ -20,7 +20,6 @@ import logging
 import os
 import random
 import socket
-import uuid
 
 from bndl.net import aio
 from bndl.net.aio import get_loop, IOTasks
@@ -51,7 +50,7 @@ class Node(IOTasks):
     _nodeids = collections.defaultdict(itertools.count)
 
     def __init__(self, name=None, node_type=None, addresses=None, seeds=None,
-                 machine=uuid.getnode(), cluster='default', loop=None):
+                 machine=None, cluster=None, loop=None):
         super().__init__()
 
         self.loop = loop or get_loop()
@@ -73,8 +72,8 @@ class Node(IOTasks):
         self.seeds = seeds or ()
         self.peers = PeerTable()
 
-        self.machine = machine
-        self.cluster = cluster
+        self.machine = str(machine or bndl.conf['bndl.net.machine'])
+        self.cluster = str(cluster or bndl.conf['bndl.net.cluster'])
 
         self._peer_table_lock = asyncio.Lock(loop=self.loop)
         self._watchdog = None

@@ -10,11 +10,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
+
 from bndl.net.connection import getlocalhostname
-from bndl.util.conf import CSV
+from bndl.util.conf import CSV, String
 
 
 listen_addresses = CSV(desc='The addresses for the local BNDL node to listen on.')
 listen_addresses.default = ['tcp://%s:5000' % getlocalhostname()]
 
 seeds = CSV(desc='The seed addresses for BNDL nodes to form a cluster through gossip.')
+
+machine = String(str(uuid.getnode()), desc='The machine identifier of the BNDL node')
+cluster = String('default', desc='The name of the BNDL cluster, nodes in another cluster are ignored.')
