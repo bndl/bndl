@@ -1042,7 +1042,7 @@ class Dataset(object):
         rdds = []
         for idx, rdd in enumerate((self, other) + others):
             if key is None:
-                rdds.append(rdd.map_values(lambda v: (idx, v)))
+                rdds.append(rdd.map_values(lambda v, idx=idx: (idx, v)))
             else:
                 rdds.append(rdd.map_partitions(lambda p, idx=idx: ((key(e), (idx, e)) for e in p)))
 
