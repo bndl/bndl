@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from datetime import datetime
+import threading
 
 
 NOTSET = object()
@@ -19,26 +19,29 @@ NOTSET = object()
 
 class Lifecycle(object):
     def __init__(self, name=None, desc=None):
-        self.started_listeners = OrderedDict()
-        self.stopped_listeners = OrderedDict()
+        self.started_listeners = []
+        self.stopped_listeners = []
         self.started_on = None
         self.stopped_on = None
         self.cancelled = False
         self.name = name
         self.desc = desc
+        self.lock = threading.RLock()
 
     def add_listener(self, started=None, stopped=NOTSET):
-        if started is not None:
-            self.started_listeners[started] = started
-        if stopped is NOTSET:
-            stopped = started
-        if stopped:
-            self.stopped_listeners[stopped] = stopped
+        with self.lock:
+            if started is not None:
+                self.started_listeners += [started]
+            if stopped is NOTSET:
+                stopped = started
+            if stopped:
+                self.stopped_listeners += [stopped]
 
     def remove_listener(self, *listeners):
-        for listener in listeners:
-            self.started_listeners.pop(listener, None)
-            self.stopped_listeners.pop(listener, None)
+        with self.lock:
+            for listener in listeners:
+                self.started_listeners = [l for l in self.started_listeners if l != listener]
+                self.stopped_listeners = [l for l in self.stopped_listeners if l != listener]
 
     def cancel(self):
         if self.started_on and not self.stopped_on:
@@ -46,20 +49,24 @@ class Lifecycle(object):
             self.signal_stop()
 
     def signal_start(self):
-        self.started_on = datetime.now()
         self.stopped_on = None
+        self.started_on = datetime.now()
         for listener in self.started_listeners:
             listener(self)
 
     def signal_stop(self):
         if not self.stopped_on:
             self.stopped_on = datetime.now()
-        for listener in list(self.stopped_listeners):
+        for listener in self.stopped_listeners:
             listener(self)
 
     @property
+    def started(self):
+        return bool(self.started_on)
+
+    @property
     def running(self):
-        return self.started_on and not self.stopped_on
+        return bool(self.started_on and not self.stopped_on)
 
     @property
     def stopped(self):
@@ -79,4 +86,5 @@ class Lifecycle(object):
         state.pop('started_listeners', None)
         state.pop('stopped_listeners', None)
         state.pop('desc', None)
+        state.pop('lock', None)
         return state
