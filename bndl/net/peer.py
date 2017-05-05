@@ -296,11 +296,12 @@ class PeerNode(IOTasks):
                 logger.exception('unable to read hello from %s', self.conn.peername())
                 yield from self.disconnect(reason=str(type(exc)))
 
+            if not self.is_connected:
+                return
+
             ok, msg = self._check_hello(hello)
             if not ok:
                 yield from self.disconnect(reason=msg)
-
-            if not self.is_connected:
                 return
 
             logger.debug('hello received from %s at %s', hello.name, hello.addresses)
