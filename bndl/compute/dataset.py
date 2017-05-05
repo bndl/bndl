@@ -1880,7 +1880,7 @@ class Partition(object):
             logger.debug('Caching %r', self)
             data = ensure_collection(data)
             self.dset._cache_provider.write(self.dset.id, self.idx, data)
-        
+
         return data
 
 
