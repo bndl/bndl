@@ -18,10 +18,10 @@ from cytoolz.itertoolz import pluck
 from bndl.compute.tests import ComputeTest
 
 
-class ReduceByKeyTest(ComputeTest):
+class CombineByKeyTest(ComputeTest):
     def test_average(self):
         values = range(100)
-        keys = list(map(lambda i: i // 20, values))
+        keys = [i // 20 for i in values]
 
         expected = {}
         for key, group in groupby(zip(keys, values), itemgetter(0)):
