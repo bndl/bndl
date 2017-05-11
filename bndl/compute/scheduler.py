@@ -291,8 +291,6 @@ class Scheduler():
         exc = []
         with self.lock:
             for task in tasks:
-                task.remove_listener(self._task_done_handoff)
-
                 try:
                     if task.running:
                         logger.debug('Cancelling %r', task)
@@ -490,18 +488,17 @@ class Scheduler():
         for result_loc, dependencies in exc.failures.items():
             for exc_loc, dependencies in dependencies.items():
                 for dependency_id in dependencies:
-                    dependency = self.tasks.get(dependency_id)
-                    if dependency is None:
+                    if dependency_id not in self.tasks:
                         task.mark_failed(RuntimeError('Received DependenciesFailed for unknown'
                                                       'task with id %r', dependency_id))
                         return
 
-                    dependency = dependency[0]
+                    dependency, _ = self.tasks[dependency_id]
 
                     if not dependency.failed and \
                        (not result_loc or result_loc == dependency.last_result_on()) and \
                        (not exc_loc or exc_loc == dependency.last_executed_on()):
-                            dependency.mark_failed(FailedDependency(None))
+                        dependency.mark_failed(FailedDependency(None))
 
         self._transient_failure(task)
 
