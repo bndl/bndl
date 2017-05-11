@@ -92,7 +92,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 			<tr>
 				<td></td>
 				<td colspan="5">
-					<pre>{{ task.exception()|fmt_exc }}</pre>
+					<pre>{{ task.exception|fmt_exc }}</pre>
 				</td>
 			</tr>
 			{% endif %}
