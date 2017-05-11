@@ -128,7 +128,7 @@ class BlockManager(object):
         :param from_peers: If True, the block with block_id will be removed from other peer nodes
         as well.
         '''
-        self.node.loop.call_soon_threadsafe(self._remove_block, None, block_id)
+        run_coroutine_threadsafe(self._remove_block(None, block_id), loop=self.node.loop).result()
         if from_peers:
             for peer in self.node.peers.filter():
                 peer.service('blocks')._remove_block(block_id)
@@ -205,7 +205,7 @@ class BlockManager(object):
             if block_spec.seeder == source.name:
                 logger.trace('Downloading %r from remote seeder', block_spec)
             else:
-                logger.trace('Downloading %r from remote peer %r', block_spec, source.name )
+                logger.trace('Downloading %r from remote peer %r', block_spec, source.name)
 
         block_id = block_spec.id
         size = block_spec.size
