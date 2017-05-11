@@ -59,7 +59,7 @@ dev_requires = [
     'sphinx-rtd-theme',
     'sphinxcontrib-programoutput',
     'pandas',
-    'msgpack',
+    'msgpack-python',
 ]
 
 
