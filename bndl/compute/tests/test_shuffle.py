@@ -97,23 +97,23 @@ class ShuffleCacheTest(ComputeTest):
             .shuffle()
         )
 
-        self.assertEquals(dset.count(), 10)
-        self.assertEquals(ctr1.value, 45)
-        self.assertEquals(ctr2.value, 45)
+        self.assertEqual(dset.count(), 10)
+        self.assertEqual(ctr1.value, 45)
+        self.assertEqual(ctr2.value, 45)
 
-        self.assertEquals(dset.count(), 10)
-        self.assertEquals(ctr1.value, 45)
-        self.assertEquals(ctr2.value, 90)
+        self.assertEqual(dset.count(), 10)
+        self.assertEqual(ctr1.value, 45)
+        self.assertEqual(ctr2.value, 90)
 
         dset.cache()
 
-        self.assertEquals(dset.count(), 10)
-        self.assertEquals(ctr1.value, 45)
-        self.assertEquals(ctr2.value, 135)
+        self.assertEqual(dset.count(), 10)
+        self.assertEqual(ctr1.value, 45)
+        self.assertEqual(ctr2.value, 135)
 
-        self.assertEquals(dset.count(), 10)
-        self.assertEquals(ctr1.value, 45)
-        self.assertEquals(ctr2.value, 135)
+        self.assertEqual(dset.count(), 10)
+        self.assertEqual(ctr1.value, 45)
+        self.assertEqual(ctr2.value, 135)
 
 
 
