@@ -17,27 +17,20 @@ import time
 
 from bndl.compute.tasks import current_node, TaskCancelled
 from bndl.compute.tests import ComputeTest
-from bndl.net.connection import NotConnected
 from bndl.net.rmi import InvocationException
-
-
-def kill_self():
-    os.kill(os.getpid(), signal.SIGKILL)
-
-
-def kill_executor(executor):
-    try:
-        executor.service('tasks').execute(kill_self).result()
-    except NotConnected:
-        pass
 
 
 class TaskFailureTest(ComputeTest):
     executor_count = 5
 
     def test_assert_raises(self):
-        with self.assertRaises(Exception):
+        try:
             self.ctx.range(10).map(lambda i: exec("raise ValueError('test')")).collect()
+        except InvocationException as exc:
+            self.assertIsInstance(exc.__cause__, ValueError)
+            self.assertEqual(exc.__cause__.args, ('test',))
+        else:
+            self.assertFalse('did not raise InvocationException')
 
 
     def test_retry(self):
@@ -74,8 +67,11 @@ class TaskFailureTest(ComputeTest):
             try:
                 nonlocal executed, cancelled, failed
                 executed.update('add', idx)
-                for _ in range(10):
-                    time.sleep(idx / 100)
+                if idx > 1:
+                    for _ in range(10):
+                        time.sleep(.1)
+                else:
+                    time.sleep(.1)
             except TaskCancelled:
                 cancelled.update('add', idx)
             except Exception:
@@ -84,15 +80,18 @@ class TaskFailureTest(ComputeTest):
 
             raise ValueError(idx)
 
+        n_executors = self.ctx.executor_count
+
         try:
-            self.ctx.range(1, self.ctx.executor_count * 2 + 1, pcount=self.ctx.executor_count * 2).map(task).execute()
+            self.ctx.range(1, n_executors * 2 + 1, pcount=n_executors * 2).map(task).execute()
         except InvocationException as exc:
             self.assertIsInstance(exc.__cause__, ValueError)
+            self.assertEqual(exc.__cause__.args, (1,))
+        else:
+            self.assertFalse('did not raise InvocationException')
 
-        time.sleep((self.ctx.executor_count * 2 + 1) / 5)
-
-        self.assertEqual(len(executed.value), self.ctx.executor_count)
-        self.assertEqual(len(cancelled.value), self.ctx.executor_count - 1)
+        self.assertEqual(len(executed.value), n_executors)
+        self.assertEqual(len(cancelled.value), n_executors - 1)
         self.assertEqual(len(failed.value), 0)
 
 
@@ -101,13 +100,15 @@ class TaskFailureTest(ComputeTest):
             self.ctx.conf['bndl.compute.attempts'] = 2
 
             dset = self.ctx.range(10).shuffle().cache()
+
+
             self.assertEqual(dset.count(), 10)
             self.assertEqual(dset.count(), 10)
 
-            kill_executor(self.ctx.executors[0])
+            os.kill(self.ctx.executors[0].pid, signal.SIGKILL)
             self.assertEqual(dset.count(), 10)
 
-            kill_executor(self.ctx.executors[0])
+            os.kill(self.ctx.executors[0].pid, signal.SIGKILL)
             self.assertEqual(dset.shuffle().count(), 10)
         finally:
             self.ctx.conf['bndl.compute.attempts'] = 1
