@@ -264,7 +264,7 @@ class SchedulerTest(TestCase):
             gen.throw(KeyboardInterrupt)
 
         gen = self.scheduler.execute(tasks)
-        threadpool = ThreadPoolExecutor()
+        threadpool = ThreadPoolExecutor(1)
         res = threadpool.submit(kill)
         time.sleep(.01)
         a[0].mark_done(True)
