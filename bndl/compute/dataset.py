@@ -2275,7 +2275,7 @@ class ComputePartitionTask(RmiTask):
     def signal_stop(self):
         if self.result and self.result[0]:
             self.result_on[-1] = self.result[0]
-        if self.dependencies and self.failed:
+        if self.exception and self.dependencies:
             exc = root_exc(self.exception)
             if isinstance(exc, (DependenciesFailed, FailedDependency)):
                 for barrier in self.dependencies:
