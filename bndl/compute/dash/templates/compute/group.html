@@ -90,8 +90,7 @@ Group {{ (tasks|first).group }}: {{ (tasks|first).name }}
 			</tr>
 			{% if task.failed %}
 			<tr>
-				<td></td>
-				<td colspan="5">
+				<td colspan="7">
 					<pre>{{ task.exception|fmt_exc }}</pre>
 				</td>
 			</tr>
