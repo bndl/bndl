@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import concurrent.futures
 import json
 import logging
@@ -18,7 +19,7 @@ import pickle
 
 from cytoolz import compose
 
-from bndl.net import rmi
+from bndl.net.aio import run_coroutine_threadsafe
 from bndl.util import serialize, threads, strings
 from bndl.util.funcs import identity
 from bndl.util.strings import decode
@@ -38,10 +39,10 @@ class BroadcastManager(object):
         self.cache = {}
 
 
-    @rmi.direct
+    @asyncio.coroutine
     def drop(self, src, val_id):
         self.cache.pop(val_id, None)
-        self.node.service('blocks')._remove_block(src, val_id)
+        yield from self.node.service('blocks')._remove_block(src, val_id)
 
 
 
@@ -145,7 +146,8 @@ class BroadcastValue(object):
         block_id = self.block_spec.id
         assert node.name == self.block_spec.seeder
 
-        node.service('broadcast').drop(node, block_id)
+        drop = node.service('broadcast').drop(None, block_id)
+        run_coroutine_threadsafe(drop, node.loop).result()
 
         requests = []
         for peer in node.peers.filter():
