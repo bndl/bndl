@@ -293,7 +293,7 @@ class Scheduler():
             for task in tasks:
                 try:
                     if task.running:
-                        logger.debug('Cancelling %r', task)
+                        logger.debug('Canceling %r', task)
                         task.cancel()
 
                     task.release()
