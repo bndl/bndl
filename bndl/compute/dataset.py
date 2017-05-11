@@ -2223,27 +2223,28 @@ class BarrierTask(Task):
         self.dependency_locations = None
 
 
+
     def execute(self, scheduler, executor):
         # administer where dependencies were executed
         by_location = self.dependency_locations = {}
         for dep in self.dependencies:
             exc_on = dep.last_executed_on()
-            # TODO return failed future with DependencyFailed
-            # this is a race ...
-            if not exc_on:
-                assert dep.stopped
             result_on = dep.last_result_on()
+
             locs = by_location.get(result_on)
             if locs is None:
                 locs = by_location[result_on] = {}
+
             locs = locs.get(exc_on)
             if locs is None:
                 locs = by_location[result_on][exc_on] = []
+
             locs.append(dep.part.id)
 
         # 'execute' the barrier
         self.set_executing(executor)
         self.signal_stop()
+
 
 
 class ComputePartitionTask(RmiTask):
