@@ -58,6 +58,8 @@ dev_requires = [
     'sphinx-autobuild',
     'sphinx-rtd-theme',
     'sphinxcontrib-programoutput',
+    'pandas',
+    'msgpack',
 ]
 
 
