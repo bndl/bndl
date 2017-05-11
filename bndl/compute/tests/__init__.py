@@ -34,11 +34,6 @@ class ComputeTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        name = cls.__name__
-        if name.endswith('Test'):
-            name = name[:-4]
-        print(os.linesep + name + ' ', end='')
-        # print()
         # Increase switching interval to lure out race conditions a bit ...
         sys.setswitchinterval(1e-9)
         cls._tear_down_ctx = False
