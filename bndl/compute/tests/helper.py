@@ -11,6 +11,8 @@ def start_test_ctx(executor_count):
     conf['bndl.net.cluster'] = random_id()
 
     ctx = ComputeContext.create()
+    ComputeContext.instances.remove(ctx)
+
     workers = [ctx.node]
 
     conf['bndl.net.seeds'] = ctx.node.addresses

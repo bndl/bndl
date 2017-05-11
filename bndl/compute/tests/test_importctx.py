@@ -12,10 +12,13 @@
 
 from unittest.case import TestCase
 
+from bndl.util.strings import random_id
+
 
 class TestCtxImport(TestCase):
     def test_ctximport(self):
         import bndl
+        bndl.conf['bndl.net.cluster'] = random_id()
         bndl.conf['bndl.net.aio.uvloop'] = False
         bndl.conf['bndl.compute.executor_count'] = 3
 
@@ -32,6 +35,7 @@ class TestCtxImport(TestCase):
 
     def test_ctximport_noworkers(self):
         import bndl
+        bndl.conf['bndl.net.cluster'] = random_id()
         bndl.conf['bndl.net.aio.uvloop'] = False
         bndl.conf['bndl.compute.executor_count'] = 0
 
