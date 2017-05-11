@@ -128,21 +128,22 @@ class BlockManager(object):
         :param from_peers: If True, the block with block_id will be removed from other peer nodes
         as well.
         '''
-        self._remove_block(None, block_id)
+        self.node.loop.call_soon_threadsafe(self._remove_block, None, block_id)
         if from_peers:
             for peer in self.node.peers.filter():
                 peer.service('blocks')._remove_block(block_id)
                 # responses aren't waited for
 
 
-    @rmi.direct
+    @asyncio.coroutine
     def _remove_block(self, peer, block_id):
-        with catch(KeyError):
-            del self._available_events[block_id]
-        with catch(KeyError):
-            del self._available_data[block_id]
-        with catch(KeyError):
-            self.blocks.pop(block_id).remove()
+        with (yield from self._available_lock):
+            with catch(KeyError):
+                del self._available_events[block_id]
+            with catch(KeyError):
+                del self._available_data[block_id]
+            with catch(KeyError):
+                self.blocks.pop(block_id).remove()
 
 
     @asyncio.coroutine
@@ -337,9 +338,11 @@ class BlockManager(object):
 
         return block
 
+
     @rmi.direct
     def _get_block(self, peer, block_id):
         return self.blocks[block_id]
+
 
     @asyncio.coroutine
     def _download_from_local(self, block_spec, source, peers):
