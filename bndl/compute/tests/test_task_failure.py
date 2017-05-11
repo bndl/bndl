@@ -74,11 +74,13 @@ class TaskFailureTest(ComputeTest):
                     time.sleep(.1)
             except TaskCancelled:
                 cancelled.update('add', idx)
+                raise
             except Exception:
                 failed.update('add', idx)
                 raise
 
-            raise ValueError(idx)
+            else:
+                raise ValueError(idx)
 
         n_executors = self.ctx.executor_count
 
@@ -90,8 +92,10 @@ class TaskFailureTest(ComputeTest):
         else:
             self.assertFalse('did not raise InvocationException')
 
-        self.assertEqual(len(executed.value), n_executors)
-        self.assertEqual(len(cancelled.value), n_executors - 1)
+        time.sleep(.5)
+
+        self.assertEqual(len(executed.value & set(range(1, n_executors + 1))), n_executors)
+        self.assertEqual(len(cancelled.value & set(range(2, n_executors + 1))), n_executors - 1)
         self.assertEqual(len(failed.value), 0)
 
 
