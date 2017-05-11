@@ -33,7 +33,7 @@ class CachingTest(ComputeTest):
     def gc_collect(self):
         for i in range(3):
             gc.collect(i)
-            time.sleep(0)
+            time.sleep(.1)
 
 
     @classmethod
