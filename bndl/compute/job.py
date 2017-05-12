@@ -23,11 +23,6 @@ from bndl.util.lifecycle import Lifecycle
 logger = logging.getLogger(__name__)
 
 
-
-# TODO consider computing status like failed, started, etc.
-
-
-
 class Job(Lifecycle):
     '''
     A set of :class:`Tasks <Task>` which can be executed on a cluster of workers / executors.
