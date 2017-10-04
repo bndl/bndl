@@ -39,6 +39,7 @@ install_requires = [
     'yappi<=0.93',
     'lz4',
     'cyheapq',
+    'ipython==6.2.1'
 ]
 
 if sys.version_info < (3, 5):
